@@ -158,10 +158,31 @@ else
     if [[ -z "$OKIT_VERSION" ]]; then
         OKIT_VERSION="$(python3 - <<'PY'
 import json, sys, urllib.request
-url = "https://api.github.com/repos/dolphin-molt/okit/releases/latest"
-with urllib.request.urlopen(url) as resp:
-    data = json.load(resp)
-print(data.get("tag_name", ""))
+repo = "dolphin-molt/okit"
+
+def fetch_json(url):
+    try:
+        with urllib.request.urlopen(url) as resp:
+            return json.load(resp)
+    except Exception:
+        return None
+
+latest = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest")
+if latest and latest.get("tag_name"):
+    print(latest.get("tag_name", ""))
+    sys.exit(0)
+
+releases = fetch_json(f"https://api.github.com/repos/{repo}/releases") or []
+for rel in releases:
+    if rel.get("draft") or rel.get("prerelease"):
+        continue
+    if rel.get("tag_name"):
+        print(rel.get("tag_name"))
+        sys.exit(0)
+
+tags = fetch_json(f"https://api.github.com/repos/{repo}/tags") or []
+if tags:
+    print(tags[0].get("name", ""))
 PY
 )"
     fi
@@ -176,13 +197,30 @@ PY
 import json, sys, urllib.request
 version = sys.argv[1]
 asset = sys.argv[2]
-url = f"https://api.github.com/repos/dolphin-molt/okit/releases/tags/{version}"
-with urllib.request.urlopen(url) as resp:
-    data = json.load(resp)
-for item in data.get("assets", []):
-    if item.get("name") == asset:
-        print(item.get("browser_download_url", ""))
-        break
+repo = "dolphin-molt/okit"
+
+def fetch_json(url):
+    try:
+        with urllib.request.urlopen(url) as resp:
+            return json.load(resp)
+    except Exception:
+        return None
+
+release = fetch_json(f"https://api.github.com/repos/{repo}/releases/tags/{version}")
+if release:
+    for item in release.get("assets", []):
+        if item.get("name") == asset:
+            print(item.get("browser_download_url", ""))
+            sys.exit(0)
+
+releases = fetch_json(f"https://api.github.com/repos/{repo}/releases") or []
+for rel in releases:
+    if rel.get("tag_name") != version:
+        continue
+    for item in rel.get("assets", []):
+        if item.get("name") == asset:
+            print(item.get("browser_download_url", ""))
+            sys.exit(0)
 PY
 )"
 

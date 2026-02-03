@@ -3,6 +3,7 @@ import kleur from "kleur";
 import { loadRegistry, Step, Registry } from "../config/registry";
 import { executeSteps, printResults } from "../executor/runner";
 import { runClaudeCommand, addClaudeProfile } from "./claude";
+import { showRepoMenu } from "./repo";
 import { t } from "../config/i18n";
 
 export async function showMainMenu(): Promise<void> {
@@ -16,28 +17,24 @@ export async function showMainMenu(): Promise<void> {
       name: "action",
       message: t("selectAction"),
       choices: [
-        { title: t("installAll"), value: "install-all" },
-        { title: t("upgradeAll"), value: "upgrade-all" },
         { title: t("selectItems"), value: "select" },
         { title: t("claudeMenu"), value: "claude" },
+        { title: t("repoMenu"), value: "repo" },
         { title: t("help"), value: "help" },
         { title: t("exit"), value: "exit" },
       ],
     });
 
     switch (response.action) {
-      case "install-all":
-        await handleInstallAll(registry);
-        break;
-      case "upgrade-all":
-        await handleUpgradeAll(registry);
-        break;
       case "select":
         const shouldContinue = await handleSelectItems(registry);
         if (!shouldContinue) continue;
         break;
       case "claude":
         await handleClaudeMenu();
+        continue;
+      case "repo":
+        await handleRepoMenu();
         continue;
       case "help":
         console.log(kleur.cyan("\n" + t("helpContent")));
@@ -49,33 +46,6 @@ export async function showMainMenu(): Promise<void> {
         process.exit(0);
     }
   }
-}
-
-async function handleInstallAll(registry: Registry): Promise<void> {
-  const steps = registry.steps;
-  if (steps.length === 0) {
-    console.log(kleur.yellow(t("noSteps")));
-    return;
-  }
-
-  console.log(kleur.cyan(`\n🔨 ${t("startOperation")} ${t("install")} (${steps.length})\n`));
-  const results = await executeSteps(steps, "install", registry);
-  printResults(results);
-}
-
-async function handleUpgradeAll(registry: Registry): Promise<void> {
-  const upgradableSteps = registry.steps.filter((s) => s.upgrade);
-
-  if (upgradableSteps.length === 0) {
-    console.log(kleur.yellow("No tools to upgrade"));
-    return;
-  }
-
-  console.log(
-    kleur.cyan(`\n⬆️  ${t("startOperation")} ${t("upgrade")} (${upgradableSteps.length})\n`)
-  );
-  const results = await executeSteps(upgradableSteps, "upgrade", registry);
-  printResults(results);
 }
 
 async function handleSelectItems(registry: Registry): Promise<boolean> {
@@ -167,4 +137,8 @@ async function handleClaudeMenu(): Promise<void> {
   } else if (response.action === "add") {
     await addClaudeProfile();
   }
+}
+
+async function handleRepoMenu(): Promise<void> {
+  await showRepoMenu();
 }

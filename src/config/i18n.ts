@@ -13,6 +13,35 @@ export interface Translations {
   claudeRun: string;
   claudeSwitch: string;
   claudeAdd: string;
+  repoMenu: string;
+  repoSelectAction: string;
+  repoCreate: string;
+  repoGitUser: string;
+  repoAuth: string;
+  repoSetup: string;
+  repoSelectProvider: string;
+  repoName: string;
+  repoVisibility: string;
+  repoPrivate: string;
+  repoPublic: string;
+  repoInitGit: string;
+  repoFirstPush: string;
+  repoYes: string;
+  repoNo: string;
+  repoGitName: string;
+  repoGitEmail: string;
+  repoGitScope: string;
+  repoGitScopeGlobal: string;
+  repoGitScopeLocal: string;
+  repoGitSaved: string;
+  repoSetupSaved: string;
+  repoUsername: string;
+  repoToken: string;
+  repoAuthSaved: string;
+  repoNeedAuth: string;
+  repoCancelled: string;
+  repoExists: string;
+  repoUseExisting: string;
   exit: string;
   noSteps: string;
   selectSteps: string;
@@ -83,11 +112,12 @@ const translations: Record<Language, Translations> = {
     selectAction: "选择操作",
     installAll: "安装全部",
     upgradeAll: "升级全部",
-    selectItems: "选择项目",
+    selectItems: "工具管理",
     claudeMenu: "Claude 配置",
     claudeRun: "进入 Claude",
     claudeSwitch: "切换配置",
     claudeAdd: "添加配置",
+    repoMenu: "Repo 设置",
     exit: "退出",
     noSteps: "没有配置任何步骤",
     selectSteps: "选择工具（空格选择，回车确认，输入搜索，Ctrl+A 全选/取消）",
@@ -128,6 +158,34 @@ const translations: Record<Language, Translations> = {
     missingDepsHint: "如需处理，请手动选择或补充这些依赖。",
     planPreparing: "依赖检查中，生成执行清单...",
     planPrepared: "执行清单已生成",
+    repoSelectAction: "Repo 操作",
+    repoCreate: "新建仓库",
+    repoGitUser: "设置 Git 用户名/邮箱",
+    repoAuth: "设置仓库平台凭据",
+    repoSetup: "一键设置（Git + GitHub）",
+    repoSelectProvider: "选择平台",
+    repoName: "仓库名称",
+    repoVisibility: "可见性",
+    repoPrivate: "私有",
+    repoPublic: "公开",
+    repoInitGit: "初始化 Git 仓库",
+    repoFirstPush: "首次自动推送",
+    repoYes: "是",
+    repoNo: "否",
+    repoGitName: "Git 用户名",
+    repoGitEmail: "Git 邮箱",
+    repoGitScope: "应用范围",
+    repoGitScopeGlobal: "全局",
+    repoGitScopeLocal: "当前项目",
+    repoGitSaved: "已保存 Git 配置",
+    repoSetupSaved: "已保存 Git & GitHub 配置",
+    repoUsername: "平台用户名",
+    repoToken: "平台 Token",
+    repoAuthSaved: "已保存平台凭据",
+    repoNeedAuth: "需要先配置平台凭据",
+    repoCancelled: "已取消",
+    repoExists: "检测到同名仓库",
+    repoUseExisting: "是否使用已有仓库并推送？",
     claudeSelectAction: "Claude 操作",
     claudeSelectProvider: "选择 Claude 模型提供商",
     claudeSelectModel: "选择模型",
@@ -157,11 +215,12 @@ const translations: Record<Language, Translations> = {
     selectAction: "Select action",
     installAll: "Install all",
     upgradeAll: "Upgrade all",
-    selectItems: "Select items",
+    selectItems: "Manage tools",
     claudeMenu: "Claude Setup",
     claudeRun: "Launch Claude",
     claudeSwitch: "Switch Config",
     claudeAdd: "Add Config",
+    repoMenu: "Repo Settings",
     exit: "Exit",
     noSteps: "No steps configured",
     selectSteps: "Select tools (space to toggle, enter to confirm, type to search, Ctrl+A to toggle all)",
@@ -202,6 +261,34 @@ const translations: Record<Language, Translations> = {
     missingDepsHint: "If needed, select or add these dependencies manually.",
     planPreparing: "Checking dependencies and building execution plan...",
     planPrepared: "Execution plan ready",
+    repoSelectAction: "Repo action",
+    repoCreate: "Create repository",
+    repoGitUser: "Set Git name/email",
+    repoAuth: "Set provider credentials",
+    repoSetup: "One-time setup (Git + GitHub)",
+    repoSelectProvider: "Choose provider",
+    repoName: "Repository name",
+    repoVisibility: "Visibility",
+    repoPrivate: "Private",
+    repoPublic: "Public",
+    repoInitGit: "Initialize Git repository",
+    repoFirstPush: "First push automatically",
+    repoYes: "Yes",
+    repoNo: "No",
+    repoGitName: "Git user name",
+    repoGitEmail: "Git email",
+    repoGitScope: "Apply scope",
+    repoGitScopeGlobal: "Global",
+    repoGitScopeLocal: "Current project",
+    repoGitSaved: "Git config saved",
+    repoSetupSaved: "Git & GitHub config saved",
+    repoUsername: "Provider username",
+    repoToken: "Provider token",
+    repoAuthSaved: "Provider credentials saved",
+    repoNeedAuth: "Configure provider credentials first",
+    repoCancelled: "Cancelled",
+    repoExists: "Repository already exists",
+    repoUseExisting: "Use existing repository and push?",
     claudeSelectAction: "Claude action",
     claudeSelectProvider: "Choose Claude provider",
     claudeSelectModel: "Choose model",

@@ -14,7 +14,7 @@ INSTALL_DIR="/usr/local/bin"
 OKIT_DIR="$HOME/.okit"
 BINARY_NAME="okit"
 
-echo -e "${BLUE}🚀 安装 OKIT v1...${NC}"
+echo -e "${BLUE}🚀 安装 OKIT...${NC}"
 
 # Check if macOS
 OS=$(uname -s)
@@ -63,6 +63,22 @@ if ! command -v npm &> /dev/null; then
 fi
 echo -e "${GREEN}✓ npm 已安装 ($(npm -v))${NC}"
 
+# 3.1 配置 npm 全局目录到用户目录（避免 /usr/local 权限问题）
+NPM_GLOBAL_PREFIX="${HOME}/.npm-global"
+mkdir -p "$NPM_GLOBAL_PREFIX"
+npm config set prefix "$NPM_GLOBAL_PREFIX"
+if [[ "$SHELL" == *"zsh"* ]]; then
+    if ! grep -q ".npm-global/bin" "$HOME/.zshrc" 2>/dev/null; then
+        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
+    fi
+elif [[ "$SHELL" == *"bash"* ]]; then
+    if ! grep -q ".npm-global/bin" "$HOME/.bashrc" 2>/dev/null; then
+        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
+    fi
+fi
+export PATH="$HOME/.npm-global/bin:$PATH"
+echo -e "${GREEN}✓ npm 全局安装已配置为用户目录${NC}"
+
 # 4. 安装 pipx
 if ! command -v pipx &> /dev/null; then
     # 确保 python3 存在（pipx 依赖）
@@ -92,6 +108,8 @@ echo ""
 
 # Detect platform
 ARCH=$(uname -m)
+OKIT_REPO="dolphin/okit"
+OKIT_VERSION="${OKIT_VERSION:-}"
 
 # Determine architecture
 if [[ "$ARCH" == "arm64" ]]; then
@@ -136,9 +154,59 @@ elif [[ -f "./dist/main.js" ]]; then
     echo -e "${BLUE}📂 使用本地源码版本${NC}"
     BINARY_SOURCE="./dist/main.js"
 else
-    echo -e "${RED}✗ 找不到 OKIT 二进制文件${NC}"
-    echo -e "${YELLOW}请先运行: npm run build && npm run pkg${NC}"
-    exit 1
+    echo -e "${BLUE}🌐 下载 Release 二进制${NC}"
+    if [[ -z "$OKIT_VERSION" ]]; then
+        OKIT_VERSION="$(python3 - <<'PY'
+import json, sys, urllib.request
+url = "https://api.github.com/repos/dolphin/okit/releases/latest"
+with urllib.request.urlopen(url) as resp:
+    data = json.load(resp)
+print(data.get("tag_name", ""))
+PY
+)"
+    fi
+
+    if [[ -z "$OKIT_VERSION" ]]; then
+        echo -e "${RED}✗ 无法获取最新版本号${NC}"
+        exit 1
+    fi
+
+    ASSET_NAME="okit-${OKIT_VERSION}-macos-${ARCH}.zip"
+    DOWNLOAD_URL="$(python3 - <<'PY' "$OKIT_VERSION" "$ASSET_NAME"
+import json, sys, urllib.request
+version = sys.argv[1]
+asset = sys.argv[2]
+url = f"https://api.github.com/repos/dolphin/okit/releases/tags/{version}"
+with urllib.request.urlopen(url) as resp:
+    data = json.load(resp)
+for item in data.get("assets", []):
+    if item.get("name") == asset:
+        print(item.get("browser_download_url", ""))
+        break
+PY
+)"
+
+    if [[ -z "$DOWNLOAD_URL" ]]; then
+        echo -e "${RED}✗ 未找到 Release 资源: $ASSET_NAME${NC}"
+        exit 1
+    fi
+
+    TMP_DIR="$(mktemp -d)"
+    ZIP_PATH="$TMP_DIR/$ASSET_NAME"
+    echo -e "${BLUE}⬇️  下载: $ASSET_NAME${NC}"
+    curl -L -o "$ZIP_PATH" "$DOWNLOAD_URL"
+
+    if command -v unzip &> /dev/null; then
+        unzip -q "$ZIP_PATH" -d "$TMP_DIR"
+    else
+        ditto -xk "$ZIP_PATH" "$TMP_DIR"
+    fi
+
+    if [[ ! -f "$TMP_DIR/okit" ]]; then
+        echo -e "${RED}✗ 解压后未找到 okit 可执行文件${NC}"
+        exit 1
+    fi
+    BINARY_SOURCE="$TMP_DIR/okit"
 fi
 
 # Install binary
@@ -160,15 +228,16 @@ if [[ ! -f "$REGISTRY_FILE" ]]; then
   "steps": [
     { "name": "Node.js", "install": "brew install node", "upgrade": "brew upgrade node", "uninstall": "brew uninstall node", "check": "command -v node" },
     { "name": "Git", "install": "brew install git", "upgrade": "brew upgrade git", "check": "command -v git" },
+    { "name": "GitHub CLI", "install": "brew install gh", "upgrade": "brew upgrade gh", "uninstall": "brew uninstall gh", "check": "command -v gh" },
     { "name": "pnpm", "install": "brew install pnpm", "upgrade": "brew upgrade pnpm", "uninstall": "brew uninstall pnpm", "check": "command -v pnpm" },
     { "name": "Python", "install": "brew install python", "upgrade": "brew upgrade python", "uninstall": "brew uninstall python", "check": "command -v python3" },
     { "name": "Docker", "install": "brew install --cask docker", "upgrade": "brew upgrade --cask docker", "uninstall": "brew uninstall --cask docker", "check": "command -v docker" },
-    { "name": "Codex CLI", "install": "sudo npm install -g @openai/codex", "upgrade": "sudo npm update -g @openai/codex", "uninstall": "sudo npm uninstall -g @openai/codex", "check": "command -v codex" },
-    { "name": "Claude Code", "install": "sudo npm install -g @anthropic-ai/claude-code", "upgrade": "sudo npm update -g @anthropic-ai/claude-code", "uninstall": "sudo npm uninstall -g @anthropic-ai/claude-code", "check": "command -v claude" },
+    { "name": "Codex CLI", "install": "npm install -g @openai/codex", "upgrade": "npm update -g @openai/codex", "uninstall": "npm uninstall -g @openai/codex", "check": "command -v codex" },
+    { "name": "Claude Code", "install": "npm install -g @anthropic-ai/claude-code", "upgrade": "npm update -g @anthropic-ai/claude-code", "uninstall": "npm uninstall -g @anthropic-ai/claude-code", "check": "command -v claude" },
     { "name": "yt-dlp", "install": "brew install yt-dlp", "upgrade": "brew upgrade yt-dlp", "uninstall": "brew uninstall yt-dlp", "check": "command -v yt-dlp" },
     { "name": "curl", "install": "brew install curl", "upgrade": "brew upgrade curl", "uninstall": "brew uninstall curl", "check": "command -v curl" },
-    { "name": "Playwright", "install": "sudo npm install -g @playwright/test && npx playwright install", "upgrade": "sudo npm update -g @playwright/test", "uninstall": "sudo npm uninstall -g @playwright/test", "check": "command -v playwright" },
-    { "name": "Mermaid CLI", "install": "sudo npm install -g @mermaid-js/mermaid-cli", "upgrade": "sudo npm update -g @mermaid-js/mermaid-cli", "uninstall": "sudo npm uninstall -g @mermaid-js/mermaid-cli", "check": "command -v mmdc" },
+    { "name": "Playwright", "install": "npm install -g @playwright/test && npx playwright install", "upgrade": "npm update -g @playwright/test", "uninstall": "npm uninstall -g @playwright/test", "check": "command -v playwright" },
+    { "name": "Mermaid CLI", "install": "npm install -g @mermaid-js/mermaid-cli", "upgrade": "npm update -g @mermaid-js/mermaid-cli", "uninstall": "npm uninstall -g @mermaid-js/mermaid-cli", "check": "command -v mmdc" },
     { "name": "Pandoc", "install": "brew install pandoc", "upgrade": "brew upgrade pandoc", "uninstall": "brew uninstall pandoc", "check": "command -v pandoc" },
     { "name": "ffmpeg", "install": "brew install ffmpeg", "upgrade": "brew upgrade ffmpeg", "uninstall": "brew uninstall ffmpeg", "check": "command -v ffmpeg" },
     { "name": "ImageMagick", "install": "brew install imagemagick", "upgrade": "brew upgrade imagemagick", "uninstall": "brew uninstall imagemagick", "check": "command -v convert" },

@@ -11,6 +11,20 @@ export type UserConfig = {
     name: string;
     model?: string;
   };
+  git?: {
+    name?: string;
+    email?: string;
+  };
+  repo?: {
+    github?: {
+      username?: string;
+      token?: string;
+    };
+    gitee?: {
+      username?: string;
+      token?: string;
+    };
+  };
   hints?: {
     mainHelpShown?: boolean;
   };
@@ -44,6 +58,8 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     ...patch,
     claude: patch.claude ? { ...current.claude, ...patch.claude } : current.claude,
     hints: patch.hints ? { ...current.hints, ...patch.hints } : current.hints,
+    git: patch.git ? { ...current.git, ...patch.git } : current.git,
+    repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
   };
   await saveUserConfig(merged);
   return merged;

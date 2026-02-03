@@ -13,7 +13,7 @@ npm run pkg
 ## 安装脚本
 
 ```bash
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
 ```
 
 说明：

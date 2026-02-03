@@ -75,6 +75,14 @@ export const DEFAULT_REGISTRY: Registry = {
       dependencies: ["Homebrew"],
     },
     {
+      name: "GitHub CLI",
+      install: "brew install gh",
+      upgrade: "brew upgrade gh",
+      uninstall: "brew uninstall gh",
+      check: "command -v gh",
+      dependencies: ["Homebrew"],
+    },
+    {
       name: "pnpm",
       install: "brew install pnpm",
       upgrade: "brew upgrade pnpm",
@@ -251,7 +259,9 @@ export async function loadRegistry(forceDefault: boolean = false): Promise<Regis
 
   try {
     const content = await fs.readFile(REGISTRY_PATH, "utf-8");
-    return JSON.parse(content) as Registry;
+    const userRegistry = JSON.parse(content) as Registry;
+    const merged = mergeRegistries(DEFAULT_REGISTRY, userRegistry);
+    return merged;
   } catch (error) {
     throw new Error(`无法解析 registry.json: ${error}`);
   }
@@ -269,4 +279,27 @@ export async function saveRegistry(registry: Registry): Promise<void> {
 
 export async function registryExists(): Promise<boolean> {
   return fs.pathExists(REGISTRY_PATH);
+}
+
+function mergeRegistries(base: Registry, override: Registry): Registry {
+  const baseSteps = base.steps ?? [];
+  const overrideSteps = override.steps ?? [];
+  const byName = new Map<string, Step>();
+
+  for (const step of baseSteps) {
+    if (!step?.name) continue;
+    byName.set(step.name, { ...step });
+  }
+
+  for (const step of overrideSteps) {
+    if (!step?.name) continue;
+    const existing = byName.get(step.name);
+    if (existing) {
+      byName.set(step.name, { ...existing, ...step });
+    } else {
+      byName.set(step.name, { ...step });
+    }
+  }
+
+  return { steps: Array.from(byName.values()) };
 }

@@ -7,6 +7,7 @@ import { showMainMenu } from "./commands/menu";
 import { showUpgradeMenu } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
 import { runClaudeCommand, addClaudeProfile } from "./commands/claude";
+import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
 import { loadUserConfig, updateUserConfig } from "./config/user";
@@ -137,6 +138,25 @@ claude
     checkPlatform();
     await selectLanguageIfNeeded();
     await addClaudeProfile();
+  });
+
+// repo 子命令
+const repo = program
+  .command("repo")
+  .description("Repo 设置与创建")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await showRepoMenu();
+  });
+
+repo
+  .command("create")
+  .description("创建远程仓库并绑定")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await createRepositoryFlow();
   });
 
 // reset 子命令 - 不需要选择语言

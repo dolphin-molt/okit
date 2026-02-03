@@ -108,7 +108,7 @@ echo ""
 
 # Detect platform
 ARCH=$(uname -m)
-OKIT_REPO="dolphin/okit"
+OKIT_REPO="dolphin-molt/okit"
 OKIT_VERSION="${OKIT_VERSION:-}"
 
 # Determine architecture
@@ -158,7 +158,7 @@ else
     if [[ -z "$OKIT_VERSION" ]]; then
         OKIT_VERSION="$(python3 - <<'PY'
 import json, sys, urllib.request
-url = "https://api.github.com/repos/dolphin/okit/releases/latest"
+url = "https://api.github.com/repos/dolphin-molt/okit/releases/latest"
 with urllib.request.urlopen(url) as resp:
     data = json.load(resp)
 print(data.get("tag_name", ""))
@@ -176,7 +176,7 @@ PY
 import json, sys, urllib.request
 version = sys.argv[1]
 asset = sys.argv[2]
-url = f"https://api.github.com/repos/dolphin/okit/releases/tags/{version}"
+url = f"https://api.github.com/repos/dolphin-molt/okit/releases/tags/{version}"
 with urllib.request.urlopen(url) as resp:
     data = json.load(resp)
 for item in data.get("assets", []):

@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import kleur from "kleur";
 import prompts from "prompts";
+import pkg from "../package.json";
 import { showMainMenu } from "./commands/menu";
 import { showUpgradeMenu } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
@@ -31,7 +32,7 @@ function showBanner(): void {
 program
   .name("okit")
   .description("OKIT v1 - 精简版工具执行器")
-  .version("2.0.0");
+  .version(pkg.version);
 
 // 语言选择（首次运行时显示）
 async function selectLanguageIfNeeded(): Promise<void> {

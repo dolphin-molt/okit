@@ -193,6 +193,8 @@ PY
     fi
 
     ASSET_NAME="okit-${OKIT_VERSION}-macos-${ARCH}.zip"
+    echo -e "${BLUE}ℹ️  版本: ${OKIT_VERSION}${NC}"
+    echo -e "${BLUE}ℹ️  资源名: ${ASSET_NAME}${NC}"
     DOWNLOAD_URL="$(python3 - <<'PY' "$OKIT_VERSION" "$ASSET_NAME"
 import json, sys, urllib.request
 version = sys.argv[1]
@@ -223,6 +225,7 @@ for rel in releases:
             sys.exit(0)
 PY
 )"
+    echo -e "${BLUE}ℹ️  下载地址: ${DOWNLOAD_URL}${NC}"
 
     if [[ -z "$DOWNLOAD_URL" ]]; then
         echo -e "${RED}✗ 未找到 Release 资源: $ASSET_NAME${NC}"

@@ -235,7 +235,7 @@ PY
     TMP_DIR="$(mktemp -d)"
     ZIP_PATH="$TMP_DIR/$ASSET_NAME"
     echo -e "${BLUE}⬇️  下载: $ASSET_NAME${NC}"
-    curl -L -o "$ZIP_PATH" "$DOWNLOAD_URL"
+    curl -L --retry 5 --retry-delay 2 --retry-connrefused --retry-max-time 120 -o "$ZIP_PATH" "$DOWNLOAD_URL"
 
     if command -v unzip &> /dev/null; then
         unzip -q "$ZIP_PATH" -d "$TMP_DIR"

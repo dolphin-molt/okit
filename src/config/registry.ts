@@ -159,8 +159,10 @@ export const DEFAULT_REGISTRY: Registry = {
     },
     {
       name: "Mermaid CLI",
-      install: "echo '安装 Mermaid CLI (跳过 Puppeteer 浏览器下载)' && sudo -E bash -c 'PUPPETEER_SKIP_DOWNLOAD=true npm install -g @mermaid-js/mermaid-cli'",
-      upgrade: "sudo -E bash -c 'PUPPETEER_SKIP_DOWNLOAD=true npm update -g @mermaid-js/mermaid-cli'",
+      install:
+        "echo '安装 Mermaid CLI (跳过 Puppeteer 浏览器下载)' && mkdir -p \"$HOME/.cache/puppeteer\" && chmod -R u+rwX \"$HOME/.cache/puppeteer\" || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR=\"$HOME/.cache/puppeteer\" npm install -g @mermaid-js/mermaid-cli",
+      upgrade:
+        "mkdir -p \"$HOME/.cache/puppeteer\" && chmod -R u+rwX \"$HOME/.cache/puppeteer\" || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR=\"$HOME/.cache/puppeteer\" npm update -g @mermaid-js/mermaid-cli",
       uninstall: "sudo npm uninstall -g @mermaid-js/mermaid-cli",
       check: "command -v mmdc",
       dependencies: ["Node.js"],
@@ -301,5 +303,17 @@ function mergeRegistries(base: Registry, override: Registry): Registry {
     }
   }
 
-  return { steps: Array.from(byName.values()) };
+  const mergedSteps = Array.from(byName.values());
+  const mermaid = mergedSteps.find((step) => step.name === "Mermaid CLI");
+  if (mermaid && mermaid.install === "npm install -g @mermaid-js/mermaid-cli") {
+    const baseMermaid = baseSteps.find((step) => step.name === "Mermaid CLI");
+    if (baseMermaid?.install) {
+      mermaid.install = baseMermaid.install;
+    }
+    if (baseMermaid?.upgrade) {
+      mermaid.upgrade = baseMermaid.upgrade;
+    }
+  }
+
+  return { steps: mergedSteps };
 }

@@ -118,24 +118,27 @@ async function handleSelectItems(registry: Registry): Promise<boolean> {
 }
 
 async function handleClaudeMenu(): Promise<void> {
-  const response = await prompts({
-    type: "select",
-    name: "action",
-    message: t("claudeSelectAction"),
-    choices: [
-      { title: t("claudeRun"), value: "run" },
-      { title: t("claudeSwitch"), value: "switch" },
-      { title: t("claudeAdd"), value: "add" },
-      { title: t("back"), value: "back" },
-    ],
-  });
+  while (true) {
+    const response = await prompts({
+      type: "select",
+      name: "action",
+      message: t("claudeSelectAction"),
+      choices: [
+        { title: t("claudeRun"), value: "run" },
+        { title: t("claudeSwitch"), value: "switch" },
+        { title: t("claudeAdd"), value: "add" },
+        { title: t("back"), value: "back" },
+      ],
+    });
 
-  if (response.action === "run") {
-    await runClaudeCommand("run");
-  } else if (response.action === "switch") {
-    await runClaudeCommand("switch");
-  } else if (response.action === "add") {
-    await addClaudeProfile();
+    if (response.action === "back" || !response.action) return;
+    if (response.action === "run") {
+      await runClaudeCommand("run");
+    } else if (response.action === "switch") {
+      await runClaudeCommand("switch");
+    } else if (response.action === "add") {
+      await addClaudeProfile();
+    }
   }
 }
 

@@ -91,9 +91,13 @@ export interface Translations {
   claudeBaseUrl: string;
   claudeAuthToken: string;
   claudeModels: string;
+  claudePreset: string;
+  claudePresetCustom: string;
+  claudeApiKeyOnly: string;
   claudeCancel: string;
   claudeAdded: string;
   claudeExists: string;
+  claudeOverwriteConfirm: string;
   claudeMissingProfiles: string;
   goodbye: string;
   onlyMacOS: string;
@@ -193,9 +197,13 @@ const translations: Record<Language, Translations> = {
     claudeBaseUrl: "ANTHROPIC_BASE_URL",
     claudeAuthToken: "ANTHROPIC_AUTH_TOKEN",
     claudeModels: "模型列表（用逗号分隔）",
+    claudePreset: "选择预置厂商",
+    claudePresetCustom: "自定义",
+    claudeApiKeyOnly: "请输入 API Key",
     claudeCancel: "已取消",
     claudeAdded: "已添加配置",
     claudeExists: "已存在同名配置，请更换名称",
+    claudeOverwriteConfirm: "已存在同名配置，是否覆盖？",
     claudeMissingProfiles: "未找到可用配置，请先在 ~/.okit/claude-profiles.json 中添加",
     goodbye: "再见！",
     onlyMacOS: "✗ 当前仅支持 macOS 平台",
@@ -296,9 +304,13 @@ const translations: Record<Language, Translations> = {
     claudeBaseUrl: "ANTHROPIC_BASE_URL",
     claudeAuthToken: "ANTHROPIC_AUTH_TOKEN",
     claudeModels: "Models (comma-separated)",
+    claudePreset: "Choose preset provider",
+    claudePresetCustom: "Custom",
+    claudeApiKeyOnly: "Enter API key",
     claudeCancel: "Cancelled",
     claudeAdded: "Profile added",
     claudeExists: "Profile name already exists",
+    claudeOverwriteConfirm: "Profile exists. Overwrite?",
     claudeMissingProfiles: "No profiles found. Add one in ~/.okit/claude-profiles.json",
     goodbye: "Goodbye!",
     onlyMacOS: "✗ Currently only supports macOS",

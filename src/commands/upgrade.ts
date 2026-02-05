@@ -11,27 +11,29 @@ const OKIT_DOWNLOAD_URL = "https://github.com/yourname/okit/releases/latest/down
 export async function showUpgradeMenu(): Promise<void> {
   console.log(kleur.cyan("\n⬆️  Upgrade\n"));
 
-  const response = await prompts({
-    type: "select",
-    name: "action",
-    message: "选择操作",
-    choices: [
-      { title: "Upgrade OKIT itself", value: "self" },
-      { title: "Upgrade all tools", value: "tools" },
-      { title: "Back", value: "back" },
-    ],
-  });
+  while (true) {
+    const response = await prompts({
+      type: "select",
+      name: "action",
+      message: "选择操作",
+      choices: [
+        { title: "Upgrade OKIT itself", value: "self" },
+        { title: "Upgrade all tools", value: "tools" },
+        { title: "Back", value: "back" },
+      ],
+    });
 
-  switch (response.action) {
-    case "self":
-      await upgradeSelf();
-      break;
-    case "tools":
-      await upgradeTools();
-      break;
-    case "back":
-    default:
-      return;
+    switch (response.action) {
+      case "self":
+        await upgradeSelf();
+        break;
+      case "tools":
+        await upgradeTools();
+        break;
+      case "back":
+      default:
+        return;
+    }
   }
 }
 

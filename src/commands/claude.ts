@@ -25,6 +25,35 @@ const ZSHRC_PATH = path.join(os.homedir(), ".zshrc");
 const BLOCK_START = "# >>> OKIT_CLAUDE";
 const BLOCK_END = "# <<< OKIT_CLAUDE";
 
+const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
+  {
+    name: "Anthropic",
+    baseUrl: "https://api.anthropic.com",
+    models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+  },
+  {
+    name: "Volcengine",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/coding",
+    models: [
+      "doubao-seed-code",
+      "glm4.7",
+      "deepseek-v3.2",
+      "kimi-k2-thinking",
+      "kimi-k2.5",
+    ],
+  },
+  {
+    name: "BigModel",
+    baseUrl: "https://open.bigmodel.cn/api/anthropic",
+    models: ["glm4.7"],
+  },
+  {
+    name: "MiniMax",
+    baseUrl: "https://api.minimaxi.com/anthropic",
+    models: ["MiniMax-M2.1"],
+  },
+];
+
 export async function runClaudeCommand(mode: "run" | "switch"): Promise<void> {
   const profiles = await loadProfiles();
   if (!profiles || profiles.length === 0) {
@@ -92,13 +121,23 @@ export async function addClaudeProfile(): Promise<void> {
   }
 
   const profiles = (await loadProfiles()) || [];
-  const exists = profiles.some((p) => p.name === profile.name);
-  if (exists) {
+  const existsIndex = profiles.findIndex((p) => p.name === profile.name);
+  if (existsIndex >= 0) {
     console.log(kleur.yellow(t("claudeExists")));
-    return;
+    const overwrite = await prompts({
+      type: "confirm",
+      name: "confirm",
+      message: t("claudeOverwriteConfirm"),
+      initial: true,
+    });
+    if (!overwrite.confirm) {
+      console.log(kleur.gray(t("claudeCancel")));
+      return;
+    }
+    profiles[existsIndex] = profile;
+  } else {
+    profiles.push(profile);
   }
-
-  profiles.push(profile);
   await fs.ensureDir(OKIT_DIR);
   await fs.writeFile(PROFILES_PATH, JSON.stringify(profiles, null, 2));
   console.log(kleur.green(`${t("claudeAdded")}: ${profile.name}`));
@@ -175,6 +214,38 @@ async function promptSelectModel(
 }
 
 async function promptAddProfile(): Promise<ClaudeProfile | undefined> {
+  const presetChoices = PRESET_PROFILES.map((preset) => ({
+    title: `${preset.name}  |  ${modelPreview(preset.models)}  |  ${shorten(preset.baseUrl)}`,
+    value: preset.name,
+  }));
+  presetChoices.push({ title: t("claudePresetCustom"), value: "custom" });
+
+  const presetResponse = await prompts({
+    type: "select",
+    name: "preset",
+    message: t("claudePreset"),
+    choices: presetChoices,
+  });
+
+  if (!presetResponse.preset) return undefined;
+
+  if (presetResponse.preset !== "custom") {
+    const preset = PRESET_PROFILES.find((p) => p.name === presetResponse.preset);
+    if (!preset) return undefined;
+    const keyResponse = await prompts({
+      type: "password",
+      name: "authToken",
+      message: t("claudeApiKeyOnly"),
+    });
+    if (!keyResponse.authToken) return undefined;
+    return {
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      authToken: String(keyResponse.authToken).trim(),
+      models: preset.models,
+    };
+  }
+
   const response = await prompts([
     {
       type: "text",

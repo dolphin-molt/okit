@@ -5,7 +5,7 @@ import kleur from "kleur";
 import prompts from "prompts";
 import pkg from "../package.json";
 import { showMainMenu } from "./commands/menu";
-import { showUpgradeMenu } from "./commands/upgrade";
+import { showUpgradeMenu, upgradeSelf, upgradeTools } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
 import { runClaudeCommand, addClaudeProfile } from "./commands/claude";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
@@ -33,6 +33,14 @@ program
   .name("okit")
   .description("OKIT v1 - 精简版工具执行器")
   .version(pkg.version);
+
+function getUnknownSubcommand(): string | null {
+  const argv = process.argv.slice(2);
+  const firstArg = argv.find((arg) => !arg.startsWith("-"));
+  if (!firstArg) return null;
+  const known = new Set(program.commands.map((cmd) => cmd.name()));
+  return known.has(firstArg) ? null : firstArg;
+}
 
 // 语言选择（首次运行时显示）
 async function selectLanguageIfNeeded(): Promise<void> {
@@ -85,6 +93,12 @@ function configurePrompts(lang: Language) {
 
 // 默认：交互菜单
 program.action(async () => {
+  const unknown = getUnknownSubcommand();
+  if (unknown) {
+    console.log(kleur.red(`✗ Unknown command: ${unknown}`));
+    program.outputHelp();
+    process.exit(1);
+  }
   checkPlatform();
   showBanner();
   await selectLanguageIfNeeded();
@@ -96,11 +110,21 @@ program.action(async () => {
 // upgrade 子命令
 program
   .command("upgrade")
-  .description("升级菜单（OKIT 自身 / 工具）")
-  .action(async () => {
+  .description("升级 OKIT（默认）或工具")
+  .option("--tools", "升级所有工具")
+  .option("--menu", "打开升级菜单")
+  .action(async (options: { tools?: boolean; menu?: boolean }) => {
     checkPlatform();
     await selectLanguageIfNeeded();
-    await showUpgradeMenu();
+    if (options.menu) {
+      await showUpgradeMenu();
+      return;
+    }
+    if (options.tools) {
+      await upgradeTools();
+      return;
+    }
+    await upgradeSelf();
   });
 
 // uninstall 子命令

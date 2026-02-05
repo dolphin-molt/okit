@@ -79,22 +79,28 @@ fi
 export PATH="$HOME/.npm-global/bin:$PATH"
 echo -e "${GREEN}✓ npm 全局安装已配置为用户目录${NC}"
 
-# 4. 安装 pipx
+# 4. 安装 pipx（失败不阻断后续安装 OKIT）
 if ! command -v pipx &> /dev/null; then
     # 确保 python3 存在（pipx 依赖）
     if ! command -v python3 &> /dev/null; then
         echo -e "${YELLOW}⚠️  Python 未安装，正在安装...${NC}"
-        brew install python
-        echo -e "${GREEN}✓ Python 安装成功${NC}"
+        if brew install python; then
+            echo -e "${GREEN}✓ Python 安装成功${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Python 安装失败，将跳过 pipx 安装${NC}"
+        fi
     fi
     echo -e "${YELLOW}⚠️  pipx 未安装，正在安装...${NC}"
-    brew install pipx
-    if command -v pipx &> /dev/null; then
-        pipx ensurepath || true
+    if brew install pipx; then
+        if command -v pipx &> /dev/null; then
+            pipx ensurepath || true
+            echo -e "${GREEN}✓ pipx 安装成功${NC}"
+        else
+            echo -e "${YELLOW}⚠️  pipx 可执行文件不可用，已跳过 ensurepath${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠️  pipx 可执行文件不可用，已跳过 ensurepath${NC}"
+        echo -e "${YELLOW}⚠️  pipx 安装失败，但将继续安装 OKIT${NC}"
     fi
-    echo -e "${GREEN}✓ pipx 安装成功${NC}"
 else
     echo -e "${GREEN}✓ pipx 已安装${NC}"
 fi

@@ -22,6 +22,7 @@ type ClaudeCurrent = {
 
 const PROFILES_PATH = path.join(OKIT_DIR, "claude-profiles.json");
 const ZSHRC_PATH = path.join(os.homedir(), ".zshrc");
+const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
 const BLOCK_START = "# >>> OKIT_CLAUDE";
 const BLOCK_END = "# <<< OKIT_CLAUDE";
 
@@ -292,6 +293,11 @@ async function applyProfile(profile: ClaudeProfile, model: string): Promise<void
   process.env.ANTHROPIC_AUTH_TOKEN = profile.authToken;
   process.env.ANTHROPIC_MODEL = model;
 
+  const settingsApplied = await tryUpdateClaudeSettings(profile, model);
+  if (settingsApplied) {
+    return;
+  }
+
   const block = [
     BLOCK_START,
     `export ANTHROPIC_BASE_URL="${profile.baseUrl}"`,
@@ -354,4 +360,21 @@ function modelPreview(models: string[], currentModel?: string): string {
     return `${currentModel} (+${models.length - 1})`;
   }
   return `${models[0]} (+${models.length - 1})`;
+}
+
+async function tryUpdateClaudeSettings(profile: ClaudeProfile, model: string): Promise<boolean> {
+  if (!(await fs.pathExists(CLAUDE_SETTINGS_PATH))) return false;
+  try {
+    const content = await fs.readFile(CLAUDE_SETTINGS_PATH, "utf-8");
+    const data = content.trim() ? JSON.parse(content) : {};
+    const env = typeof data.env === "object" && data.env ? data.env : {};
+    env.ANTHROPIC_BASE_URL = profile.baseUrl;
+    env.ANTHROPIC_AUTH_TOKEN = profile.authToken;
+    env.ANTHROPIC_MODEL = model;
+    data.env = env;
+    await fs.writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
 }

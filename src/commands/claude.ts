@@ -46,7 +46,7 @@ const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
   {
     name: "BigModel",
     baseUrl: "https://open.bigmodel.cn/api/anthropic",
-    models: ["glm4.7"],
+    models: ["glm-4.7"],
   },
   {
     name: "MiniMax",

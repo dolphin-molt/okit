@@ -294,7 +294,8 @@ if [[ ! -f "$REGISTRY_FILE" ]]; then
     { "name": "Jupyter", "install": "pipx install jupyter", "upgrade": "pipx upgrade jupyter", "uninstall": "pipx uninstall jupyter", "check": "command -v jupyter" },
     { "name": "DuckDB", "install": "brew install duckdb", "upgrade": "brew upgrade duckdb", "uninstall": "brew uninstall duckdb", "check": "command -v duckdb" },
     { "name": "ripgrep", "install": "brew install ripgrep", "upgrade": "brew upgrade ripgrep", "uninstall": "brew uninstall ripgrep", "check": "command -v rg" },
-    { "name": "fzf", "install": "brew install fzf", "upgrade": "brew upgrade fzf", "uninstall": "brew uninstall fzf", "check": "command -v fzf" }
+    { "name": "fzf", "install": "brew install fzf", "upgrade": "brew upgrade fzf", "uninstall": "brew uninstall fzf", "check": "command -v fzf" },
+    { "name": "OpenClaw", "install": "bash -c 'set -e; if command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; elif command -v npm >/dev/null 2>&1; then npm install -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; else echo \"缺少 curl/npm/pnpm，无法安装 OpenClaw\"; exit 1; fi'", "upgrade": "bash -c 'set -e; if command -v npm >/dev/null 2>&1; then npm update -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; elif command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; else echo \"缺少 curl/npm/pnpm，无法升级 OpenClaw\"; exit 1; fi'", "uninstall": "bash -c 'if command -v openclaw >/dev/null 2>&1; then openclaw uninstall; elif command -v npm >/dev/null 2>&1; then npm uninstall -g openclaw; elif command -v pnpm >/dev/null 2>&1; then pnpm remove -g openclaw; else echo \"请手动移除 OpenClaw（可能由安装脚本安装）\"; fi'", "check": "command -v openclaw" }
   ]
 }
 EOF

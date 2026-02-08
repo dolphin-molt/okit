@@ -20,17 +20,24 @@ type ClaudeCurrent = {
   model?: string;
 };
 
+export type ClaudeTeammateMode = "auto" | "in-process" | "tmux";
+
+type ClaudeRunOptions = {
+  teammateModeOverride?: ClaudeTeammateMode;
+};
+
 const PROFILES_PATH = path.join(OKIT_DIR, "claude-profiles.json");
-const ZSHRC_PATH = path.join(os.homedir(), ".zshrc");
 const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
+const ZSHRC_PATH = path.join(os.homedir(), ".zshrc");
 const BLOCK_START = "# >>> OKIT_CLAUDE";
 const BLOCK_END = "# <<< OKIT_CLAUDE";
+const CLAUDE_EXPERIMENTAL_AGENT_TEAMS = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
 
 const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
   {
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com",
-    models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+    models: ["claude 4.6 opus"],
   },
   {
     name: "Volcengine",
@@ -55,7 +62,10 @@ const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
   },
 ];
 
-export async function runClaudeCommand(mode: "run" | "switch"): Promise<void> {
+export async function runClaudeCommand(
+  mode: "run" | "switch",
+  options?: ClaudeRunOptions
+): Promise<void> {
   const profiles = await loadProfiles();
   if (!profiles || profiles.length === 0) {
     console.log(kleur.yellow(t("claudeMissingProfiles")));
@@ -63,6 +73,9 @@ export async function runClaudeCommand(mode: "run" | "switch"): Promise<void> {
   }
 
   let current = await loadCurrent();
+  const agentTeamsEnabled = await loadAgentTeamsEnabled();
+  const configuredTeammateMode = await loadTeammateMode();
+  const teammateMode = options?.teammateModeOverride ?? configuredTeammateMode;
   let selectedProfile: ClaudeProfile | undefined;
   let selectedModel: string | undefined;
 
@@ -80,7 +93,7 @@ export async function runClaudeCommand(mode: "run" | "switch"): Promise<void> {
       console.log(kleur.gray(t("claudeCancel")));
       return;
     }
-    await applyProfile(selectedProfile, selectedModel);
+    await applyProfile(selectedProfile, selectedModel, agentTeamsEnabled, teammateMode);
     await saveCurrent({ name: selectedProfile.name, model: selectedModel });
     current = { name: selectedProfile.name, model: selectedModel };
     console.log(
@@ -108,10 +121,62 @@ export async function runClaudeCommand(mode: "run" | "switch"): Promise<void> {
       }
       await saveCurrent({ name: selectedProfile.name, model: selectedModel });
     }
-    await applyProfile(selectedProfile, selectedModel);
+    await applyProfile(selectedProfile, selectedModel, agentTeamsEnabled, teammateMode);
   }
 
-  await launchClaude();
+  await launchClaude(teammateMode);
+}
+
+export async function configureClaudeAgentTeams(enabled?: boolean): Promise<void> {
+  let selected = enabled;
+  if (typeof selected !== "boolean") {
+    const current = await loadAgentTeamsEnabled();
+    const response = await prompts({
+      type: "select",
+      name: "enabled",
+      message: t("claudeTeamsPrompt"),
+      choices: [
+        { title: `${t("claudeTeamsEnabled")}${current ? " ✅" : ""}`, value: true },
+        { title: `${t("claudeTeamsDisabled")}${!current ? " ✅" : ""}`, value: false },
+      ],
+    });
+    if (typeof response.enabled !== "boolean") {
+      console.log(kleur.gray(t("claudeCancel")));
+      return;
+    }
+    selected = response.enabled;
+  }
+
+  await updateUserConfig({ claude: { agentTeams: selected } });
+  await syncClaudeSettingsForCurrentProfile();
+  const statusText = selected ? t("claudeTeamsEnabled") : t("claudeTeamsDisabled");
+  console.log(kleur.green(`${t("claudeTeamsStatus")}: ${statusText}`));
+}
+
+export async function configureClaudeTeammateMode(mode?: ClaudeTeammateMode): Promise<void> {
+  let selected = mode;
+  if (!selected) {
+    const current = await loadTeammateMode();
+    const response = await prompts({
+      type: "select",
+      name: "mode",
+      message: t("claudeModePrompt"),
+      choices: [
+        { title: `${t("claudeModeAuto")}${current === "auto" ? " ✅" : ""}`, value: "auto" },
+        { title: `${t("claudeModeInProcess")}${current === "in-process" ? " ✅" : ""}`, value: "in-process" },
+        { title: `${t("claudeModeTmux")}${current === "tmux" ? " ✅" : ""}`, value: "tmux" },
+      ],
+    });
+    if (!response.mode) {
+      console.log(kleur.gray(t("claudeCancel")));
+      return;
+    }
+    selected = response.mode;
+  }
+
+  await updateUserConfig({ claude: { teammateMode: selected } });
+  await syncClaudeSettingsForCurrentProfile();
+  console.log(kleur.green(`${t("claudeModeStatus")}: ${selected}`));
 }
 
 export async function addClaudeProfile(): Promise<void> {
@@ -145,16 +210,21 @@ export async function addClaudeProfile(): Promise<void> {
 }
 
 async function loadProfiles(): Promise<ClaudeProfile[] | null> {
+  const defaultAnthropicProfile = getDefaultAnthropicProfile();
   if (!(await fs.pathExists(PROFILES_PATH))) {
-    return null;
+    return [defaultAnthropicProfile];
   }
   try {
     const content = await fs.readFile(PROFILES_PATH, "utf-8");
     const data = JSON.parse(content);
-    if (!Array.isArray(data)) return null;
-    return data.filter(isValidProfile);
+    if (!Array.isArray(data)) return [defaultAnthropicProfile];
+    const profiles = data.filter(isValidProfile);
+    if (!profiles.some((p) => isOfficialAnthropicPreset(p.name, p.baseUrl))) {
+      profiles.unshift(defaultAnthropicProfile);
+    }
+    return profiles;
   } catch {
-    return null;
+    return [defaultAnthropicProfile];
   }
 }
 
@@ -233,6 +303,15 @@ async function promptAddProfile(): Promise<ClaudeProfile | undefined> {
   if (presetResponse.preset !== "custom") {
     const preset = PRESET_PROFILES.find((p) => p.name === presetResponse.preset);
     if (!preset) return undefined;
+    if (isOfficialAnthropicPreset(preset.name, preset.baseUrl)) {
+      console.log(kleur.yellow(t("claudeLoginRequired")));
+      return {
+        name: preset.name,
+        baseUrl: preset.baseUrl,
+        authToken: "",
+        models: preset.models,
+      };
+    }
     const keyResponse = await prompts({
       type: "password",
       name: "authToken",
@@ -288,53 +367,32 @@ async function promptAddProfile(): Promise<ClaudeProfile | undefined> {
   };
 }
 
-async function applyProfile(profile: ClaudeProfile, model: string): Promise<void> {
-  process.env.ANTHROPIC_BASE_URL = profile.baseUrl;
-  process.env.ANTHROPIC_AUTH_TOKEN = profile.authToken;
-  process.env.ANTHROPIC_MODEL = model;
-
-  const settingsApplied = await tryUpdateClaudeSettings(profile, model);
-  if (settingsApplied) {
-    return;
-  }
-
-  const block = [
-    BLOCK_START,
-    `export ANTHROPIC_BASE_URL="${profile.baseUrl}"`,
-    `export ANTHROPIC_AUTH_TOKEN="${profile.authToken}"`,
-    `export ANTHROPIC_MODEL="${model}"`,
-    BLOCK_END,
-    "",
-  ].join("\n");
-
-  const existing = (await fs.pathExists(ZSHRC_PATH))
-    ? await fs.readFile(ZSHRC_PATH, "utf-8")
-    : "";
-
-  const updated = replaceOrAppendBlock(existing, block);
-  await fs.writeFile(ZSHRC_PATH, updated);
+async function applyProfile(
+  profile: ClaudeProfile,
+  model: string,
+  agentTeamsEnabled: boolean,
+  teammateMode: ClaudeTeammateMode
+): Promise<void> {
+  await cleanupLegacyZshrcBlock();
+  await updateClaudeSettings(
+    profile,
+    model,
+    agentTeamsEnabled,
+    teammateMode
+  );
 }
 
-async function launchClaude(): Promise<void> {
+async function launchClaude(teammateMode: ClaudeTeammateMode): Promise<void> {
   try {
-    await execa.command("claude", { shell: true, stdio: "inherit" });
+    const args: string[] = [];
+    if (teammateMode !== "auto") {
+      args.push("--teammate-mode", teammateMode);
+    }
+    await execa("claude", args, { stdio: "inherit" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(kleur.red(`✗ 启动 Claude 失败: ${message}`));
   }
-}
-
-function replaceOrAppendBlock(content: string, block: string): string {
-  const start = content.indexOf(BLOCK_START);
-  const end = content.indexOf(BLOCK_END);
-  if (start >= 0 && end >= 0 && end > start) {
-    const before = content.slice(0, start).trimEnd();
-    const after = content.slice(end + BLOCK_END.length).trimStart();
-    return [before, block, after].filter(Boolean).join("\n");
-  }
-  const trimmed = content.trimEnd();
-  if (!trimmed) return block;
-  return `${trimmed}\n\n${block}`;
 }
 
 function shorten(value: string): string {
@@ -362,19 +420,107 @@ function modelPreview(models: string[], currentModel?: string): string {
   return `${models[0]} (+${models.length - 1})`;
 }
 
-async function tryUpdateClaudeSettings(profile: ClaudeProfile, model: string): Promise<boolean> {
-  if (!(await fs.pathExists(CLAUDE_SETTINGS_PATH))) return false;
-  try {
+async function updateClaudeSettings(
+  profile: ClaudeProfile,
+  model: string,
+  agentTeamsEnabled: boolean,
+  teammateMode: ClaudeTeammateMode
+) : Promise<void> {
+  await fs.ensureDir(path.dirname(CLAUDE_SETTINGS_PATH));
+
+  let data: Record<string, any> = {};
+  if (await fs.pathExists(CLAUDE_SETTINGS_PATH)) {
     const content = await fs.readFile(CLAUDE_SETTINGS_PATH, "utf-8");
-    const data = content.trim() ? JSON.parse(content) : {};
-    const env = typeof data.env === "object" && data.env ? data.env : {};
-    env.ANTHROPIC_BASE_URL = profile.baseUrl;
-    env.ANTHROPIC_AUTH_TOKEN = profile.authToken;
-    env.ANTHROPIC_MODEL = model;
-    data.env = env;
-    await fs.writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2));
-    return true;
-  } catch {
-    return false;
+    data = content.trim() ? JSON.parse(content) : {};
   }
+
+  const env =
+    typeof data.env === "object" && data.env
+      ? (data.env as Record<string, any>)
+      : {};
+  delete env.ANTHROPIC_BASE_URL;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  delete env.ANTHROPIC_MODEL;
+  if (agentTeamsEnabled) {
+    env[CLAUDE_EXPERIMENTAL_AGENT_TEAMS] = "1";
+  } else {
+    delete env[CLAUDE_EXPERIMENTAL_AGENT_TEAMS];
+  }
+  if (Object.keys(env).length === 0) {
+    delete data.env;
+  } else {
+    data.env = env;
+  }
+
+  data.teammateMode = teammateMode;
+
+  await fs.writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2));
+}
+
+async function syncClaudeSettingsForCurrentProfile(): Promise<void> {
+  const current = await loadCurrent();
+  if (!current?.name) return;
+
+  const profiles = await loadProfiles();
+  if (!profiles || profiles.length === 0) return;
+  const profile = profiles.find((p) => p.name === current.name);
+  if (!profile) return;
+
+  const model = current.model && profile.models.includes(current.model)
+    ? current.model
+    : profile.models[0];
+  if (!model) return;
+
+  const agentTeamsEnabled = await loadAgentTeamsEnabled();
+  const teammateMode = await loadTeammateMode();
+  await updateClaudeSettings(profile, model, agentTeamsEnabled, teammateMode);
+}
+
+async function cleanupLegacyZshrcBlock(): Promise<void> {
+  if (!(await fs.pathExists(ZSHRC_PATH))) return;
+  const content = await fs.readFile(ZSHRC_PATH, "utf-8");
+  const start = content.indexOf(BLOCK_START);
+  const end = content.indexOf(BLOCK_END);
+  if (start < 0 || end < 0 || end <= start) return;
+
+  const before = content.slice(0, start).trimEnd();
+  const after = content.slice(end + BLOCK_END.length).trimStart();
+  const updated = [before, after].filter(Boolean).join("\n");
+  await fs.writeFile(ZSHRC_PATH, updated);
+}
+
+async function loadAgentTeamsEnabled(): Promise<boolean> {
+  const config = await loadUserConfig();
+  return config.claude?.agentTeams !== false;
+}
+
+async function loadTeammateMode(): Promise<ClaudeTeammateMode> {
+  const config = await loadUserConfig();
+  const mode = config.claude?.teammateMode;
+  if (mode === "in-process" || mode === "tmux" || mode === "auto") {
+    return mode;
+  }
+  return "auto";
+}
+
+function isOfficialAnthropicPreset(name: string, baseUrl: string): boolean {
+  return name.toLowerCase() === "anthropic" && baseUrl === "https://api.anthropic.com";
+}
+
+function getDefaultAnthropicProfile(): ClaudeProfile {
+  const preset = PRESET_PROFILES.find((p) => isOfficialAnthropicPreset(p.name, p.baseUrl));
+  if (!preset) {
+    return {
+      name: "Anthropic",
+      baseUrl: "https://api.anthropic.com",
+      authToken: "",
+      models: ["claude 4.6 opus"],
+    };
+  }
+  return {
+    name: preset.name,
+    baseUrl: preset.baseUrl,
+    authToken: "",
+    models: preset.models,
+  };
 }

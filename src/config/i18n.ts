@@ -13,6 +13,8 @@ export interface Translations {
   claudeRun: string;
   claudeSwitch: string;
   claudeAdd: string;
+  claudeTeams: string;
+  claudeMode: string;
   repoMenu: string;
   repoSelectAction: string;
   repoCreate: string;
@@ -94,11 +96,21 @@ export interface Translations {
   claudePreset: string;
   claudePresetCustom: string;
   claudeApiKeyOnly: string;
+  claudeLoginRequired: string;
   claudeCancel: string;
   claudeAdded: string;
   claudeExists: string;
   claudeOverwriteConfirm: string;
   claudeMissingProfiles: string;
+  claudeTeamsPrompt: string;
+  claudeTeamsEnabled: string;
+  claudeTeamsDisabled: string;
+  claudeTeamsStatus: string;
+  claudeModePrompt: string;
+  claudeModeAuto: string;
+  claudeModeInProcess: string;
+  claudeModeTmux: string;
+  claudeModeStatus: string;
   goodbye: string;
   onlyMacOS: string;
   requiresDeps: string;
@@ -121,6 +133,8 @@ const translations: Record<Language, Translations> = {
     claudeRun: "进入 Claude",
     claudeSwitch: "切换配置",
     claudeAdd: "添加配置",
+    claudeTeams: "Agent Teams 开关",
+    claudeMode: "队友显示模式",
     repoMenu: "Repo 设置",
     exit: "退出",
     noSteps: "没有配置任何步骤",
@@ -200,11 +214,21 @@ const translations: Record<Language, Translations> = {
     claudePreset: "选择预置厂商",
     claudePresetCustom: "自定义",
     claudeApiKeyOnly: "请输入 API Key",
+    claudeLoginRequired: "Anthropic 官方无需配置 API Key，请先在 Claude 中完成登录。",
     claudeCancel: "已取消",
     claudeAdded: "已添加配置",
     claudeExists: "已存在同名配置，请更换名称",
     claudeOverwriteConfirm: "已存在同名配置，是否覆盖？",
     claudeMissingProfiles: "未找到可用配置，请先在 ~/.okit/claude-profiles.json 中添加",
+    claudeTeamsPrompt: "设置 Agent Teams 实验功能",
+    claudeTeamsEnabled: "启用",
+    claudeTeamsDisabled: "禁用",
+    claudeTeamsStatus: "Agent Teams",
+    claudeModePrompt: "设置队友显示模式",
+    claudeModeAuto: "auto（自动）",
+    claudeModeInProcess: "in-process（主终端内）",
+    claudeModeTmux: "tmux（分屏）",
+    claudeModeStatus: "队友显示模式",
     goodbye: "再见！",
     onlyMacOS: "✗ 当前仅支持 macOS 平台",
     requiresDeps: "需要以下依赖",
@@ -228,6 +252,8 @@ const translations: Record<Language, Translations> = {
     claudeRun: "Launch Claude",
     claudeSwitch: "Switch Config",
     claudeAdd: "Add Config",
+    claudeTeams: "Agent Teams Toggle",
+    claudeMode: "Teammate Display Mode",
     repoMenu: "Repo Settings",
     exit: "Exit",
     noSteps: "No steps configured",
@@ -307,11 +333,21 @@ const translations: Record<Language, Translations> = {
     claudePreset: "Choose preset provider",
     claudePresetCustom: "Custom",
     claudeApiKeyOnly: "Enter API key",
+    claudeLoginRequired: "Anthropic official does not require an API key. Please sign in to Claude first.",
     claudeCancel: "Cancelled",
     claudeAdded: "Profile added",
     claudeExists: "Profile name already exists",
     claudeOverwriteConfirm: "Profile exists. Overwrite?",
     claudeMissingProfiles: "No profiles found. Add one in ~/.okit/claude-profiles.json",
+    claudeTeamsPrompt: "Set Agent Teams experimental feature",
+    claudeTeamsEnabled: "Enabled",
+    claudeTeamsDisabled: "Disabled",
+    claudeTeamsStatus: "Agent Teams",
+    claudeModePrompt: "Set teammate display mode",
+    claudeModeAuto: "auto",
+    claudeModeInProcess: "in-process",
+    claudeModeTmux: "tmux",
+    claudeModeStatus: "Teammate display mode",
     goodbye: "Goodbye!",
     onlyMacOS: "✗ Currently only supports macOS",
     requiresDeps: "requires the following dependencies",

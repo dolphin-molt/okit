@@ -123,6 +123,14 @@ export const DEFAULT_REGISTRY: Registry = {
       check: "command -v claude",
       dependencies: ["Node.js"],
     },
+    {
+      name: "Happy Coder",
+      install: "npm install -g happy-coder",
+      upgrade: "npm update -g happy-coder",
+      uninstall: "npm uninstall -g happy-coder",
+      check: "command -v happy-coder",
+      dependencies: ["Node.js"],
+    },
     // 信息抓取
     {
       name: "yt-dlp",
@@ -240,6 +248,38 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade fzf",
       uninstall: "brew uninstall fzf",
       check: "command -v fzf",
+      dependencies: ["Homebrew"],
+    },
+    {
+      name: "tmux",
+      install: "brew install tmux",
+      upgrade: "brew upgrade tmux",
+      uninstall: "brew uninstall tmux",
+      check: "command -v tmux",
+      dependencies: ["Homebrew"],
+    },
+    {
+      name: "iTerm2",
+      install: "brew install --cask iterm2",
+      upgrade: "brew upgrade --cask iterm2",
+      uninstall: "brew uninstall --cask iterm2",
+      check: "test -d /Applications/iTerm.app",
+      dependencies: ["Homebrew"],
+    },
+    {
+      name: "Warp",
+      install: "brew install --cask warp",
+      upgrade: "brew upgrade --cask warp",
+      uninstall: "brew uninstall --cask warp",
+      check: "test -d /Applications/Warp.app",
+      dependencies: ["Homebrew"],
+    },
+    {
+      name: "uv (uvx)",
+      install: "brew install uv",
+      upgrade: "brew upgrade uv",
+      uninstall: "brew uninstall uv",
+      check: "command -v uv && command -v uvx",
       dependencies: ["Homebrew"],
     },
     {

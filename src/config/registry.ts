@@ -267,6 +267,16 @@ export const DEFAULT_REGISTRY: Registry = {
       dependencies: ["Homebrew"],
     },
     {
+      name: "iTerm2 Browser Plugin",
+      install:
+        "bash -lc 'set -euo pipefail; TMP_DIR=\"$(mktemp -d)\"; trap \"rm -rf \\\"$TMP_DIR\\\"\" EXIT; ZIP_PATH=\"$TMP_DIR/iTermBrowserPlugin-1.0.zip\"; curl -fL \"https://iterm2.com/downloads/browser-plugin/iTermBrowserPlugin-1.0.zip\" -o \"$ZIP_PATH\"; unzip -o \"$ZIP_PATH\" -d \"$TMP_DIR\" >/dev/null; APP_PATH=\"$(find \"$TMP_DIR\" -maxdepth 3 -type d -name \"iTermBrowserPlugin*.app\" | head -n 1)\"; if [ -z \"$APP_PATH\" ]; then echo \"未在压缩包中找到 iTermBrowserPlugin.app\"; exit 1; fi; sudo rm -rf \"/Applications/$(basename \"$APP_PATH\")\"; sudo mv \"$APP_PATH\" /Applications/'",
+      upgrade:
+        "bash -lc 'set -euo pipefail; TMP_DIR=\"$(mktemp -d)\"; trap \"rm -rf \\\"$TMP_DIR\\\"\" EXIT; ZIP_PATH=\"$TMP_DIR/iTermBrowserPlugin-1.0.zip\"; curl -fL \"https://iterm2.com/downloads/browser-plugin/iTermBrowserPlugin-1.0.zip\" -o \"$ZIP_PATH\"; unzip -o \"$ZIP_PATH\" -d \"$TMP_DIR\" >/dev/null; APP_PATH=\"$(find \"$TMP_DIR\" -maxdepth 3 -type d -name \"iTermBrowserPlugin*.app\" | head -n 1)\"; if [ -z \"$APP_PATH\" ]; then echo \"未在压缩包中找到 iTermBrowserPlugin.app\"; exit 1; fi; sudo rm -rf \"/Applications/$(basename \"$APP_PATH\")\"; sudo mv \"$APP_PATH\" /Applications/'",
+      uninstall: "sudo rm -rf /Applications/iTermBrowserPlugin.app",
+      check: "test -d /Applications/iTermBrowserPlugin.app",
+      dependencies: ["iTerm2"],
+    },
+    {
       name: "Warp",
       install: "brew install --cask warp",
       upgrade: "brew upgrade --cask warp",

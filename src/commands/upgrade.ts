@@ -9,6 +9,7 @@ import { executeSteps } from "../executor/runner";
 
 const OKIT_REPO = "dolphin-molt/okit";
 const OKIT_BIN_PATH = "/usr/local/bin/okit";
+type UpgradeSelfResult = "done" | "requires_sudo" | "failed";
 
 export async function showUpgradeMenu(): Promise<void> {
   console.log(kleur.cyan("\n⬆️  Upgrade\n"));
@@ -27,7 +28,13 @@ export async function showUpgradeMenu(): Promise<void> {
 
     switch (response.action) {
       case "self":
-        await upgradeSelf();
+        {
+          const result = await upgradeSelf();
+          if (result === "requires_sudo") {
+            // Avoid re-entering the same action loop when user needs to rerun with sudo.
+            return;
+          }
+        }
         break;
       case "tools":
         await upgradeTools();
@@ -39,14 +46,14 @@ export async function showUpgradeMenu(): Promise<void> {
   }
 }
 
-export async function upgradeSelf(): Promise<void> {
+export async function upgradeSelf(): Promise<UpgradeSelfResult> {
   console.log(kleur.cyan("\n⬆️  Upgrading OKIT...\n"));
 
   try {
     // 检查是否有写权限
     if (!(await fs.pathExists(OKIT_BIN_PATH))) {
       console.log(kleur.red(`✗ OKIT 未安装在 ${OKIT_BIN_PATH}`));
-      return;
+      return "failed";
     }
 
     const canWrite = await checkWritePermission(OKIT_BIN_PATH);
@@ -61,7 +68,7 @@ export async function upgradeSelf(): Promise<void> {
       });
       if (!sudoResponse.confirm) {
         console.log(kleur.gray("请运行: sudo okit upgrade"));
-        return;
+        return "requires_sudo";
       }
       useSudo = true;
     }
@@ -111,9 +118,11 @@ export async function upgradeSelf(): Promise<void> {
 
     console.log(kleur.green("✓ OKIT upgraded successfully!"));
     console.log(kleur.gray("Please restart your terminal."));
+    return "done";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(kleur.red(`✗ Upgrade failed: ${message}`));
+    return "failed";
   }
 }
 

@@ -2,7 +2,12 @@ import prompts from "prompts";
 import kleur from "kleur";
 import { loadRegistry, Step, Registry } from "../config/registry";
 import { executeSteps, printResults } from "../executor/runner";
-import { runClaudeCommand, addClaudeProfile } from "./claude";
+import {
+  runClaudeCommand,
+  addClaudeProfile,
+  configureClaudeAgentTeams,
+  configureClaudeTeammateMode,
+} from "./claude";
 import { showRepoMenu } from "./repo";
 import { t } from "../config/i18n";
 
@@ -31,7 +36,7 @@ export async function showMainMenu(): Promise<void> {
         if (!shouldContinue) continue;
         break;
       case "claude":
-        await handleClaudeMenu();
+        await showClaudeMenu();
         continue;
       case "repo":
         await handleRepoMenu();
@@ -117,7 +122,7 @@ async function handleSelectItems(registry: Registry): Promise<boolean> {
   }
 }
 
-async function handleClaudeMenu(): Promise<void> {
+export async function showClaudeMenu(): Promise<void> {
   while (true) {
     const response = await prompts({
       type: "select",
@@ -127,6 +132,8 @@ async function handleClaudeMenu(): Promise<void> {
         { title: t("claudeRun"), value: "run" },
         { title: t("claudeSwitch"), value: "switch" },
         { title: t("claudeAdd"), value: "add" },
+        { title: t("claudeTeams"), value: "teams" },
+        { title: t("claudeMode"), value: "mode" },
         { title: t("back"), value: "back" },
       ],
     });
@@ -138,6 +145,10 @@ async function handleClaudeMenu(): Promise<void> {
       await runClaudeCommand("switch");
     } else if (response.action === "add") {
       await addClaudeProfile();
+    } else if (response.action === "teams") {
+      await configureClaudeAgentTeams();
+    } else if (response.action === "mode") {
+      await configureClaudeTeammateMode();
     }
   }
 }

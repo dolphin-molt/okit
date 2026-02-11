@@ -4,10 +4,9 @@ import { Command } from "commander";
 import kleur from "kleur";
 import prompts from "prompts";
 import pkg from "../package.json";
-import { showMainMenu } from "./commands/menu";
+import { showMainMenu, showClaudeMenu } from "./commands/menu";
 import { showUpgradeMenu, upgradeSelf, upgradeTools } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
-import { runClaudeCommand, addClaudeProfile } from "./commands/claude";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
@@ -138,31 +137,13 @@ program
   });
 
 // claude 子命令
-const claude = program
+program
   .command("claude")
-  .description("Claude Code 配置切换与启动")
+  .description("Claude Code 交互菜单")
   .action(async () => {
     checkPlatform();
     await selectLanguageIfNeeded();
-    await runClaudeCommand("run");
-  });
-
-claude
-  .command("switch")
-  .description("切换 Claude Code 配置")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await runClaudeCommand("switch");
-  });
-
-claude
-  .command("add")
-  .description("添加 Claude Code 配置")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await addClaudeProfile();
+    await showClaudeMenu();
   });
 
 // repo 子命令
@@ -193,6 +174,29 @@ program
     // reset 使用默认中文
     setLanguage("zh");
     await resetRegistry();
+  });
+
+// web 子命令 - 启动 Web UI
+program
+  .command("web")
+  .description("启动 Claude Code Web UI")
+  .option("-p, --port <number>", "端口号", "3000")
+  .option("-o, --open", "自动打开浏览器", false)
+  .action(async (options: { port: string; open: boolean }) => {
+    checkPlatform();
+    const port = parseInt(options.port, 10) || 3000;
+
+    // 动态导入 web server
+    // @ts-ignore
+    const { startServer } = await import("./web/server.js");
+
+    if (options.open) {
+      const { exec } = await import("child_process");
+      exec(`open http://localhost:${port}`);
+    }
+
+    // @ts-ignore
+    startServer(port);
   });
 
 function checkPlatform() {

@@ -2,6 +2,7 @@ import { Step, Registry } from "../../config/registry";
 import { BrewDependencyProvider } from "../deps/BrewDependencyProvider";
 import { NpmDependencyProvider } from "../deps/NpmDependencyProvider";
 import { PipxDependencyProvider } from "../deps/PipxDependencyProvider";
+import { UvToolDependencyProvider } from "../deps/UvToolDependencyProvider";
 import { DependencyProvider, PackageInfo } from "../deps/DependencyProvider";
 import { getAllDependencies } from "./registryDeps";
 import { topologicalSortSteps } from "./TopologicalSorter";
@@ -23,6 +24,7 @@ export class ExecutionPlanner {
       new BrewDependencyProvider(),
       new NpmDependencyProvider(),
       new PipxDependencyProvider(),
+      new UvToolDependencyProvider(),
     ];
 
     let planSteps = steps;

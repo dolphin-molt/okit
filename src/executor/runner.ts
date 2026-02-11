@@ -221,6 +221,13 @@ async function getUninstallSkipReason(step: Step, command: string): Promise<stri
     return null;
   }
 
+  const uvToolTarget = parseUvToolUninstallTarget(command);
+  if (uvToolTarget) {
+    const installed = await isUvToolInstalled(uvToolTarget);
+    if (!installed) return t("notInstalled");
+    return null;
+  }
+
   return null;
 }
 
@@ -262,6 +269,25 @@ function parsePipxUninstallTarget(command: string): string | null {
   return null;
 }
 
+function parseUvToolUninstallTarget(command: string): string | null {
+  const segment = command.split("&&")[0]?.trim() ?? "";
+  const tokens = segment.split(/\s+/).filter(Boolean);
+  const uvIndex = tokens.indexOf("uv");
+  if (uvIndex < 0) return null;
+  const toolIndex = tokens.findIndex((token, index) => index > uvIndex && token === "tool");
+  if (toolIndex < 0) return null;
+  const uninstallIndex = tokens.findIndex(
+    (token, index) => index > toolIndex && token === "uninstall"
+  );
+  if (uninstallIndex < 0) return null;
+  for (let i = uninstallIndex + 1; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.startsWith("-")) continue;
+    return token;
+  }
+  return null;
+}
+
 async function isBrewPackageInstalled(name: string, isCask: boolean): Promise<boolean> {
   try {
     if (isCask) {
@@ -290,6 +316,18 @@ async function isPipxPackageInstalled(name: string): Promise<boolean> {
       return Boolean(data.packages[name]);
     }
     return stdout.includes(`"${name}"`);
+  } catch {
+    return false;
+  }
+}
+
+async function isUvToolInstalled(name: string): Promise<boolean> {
+  try {
+    const { stdout } = await execa.command("uv tool list", { shell: true });
+    return stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .some((line) => line.startsWith(`${name} `) || line === name);
   } catch {
     return false;
   }

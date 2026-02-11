@@ -8,8 +8,10 @@ type Language = "zh" | "en";
 export type UserConfig = {
   language?: Language;
   claude?: {
-    name: string;
+    name?: string;
     model?: string;
+    agentTeams?: boolean;
+    teammateMode?: "auto" | "in-process" | "tmux";
   };
   git?: {
     name?: string;

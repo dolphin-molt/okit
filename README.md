@@ -107,9 +107,13 @@ okit -V
 
 ```bash
 okit claude
-okit claude switch
-okit claude add
 ```
+
+说明：
+- Agent Teams 实验开关使用配置项管理（默认开启）。
+- 通过 TUI 配置：`okit claude` → `Agent Teams 开关`。
+- `okit claude` 运行时会根据该配置注入（或移除）`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`。
+- 队友显示模式支持 `auto`（默认）/`in-process`/`tmux`，通过 TUI 配置：`okit claude` → `队友显示模式`。
 
 ---
 

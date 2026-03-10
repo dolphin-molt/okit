@@ -32,6 +32,9 @@ const ZSHRC_PATH = path.join(os.homedir(), ".zshrc");
 const BLOCK_START = "# >>> OKIT_CLAUDE";
 const BLOCK_END = "# <<< OKIT_CLAUDE";
 const CLAUDE_EXPERIMENTAL_AGENT_TEAMS = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
+const ANTHROPIC_DEFAULT_HAIKU_MODEL = "ANTHROPIC_DEFAULT_HAIKU_MODEL";
+const ANTHROPIC_DEFAULT_SONNET_MODEL = "ANTHROPIC_DEFAULT_SONNET_MODEL";
+const ANTHROPIC_DEFAULT_OPUS_MODEL = "ANTHROPIC_DEFAULT_OPUS_MODEL";
 
 const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
   {
@@ -44,7 +47,7 @@ const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
     baseUrl: "https://ark.cn-beijing.volces.com/api/coding",
     models: [
       "doubao-seed-code",
-      "glm4.7",
+      "glm-4.7",
       "deepseek-v3.2",
       "kimi-k2-thinking",
       "kimi-k2.5",
@@ -53,7 +56,7 @@ const PRESET_PROFILES: Omit<ClaudeProfile, "authToken">[] = [
   {
     name: "BigModel",
     baseUrl: "https://open.bigmodel.cn/api/anthropic",
-    models: ["glm-4.7"],
+    models: ["glm-4.7", "glm-5"],
   },
   {
     name: "MiniMax",
@@ -438,9 +441,37 @@ async function updateClaudeSettings(
     typeof data.env === "object" && data.env
       ? (data.env as Record<string, any>)
       : {};
-  delete env.ANTHROPIC_BASE_URL;
-  delete env.ANTHROPIC_AUTH_TOKEN;
-  delete env.ANTHROPIC_MODEL;
+  const useAnthropicOfficial =
+    profile.baseUrl === "https://api.anthropic.com" && !profile.authToken.trim();
+
+  if (useAnthropicOfficial) {
+    delete env.ANTHROPIC_BASE_URL;
+    delete env.ANTHROPIC_AUTH_TOKEN;
+    delete env.ANTHROPIC_MODEL;
+    delete env[ANTHROPIC_DEFAULT_HAIKU_MODEL];
+    delete env[ANTHROPIC_DEFAULT_SONNET_MODEL];
+    delete env[ANTHROPIC_DEFAULT_OPUS_MODEL];
+  } else {
+    const normalizedModel = normalizeClaudeModel(model);
+    env.ANTHROPIC_BASE_URL = profile.baseUrl;
+    env.ANTHROPIC_MODEL = normalizedModel;
+    if (profile.authToken.trim()) {
+      env.ANTHROPIC_AUTH_TOKEN = profile.authToken;
+    } else {
+      delete env.ANTHROPIC_AUTH_TOKEN;
+    }
+
+    if (isGlmModel(normalizedModel)) {
+      env[ANTHROPIC_DEFAULT_HAIKU_MODEL] = "glm-4.5-air";
+      env[ANTHROPIC_DEFAULT_SONNET_MODEL] = "glm-4.7";
+      env[ANTHROPIC_DEFAULT_OPUS_MODEL] = resolveGlmOpusModel(normalizedModel);
+    } else {
+      delete env[ANTHROPIC_DEFAULT_HAIKU_MODEL];
+      delete env[ANTHROPIC_DEFAULT_SONNET_MODEL];
+      delete env[ANTHROPIC_DEFAULT_OPUS_MODEL];
+    }
+  }
+
   if (agentTeamsEnabled) {
     env[CLAUDE_EXPERIMENTAL_AGENT_TEAMS] = "1";
   } else {
@@ -455,6 +486,23 @@ async function updateClaudeSettings(
   data.teammateMode = teammateMode;
 
   await fs.writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2));
+}
+
+function normalizeClaudeModel(model: string): string {
+  const value = model.trim();
+  if (value === "glm4.7") return "glm-4.7";
+  return value;
+}
+
+function isGlmModel(model: string): boolean {
+  return /^glm([.-]|$)/i.test(model.trim());
+}
+
+function resolveGlmOpusModel(model: string): string {
+  const normalized = model.trim().toLowerCase();
+  if (normalized === "glm-4.7") return "glm-4.7";
+  if (normalized === "glm-5") return "glm-5";
+  return "glm-5";
 }
 
 async function syncClaudeSettingsForCurrentProfile(): Promise<void> {

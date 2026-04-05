@@ -119,6 +119,22 @@ export interface Translations {
   depsNotSatisfied: string;
   notInstalled: string;
   mainHelpHint: string;
+  // check 命令
+  checkMenu: string;
+  checkScanning: string;
+  checkRunning: string;
+  checkReportTitle: string;
+  checkInstalled: string;
+  checkNotInstalled: string;
+  checkOutdated: string;
+  checkAuthOk: string;
+  checkAuthFailed: string;
+  checkAuthIssues: string;
+  checkSummary: string;
+  checkHealthScore: string;
+  checkHintUpgrade: string;
+  checkHintAuth: string;
+  checkHintInstall: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -237,6 +253,22 @@ const translations: Record<Language, Translations> = {
     depsNotSatisfied: "依赖未满足",
     notInstalled: "未安装，跳过",
     mainHelpHint: "提示: 在主菜单选择“帮助”可查看帮助",
+    // check 命令
+    checkMenu: "环境检查",
+    checkScanning: "正在扫描已安装工具...",
+    checkRunning: "正在检查版本和授权状态...",
+    checkReportTitle: "🔍 环境健康检查报告",
+    checkInstalled: "已安装",
+    checkNotInstalled: "未安装",
+    checkOutdated: "可升级",
+    checkAuthOk: "授权正常",
+    checkAuthFailed: "授权异常",
+    checkAuthIssues: "授权问题",
+    checkSummary: "📈 总结:",
+    checkHealthScore: "健康评分",
+    checkHintUpgrade: "提示: 运行 okit upgrade --tools 升级所有工具",
+    checkHintAuth: "提示: 请手动修复授权问题，避免 Agent 执行中断",
+    checkHintInstall: "提示: 运行 okit 进入交互菜单安装缺失工具",
     help: "帮助",
     helpContent:
       "快捷键说明:\n- ↑/↓: 移动\n- 空格: 选择/取消\n- 回车: 确认\n- Ctrl+A: 全选/取消全选\n",
@@ -355,7 +387,23 @@ const translations: Record<Language, Translations> = {
     depInstallFailed: "Dependency installation failed",
     depsNotSatisfied: "Dependencies not satisfied",
     notInstalled: "Not installed, skipped",
-    mainHelpHint: "Hint: Choose “Help” in the main menu to view help",
+    mainHelpHint: "Hint: Choose \u201cHelp\u201d in the main menu to view help",
+    // check command
+    checkMenu: "Health Check",
+    checkScanning: "Scanning installed tools...",
+    checkRunning: "Checking versions and auth status...",
+    checkReportTitle: "🔍 Environment Health Check Report",
+    checkInstalled: "Installed",
+    checkNotInstalled: "Not installed",
+    checkOutdated: "Upgradable",
+    checkAuthOk: "Auth OK",
+    checkAuthFailed: "Auth failed",
+    checkAuthIssues: "Auth issues",
+    checkSummary: "📈 Summary:",
+    checkHealthScore: "Health score",
+    checkHintUpgrade: "Hint: Run okit upgrade --tools to upgrade all tools",
+    checkHintAuth: "Hint: Fix auth issues manually to avoid Agent interruptions",
+    checkHintInstall: "Hint: Run okit to install missing tools interactively",
     help: "Help",
     helpContent:
       "Shortcuts:\n- ↑/↓: Move\n- Space: Toggle\n- Enter: Confirm\n- Ctrl+A: Toggle all\n",

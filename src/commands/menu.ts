@@ -9,6 +9,7 @@ import {
   configureClaudeTeammateMode,
 } from "./claude";
 import { showRepoMenu } from "./repo";
+import { runCheck } from "./check";
 import { t } from "../config/i18n";
 
 export async function showMainMenu(): Promise<void> {
@@ -23,6 +24,7 @@ export async function showMainMenu(): Promise<void> {
       message: t("selectAction"),
       choices: [
         { title: t("selectItems"), value: "select" },
+        { title: t("checkMenu"), value: "check" },
         { title: t("claudeMenu"), value: "claude" },
         { title: t("repoMenu"), value: "repo" },
         { title: t("help"), value: "help" },
@@ -35,6 +37,10 @@ export async function showMainMenu(): Promise<void> {
         const shouldContinue = await handleSelectItems(registry);
         if (!shouldContinue) continue;
         break;
+      case "check":
+        await runCheck();
+        await prompts({ type: "invisible", name: "continue", message: "" });
+        continue;
       case "claude":
         await showClaudeMenu();
         continue;

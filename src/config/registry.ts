@@ -9,6 +9,8 @@ export interface Step {
   upgrade?: string;
   uninstall?: string;
   check?: string;
+  versionCmd?: string;   // 获取版本号的命令，如 "node --version"
+  authCheck?: string;    // 检查授权状态的命令，如 "gh auth status"
   dependencies?: string[]; // 依赖的其他工具名称列表
 }
 
@@ -56,6 +58,7 @@ export const DEFAULT_REGISTRY: Registry = {
       install: getHomebrewInstallCommand(),
       upgrade: "brew update && brew upgrade",
       check: "command -v brew",
+      versionCmd: "brew --version | head -1",
     },
     // 开发基础
     {
@@ -64,6 +67,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade node",
       uninstall: "brew uninstall node",
       check: "command -v node",
+      versionCmd: "node --version",
       dependencies: ["Homebrew"],
     },
     {
@@ -72,6 +76,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade git",
       uninstall: "brew uninstall --force git",
       check: "command -v git",
+      versionCmd: "git --version",
       dependencies: ["Homebrew"],
     },
     {
@@ -80,6 +85,8 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade gh",
       uninstall: "brew uninstall gh",
       check: "command -v gh",
+      versionCmd: "gh --version | head -1",
+      authCheck: "gh auth status 2>&1",
       dependencies: ["Homebrew"],
     },
     {
@@ -88,7 +95,16 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade pnpm",
       uninstall: "brew uninstall pnpm",
       check: "command -v pnpm",
+      versionCmd: "pnpm --version",
       dependencies: ["Homebrew"],
+    },
+    {
+      name: "bun",
+      install: "curl -fsSL https://bun.sh/install | bash",
+      upgrade: "bun upgrade",
+      uninstall: "~/.bun/uninstall.sh",
+      check: "command -v bun",
+      versionCmd: "bun --version",
     },
     {
       name: "Python",
@@ -96,6 +112,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade python",
       uninstall: "brew uninstall python",
       check: "command -v python3",
+      versionCmd: "python3 --version",
       dependencies: ["Homebrew"],
     },
     {
@@ -104,6 +121,8 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade --cask docker",
       uninstall: "brew uninstall --cask docker",
       check: "command -v docker",
+      versionCmd: "docker --version",
+      authCheck: "docker info 2>&1 | head -3",
       dependencies: ["Homebrew"],
     },
     // AI Coding
@@ -113,6 +132,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "sudo npm update -g @openai/codex",
       uninstall: "sudo npm uninstall -g @openai/codex",
       check: "command -v codex",
+      versionCmd: "codex --version 2>/dev/null || echo unknown",
       dependencies: ["Node.js"],
     },
     {
@@ -121,6 +141,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "sudo npm update -g @anthropic-ai/claude-code",
       uninstall: "sudo npm uninstall -g @anthropic-ai/claude-code",
       check: "command -v claude",
+      versionCmd: "claude --version 2>/dev/null || echo unknown",
       dependencies: ["Node.js"],
     },
     {
@@ -138,6 +159,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade yt-dlp",
       uninstall: "brew uninstall yt-dlp",
       check: "command -v yt-dlp",
+      versionCmd: "yt-dlp --version",
       dependencies: ["Homebrew"],
     },
     {
@@ -146,6 +168,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade curl",
       uninstall: "brew uninstall curl",
       check: "command -v curl",
+      versionCmd: "curl --version | head -1",
       dependencies: ["Homebrew"],
     },
     {
@@ -190,6 +213,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade ffmpeg",
       uninstall: "brew uninstall ffmpeg",
       check: "command -v ffmpeg",
+      versionCmd: "ffmpeg -version 2>&1 | head -1",
       dependencies: ["Homebrew"],
     },
     {
@@ -198,6 +222,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade imagemagick",
       uninstall: "brew uninstall imagemagick",
       check: "command -v convert",
+      versionCmd: "convert --version | head -1",
       dependencies: ["Homebrew"],
     },
     {
@@ -206,6 +231,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade pipx",
       uninstall: "brew uninstall pipx",
       check: "command -v pipx",
+      versionCmd: "pipx --version",
       dependencies: ["Homebrew", "Python"],
     },
     {
@@ -231,6 +257,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade duckdb",
       uninstall: "brew uninstall duckdb",
       check: "command -v duckdb",
+      versionCmd: "duckdb --version 2>/dev/null || echo unknown",
       dependencies: ["Homebrew"],
     },
     // 通用效率
@@ -240,6 +267,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade ripgrep",
       uninstall: "brew uninstall ripgrep",
       check: "command -v rg",
+      versionCmd: "rg --version | head -1",
       dependencies: ["Homebrew"],
     },
     {
@@ -248,6 +276,7 @@ export const DEFAULT_REGISTRY: Registry = {
       upgrade: "brew upgrade fzf",
       uninstall: "brew uninstall fzf",
       check: "command -v fzf",
+      versionCmd: "fzf --version",
       dependencies: ["Homebrew"],
     },
     {

@@ -1,5 +1,5 @@
 {
-  "name": "okit",
+  "name": "okit-cli",
   "version": "2.0.0",
   "description": "OKIT v1 - 精简版工具执行器",
   "main": "dist/main.js",
@@ -13,12 +13,24 @@
     "start": "node dist/main.js",
     "pkg": "pkg . --out-path=bin"
   },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "cli",
+    "agent",
+    "devtools",
     "installer",
-    "project-generator"
+    "infrastructure"
   ],
-  "author": "",
+  "author": "dolphin-molt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dolphin-molt/okit.git"
+  },
   "license": "MIT",
   "dependencies": {
     "@types/express": "^5.0.6",

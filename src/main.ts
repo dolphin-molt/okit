@@ -8,6 +8,7 @@ import { showMainMenu, showClaudeMenu } from "./commands/menu";
 import { showUpgradeMenu, upgradeSelf, upgradeTools } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
+import { runCheck } from "./commands/check";
 import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
 import { loadUserConfig, updateUserConfig } from "./config/user";
@@ -163,6 +164,17 @@ repo
     checkPlatform();
     await selectLanguageIfNeeded();
     await createRepositoryFlow();
+  });
+
+// check 子命令 - 环境健康检查
+program
+  .command("check")
+  .description("环境健康检查（工具版本、升级、授权状态）")
+  .option("--json", "输出 JSON 格式（适合 Agent 消费）")
+  .action(async (options: { json?: boolean }) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await runCheck({ json: options.json });
   });
 
 // reset 子命令 - 不需要选择语言

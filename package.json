@@ -1,6 +1,6 @@
 {
   "name": "okit-cli",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "OKIT v1 - 精简版工具执行器",
   "main": "dist/main.js",
   "bin": {

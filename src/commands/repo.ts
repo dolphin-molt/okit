@@ -189,24 +189,6 @@ async function createRepoWithGithubApi(name: string, isPrivate: boolean): Promis
   throw new Error(parsed.body || "Failed to create GitHub repo");
 }
 
-async function createRepoWithGiteeApi(name: string, isPrivate: boolean): Promise<CreateRepoResult> {
-  const config = await loadUserConfig();
-  const token = config.repo?.gitee?.token;
-  if (!token) throw new Error("Missing Gitee token");
-  const payload = JSON.stringify({ name, private: isPrivate });
-  const { stdout } = await execa.command(
-    `curl -s -w "\\n%{http_code}" -X POST https://gitee.com/api/v5/user/repos?access_token=${token} -H "Content-Type: application/json" -d '${payload}'`,
-    { shell: true }
-  );
-  const parsed = parseCurlResponse(stdout);
-  if (parsed.statusCode === 201) return { status: "created" };
-  if ((parsed.statusCode === 400 || parsed.statusCode === 409) && isRepoExistsMessage(parsed.body)) {
-    console.log(kleur.yellow(t("repoExists")));
-    return { status: "exists" };
-  }
-  throw new Error(parsed.body || "Failed to create Gitee repo");
-}
-
 async function setOriginRemote(provider: RepoProvider, name: string): Promise<void> {
   const config = await loadUserConfig();
   const username =

@@ -27,6 +27,10 @@ export type UserConfig = {
       token?: string;
     };
   };
+  relay?: {
+    url?: string;
+    token?: string;
+  };
   hints?: {
     mainHelpShown?: boolean;
   };
@@ -61,6 +65,7 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     claude: patch.claude ? { ...current.claude, ...patch.claude } : current.claude,
     hints: patch.hints ? { ...current.hints, ...patch.hints } : current.hints,
     git: patch.git ? { ...current.git, ...patch.git } : current.git,
+    relay: patch.relay ? { ...current.relay, ...patch.relay } : current.relay,
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
   };
   await saveUserConfig(merged);

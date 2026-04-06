@@ -135,6 +135,82 @@ export interface Translations {
   checkHintUpgrade: string;
   checkHintAuth: string;
   checkHintInstall: string;
+  // upgrade assessment
+  checkUpgradeAssessment: string;
+  checkPatchLevel: string;
+  checkMinorLevel: string;
+  checkMajorLevel: string;
+  checkUnknownLevel: string;
+  checkHintPatch: string;
+  checkHintMajor: string;
+  // profile
+  profileMenu: string;
+  profileName: string;
+  profileNameRequired: string;
+  profileDesc: string;
+  profileSelectTools: string;
+  profileNoTools: string;
+  profileCreated: string;
+  profileToolCount: string;
+  profileEmpty: string;
+  profileSelectApply: string;
+  profileNotFound: string;
+  profileApplying: string;
+  profileMissingTools: string;
+  profileConfirmApply: string;
+  profileApplyResult: string;
+  profileListTitle: string;
+  profileExists: string;
+  profileSelectDelete: string;
+  profileConfirmDelete: string;
+  profileDeleted: string;
+  profileSelectExport: string;
+  profileExported: string;
+  profileImportPath: string;
+  profileFileNotFound: string;
+  profileInvalidFormat: string;
+  profileImported: string;
+  profileActionCreate: string;
+  profileActionApply: string;
+  profileActionList: string;
+  profileActionDelete: string;
+  profileActionExport: string;
+  profileActionImport: string;
+  // auth
+  authChecking: string;
+  authNoTools: string;
+  authFixing: string;
+  authFixed: string;
+  authFixFailed: string;
+  authNoFixCmd: string;
+  authSummary: string;
+  authHintFix: string;
+  // vault
+  vaultSaved: string;
+  vaultAutoSync: string;
+  vaultTargets: string;
+  vaultSynced: string;
+  vaultNotFound: string;
+  vaultEmpty: string;
+  vaultListTitle: string;
+  vaultConfirmDelete: string;
+  vaultDeleted: string;
+  vaultNoOkitEnv: string;
+  vaultNoKeys: string;
+  vaultEnvWritten: string;
+  vaultResolved: string;
+  vaultMissing: string;
+  vaultNoBindings: string;
+  vaultWhereTitle: string;
+  vaultSyncing: string;
+  vaultSyncResult: string;
+  // relay
+  relayNotConfigured: string;
+  relayConfigUrl: string;
+  relayConfigToken: string;
+  relayConfigSaved: string;
+  relayNoAgents: string;
+  relayAgentList: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -269,6 +345,81 @@ const translations: Record<Language, Translations> = {
     checkHintUpgrade: "提示: 运行 okit upgrade --tools 升级所有工具",
     checkHintAuth: "提示: 请手动修复授权问题，避免 Agent 执行中断",
     checkHintInstall: "提示: 运行 okit 进入交互菜单安装缺失工具",
+    checkUpgradeAssessment: "升级评估",
+    checkPatchLevel: "补丁更新",
+    checkMinorLevel: "次版本更新",
+    checkMajorLevel: "主版本更新",
+    checkUnknownLevel: "未知级别",
+    checkHintPatch: "提示: 补丁更新可安全执行 — okit upgrade --tools",
+    checkHintMajor: "提示: 主版本更新可能有 breaking changes，建议逐个评估后手动升级",
+    // profile
+    profileMenu: "Profile 操作",
+    profileName: "Profile 名称",
+    profileNameRequired: "名称不能为空",
+    profileDesc: "描述（可选）",
+    profileSelectTools: "选择工具（空格选择，回车确认）",
+    profileNoTools: "请至少选择一个工具",
+    profileCreated: "已创建 Profile:",
+    profileToolCount: "个工具",
+    profileEmpty: "暂无 Profile，请先创建",
+    profileSelectApply: "选择要应用的 Profile",
+    profileNotFound: "未找到 Profile:",
+    profileApplying: "正在应用 Profile:",
+    profileMissingTools: "以下工具不在注册表中",
+    profileConfirmApply: "确认安装以上工具？",
+    profileApplyResult: "应用结果:",
+    profileListTitle: "已保存的 Profile",
+    profileExists: "同名 Profile 已存在，是否覆盖？",
+    profileSelectDelete: "选择要删除的 Profile",
+    profileConfirmDelete: "确认删除 Profile",
+    profileDeleted: "已删除 Profile:",
+    profileSelectExport: "选择要导出的 Profile",
+    profileExported: "已导出到:",
+    profileImportPath: "输入文件路径",
+    profileFileNotFound: "文件不存在:",
+    profileInvalidFormat: "文件格式无效",
+    profileImported: "已导入 Profile:",
+    profileActionCreate: "创建 Profile",
+    profileActionApply: "应用 Profile（一键安装）",
+    profileActionList: "查看所有 Profile",
+    profileActionDelete: "删除 Profile",
+    profileActionExport: "导出 Profile",
+    profileActionImport: "导入 Profile",
+    // auth
+    authChecking: "正在检查授权状态...",
+    authNoTools: "没有配置授权检查的工具",
+    authFixing: "正在修复授权:",
+    authFixed: "已修复",
+    authFixFailed: "修复失败",
+    authNoFixCmd: "无自动修复命令，请手动处理",
+    authSummary: "授权状态总结:",
+    authHintFix: "提示: 运行 okit auth --fix 尝试自动修复授权问题",
+    // vault
+    vaultSaved: "已保存:",
+    vaultAutoSync: "自动同步到",
+    vaultTargets: "个目标",
+    vaultSynced: "已同步",
+    vaultNotFound: "未找到:",
+    vaultEmpty: "Vault 为空，使用 okit vault set KEY value 添加",
+    vaultListTitle: "Vault 密钥列表",
+    vaultConfirmDelete: "确认删除",
+    vaultDeleted: "已删除:",
+    vaultNoOkitEnv: "当前目录未找到 .okitenv 文件",
+    vaultNoKeys: "未声明任何 key",
+    vaultEnvWritten: "已写入:",
+    vaultResolved: "已解析",
+    vaultMissing: "缺失",
+    vaultNoBindings: "未找到关联项目",
+    vaultWhereTitle: "关联项目:",
+    vaultSyncing: "正在同步所有关联文件...",
+    vaultSyncResult: "同步结果:",
+    // relay
+    relayNotConfigured: "请先配置中继服务器: okit relay config",
+    relayConfigUrl: "中继服务器 URL",
+    relayConfigToken: "认证 Token",
+    relayConfigSaved: "中继配置已保存",
+    relayNoAgents: "当前没有在线 Agent",
+    relayAgentList: "在线 Agent",
     help: "帮助",
     helpContent:
       "快捷键说明:\n- ↑/↓: 移动\n- 空格: 选择/取消\n- 回车: 确认\n- Ctrl+A: 全选/取消全选\n",
@@ -404,6 +555,81 @@ const translations: Record<Language, Translations> = {
     checkHintUpgrade: "Hint: Run okit upgrade --tools to upgrade all tools",
     checkHintAuth: "Hint: Fix auth issues manually to avoid Agent interruptions",
     checkHintInstall: "Hint: Run okit to install missing tools interactively",
+    checkUpgradeAssessment: "Upgrade Assessment",
+    checkPatchLevel: "patch",
+    checkMinorLevel: "minor",
+    checkMajorLevel: "major",
+    checkUnknownLevel: "unknown",
+    checkHintPatch: "Hint: Patch updates are safe to auto-upgrade — okit upgrade --tools",
+    checkHintMajor: "Hint: Major updates may have breaking changes, assess individually",
+    // profile
+    profileMenu: "Profile actions",
+    profileName: "Profile name",
+    profileNameRequired: "Name is required",
+    profileDesc: "Description (optional)",
+    profileSelectTools: "Select tools (space to toggle, enter to confirm)",
+    profileNoTools: "Please select at least one tool",
+    profileCreated: "Profile created:",
+    profileToolCount: "tools",
+    profileEmpty: "No profiles yet, create one first",
+    profileSelectApply: "Select profile to apply",
+    profileNotFound: "Profile not found:",
+    profileApplying: "Applying profile:",
+    profileMissingTools: "Tools not in registry",
+    profileConfirmApply: "Install the above tools?",
+    profileApplyResult: "Apply result:",
+    profileListTitle: "Saved Profiles",
+    profileExists: "Profile already exists, overwrite?",
+    profileSelectDelete: "Select profile to delete",
+    profileConfirmDelete: "Delete profile",
+    profileDeleted: "Profile deleted:",
+    profileSelectExport: "Select profile to export",
+    profileExported: "Exported to:",
+    profileImportPath: "Enter file path",
+    profileFileNotFound: "File not found:",
+    profileInvalidFormat: "Invalid file format",
+    profileImported: "Profile imported:",
+    profileActionCreate: "Create Profile",
+    profileActionApply: "Apply Profile (one-click install)",
+    profileActionList: "List Profiles",
+    profileActionDelete: "Delete Profile",
+    profileActionExport: "Export Profile",
+    profileActionImport: "Import Profile",
+    // auth
+    authChecking: "Checking auth status...",
+    authNoTools: "No tools with auth checks configured",
+    authFixing: "Fixing auth:",
+    authFixed: "Fixed",
+    authFixFailed: "Fix failed",
+    authNoFixCmd: "No auto-fix command, fix manually",
+    authSummary: "Auth status summary:",
+    authHintFix: "Hint: Run okit auth --fix to auto-fix auth issues",
+    // vault
+    vaultSaved: "Saved:",
+    vaultAutoSync: "Auto-syncing to",
+    vaultTargets: "targets",
+    vaultSynced: "Synced",
+    vaultNotFound: "Not found:",
+    vaultEmpty: "Vault is empty, use okit vault set KEY value to add",
+    vaultListTitle: "Vault Secrets",
+    vaultConfirmDelete: "Delete",
+    vaultDeleted: "Deleted:",
+    vaultNoOkitEnv: "No .okitenv file found in current directory",
+    vaultNoKeys: "No keys declared",
+    vaultEnvWritten: "Written to:",
+    vaultResolved: "Resolved",
+    vaultMissing: "Missing",
+    vaultNoBindings: "No project bindings found",
+    vaultWhereTitle: "Used in:",
+    vaultSyncing: "Syncing all bound files...",
+    vaultSyncResult: "Sync result:",
+    // relay
+    relayNotConfigured: "Configure relay first: okit relay config",
+    relayConfigUrl: "Relay server URL",
+    relayConfigToken: "Auth Token",
+    relayConfigSaved: "Relay config saved",
+    relayNoAgents: "No agents online",
+    relayAgentList: "Online Agents",
     help: "Help",
     helpContent:
       "Shortcuts:\n- ↑/↓: Move\n- Space: Toggle\n- Enter: Confirm\n- Ctrl+A: Toggle all\n",

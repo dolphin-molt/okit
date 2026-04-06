@@ -1,7 +1,7 @@
 import execa from "execa";
 import fs from "fs-extra";
 import path from "path";
-import { Step, Registry } from "../config/registry";
+import { Step, Registry, resolveCmd } from "../config/registry";
 import { LOGS_DIR } from "../config/registry";
 import kleur from "kleur";
 import ora from "ora";
@@ -19,10 +19,11 @@ export interface ExecuteResult {
 }
 
 export async function checkStep(step: Step): Promise<boolean> {
-  if (!step.check) return false;
+  const checkCmd = resolveCmd(step.check);
+  if (!checkCmd) return false;
 
   try {
-    await execa.command(step.check, { shell: true });
+    await execa.command(checkCmd, { shell: true });
     return true;
   } catch {
     return false;
@@ -47,7 +48,7 @@ async function checkAndInstallDependencies(
   const deps = getAllDependencies(step, registry);
   const missingDeps: Step[] = [];
 
-  // 检查哪些依赖未安装
+  // 检查哪些依赖未安装（getAllDependencies 已过滤当前平台不可用的）
   for (const dep of deps) {
     if (installedSteps.has(dep.name)) continue;
 
@@ -95,9 +96,9 @@ export async function executeStep(
   isDependency: boolean = false
 ): Promise<ExecuteResult> {
   let command: string | undefined;
-  if (action === "install") command = step.install;
-  else if (action === "upgrade") command = step.upgrade;
-  else if (action === "uninstall") command = step.uninstall;
+  if (action === "install") command = resolveCmd(step.install);
+  else if (action === "upgrade") command = resolveCmd(step.upgrade);
+  else if (action === "uninstall") command = resolveCmd(step.uninstall);
 
   if (!command) {
     return {
@@ -153,7 +154,7 @@ export async function executeStep(
     }
 
     // 如果是 install，先检查是否已存在
-    if (action === "install" && step.check) {
+    if (action === "install" && resolveCmd(step.check)) {
       const exists = await checkStep(step);
       if (exists) {
         spinner.succeed(`${step.name} ${t("alreadyExists")}`);

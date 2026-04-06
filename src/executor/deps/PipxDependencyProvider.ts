@@ -1,12 +1,13 @@
-import { Step } from "../../config/registry";
+import { Step, resolveCmd } from "../../config/registry";
 import { DependencyProvider, PackageInfo } from "./DependencyProvider";
 
 export class PipxDependencyProvider implements DependencyProvider {
   id = "pipx";
 
   getPackageInfo(step: Step): PackageInfo | null {
-    if (!step.uninstall) return null;
-    const segment = step.uninstall.split("&&")[0]?.trim() ?? "";
+    const uninstall = resolveCmd(step.uninstall);
+    if (!uninstall) return null;
+    const segment = uninstall.split("&&")[0]?.trim() ?? "";
     const tokens = segment.split(/\s+/).filter(Boolean);
     const pipxIndex = tokens.indexOf("pipx");
     if (pipxIndex < 0) return null;

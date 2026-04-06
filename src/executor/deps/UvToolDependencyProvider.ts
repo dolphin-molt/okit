@@ -1,12 +1,13 @@
-import { Step } from "../../config/registry";
+import { Step, resolveCmd } from "../../config/registry";
 import { DependencyProvider, PackageInfo } from "./DependencyProvider";
 
 export class UvToolDependencyProvider implements DependencyProvider {
   id = "uv";
 
   getPackageInfo(step: Step): PackageInfo | null {
-    if (!step.uninstall) return null;
-    const segment = step.uninstall.split("&&")[0]?.trim() ?? "";
+    const uninstall = resolveCmd(step.uninstall);
+    if (!uninstall) return null;
+    const segment = uninstall.split("&&")[0]?.trim() ?? "";
     const tokens = segment.split(/\s+/).filter(Boolean);
     const uvIndex = tokens.indexOf("uv");
     if (uvIndex < 0) return null;

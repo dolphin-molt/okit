@@ -1,4 +1,9 @@
-import { Step, Registry } from "../../config/registry";
+import { Step, Registry, resolveCmd } from "../../config/registry";
+
+// 判断一个 step 在当前平台上是否可用（有安装命令）
+function isAvailableOnCurrentPlatform(step: Step): boolean {
+  return resolveCmd(step.install) !== undefined;
+}
 
 export function getAllDependencies(
   step: Step,
@@ -15,11 +20,14 @@ export function getAllDependencies(
     visited.add(depName);
 
     const depStep = registry.steps.find((s) => s.name === depName);
-    if (depStep) {
-      const nestedDeps = getAllDependencies(depStep, registry, visited);
-      deps.push(...nestedDeps);
-      deps.push(depStep);
-    }
+    if (!depStep) continue;
+
+    // 跳过当前平台不可用的依赖（如 Linux 上的 Homebrew）
+    if (!isAvailableOnCurrentPlatform(depStep)) continue;
+
+    const nestedDeps = getAllDependencies(depStep, registry, visited);
+    deps.push(...nestedDeps);
+    deps.push(depStep);
   }
   return deps;
 }

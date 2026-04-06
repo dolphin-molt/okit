@@ -1,15 +1,14 @@
 import prompts from "prompts";
 import kleur from "kleur";
 import fs from "fs-extra";
-import os from "os";
-import path from "path";
 import execa from "execa";
 import { OKIT_DIR } from "../config/registry";
+
+const PACKAGE_NAME = "okit-cli";
 
 export async function uninstallOkit(): Promise<void> {
   console.log(kleur.cyan("\n🗑️  Uninstall OKIT\n"));
 
-  // 确认卸载
   const confirmResponse = await prompts({
     type: "confirm",
     name: "confirm",
@@ -23,42 +22,26 @@ export async function uninstallOkit(): Promise<void> {
   }
 
   try {
-    // 删除二进制文件（尝试所有可能路径）
-    const binCandidates = await findOkitBinaries();
-    if (binCandidates.length === 0) {
-      console.log(kleur.gray("未找到 okit 可执行文件"));
-    } else {
-      const needSudo: string[] = [];
-      for (const binPath of binCandidates) {
-        if (!(await fs.pathExists(binPath))) continue;
-        const canDelete = await checkDeletePermission(binPath);
-        if (!canDelete) {
-          needSudo.push(binPath);
-        } else {
-          await fs.remove(binPath);
-          console.log(kleur.green(`✓ 已删除 ${binPath}`));
-        }
-      }
-
-      if (needSudo.length > 0) {
-        console.log(kleur.yellow("⚠️  需要管理员权限来删除以下文件:"));
-        needSudo.forEach((p) => console.log(kleur.yellow(`- ${p}`)));
-        const sudoResponse = await prompts({
-          type: "confirm",
-          name: "confirm",
-          message: "是否现在使用 sudo 删除？",
-          initial: false,
+    // 通过 npm 卸载
+    console.log(kleur.gray(`正在卸载 ${PACKAGE_NAME}...`));
+    try {
+      await execa.command(`npm uninstall -g ${PACKAGE_NAME}`, {
+        shell: true,
+        stdio: "inherit",
+      });
+      console.log(kleur.green("✓ 已卸载 npm 包"));
+    } catch {
+      // 权限不足时尝试 sudo
+      try {
+        await execa.command(`sudo npm uninstall -g ${PACKAGE_NAME}`, {
+          shell: true,
+          stdio: "inherit",
         });
-        if (sudoResponse.confirm) {
-          await execa.command(`sudo rm -f ${needSudo.map((p) => `"${p}"`).join(" ")}`, {
-            shell: true,
-            stdio: "inherit",
-          });
-          needSudo.forEach((p) => console.log(kleur.green(`✓ 已删除 ${p}`)));
-        } else {
-          console.log(kleur.gray("已跳过 sudo 删除"));
-          console.log(kleur.gray(`请运行: sudo rm ${needSudo.join(" ")}`));
-        }
+        console.log(kleur.green("✓ 已卸载 npm 包"));
+      } catch (sudoError) {
+        const msg = sudoError instanceof Error ? sudoError.message : String(sudoError);
+        console.log(kleur.yellow(`⚠️  npm 卸载失败: ${msg}`));
+        console.log(kleur.gray(`请手动运行: npm uninstall -g ${PACKAGE_NAME}`));
       }
     }
 
@@ -85,39 +68,4 @@ export async function uninstallOkit(): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     console.log(kleur.red(`✗ 卸载失败: ${message}`));
   }
-}
-
-async function checkDeletePermission(filePath: string): Promise<boolean> {
-  try {
-    const dir = filePath.substring(0, filePath.lastIndexOf("/"));
-    await fs.access(dir, fs.constants.W_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function findOkitBinaries(): Promise<string[]> {
-  const candidates = new Set<string>();
-
-  try {
-    const { stdout } = await execa.command("which -a okit", { shell: true });
-    stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .forEach((line) => candidates.add(line));
-  } catch {
-    // ignore
-  }
-
-  const home = os.homedir();
-  [
-    "/usr/local/bin/okit",
-    "/opt/homebrew/bin/okit",
-    path.join(home, ".npm-global/bin/okit"),
-    path.join(home, ".local/bin/okit"),
-  ].forEach((p) => candidates.add(p));
-
-  return Array.from(candidates);
 }

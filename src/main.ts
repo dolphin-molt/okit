@@ -9,6 +9,28 @@ import { showUpgradeMenu, upgradeSelf, upgradeTools } from "./commands/upgrade";
 import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { runCheck } from "./commands/check";
+import { runAuth } from "./commands/auth";
+import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents } from "./commands/relay";
+import {
+  vaultSet,
+  vaultGet,
+  vaultList,
+  vaultDelete,
+  vaultInject,
+  vaultEnv,
+  vaultWhere,
+  vaultSync,
+} from "./commands/vault";
+import {
+  showProfileMenu,
+  createProfile,
+  applyProfile,
+  showProfiles,
+  showProfileDetail,
+  removeProfile,
+  exportProfile,
+  importProfile,
+} from "./commands/profile";
 import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
 import { loadUserConfig, updateUserConfig } from "./config/user";
@@ -26,12 +48,12 @@ function showBanner(): void {
  ╚═════╝  ╚═╝  ╚═╝  ╚═╝     ╚═╝   
   `;
   console.log(kleur.cyan(banner));
-  console.log(kleur.gray("  OKIT v1 - macOS 开发工具管理器\n"));
+  console.log(kleur.gray(`  OKIT v${pkg.version} - macOS 开发工具管理器\n`));
 }
 
 program
   .name("okit")
-  .description("OKIT v1 - 精简版工具执行器")
+  .description("OKIT - Agent 基础设施管理工具")
   .version(pkg.version);
 
 function getUnknownSubcommand(): string | null {
@@ -177,6 +199,209 @@ program
     await runCheck({ json: options.json });
   });
 
+// profile 子命令
+const profile = program
+  .command("profile")
+  .description("管理工具 Profile（一键安装预设工具集）")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await showProfileMenu();
+  });
+
+profile
+  .command("create")
+  .description("创建新 Profile")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await createProfile();
+  });
+
+profile
+  .command("apply [name]")
+  .description("应用 Profile（安装所有工具）")
+  .action(async (name?: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await applyProfile(name);
+  });
+
+profile
+  .command("list")
+  .description("列出所有 Profile")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await showProfiles();
+  });
+
+profile
+  .command("show <name>")
+  .description("查看 Profile 详情及安装状态")
+  .action(async (name: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await showProfileDetail(name);
+  });
+
+profile
+  .command("delete [name]")
+  .description("删除 Profile")
+  .action(async (name?: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await removeProfile(name);
+  });
+
+profile
+  .command("export [name]")
+  .description("导出 Profile 为 JSON 文件")
+  .option("-o, --output <path>", "输出路径")
+  .action(async (name?: string, options?: { output?: string }) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await exportProfile(name, options?.output);
+  });
+
+profile
+  .command("import <file>")
+  .description("从 JSON 文件导入 Profile")
+  .action(async (file: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    configurePrompts(getLanguage());
+    await importProfile(file);
+  });
+
+// auth 子命令 - 授权生命周期管理
+program
+  .command("auth")
+  .description("检查并修复工具授权状态")
+  .option("--fix", "尝试自动修复授权问题")
+  .action(async (options: { fix?: boolean }) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await runAuth({ fix: options.fix });
+  });
+
+// vault 子命令 - 密钥管理
+const vault = program
+  .command("vault")
+  .description("密钥管理（加密存储、按需注入、项目关联）")
+  .action(async () => {
+    await vaultList();
+  });
+
+vault
+  .command("set <key> <value>")
+  .description("存储密钥（支持 KEY/alias 格式，如 GITHUB_TOKEN/company）")
+  .action(async (key: string, value: string) => {
+    await vaultSet(key, value);
+  });
+
+vault
+  .command("get <key>")
+  .description("获取密钥明文（支持 KEY/alias 格式）")
+  .action(async (key: string) => {
+    await vaultGet(key);
+  });
+
+vault
+  .command("list")
+  .description("列出所有密钥（脱敏显示）")
+  .action(async () => {
+    await vaultList();
+  });
+
+vault
+  .command("delete <key>")
+  .description("删除密钥")
+  .action(async (key: string) => {
+    await vaultDelete(key);
+  });
+
+vault
+  .command("inject")
+  .description("输出 shell export 语句（配合 eval 使用）")
+  .option("--keys <keys>", "手动指定 key 列表（逗号分隔）")
+  .option("--dir <dir>", "指定项目目录")
+  .action(async (options: { keys?: string; dir?: string }) => {
+    await vaultInject(options);
+  });
+
+vault
+  .command("env [file]")
+  .description("根据 .okitenv 生成 .env 文件并注册关联")
+  .option("--dir <dir>", "指定项目目录")
+  .action(async (file?: string, options?: { dir?: string }) => {
+    await vaultEnv(file, options);
+  });
+
+vault
+  .command("where <key>")
+  .description("查看密钥在哪些项目中使用")
+  .action(async (key: string) => {
+    await vaultWhere(key);
+  });
+
+vault
+  .command("sync")
+  .description("同步所有关联文件（更新密钥后自动刷新）")
+  .action(async () => {
+    await vaultSync();
+  });
+
+// relay 子命令 - 中继服务器
+const relay = program
+  .command("relay")
+  .description("中继服务器（本地服务安全暴露到外网）");
+
+relay
+  .command("config")
+  .description("配置中继服务器地址和认证 token")
+  .option("--url <url>", "中继服务器 URL")
+  .option("--token <token>", "认证 token")
+  .action(async (options: { url?: string; token?: string }) => {
+    await relayConfig(options);
+  });
+
+relay
+  .command("connect")
+  .description("连接本地服务到中继")
+  .requiredOption("--tunnel <id>", "隧道 ID")
+  .requiredOption("--agent <name>", "Agent 名称（用于注册和路由）")
+  .option("--target <url>", "本地目标地址", "http://localhost:3000")
+  .action(async (options: { tunnel: string; agent: string; target: string }) => {
+    await relayConnect(options);
+  });
+
+relay
+  .command("status <tunnel>")
+  .description("查看隧道状态")
+  .action(async (tunnel: string) => {
+    await relayStatus(tunnel);
+  });
+
+relay
+  .command("create [tunnel]")
+  .description("创建隧道")
+  .action(async (tunnel?: string) => {
+    await relayCreate(tunnel);
+  });
+
+relay
+  .command("agents")
+  .description("列出所有在线 Agent")
+  .action(async () => {
+    await relayAgents();
+  });
+
 // reset 子命令 - 不需要选择语言
 program
   .command("reset")
@@ -212,8 +437,9 @@ program
   });
 
 function checkPlatform() {
-  if (process.platform !== "darwin") {
-    console.log(kleur.red("✗ 当前仅支持 macOS 平台"));
+  const supported = ["darwin", "linux"];
+  if (!supported.includes(process.platform)) {
+    console.log(kleur.red(`✗ 当前不支持 ${process.platform} 平台 (支持: macOS, Linux)`));
     process.exit(1);
   }
 }

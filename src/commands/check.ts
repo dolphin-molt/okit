@@ -3,9 +3,16 @@ import kleur from "kleur";
 import ora from "ora";
 import fs from "fs-extra";
 import path from "path";
-import { loadRegistry, Step, LOGS_DIR } from "../config/registry";
+import { loadRegistry, Step, LOGS_DIR, resolveCmd } from "../config/registry";
 import { checkStep } from "../executor/runner";
-import { t } from "../config/i18n";
+import { t, getLanguage } from "../config/i18n";
+import {
+  parseSemVer,
+  compareVersions,
+  upgradeLevelLabel,
+  upgradeAdvice,
+  UpgradeLevel,
+} from "../utils/semver";
 
 export interface CheckResult {
   name: string;
@@ -13,15 +20,17 @@ export interface CheckResult {
   version?: string;
   outdated?: boolean;
   availableVersion?: string;
-  authOk?: boolean;    // null = no auth check, true/false = result
+  upgradeLevel?: UpgradeLevel;
+  authOk?: boolean;
   authMsg?: string;
 }
 
 // 获取工具版本
 async function getVersion(step: Step): Promise<string | undefined> {
-  if (!step.versionCmd) return undefined;
+  const cmd = resolveCmd(step.versionCmd);
+  if (!cmd) return undefined;
   try {
-    const { stdout } = await execa.command(step.versionCmd, {
+    const { stdout } = await execa.command(cmd, {
       shell: true,
       timeout: 10000,
     });
@@ -33,15 +42,14 @@ async function getVersion(step: Step): Promise<string | undefined> {
 
 // 检查授权状态
 async function checkAuth(step: Step): Promise<{ ok: boolean; msg: string } | undefined> {
-  if (!step.authCheck) return undefined;
+  const cmd = resolveCmd(step.authCheck);
+  if (!cmd) return undefined;
   try {
-    const { stdout, stderr } = await execa.command(step.authCheck, {
+    const { stdout, stderr } = await execa.command(cmd, {
       shell: true,
       timeout: 15000,
     });
     const output = (stdout + "\n" + stderr).trim();
-    // gh auth status 成功退出 = 已登录
-    // docker info 成功 = daemon 运行中
     return { ok: true, msg: output.split("\n")[0] };
   } catch (error: any) {
     const output = ((error.stdout || "") + "\n" + (error.stderr || "")).trim();
@@ -58,7 +66,6 @@ async function getBrewOutdated(): Promise<Map<string, string>> {
       timeout: 30000,
     });
     const data = JSON.parse(stdout);
-    // formulae
     for (const pkg of data.formulae || []) {
       const current = pkg.installed_versions?.[0] || "";
       const latest = pkg.current_version || "";
@@ -66,7 +73,6 @@ async function getBrewOutdated(): Promise<Map<string, string>> {
         outdated.set(pkg.name, latest);
       }
     }
-    // casks
     for (const pkg of data.casks || []) {
       const latest = pkg.current_version || "";
       if (latest) {
@@ -81,9 +87,9 @@ async function getBrewOutdated(): Promise<Map<string, string>> {
 
 // 从 install 命令中提取 brew 包名
 function extractBrewName(step: Step): string | undefined {
-  const cmd = step.install;
-  // 匹配 brew install [--cask] <name>
-  const match = cmd.match(/brew install\s+(?:--cask\s+)?(\S+)/);
+  const install = resolveCmd(step.install);
+  if (!install) return undefined;
+  const match = install.match(/brew install\s+(?:--cask\s+)?(\S+)/);
   return match?.[1];
 }
 
@@ -111,10 +117,19 @@ async function getNpmOutdated(): Promise<Map<string, string>> {
 
 // 从 install 命令中提取 npm 包名
 function extractNpmPackage(step: Step): string | undefined {
-  const cmd = step.install;
-  // 匹配 npm install -g <pkg> 或 sudo npm install -g <pkg>
-  const match = cmd.match(/npm install\s+-g\s+(\S+)/);
+  const install = resolveCmd(step.install);
+  if (!install) return undefined;
+  const match = install.match(/npm install\s+-g\s+(\S+)/);
   return match?.[1];
+}
+
+// 计算升级级别
+function assessUpgradeLevel(version?: string, availableVersion?: string): UpgradeLevel | undefined {
+  if (!version || !availableVersion) return undefined;
+  const current = parseSemVer(version);
+  const available = parseSemVer(availableVersion);
+  if (!current || !available) return "unknown";
+  return compareVersions(current, available);
 }
 
 export async function runCheck(options: { json?: boolean } = {}): Promise<CheckResult[]> {
@@ -124,7 +139,6 @@ export async function runCheck(options: { json?: boolean } = {}): Promise<CheckR
   const steps = registry.steps;
   const results: CheckResult[] = [];
 
-  // 并行获取 brew 和 npm 的过期信息
   const [brewOutdated, npmOutdated] = await Promise.all([
     getBrewOutdated(),
     getNpmOutdated(),
@@ -132,7 +146,6 @@ export async function runCheck(options: { json?: boolean } = {}): Promise<CheckR
 
   spinner.text = t("checkRunning");
 
-  // 逐个检查工具
   for (const step of steps) {
     const installed = await checkStep(step);
 
@@ -143,10 +156,8 @@ export async function runCheck(options: { json?: boolean } = {}): Promise<CheckR
 
     const result: CheckResult = { name: step.name, installed: true };
 
-    // 版本
     result.version = await getVersion(step);
 
-    // 是否有更新
     const brewName = extractBrewName(step);
     const npmPkg = extractNpmPackage(step);
     if (brewName && brewOutdated.has(brewName)) {
@@ -157,6 +168,11 @@ export async function runCheck(options: { json?: boolean } = {}): Promise<CheckR
       result.availableVersion = npmOutdated.get(npmPkg);
     } else {
       result.outdated = false;
+    }
+
+    // 升级评估
+    if (result.outdated) {
+      result.upgradeLevel = assessUpgradeLevel(result.version, result.availableVersion);
     }
 
     // 授权检查
@@ -177,17 +193,41 @@ export async function runCheck(options: { json?: boolean } = {}): Promise<CheckR
     printCheckReport(results);
   }
 
-  // 保存检查结果日志
   await saveCheckLog(results);
 
   return results;
 }
 
+function levelColor(level: UpgradeLevel): (s: string) => string {
+  switch (level) {
+    case "patch": return kleur.green;
+    case "minor": return kleur.yellow;
+    case "major": return kleur.red;
+    default: return kleur.gray;
+  }
+}
+
+function levelIcon(level: UpgradeLevel): string {
+  switch (level) {
+    case "patch": return "●";
+    case "minor": return "▲";
+    case "major": return "⬆";
+    default: return "?";
+  }
+}
+
 function printCheckReport(results: CheckResult[]) {
+  const lang = getLanguage();
   const installed = results.filter((r) => r.installed);
   const notInstalled = results.filter((r) => !r.installed);
   const outdated = results.filter((r) => r.outdated);
   const authFailed = results.filter((r) => r.authOk === false);
+
+  // 按升级级别分组
+  const majorUpgrades = outdated.filter((r) => r.upgradeLevel === "major");
+  const minorUpgrades = outdated.filter((r) => r.upgradeLevel === "minor");
+  const patchUpgrades = outdated.filter((r) => r.upgradeLevel === "patch");
+  const unknownUpgrades = outdated.filter((r) => r.upgradeLevel === "unknown" || !r.upgradeLevel);
 
   console.log(kleur.cyan("\n" + "═".repeat(60)));
   console.log(kleur.bold(kleur.cyan(t("checkReportTitle"))));
@@ -198,9 +238,14 @@ function printCheckReport(results: CheckResult[]) {
     console.log(kleur.bold(kleur.green(`  ✓ ${t("checkInstalled")} (${installed.length})`)));
     for (const r of installed) {
       const version = r.version ? kleur.gray(` ${r.version}`) : "";
-      const update = r.outdated
-        ? kleur.yellow(` → ${r.availableVersion}`)
-        : "";
+      let update = "";
+      if (r.outdated && r.upgradeLevel) {
+        const color = levelColor(r.upgradeLevel);
+        const label = upgradeLevelLabel(r.upgradeLevel, lang);
+        update = color(` → ${r.availableVersion} [${label}]`);
+      } else if (r.outdated) {
+        update = kleur.yellow(` → ${r.availableVersion}`);
+      }
       const auth = r.authOk === false
         ? kleur.red(` [${t("checkAuthFailed")}]`)
         : r.authOk === true
@@ -220,13 +265,57 @@ function printCheckReport(results: CheckResult[]) {
     console.log();
   }
 
-  // 需要升级的工具
+  // 升级评估报告（按风险分组）
   if (outdated.length > 0) {
-    console.log(kleur.bold(kleur.yellow(`  ⬆ ${t("checkOutdated")} (${outdated.length})`)));
-    for (const r of outdated) {
-      console.log(kleur.yellow(`    ${r.name} ${r.version || "?"} → ${r.availableVersion}`));
-    }
+    console.log(kleur.bold(kleur.yellow(`  ⬆ ${t("checkUpgradeAssessment")} (${outdated.length})`)));
     console.log();
+
+    if (patchUpgrades.length > 0) {
+      console.log(kleur.green(`    ${levelIcon("patch")} ${t("checkPatchLevel")} (${patchUpgrades.length})`));
+      console.log(kleur.gray(`      ${upgradeAdvice("patch", lang)}`));
+      for (const r of patchUpgrades) {
+        const cur = parseSemVer(r.version || "");
+        const avail = parseSemVer(r.availableVersion || "");
+        const curStr = cur ? `${cur.major}.${cur.minor}.${cur.patch}` : (r.version || "?");
+        const availStr = avail ? `${avail.major}.${avail.minor}.${avail.patch}` : (r.availableVersion || "?");
+        console.log(kleur.green(`      ${r.name} ${curStr} → ${availStr}`));
+      }
+      console.log();
+    }
+
+    if (minorUpgrades.length > 0) {
+      console.log(kleur.yellow(`    ${levelIcon("minor")} ${t("checkMinorLevel")} (${minorUpgrades.length})`));
+      console.log(kleur.gray(`      ${upgradeAdvice("minor", lang)}`));
+      for (const r of minorUpgrades) {
+        const cur = parseSemVer(r.version || "");
+        const avail = parseSemVer(r.availableVersion || "");
+        const curStr = cur ? `${cur.major}.${cur.minor}.${cur.patch}` : (r.version || "?");
+        const availStr = avail ? `${avail.major}.${avail.minor}.${avail.patch}` : (r.availableVersion || "?");
+        console.log(kleur.yellow(`      ${r.name} ${curStr} → ${availStr}`));
+      }
+      console.log();
+    }
+
+    if (majorUpgrades.length > 0) {
+      console.log(kleur.red(`    ${levelIcon("major")} ${t("checkMajorLevel")} (${majorUpgrades.length})`));
+      console.log(kleur.gray(`      ${upgradeAdvice("major", lang)}`));
+      for (const r of majorUpgrades) {
+        const cur = parseSemVer(r.version || "");
+        const avail = parseSemVer(r.availableVersion || "");
+        const curStr = cur ? `${cur.major}.${cur.minor}.${cur.patch}` : (r.version || "?");
+        const availStr = avail ? `${avail.major}.${avail.minor}.${avail.patch}` : (r.availableVersion || "?");
+        console.log(kleur.red(`      ${r.name} ${curStr} → ${availStr}`));
+      }
+      console.log();
+    }
+
+    if (unknownUpgrades.length > 0) {
+      console.log(kleur.gray(`    ${levelIcon("unknown")} ${t("checkUnknownLevel")} (${unknownUpgrades.length})`));
+      for (const r of unknownUpgrades) {
+        console.log(kleur.gray(`      ${r.name} ${r.version || "?"} → ${r.availableVersion || "?"}`));
+      }
+      console.log();
+    }
   }
 
   // 授权失败的工具
@@ -242,7 +331,12 @@ function printCheckReport(results: CheckResult[]) {
   console.log(kleur.bold(t("checkSummary")));
   console.log(`  ${kleur.green("●")} ${t("checkInstalled")}: ${installed.length}/${results.length}`);
   if (outdated.length > 0) {
-    console.log(`  ${kleur.yellow("●")} ${t("checkOutdated")}: ${outdated.length}`);
+    const parts: string[] = [];
+    if (patchUpgrades.length > 0) parts.push(kleur.green(`${patchUpgrades.length} ${t("checkPatchLevel")}`));
+    if (minorUpgrades.length > 0) parts.push(kleur.yellow(`${minorUpgrades.length} ${t("checkMinorLevel")}`));
+    if (majorUpgrades.length > 0) parts.push(kleur.red(`${majorUpgrades.length} ${t("checkMajorLevel")}`));
+    if (unknownUpgrades.length > 0) parts.push(kleur.gray(`${unknownUpgrades.length} ${t("checkUnknownLevel")}`));
+    console.log(`  ${kleur.yellow("●")} ${t("checkOutdated")}: ${outdated.length} (${parts.join(", ")})`);
   }
   if (authFailed.length > 0) {
     console.log(`  ${kleur.red("●")} ${t("checkAuthIssues")}: ${authFailed.length}`);
@@ -259,8 +353,14 @@ function printCheckReport(results: CheckResult[]) {
   console.log();
 
   // 建议
-  if (outdated.length > 0) {
+  if (patchUpgrades.length > 0) {
+    console.log(kleur.gray(`  ${t("checkHintPatch")}`));
+  }
+  if (minorUpgrades.length > 0 || majorUpgrades.length > 0) {
     console.log(kleur.gray(`  ${t("checkHintUpgrade")}`));
+  }
+  if (majorUpgrades.length > 0) {
+    console.log(kleur.gray(`  ${t("checkHintMajor")}`));
   }
   if (authFailed.length > 0) {
     console.log(kleur.gray(`  ${t("checkHintAuth")}`));

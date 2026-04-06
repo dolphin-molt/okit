@@ -10,6 +10,7 @@ import {
 } from "./claude";
 import { showRepoMenu } from "./repo";
 import { runCheck } from "./check";
+import { showProfileMenu } from "./profile";
 import { t } from "../config/i18n";
 
 export async function showMainMenu(): Promise<void> {
@@ -25,6 +26,7 @@ export async function showMainMenu(): Promise<void> {
       choices: [
         { title: t("selectItems"), value: "select" },
         { title: t("checkMenu"), value: "check" },
+        { title: "Profile", value: "profile" },
         { title: t("claudeMenu"), value: "claude" },
         { title: t("repoMenu"), value: "repo" },
         { title: t("help"), value: "help" },
@@ -40,6 +42,9 @@ export async function showMainMenu(): Promise<void> {
       case "check":
         await runCheck();
         await prompts({ type: "invisible", name: "continue", message: "" });
+        continue;
+      case "profile":
+        await showProfileMenu();
         continue;
       case "claude":
         await showClaudeMenu();

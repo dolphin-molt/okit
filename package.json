@@ -14,7 +14,12 @@
     "pkg": "pkg . --out-path=bin"
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "dist/**/*.html",
+    "dist/**/*.css",
+    "!dist/release",
     "package.json",
     "README.md",
     "LICENSE"

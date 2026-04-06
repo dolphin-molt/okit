@@ -1,21 +1,30 @@
 # OKIT
 
-macOS 开发工具管理器，提供一站式的安装、升级、卸载、依赖排序与常用配置能力。
+Agent 基础设施运维工具，集中管理工具安装、授权、密钥与中继连接，消除 Agent 执行中断。
 
 适合场景：
-- 新机器快速初始化开发环境
-- 团队统一工具安装方式
-- 需要在命令行完成常规维护
+- Agent 运行时自动安装缺失的 CLI 工具
+- 统一管理 API Key，按项目注入环境变量
+- 通过中继服务器让外部 Agent 访问本地服务
+- 团队共享工具配置 Profile
 
 ---
 
-## 快速安装（推荐）
+## 安装
+
+**NPM（推荐）**：
+
+```bash
+npm install -g okit-cli
+```
+
+**脚本安装**：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
 ```
 
-安装完成后即可使用：
+安装完成后：
 
 ```bash
 okit
@@ -23,196 +32,151 @@ okit
 
 ---
 
-## 重要说明
-
-- 仅支持 macOS。
-- 会安装到 `/usr/local/bin/okit`（必要时会提示 sudo）。
-- 配置文件目录为 `~/.okit`。
-- 默认使用 HTTPS 下载 Release 二进制。
-
----
-
 ## 常用命令
 
 ```bash
-okit                # 进入交互式菜单
-okit upgrade        # 升级 OKIT 或工具
-okit uninstall      # 卸载 OKIT
-okit repo           # Repo 设置与创建
-okit claude         # Claude 配置与运行
-```
-
-查看版本：
-
-```bash
-okit -V
-```
-
----
-
-## 交互式菜单使用
-
-进入 `okit` 后你可以进行：
-
-- 安装工具
-- 升级工具
-- 卸载工具
-- Claude 配置管理
-- Repo 设置与创建
-
-菜单内支持的快捷键会在界面提示中显示。
-
----
-
-## Repo 功能（GitHub）
-
-目前仅支持 GitHub。
-
-功能包括：
-- 一键设置 Git + GitHub 凭据
-- 创建远程仓库
-- 自动绑定 `origin`（HTTPS）
-- 可选首次推送
-
-推荐流程：
-
-1. 运行 `okit repo`
-2. 选择 “一键设置（Git + GitHub）”
-3. 回到菜单选择 “新建仓库”
-
-注意：
-- GitHub Token 会保存在 `~/.okit/user.json`。
-- 同时会写入系统 Keychain，以便 HTTPS 推送免输入。
-
----
-
-## Claude 配置
-
-配置文件：`~/.okit/claude-profiles.json`
-
-示例：
-
-```json
-[
-  {
-    "name": "Volcengine",
-    "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
-    "authToken": "YOUR_TOKEN",
-    "models": ["model-a", "model-b"]
-  }
-]
-```
-
-常用命令：
-
-```bash
-okit claude
-```
-
-说明：
-- Agent Teams 实验开关使用配置项管理（默认开启）。
-- 通过 TUI 配置：`okit claude` → `Agent Teams 开关`。
-- `okit claude` 运行时会根据该配置注入（或移除）`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`。
-- 队友显示模式支持 `auto`（默认）/`in-process`/`tmux`，通过 TUI 配置：`okit claude` → `队友显示模式`。
-
----
-
-## 配置文件说明
-
-`~/.okit/user.json` 保存用户偏好与凭据（示例）：
-
-```json
-{
-  "language": "zh",
-  "git": {
-    "name": "Your Name",
-    "email": "you@example.com"
-  },
-  "repo": {
-    "github": {
-      "username": "your-github",
-      "token": "ghp_xxx"
-    }
-  }
-}
-```
-
-`~/.okit/registry.json` 保存可安装工具清单，可自定义：
-- 同名工具会覆盖默认配置
-- 新增工具会被追加
-- 默认新增工具不会丢失
-
----
-
-## 安装脚本高级用法
-
-指定版本安装：
-
-```bash
-OKIT_VERSION=v0.0.1 curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
-```
-
-设置下载超时（秒）：
-
-```bash
-OKIT_DOWNLOAD_TIMEOUT=1200 curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
+okit                    # 交互式菜单
+okit check              # 检查所有工具安装状态
+okit upgrade            # 升级 OKIT 或工具
+okit uninstall          # 卸载 OKIT
+okit profile            # 工具分组管理
+okit auth               # 检查工具授权状态
+okit auth --fix         # 自动修复授权
+okit vault              # 密钥管理
+okit relay              # 中继服务器连接
+okit repo               # Git/GitHub 设置
+okit claude             # Claude 配置管理
+okit -V                 # 查看版本
 ```
 
 ---
 
-## 卸载说明
+## Profile — 工具分组
 
-执行：
+自定义工具组合，一键安装：
 
 ```bash
-okit uninstall
+okit profile create     # 创建 Profile
+okit profile apply      # 安装 Profile 中的所有工具
+okit profile list       # 查看所有 Profile
+okit profile export     # 导出（分享给团队）
+okit profile import     # 导入
 ```
 
-卸载时会：
-- 自动查找并删除多个可能的 `okit` 路径
-- 如需 sudo 会询问是否执行
-- 可选删除 `~/.okit` 配置目录
+Profile 存储在 `~/.okit/profiles/`。
 
 ---
 
-## 常见问题
+## Auth — 授权管理
 
-Q: 下载 Release 二进制失败怎么办？
+检查所有工具的登录/授权状态，一键修复：
 
-- 可重试执行安装脚本（默认带重试与超时）
-- 手动指定版本号再安装
+```bash
+okit auth               # 检查授权状态
+okit auth --fix         # 自动运行 gh auth login、docker login 等
+```
 
-Q: 为什么我卸载后 `okit` 还能用？
-
-- 可能存在多个安装路径
-- 重新执行 `okit uninstall` 并允许 sudo 删除即可
-
-Q: token 是否会写到环境变量？
-
-- 不会
-- 仅保存在 `~/.okit/user.json` 与系统 Keychain
+支持 15+ 工具的授权检测与修复（gh、docker、wrangler、vercel、aws、gcloud 等）。
 
 ---
 
-## 开发者说明
+## Vault — 密钥管理
 
-本地开发：
+加密存储 API Key，按项目注入环境变量：
 
 ```bash
-npm run dev
+okit vault set OPENROUTER_KEY         # 保存密钥
+okit vault list                        # 查看所有密钥
+okit vault get OPENROUTER_KEY          # 输出原始值
+okit vault inject                      # 输出 export 语句
+okit vault env                         # 生成 .env 文件
+okit vault where OPENROUTER_KEY        # 查看密钥被哪些项目使用
+okit vault sync                        # 同步到所有绑定项目
 ```
 
-本地构建：
+### 密钥映射
 
-```bash
-npm run build
-npm run pkg
+在项目根目录创建 `.okitenv` 文件，将 Vault 中的密钥映射为框架需要的环境变量名：
+
+```
+OPENAI_API_KEY: OPENROUTER_KEY
+GITHUB_TOKEN: GITHUB_TOKEN/company
+DATABASE_URL
 ```
 
-发布 Release（自动打包）：
+格式：`环境变量名: Vault密钥名`，支持 `KEY/alias` 多别名。
+
+### 使用方式
 
 ```bash
-scripts/publish-release.sh v0.0.1 --auto-notes
+# 注入到当前 shell
+eval "$(okit vault inject)"
+
+# 生成 .env 文件
+okit vault env
+```
+
+---
+
+## Relay — 中继服务器
+
+通过 Cloudflare Worker 中继，让外部 Agent 访问本地服务，无需开放端口：
+
+```bash
+okit relay config                      # 配置中继 URL 和 Token
+okit relay connect                     # 建立连接
+okit relay agents                      # 查看在线 Agent
+okit relay status                      # 查看隧道状态
+```
+
+工作原理：
+
+```
+本地服务 ──WebSocket出站──→ Cloudflare Worker ←──HTTP── 外部调用者
+          (不开端口)           (公网入口)
+```
+
+外部调用示例：
+
+```bash
+curl https://<relay-url>/agent/<agent-name>/api/data \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## 工具注册表
+
+内置 54+ 常用工具，覆盖：
+
+- **基础开发**：Node.js、Python、Git、Docker
+- **包管理**：Homebrew、pnpm、uv、pipx
+- **云平台**：AWS CLI、gcloud、Azure CLI、Wrangler、Vercel、Netlify
+- **部署**：Railway、Supabase、Firebase、Fly.io、Heroku
+- **AI 工具**：Claude Code、Ollama
+- **实用工具**：jq、httpie、bat、tree、ngrok、cloudflared
+
+自定义工具可通过 `~/.okit/registry.json` 添加。
+
+---
+
+## 配置文件
+
+| 文件 | 用途 |
+|------|------|
+| `~/.okit/user.json` | 用户偏好、凭据、中继配置 |
+| `~/.okit/registry.json` | 自定义工具注册表 |
+| `~/.okit/profiles/` | Profile 配置 |
+| `~/.okit/vault/` | 加密密钥存储 |
+| `.okitenv` | 项目级密钥映射 |
+
+---
+
+## 开发
+
+```bash
+npm run dev             # 本地开发
+npm run build           # 构建
 ```
 
 ---

@@ -1,6 +1,6 @@
 {
   "name": "okit-cli",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "OKIT - Agent infrastructure toolkit for managing dev tools, auth, and upgrades",
   "main": "dist/main.js",
   "bin": {

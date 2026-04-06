@@ -66,6 +66,7 @@ export async function relayConnect(options: {
   tunnel: string;
   agent: string;
   target?: string;
+  daemon?: boolean;
 }): Promise<void> {
   const config = await getRelayConfig();
   if (!config) {
@@ -74,6 +75,10 @@ export async function relayConnect(options: {
   }
 
   const target = options.target || "http://localhost:3000";
+
+  if (options.daemon) {
+    return relayConnectDaemon(options.tunnel, options.agent, target, config);
+  }
 
   const client = new RelayClient({
     relayUrl: config.url,
@@ -96,6 +101,102 @@ export async function relayConnect(options: {
 
   // 保持进程运行
   return new Promise(() => {});
+}
+
+async function relayConnectDaemon(
+  tunnel: string, agent: string, target: string,
+  config: { url: string; token: string }
+): Promise<void> {
+  const { spawn } = await import("child_process");
+  const fs = await import("fs-extra");
+
+  const logDir = path.join(process.env.HOME || "~", ".okit", "relay");
+  await fs.ensureDir(logDir);
+  const logFile = path.join(logDir, `${agent}.log`);
+  const pidFile = path.join(logDir, `${agent}.pid`);
+
+  // 检查是否已有同名守护进程
+  if (await fs.pathExists(pidFile)) {
+    const oldPid = (await fs.readFile(pidFile, "utf-8")).trim();
+    try {
+      process.kill(Number(oldPid), 0); // 检查进程是否存在
+      console.log(kleur.yellow(`[relay] Agent "${agent}" already running (PID ${oldPid})`));
+      console.log(kleur.gray(`  Log: ${logFile}`));
+      console.log(kleur.gray(`  Stop: okit relay stop ${agent}`));
+      return;
+    } catch {
+      // 进程不存在，清理旧 pid 文件
+    }
+  }
+
+  const logFd = fs.openSync(logFile, "a");
+
+  const child = spawn(process.execPath, [
+    process.argv[1],
+    "relay", "connect",
+    "--tunnel", tunnel,
+    "--agent", agent,
+    "--target", target,
+  ], {
+    detached: true,
+    stdio: ["ignore", logFd, logFd],
+    env: { ...process.env },
+  });
+
+  child.unref();
+  await fs.writeFile(pidFile, String(child.pid));
+
+  console.log(kleur.green(`[relay] ✓ Daemon started: ${agent} (PID ${child.pid})`));
+  console.log(kleur.gray(`  Log:  ${logFile}`));
+  console.log(kleur.gray(`  Stop: okit relay stop ${agent}`));
+}
+
+// okit relay stop <agent-name>
+export async function relayStop(agentName: string): Promise<void> {
+  const fs = await import("fs-extra");
+  const pidFile = path.join(process.env.HOME || "~", ".okit", "relay", `${agentName}.pid`);
+
+  if (!await fs.pathExists(pidFile)) {
+    console.log(kleur.yellow(`[relay] No daemon found for "${agentName}"`));
+    return;
+  }
+
+  const pid = Number((await fs.readFile(pidFile, "utf-8")).trim());
+  try {
+    process.kill(pid, "SIGTERM");
+    console.log(kleur.green(`[relay] ✓ Stopped ${agentName} (PID ${pid})`));
+  } catch {
+    console.log(kleur.yellow(`[relay] Process ${pid} not running, cleaning up`));
+  }
+  await fs.remove(pidFile);
+}
+
+// okit relay ps — 列出所有运行中的守护进程
+export async function relayPs(): Promise<void> {
+  const fs = await import("fs-extra");
+  const dir = path.join(process.env.HOME || "~", ".okit", "relay");
+
+  if (!await fs.pathExists(dir)) {
+    console.log(kleur.yellow("[relay] No daemons"));
+    return;
+  }
+
+  const files = (await fs.readdir(dir)).filter((f: string) => f.endsWith(".pid"));
+  if (files.length === 0) {
+    console.log(kleur.yellow("[relay] No daemons running"));
+    return;
+  }
+
+  console.log(kleur.cyan(`\n[relay] Daemons (${files.length})\n`));
+  for (const f of files) {
+    const name = f.replace(".pid", "");
+    const pid = Number((await fs.readFile(path.join(dir, f), "utf-8")).trim());
+    let alive = false;
+    try { process.kill(pid, 0); alive = true; } catch {}
+    const status = alive ? kleur.green("running") : kleur.red("dead");
+    console.log(`  ${kleur.bold(name)}  PID ${pid}  ${status}`);
+  }
+  console.log();
 }
 
 // okit relay status

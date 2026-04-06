@@ -10,7 +10,7 @@ import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { runCheck } from "./commands/check";
 import { runAuth } from "./commands/auth";
-import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate } from "./commands/relay";
+import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate, relayStop, relayPs } from "./commands/relay";
 import {
   vaultSet,
   vaultGet,
@@ -377,8 +377,23 @@ relay
   .requiredOption("--tunnel <id>", "隧道 ID")
   .requiredOption("--agent <name>", "Agent 名称（用于注册和路由）")
   .option("--target <url>", "本地目标地址", "http://localhost:3000")
-  .action(async (options: { tunnel: string; agent: string; target: string }) => {
+  .option("-d, --daemon", "后台运行")
+  .action(async (options: { tunnel: string; agent: string; target: string; daemon?: boolean }) => {
     await relayConnect(options);
+  });
+
+relay
+  .command("stop <agent-name>")
+  .description("停止后台运行的 Agent")
+  .action(async (agentName: string) => {
+    await relayStop(agentName);
+  });
+
+relay
+  .command("ps")
+  .description("列出所有后台运行的 Agent")
+  .action(async () => {
+    await relayPs();
   });
 
 relay

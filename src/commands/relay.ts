@@ -185,6 +185,40 @@ export async function relayAgents(): Promise<void> {
   }
 }
 
+// okit relay token rotate <agent-name> — 轮换 token
+export async function relayTokenRotate(agentName: string): Promise<void> {
+  const config = await getRelayConfig();
+  if (!config) { printConfigHint(); return; }
+
+  try {
+    const resp = await fetch(`${config.url}/registry/rotate/${agentName}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${config.token}` },
+    });
+    const data = await resp.json() as any;
+
+    if (!resp.ok) {
+      console.log(kleur.red(`[relay] ✗ ${data.error || "Rotate failed"}`));
+      return;
+    }
+
+    // 更新本地存储
+    const fs = await import("fs-extra");
+    const tokensFile = path.join(process.env.HOME || "~", ".okit", "relay", "tokens.json");
+    let tokens: Record<string, string> = {};
+    try { tokens = await fs.readJson(tokensFile); } catch {}
+    tokens[agentName] = data.accessToken;
+    await fs.ensureDir(path.dirname(tokensFile));
+    await fs.writeJson(tokensFile, tokens, { spaces: 2 });
+
+    console.log(kleur.green(`[relay] ✓ Token rotated for ${agentName}`));
+    console.log(kleur.gray(`  New token: ${data.accessToken}`));
+    console.log(kleur.yellow(`  ⚠ 所有使用旧 token 的外部调用者需要更新`));
+  } catch (err: any) {
+    console.log(kleur.red(`[relay] Failed: ${err.message}`));
+  }
+}
+
 // okit relay token <agent-name> — 查询 per-agent access token
 export async function relayToken(agentName?: string): Promise<void> {
   const fs = await import("fs-extra");

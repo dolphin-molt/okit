@@ -10,7 +10,7 @@ import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { runCheck } from "./commands/check";
 import { runAuth } from "./commands/auth";
-import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken } from "./commands/relay";
+import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate } from "./commands/relay";
 import {
   vaultSet,
   vaultGet,
@@ -407,6 +407,13 @@ relay
   .description("查询 Agent 的 access token")
   .action(async (agentName?: string) => {
     await relayToken(agentName);
+  });
+
+relay
+  .command("token-rotate <agent-name>")
+  .description("轮换 Agent 的 access token（旧 token 立即失效）")
+  .action(async (agentName: string) => {
+    await relayTokenRotate(agentName);
   });
 
 // reset 子命令 - 不需要选择语言

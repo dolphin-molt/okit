@@ -118,19 +118,49 @@ export class RelayClient {
           },
         }),
       });
-      if (resp.ok) {
-        const data = await resp.json() as any;
-        this.accessToken = data.agent?.accessToken || null;
-        console.log(`[relay] Registered as: ${this.options.agentId}`);
-        if (this.accessToken) {
-          console.log(`[relay] Access token: ${this.accessToken}`);
-          console.log(`[relay] External call:`);
-          console.log(`[relay]   curl ${this.options.relayUrl}/agent/${this.options.agentId}/ -H "Authorization: Bearer ${this.accessToken}"`);
-          this.saveAccessToken();
+
+      const data = await resp.json() as any;
+
+      if (!resp.ok) {
+        // 注册失败 — 中继服务器验证不通过
+        console.error(`[relay] ✗ Registration failed (${resp.status})`);
+
+        if (data.error === "tunnel_not_connected") {
+          console.error(`[relay]   Tunnel "${this.options.tunnelId}" WebSocket not connected`);
+          console.error(`[relay]   Hint: WebSocket may have dropped before registration completed`);
+          console.error(`[relay]   Action: Will retry on next reconnect`);
+        } else if (data.error === "tunnel_probe_failed") {
+          console.error(`[relay]   Tunnel connected but end-to-end probe failed`);
+          console.error(`[relay]   Probe status: ${data.probeStatus || "unknown"}`);
+          console.error(`[relay]   Detail: ${data.detail || "none"}`);
+          console.error(`[relay]   Hint: Check if local target ${this.options.targetUrl} is running`);
+          console.error(`[relay]   Action: Fix the issue, then reconnect`);
+        } else {
+          console.error(`[relay]   Error: ${data.error || "unknown"}`);
+          console.error(`[relay]   Message: ${data.message || ""}`);
+          if (data.hint) console.error(`[relay]   Hint: ${data.hint}`);
         }
+
+        // 不保存 token，连接无效
+        this.accessToken = null;
+        return;
+      }
+
+      // 注册成功且验证通过
+      this.accessToken = data.agent?.accessToken || null;
+      console.log(`[relay] ✓ Registered as: ${this.options.agentId}`);
+      if (data.verified) {
+        console.log(`[relay] ✓ Connection verified (probe: ${data.probeStatus})`);
+      }
+      if (this.accessToken) {
+        console.log(`[relay] Access token: ${this.accessToken}`);
+        console.log(`[relay] External call:`);
+        console.log(`[relay]   curl ${this.options.relayUrl}/agent/${this.options.agentId}/ -H "Authorization: Bearer ${this.accessToken}"`);
+        this.saveAccessToken();
       }
     } catch (err: any) {
       console.error("[relay] Registration failed:", err.message);
+      console.error("[relay]   Hint: Check relay URL and network connectivity");
     }
   }
 

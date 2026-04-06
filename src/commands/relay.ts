@@ -1,11 +1,9 @@
 import kleur from "kleur";
 import prompts from "prompts";
-import { spawn } from "child_process";
 import path from "path";
 import { loadUserConfig, updateUserConfig } from "../config/user";
 import { t } from "../config/i18n";
-
-const RELAY_PROJECT = path.join(process.env.HOME || "~", "Desktop/Dolphin/relay");
+import { RelayClient } from "../relay/client";
 
 async function getRelayConfig(): Promise<{ url: string; token: string } | null> {
   const config = await loadUserConfig();
@@ -77,40 +75,27 @@ export async function relayConnect(options: {
 
   const target = options.target || "http://localhost:3000";
 
-  console.log(kleur.cyan(`\n[relay] Connecting`));
-  console.log(kleur.gray(`  agent:    ${options.agent}`));
-  console.log(kleur.gray(`  tunnel:   ${options.tunnel}`));
-  console.log(kleur.gray(`  target:   ${target}`));
-  console.log(kleur.gray(`  external: ${config.url}/agent/${options.agent}/\n`));
+  const client = new RelayClient({
+    relayUrl: config.url,
+    tunnelId: options.tunnel,
+    agentId: options.agent,
+    targetUrl: target,
+    authToken: config.token,
+  });
 
-  const child = spawn(
-    "npx",
-    [
-      "tsx", "src/client.ts",
-      "--relay", config.url,
-      "--tunnel", options.tunnel,
-      "--agent", options.agent,
-      "--target", target,
-      "--token", config.token,
-    ],
-    {
-      cwd: RELAY_PROJECT,
-      stdio: "inherit",
-      env: { ...process.env },
-    }
-  );
+  const cleanup = async () => {
+    console.log("\n[relay] Shutting down...");
+    await client.disconnect();
+    process.exit(0);
+  };
 
-  const cleanup = () => { child.kill("SIGTERM"); };
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 
-  return new Promise((resolve) => {
-    child.on("close", () => {
-      process.removeListener("SIGINT", cleanup);
-      process.removeListener("SIGTERM", cleanup);
-      resolve();
-    });
-  });
+  await client.connect();
+
+  // 保持进程运行
+  return new Promise(() => {});
 }
 
 // okit relay status
@@ -198,6 +183,44 @@ export async function relayAgents(): Promise<void> {
   } catch (err: any) {
     console.log(kleur.red(`[relay] Failed: ${err.message}`));
   }
+}
+
+// okit relay token <agent-name> — 查询 per-agent access token
+export async function relayToken(agentName?: string): Promise<void> {
+  const fs = await import("fs-extra");
+  const tokensFile = path.join(process.env.HOME || "~", ".okit", "relay", "tokens.json");
+
+  if (!await fs.pathExists(tokensFile)) {
+    console.log(kleur.yellow("没有已保存的 agent token，请先运行 okit relay connect"));
+    return;
+  }
+
+  const tokens: Record<string, string> = await fs.readJson(tokensFile);
+
+  if (!agentName) {
+    // 列出所有
+    const entries = Object.entries(tokens);
+    if (entries.length === 0) {
+      console.log(kleur.yellow("没有已保存的 agent token"));
+      return;
+    }
+    console.log(kleur.cyan(`\n[relay] Saved tokens (${entries.length})\n`));
+    for (const [name, token] of entries) {
+      console.log(`  ${kleur.bold(name)}: ${kleur.gray(token)}`);
+    }
+    console.log();
+    return;
+  }
+
+  const token = tokens[agentName];
+  if (!token) {
+    console.log(kleur.yellow(`未找到 agent "${agentName}" 的 token`));
+    console.log(kleur.gray(`已有: ${Object.keys(tokens).join(", ") || "无"}`));
+    return;
+  }
+
+  // 直接输出原始值，方便管道使用
+  process.stdout.write(token);
 }
 
 function timeSince(isoDate: string): string {

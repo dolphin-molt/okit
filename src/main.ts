@@ -10,7 +10,7 @@ import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { runCheck } from "./commands/check";
 import { runAuth } from "./commands/auth";
-import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents } from "./commands/relay";
+import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken } from "./commands/relay";
 import {
   vaultSet,
   vaultGet,
@@ -400,6 +400,13 @@ relay
   .description("列出所有在线 Agent")
   .action(async () => {
     await relayAgents();
+  });
+
+relay
+  .command("token [agent-name]")
+  .description("查询 Agent 的 access token")
+  .action(async (agentName?: string) => {
+    await relayToken(agentName);
   });
 
 // reset 子命令 - 不需要选择语言

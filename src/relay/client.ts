@@ -12,7 +12,7 @@ import WebSocket from "ws";
 import os from "os";
 import fs from "fs";
 import path from "path";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 
 // ── Adapter 接口 ──
 
@@ -36,6 +36,84 @@ interface Adapter {
   handle(req: InboundRequest): Promise<InboundResponse>;
 }
 
+// ── 解析请求 body 的公共工具 ──
+
+interface ParsedBody {
+  message: string;
+  cwd?: string;
+  session?: string;
+  model?: string;
+}
+
+function parseRequestBody(req: InboundRequest, defaultCwd: string): ParsedBody {
+  let message = "";
+  let cwd = defaultCwd;
+  let session: string | undefined;
+  let model: string | undefined;
+
+  try {
+    const body = JSON.parse(req.body);
+    // 显式判断 undefined/null，空字符串视为有效值
+    message = body.message ?? body.text ?? body.content ?? req.body;
+    if (body.cwd) cwd = body.cwd;
+    if (body.session) session = body.session;
+    if (body.model) model = body.model;
+  } catch {
+    message = req.body;
+  }
+
+  return { message, cwd, session, model };
+}
+
+// ── 带超时和兜底 SIGKILL 的 spawn 执行器 ──
+
+function spawnWithTimeout(
+  bin: string,
+  args: string[],
+  opts: { cwd: string; timeout: number },
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, {
+      cwd: opts.cwd,
+      env: { ...process.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => { stdout += d.toString(); });
+    child.stderr.on("data", (d) => { stderr += d.toString(); });
+
+    let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      child.kill("SIGTERM");
+      // 兜底：3s 后 SIGKILL
+      setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch {}
+      }, 3000);
+      reject(new Error("Timeout"));
+    }, opts.timeout);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (killed) return;
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(`Exit ${code}: ${stderr.trim()}`));
+      }
+    });
+    child.on("error", (err) => { clearTimeout(timer); reject(err); });
+  });
+}
+
+// ── 从路径解析 segments ──
+
+function parsePathSegments(reqPath: string): string[] {
+  return reqPath.split("/").filter(Boolean);
+}
+
 // ── OpenClaw Adapter ──
 
 class OpenClawAdapter implements Adapter {
@@ -55,32 +133,38 @@ class OpenClawAdapter implements Adapter {
   }
 
   async handle(req: InboundRequest): Promise<InboundResponse> {
-    const parts = req.path.split("/").filter(Boolean);
+    // 路径格式: /openclaw/{agentName}/{sessionId}
+    const parts = parsePathSegments(req.path);
     const agentName = parts[1] || undefined;
+    const pathSession = parts[2] || undefined;
+    const parsed = parseRequestBody(req, this.defaultCwd);
+    const session = pathSession || parsed.session;
 
-    let message = "";
-    let cwd = this.defaultCwd;
-    try {
-      const body = JSON.parse(req.body);
-      message = body.message || body.text || body.content || req.body;
-      if (body.cwd) cwd = body.cwd;
-    } catch {
-      message = req.body;
-    }
-
-    if (!message) {
+    if (!parsed.message) {
       return { status: 400, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: "No message" }) };
     }
 
-    console.log(`[openclaw] ${agentName || "default"} ← ${message.slice(0, 80)}${message.length > 80 ? "..." : ""}`);
+    const label = [agentName || "default", session].filter(Boolean).join("/");
+    console.log(`[openclaw] ${label} ← ${parsed.message.slice(0, 80)}${parsed.message.length > 80 ? "..." : ""}`);
 
     try {
-      const result = await this.runOpenClaw(message, agentName, cwd);
-      console.log(`[openclaw] ${agentName || "default"} → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
+      const args = ["agent", "--local", "-m", parsed.message, "--json"];
+      if (agentName) args.push("--agent", agentName);
+      if (session) args.push("--session-id", session);
+      args.push("--timeout", String(Math.floor(this.timeout / 1000)));
+
+      const raw = await spawnWithTimeout(this.openclawBin, args, { cwd: parsed.cwd || this.defaultCwd, timeout: this.timeout });
+      let result = raw;
+      try {
+        const json = JSON.parse(raw);
+        result = json.response || json.text || json.content || raw;
+      } catch {}
+
+      console.log(`[openclaw] ${label} → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
       return {
         status: 200,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ok: true, agent: agentName || "default", response: result }),
+        body: JSON.stringify({ ok: true, agent: agentName || "default", session: session || "default", response: result }),
       };
     } catch (err: any) {
       return {
@@ -89,41 +173,6 @@ class OpenClawAdapter implements Adapter {
         body: JSON.stringify({ error: "Agent execution failed", detail: err.message }),
       };
     }
-  }
-
-  private runOpenClaw(message: string, agentName?: string, cwd?: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const args = ["agent", "--local", "-m", message, "--json"];
-      if (agentName) args.push("--agent", agentName);
-      args.push("--timeout", String(Math.floor(this.timeout / 1000)));
-
-      const child = spawn(this.openclawBin, args, {
-        cwd: cwd || this.defaultCwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", (d) => { stdout += d.toString(); });
-      child.stderr.on("data", (d) => { stderr += d.toString(); });
-
-      const timer = setTimeout(() => { child.kill("SIGTERM"); reject(new Error(`Timeout`)); }, this.timeout);
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        if (code === 0) {
-          try {
-            const json = JSON.parse(stdout.trim());
-            resolve(json.response || json.text || json.content || stdout.trim());
-          } catch {
-            resolve(stdout.trim());
-          }
-        } else {
-          reject(new Error(`Exit ${code}: ${stderr.trim()}`));
-        }
-      });
-      child.on("error", (err) => { clearTimeout(timer); reject(err); });
-    });
   }
 }
 
@@ -146,37 +195,36 @@ class ClaudeAdapter implements Adapter {
   }
 
   async handle(req: InboundRequest): Promise<InboundResponse> {
-    const parts = req.path.split("/").filter(Boolean);
-    const agentName = parts[1] || undefined;
+    // 路径格式: /claude/{label}
+    // Claude 的 session 由 --resume (-c) 控制，不支持自定义 session-id
+    const parts = parsePathSegments(req.path);
+    const label = parts[1] || "default";
+    const parsed = parseRequestBody(req, this.defaultCwd);
 
-    let message = "";
-    let cwd = this.defaultCwd;
-    let model: string | undefined;
-    try {
-      const body = JSON.parse(req.body);
-      message = body.message || body.text || body.content || req.body;
-      if (body.cwd) cwd = body.cwd;
-      if (body.model) model = body.model;
-    } catch {
-      message = req.body;
-    }
-
-    if (!message) {
+    if (!parsed.message) {
       return { status: 400, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: "No message" }) };
     }
 
-    const url = new URL(`http://localhost${req.path}`);
-    const resume = url.searchParams.get("resume") === "1";
+    let resume = false;
+    try {
+      const url = new URL(`http://localhost${req.path}`);
+      resume = url.searchParams.get("resume") === "1";
+    } catch {}
 
-    console.log(`[claude] ${agentName || "default"} ← ${message.slice(0, 80)}${message.length > 80 ? "..." : ""}`);
+    console.log(`[claude] ${label} ← ${parsed.message.slice(0, 80)}${parsed.message.length > 80 ? "..." : ""}`);
 
     try {
-      const result = await this.runClaude(message, agentName, cwd, model, resume);
-      console.log(`[claude] ${agentName || "default"} → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
+      const args = ["-p", parsed.message, "--output-format", "text"];
+      if (resume) args.push("-c");
+      if (parsed.model) args.push("--model", parsed.model);
+      args.push("--permission-mode", "bypassPermissions");
+
+      const result = await spawnWithTimeout(this.claudeBin, args, { cwd: parsed.cwd || this.defaultCwd, timeout: this.timeout });
+      console.log(`[claude] ${label} → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
       return {
         status: 200,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ok: true, agent: agentName || "default", response: result }),
+        body: JSON.stringify({ ok: true, agent: "claude", label, response: result }),
       };
     } catch (err: any) {
       return {
@@ -185,34 +233,6 @@ class ClaudeAdapter implements Adapter {
         body: JSON.stringify({ error: "Claude execution failed", detail: err.message }),
       };
     }
-  }
-
-  private runClaude(message: string, agentName?: string, cwd?: string, model?: string, resume?: boolean): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const args = ["-p", message, "--output-format", "text"];
-      if (agentName) args.push("--agent", agentName);
-      if (resume) args.push("-c");
-      if (model) args.push("--model", model);
-      args.push("--permission-mode", "bypassPermissions");
-
-      const child = spawn(this.claudeBin, args, {
-        cwd: cwd || this.defaultCwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", (d) => { stdout += d.toString(); });
-      child.stderr.on("data", (d) => { stderr += d.toString(); });
-
-      const timer = setTimeout(() => { child.kill("SIGTERM"); reject(new Error(`Timeout`)); }, this.timeout);
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        code === 0 ? resolve(stdout.trim()) : reject(new Error(`Exit ${code}: ${stderr.trim()}`));
-      });
-      child.on("error", (err) => { clearTimeout(timer); reject(err); });
-    });
   }
 }
 
@@ -235,31 +255,28 @@ class CodexAdapter implements Adapter {
   }
 
   async handle(req: InboundRequest): Promise<InboundResponse> {
-    let message = "";
-    let cwd = this.defaultCwd;
-    let model: string | undefined;
-    try {
-      const body = JSON.parse(req.body);
-      message = body.message || body.text || body.content || req.body;
-      if (body.cwd) cwd = body.cwd;
-      if (body.model) model = body.model;
-    } catch {
-      message = req.body;
-    }
+    // 路径格式: /codex/{label}
+    const parts = parsePathSegments(req.path);
+    const label = parts[1] || "default";
+    const parsed = parseRequestBody(req, this.defaultCwd);
 
-    if (!message) {
+    if (!parsed.message) {
       return { status: 400, headers: { "content-type": "application/json" }, body: JSON.stringify({ error: "No message" }) };
     }
 
-    console.log(`[codex] ← ${message.slice(0, 80)}${message.length > 80 ? "..." : ""}`);
+    console.log(`[codex] ${label} ← ${parsed.message.slice(0, 80)}${parsed.message.length > 80 ? "..." : ""}`);
 
     try {
-      const result = await this.runCodex(message, cwd, model);
-      console.log(`[codex] → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
+      const args = ["exec", parsed.message];
+      if (parsed.model) args.push("-m", parsed.model);
+      args.push("-s", "read-only");
+
+      const result = await spawnWithTimeout(this.codexBin, args, { cwd: parsed.cwd || this.defaultCwd, timeout: this.timeout });
+      console.log(`[codex] ${label} → ${result.slice(0, 80)}${result.length > 80 ? "..." : ""}`);
       return {
         status: 200,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ok: true, agent: "codex", response: result }),
+        body: JSON.stringify({ ok: true, agent: "codex", label, response: result }),
       };
     } catch (err: any) {
       return {
@@ -268,32 +285,6 @@ class CodexAdapter implements Adapter {
         body: JSON.stringify({ error: "Codex execution failed", detail: err.message }),
       };
     }
-  }
-
-  private runCodex(message: string, cwd?: string, model?: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const args = ["exec", message];
-      if (model) args.push("-m", model);
-      args.push("-s", "read-only");
-
-      const child = spawn(this.codexBin, args, {
-        cwd: cwd || this.defaultCwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", (d) => { stdout += d.toString(); });
-      child.stderr.on("data", (d) => { stderr += d.toString(); });
-
-      const timer = setTimeout(() => { child.kill("SIGTERM"); reject(new Error(`Timeout`)); }, this.timeout);
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        code === 0 ? resolve(stdout.trim()) : reject(new Error(`Exit ${code}: ${stderr.trim()}`));
-      });
-      child.on("error", (err) => { clearTimeout(timer); reject(err); });
-    });
   }
 }
 
@@ -439,13 +430,11 @@ export class RelayClient {
       this.startHeartbeat();
     });
 
-    this.ws.on("message", async (data: WebSocket.RawData) => {
-      try {
-        const msg: TunnelMessage = JSON.parse(data.toString());
-        await this.handleMessage(msg);
-      } catch (err: any) {
+    this.ws.on("message", (data: WebSocket.RawData) => {
+      // 不 await，允许并发处理多个请求
+      this.dispatchMessage(data).catch((err) => {
         console.error("[bridge] Message error:", err.message);
-      }
+      });
     });
 
     this.ws.on("close", async (code: number, reason: Buffer) => {
@@ -460,6 +449,29 @@ export class RelayClient {
     });
 
     this.ws.on("error", (err: Error) => { console.error("[bridge] Error:", err.message); });
+  }
+
+  private async dispatchMessage(data: WebSocket.RawData): Promise<void> {
+    const msg: TunnelMessage = JSON.parse(data.toString());
+    if (msg.type === "connected") return;
+    if (msg.type === "ping") { this.ws?.send(JSON.stringify({ type: "pong" })); return; }
+    if (msg.type !== "request" || !msg.id) return;
+
+    const response = await this.router.route({
+      id: msg.id,
+      method: msg.method || "GET",
+      path: msg.path || "/",
+      headers: msg.headers || {},
+      body: msg.body || "",
+    });
+
+    this.ws?.send(JSON.stringify({
+      type: "response",
+      id: msg.id,
+      status: response.status,
+      headers: response.headers,
+      body: response.body,
+    }));
   }
 
   private async register(): Promise<void> {
@@ -524,42 +536,28 @@ export class RelayClient {
   }
 
   private startHeartbeat(): void {
+    // WebSocket + Registry heartbeat
     this.heartbeatTimer = setInterval(async () => {
-      if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: "pong" }));
+      // WebSocket 保活：发 JSON 消息让 DO 知道连接还活着
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: "pong" }));
+      }
+      // Registry 心跳
       try {
-        await fetch(`${this.options.relayUrl}/registry/heartbeat`, {
+        const resp = await fetch(`${this.options.relayUrl}/registry/heartbeat`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...this.authHeaders() },
           body: JSON.stringify({ agentId: this.options.agentId }),
         });
-      } catch {}
-    }, 25000);
+        if (!resp.ok) console.log(`[bridge] Heartbeat failed: ${resp.status}`);
+      } catch (err: any) {
+        console.log(`[bridge] Heartbeat error: ${err.message}`);
+      }
+    }, 10000);
   }
 
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-  }
-
-  private async handleMessage(msg: TunnelMessage): Promise<void> {
-    if (msg.type === "connected") return;
-    if (msg.type === "ping") { this.ws?.send(JSON.stringify({ type: "pong" })); return; }
-    if (msg.type !== "request" || !msg.id) return;
-
-    const response = await this.router.route({
-      id: msg.id,
-      method: msg.method || "GET",
-      path: msg.path || "/",
-      headers: msg.headers || {},
-      body: msg.body || "",
-    });
-
-    this.ws?.send(JSON.stringify({
-      type: "response",
-      id: msg.id,
-      status: response.status,
-      headers: response.headers,
-      body: response.body,
-    }));
   }
 
   async disconnect(): Promise<void> {

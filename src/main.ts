@@ -10,7 +10,7 @@ import { uninstallOkit } from "./commands/uninstall";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import { runCheck } from "./commands/check";
 import { runAuth } from "./commands/auth";
-import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate, relayStop, relayPs } from "./commands/relay";
+import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate, relayStop, relayPs, relayLogs } from "./commands/relay";
 import {
   vaultSet,
   vaultGet,
@@ -391,9 +391,18 @@ relay
 
 relay
   .command("ps")
-  .description("列出所有后台运行的 Agent")
+  .description("列出所有后台运行的 Bridge")
   .action(async () => {
     await relayPs();
+  });
+
+relay
+  .command("logs <agent-name>")
+  .description("查看 Bridge 日志")
+  .option("-f, --follow", "实时跟踪日志")
+  .option("-n, --lines <number>", "显示最后 N 行", "50")
+  .action(async (agentName: string, options: { follow?: boolean; lines?: string }) => {
+    await relayLogs(agentName, { follow: options.follow, lines: parseInt(options.lines || "50") });
   });
 
 relay

@@ -129,24 +129,49 @@ async function relayConnectDaemon(
     }
   }
 
+  // 去掉代理环境变量，避免 fetch 请求被代理拦截返回 HTML
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.HTTP_PROXY;
+  delete cleanEnv.HTTPS_PROXY;
+  delete cleanEnv.http_proxy;
+  delete cleanEnv.https_proxy;
+
+  // 确保 PATH 包含常用 bin 目录（daemon 可能继承精简 PATH）
+  const extraPaths = [
+    path.join(process.env.HOME || "~", ".npm-global", "bin"),
+    path.join(process.env.HOME || "~", ".local", "bin"),
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ];
+  const currentPath = cleanEnv.PATH || "";
+  const missingPaths = extraPaths.filter((p) => !currentPath.includes(p));
+  if (missingPaths.length) {
+    cleanEnv.PATH = [...missingPaths, currentPath].join(":");
+  }
+
   const logFd = fs.openSync(logFile, "a");
+  let childPid: number | undefined;
+  try {
+    const child = spawn(process.execPath, [
+      process.argv[1],
+      "relay", "connect",
+      "--tunnel", tunnel,
+      "--agent", agent,
+      "--target", target,
+    ], {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: cleanEnv,
+    });
 
-  const child = spawn(process.execPath, [
-    process.argv[1],
-    "relay", "connect",
-    "--tunnel", tunnel,
-    "--agent", agent,
-    "--target", target,
-  ], {
-    detached: true,
-    stdio: ["ignore", logFd, logFd],
-    env: { ...process.env },
-  });
+    child.unref();
+    childPid = child.pid;
+    await fs.writeFile(pidFile, String(childPid));
+  } finally {
+    fs.closeSync(logFd);
+  }
 
-  child.unref();
-  await fs.writeFile(pidFile, String(child.pid));
-
-  console.log(kleur.green(`[relay] ✓ Daemon started: ${agent} (PID ${child.pid})`));
+  console.log(kleur.green(`[relay] ✓ Daemon started: ${agent} (PID ${childPid})`));
   console.log(kleur.gray(`  Log:  ${logFile}`));
   console.log(kleur.gray(`  Stop: okit relay stop ${agent}`));
 }
@@ -164,6 +189,12 @@ export async function relayStop(agentName: string): Promise<void> {
   const pid = Number((await fs.readFile(pidFile, "utf-8")).trim());
   try {
     process.kill(pid, "SIGTERM");
+    // 等待进程退出（最多 5s），让 unregister 完成
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      try { process.kill(pid, 0); } catch { break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
     console.log(kleur.green(`[relay] ✓ Stopped ${agentName} (PID ${pid})`));
   } catch {
     console.log(kleur.yellow(`[relay] Process ${pid} not running, cleaning up`));
@@ -187,16 +218,67 @@ export async function relayPs(): Promise<void> {
     return;
   }
 
-  console.log(kleur.cyan(`\n[relay] Daemons (${files.length})\n`));
+  // 读取 token 和配置用于显示
+  let tokens: Record<string, string> = {};
+  const tokensFile = path.join(dir, "tokens.json");
+  try { tokens = await fs.readJson(tokensFile); } catch {}
+
+  const config = await getRelayConfig();
+
+  console.log(kleur.cyan(`\n[relay] Bridges (${files.length})\n`));
   for (const f of files) {
     const name = f.replace(".pid", "");
     const pid = Number((await fs.readFile(path.join(dir, f), "utf-8")).trim());
     let alive = false;
     try { process.kill(pid, 0); alive = true; } catch {}
-    const status = alive ? kleur.green("running") : kleur.red("dead");
+    const status = alive ? kleur.green("● running") : kleur.red("✗ dead");
     console.log(`  ${kleur.bold(name)}  PID ${pid}  ${status}`);
+    if (config) {
+      console.log(kleur.gray(`    relay:  ${config.url}`));
+    }
+    const token = tokens[name];
+    if (token) {
+      console.log(kleur.gray(`    token:  ${token.slice(0, 12)}...`));
+    }
+    // 读取日志最后几行获取连接信息
+    const logFile = path.join(dir, `${name}.log`);
+    if (await fs.pathExists(logFile)) {
+      console.log(kleur.gray(`    log:    ${logFile}`));
+    }
+    if (!alive) {
+      console.log(kleur.gray(`    cleanup: okit relay stop ${name}`));
+    } else {
+      console.log(kleur.gray(`    stop:   okit relay stop ${name}`));
+    }
+    console.log();
   }
-  console.log();
+}
+
+// okit relay logs <agent-name> — 查看 bridge 日志
+export async function relayLogs(agentName: string, options: { follow?: boolean; lines?: number }): Promise<void> {
+  const fs = await import("fs-extra");
+  const { spawn: spawnProc } = await import("child_process");
+  const logFile = path.join(process.env.HOME || "~", ".okit", "relay", `${agentName}.log`);
+
+  if (!await fs.pathExists(logFile)) {
+    console.log(kleur.yellow(`[relay] No log file for "${agentName}"`));
+    return;
+  }
+
+  const lines = options.lines || 50;
+
+  const tailArgs = options.follow
+    ? ["-f", "-n", String(lines), logFile]
+    : ["-n", String(lines), logFile];
+
+  const child = spawnProc("tail", tailArgs, { stdio: "inherit" });
+
+  if (options.follow) {
+    process.on("SIGINT", () => { child.kill(); process.exit(0); });
+    await new Promise(() => {}); // 保持运行
+  } else {
+    await new Promise<void>((resolve) => child.on("close", () => resolve()));
+  }
 }
 
 // okit relay status

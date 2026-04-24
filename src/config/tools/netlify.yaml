@@ -1,0 +1,42 @@
+name: Netlify CLI
+category: Cloud
+
+description: Netlify 官方命令行工具，用于本地开发和部署静态站点
+homepage: https://docs.netlify.com/cli
+
+install: npm install -g netlify-cli
+upgrade: npm update -g netlify-cli
+uninstall: npm uninstall -g netlify-cli
+check: command -v netlify
+versionCmd: netlify --version 2>/dev/null | head -1
+authCheck: "netlify status 2>&1"
+authFix: "netlify login"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Netlify CLI
+
+  Netlify CLI 是 Netlify 平台的官方命令行工具，提供静态站点和 Serverless 函数的本地开发、测试和部署能力。它可以在本地完整模拟 Netlify 的部署环境，包括重定向规则、函数调用和边缘逻辑，确保本地开发与生产环境一致。
+
+  ## 核心功能
+
+  - **本地开发服务器**：`netlify dev` 启动本地环境，模拟 Netlify 部署行为
+  - **一键部署**：`netlify deploy` 快速部署站点，支持预览和生产环境
+  - **Serverless Functions**：本地开发和调试 Netlify Functions
+  - **重定向与代理**：本地测试 _redirects 和 _headers 配置
+  - **环境变量管理**：通过 `netlify env` 管理站点环境变量
+  - **CI/CD 集成**：支持在 CI/CD 流水线中自动化部署
+
+  ## 常用命令
+
+  ```bash
+  netlify login              # 登录 Netlify 账号
+  netlify init               # 初始化并关联 Netlify 站点
+  netlify dev                # 启动本地开发服务器
+  netlify deploy             # 部署预览版本
+  netlify deploy --prod      # 部署到生产环境
+  netlify functions:create    # 创建 Serverless 函数
+  netlify env:list           # 查看环境变量
+  ```

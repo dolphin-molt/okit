@@ -1,0 +1,47 @@
+name: PostgreSQL
+category: Database
+
+description: 功能强大的开源关系数据库，支持 JSON、全文搜索等高级特性
+homepage: https://postgresql.org
+
+install:
+  darwin: brew install postgresql@16
+  linux: sudo apt-get update && sudo apt-get install -y postgresql-client
+upgrade:
+  darwin: brew upgrade postgresql@16
+  linux: sudo apt-get update && sudo apt-get install -y postgresql-client
+uninstall:
+  darwin: brew uninstall postgresql@16
+  linux: sudo apt-get remove -y postgresql-client
+check: command -v psql
+versionCmd: psql --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 PostgreSQL
+
+  PostgreSQL 是世界上最先进的开源关系数据库管理系统，以功能丰富、标准兼容和高扩展性著称。它支持 JSON/JSONB、全文搜索、地理空间数据（PostGIS）、窗口函数等高级特性，被广泛应用于各种规模的应用系统。
+
+  ## 核心功能
+
+  - **SQL 标准兼容**：高度兼容 SQL 标准，支持复杂查询、CTE、窗口函数等
+  - **JSON 支持**：原生 JSON/JSONB 类型，可替代 MongoDB 处理文档数据
+  - **全文搜索**：内置全文搜索引擎，支持中文分词（需安装扩展）
+  - **扩展生态**：通过 Extension 机制扩展功能，如 PostGIS（地理信息）、pg_trgm（模糊搜索）
+  - **MVCC 并发**：多版本并发控制，读写操作互不阻塞
+  - **高可用方案**：支持流复制、逻辑复制和多种高可用集群方案
+
+  ## 常用命令
+
+  ```bash
+  psql -h localhost -U postgres # 连接数据库
+  psql -d mydb -f schema.sql    # 执行 SQL 文件
+  pg_dump mydb > backup.sql     # 备份数据库
+  pg_restore -d mydb backup.sql # 恢复数据库
+  psql -c "SELECT version();"   # 执行单条 SQL
+  createdb mydb                 # 创建数据库
+  dropdb mydb                   # 删除数据库
+  psql -l                       # 列出所有数据库
+  ```

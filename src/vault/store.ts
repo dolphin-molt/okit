@@ -185,6 +185,16 @@ export class VaultStore {
     }));
   }
 
+  async exportAll(): Promise<Array<{ key: string; alias: string; value: string; updatedAt: string }>> {
+    const data = await this.load();
+    return data.secrets.map((s) => ({
+      key: s.key,
+      alias: s.alias,
+      value: s.value,
+      updatedAt: s.updatedAt,
+    }));
+  }
+
   // Get all aliases for a key
   async getAliases(key: string): Promise<string[]> {
     const data = await this.load();

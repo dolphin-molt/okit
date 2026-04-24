@@ -1,0 +1,42 @@
+name: Warp
+category: Terminals
+
+description: 基于 Rust 的现代终端，内置 AI 命令补全和协作功能
+homepage: https://warp.dev
+
+install:
+  darwin: brew install --cask warp
+upgrade:
+  darwin: brew upgrade --cask warp
+uninstall:
+  darwin: brew uninstall --cask warp
+check:
+  darwin: test -d /Applications/Warp.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Warp
+
+  Warp 是一款基于 Rust 构建的现代化终端模拟器，内置 AI 命令补全和团队协作功能。它将 IDE 的编辑体验带入终端，支持命令编辑、输出分组、工作流共享等创新功能，旨在重新定义终端使用体验。
+
+  ## 核心功能
+
+  - **AI 命令补全**：内置 AI 助手，根据自然语言描述生成命令
+  - **命令编辑**：像编辑器一样编辑命令，支持光标移动和选择
+  - **输出分组**：命令和输出成组展示，便于回溯和搜索
+  - **工作流共享**：将常用命令序列保存为可复用的工作流
+  - **协作功能**：支持团队成员共享命令和工作流
+  - **现代 UI**：现代化的界面设计，支持主题和自定义
+
+  ## 常用命令
+
+  ```bash
+  # Warp 为 GUI 应用，通过界面交互使用：
+  # Ctrl+Shift+I    # 唤起 AI 命令补全
+  # 输入自然语言描述，Warp AI 自动生成对应命令
+  # 命令输出自动分组，方便浏览历史
+  # 支持通过 Warp Dashboard 管理工作流
+  open -a Warp                    # 打开 Warp 终端
+  ```

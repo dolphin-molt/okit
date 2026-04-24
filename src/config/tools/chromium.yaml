@@ -1,0 +1,36 @@
+name: Chromium (Puppeteer)
+category: Development
+
+description: Google Chrome 团队出品的 Node.js 浏览器自动化库，用于爬虫和测试
+homepage: https://pptr.dev
+
+install: "echo '安装 Puppeteer 浏览器 (Chromium)...' && sudo npm install -g puppeteer && npx puppeteer browsers install chrome"
+upgrade: "sudo npm update -g puppeteer && npx puppeteer browsers install chrome"
+uninstall: "sudo npm uninstall -g puppeteer && sudo rm -rf ~/.cache/puppeteer"
+check: "command -v puppeteer || ls ~/.cache/puppeteer/chrome/*/chrome-mac/Chromium.app 2>/dev/null || ls ~/.cache/puppeteer/chrome/*/chrome-linux/chrome 2>/dev/null"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Chromium (Puppeteer)
+
+  Puppeteer 是 Google Chrome 团队出品的 Node.js 浏览器自动化库，通过 DevTools Protocol 控制 Chromium 浏览器。它广泛用于 Web 爬虫、自动化测试、PDF 生成、截图等场景，是 Headless Chrome 生态中最流行的工具。
+
+  ## 核心功能
+
+  - **Headless 模式**：无需图形界面即可操控浏览器，适合服务器环境
+  - **页面截图**：对网页进行全页或区域截图，支持移动端模拟
+  - **PDF 生成**：将网页渲染为高质量的 PDF 文档
+  - **自动化操作**：模拟点击、输入、导航等用户行为
+  - **网络拦截**：拦截和修改 HTTP 请求与响应
+  - **性能分析**：通过 Chrome DevTools Protocol 获取页面性能数据
+
+  ## 常用命令
+
+  ```bash
+  npx puppeteer browsers install chrome  # 安装 Chromium 浏览器
+  npx puppeteer browsers install firefox # 安装 Firefox
+  npx puppeteer browsers list            # 查看已安装的浏览器
+  npx puppeteer browsers install --help  # 查看帮助
+  ```

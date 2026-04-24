@@ -1,0 +1,49 @@
+name: kubectl
+category: Containers
+
+description: Kubernetes 命令行工具，用于管理集群、部署、服务和配置
+homepage: https://kubernetes.io/docs/reference/kubectl
+
+install:
+  darwin: brew install kubectl
+  linux: 'curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl'
+upgrade:
+  darwin: brew upgrade kubectl
+  linux: 'curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl'
+uninstall:
+  darwin: brew uninstall kubectl
+  linux: sudo rm -f /usr/local/bin/kubectl
+check: command -v kubectl
+versionCmd: "kubectl version --client --short 2>/dev/null || kubectl version --client 2>&1 | head -1"
+authCheck: "kubectl cluster-info 2>&1 | head -1"
+authFix: "kubectl config set-cluster"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 kubectl
+
+  kubectl 是 Kubernetes 集群的命令行管理工具，用于部署应用、管理集群资源、查看日志和调试服务。它是与 Kubernetes API 服务器交互的主要方式，是容器编排和云原生运维的核心工具。
+
+  ## 核心功能
+
+  - **资源管理**：创建、更新、删除 Pod、Service、Deployment 等 Kubernetes 资源
+  - **应用部署**：通过声明式或命令式方式部署和管理容器化应用
+  - **日志查看**：实时查看容器日志，支持多容器和多 Pod 日志聚合
+  - **调试排错**：exec 进入容器、端口转发、资源描述和事件查看
+  - **配置管理**：管理 ConfigMap、Secret 和 Namespace 等配置资源
+  - **多集群管理**：通过 kubeconfig 文件管理多个集群的访问配置
+
+  ## 常用命令
+
+  ```bash
+  kubectl get pods              # 列出所有 Pod
+  kubectl get services          # 列出所有 Service
+  kubectl apply -f deploy.yaml  # 应用 YAML 配置
+  kubectl logs <pod-name>       # 查看 Pod 日志
+  kubectl exec -it <pod-name> -- bash  # 进入容器
+  kubectl port-forward svc/myapp 8080:80  # 端口转发
+  kubectl describe pod <name>   # 查看 Pod 详情
+  kubectl config get-contexts   # 查看集群上下文
+  ```

@@ -1,0 +1,48 @@
+name: AWS CLI
+category: Cloud
+
+description: Amazon Web Services 官方命令行工具，管理 EC2、S3、Lambda 等云服务
+homepage: https://aws.amazon.com/cli
+
+install:
+  darwin: brew install awscli
+  linux: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && unzip -o /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install && rm -rf /tmp/awscliv2.zip /tmp/aws
+upgrade:
+  darwin: brew upgrade awscli
+  linux: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && unzip -o /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install --update && rm -rf /tmp/awscliv2.zip /tmp/aws
+uninstall:
+  darwin: brew uninstall awscli
+  linux: sudo rm -rf /usr/local/aws-cli /usr/local/bin/aws /usr/local/bin/aws_completer
+check: command -v aws
+versionCmd: aws --version 2>&1 | head -1
+authCheck: "aws sts get-caller-identity 2>&1"
+authFix: "aws configure"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 AWS CLI
+
+  AWS CLI 是 Amazon Web Services 的统一命令行工具，提供了对 AWS 所有服务的编程式访问能力。通过简洁的命令语法，开发者可以在终端中管理 EC2 虚拟机、S3 存储、Lambda 函数、DynamoDB 数据库等数百种云服务，是 AWS 云运维和自动化的必备工具。
+
+  ## 核心功能
+
+  - **统一接口**：一个命令行工具管理所有 AWS 服务，无需切换控制台
+  - **脚本自动化**：支持 Shell 脚本批量操作，适合 CI/CD 和自动化运维
+  - **多配置文件**：支持多个 AWS 账号和区域的配置切换
+  - **JSON 输出**：结构化输出便于与 jq 等工具配合进行数据过滤
+  - **S3 文件操作**：高效的上传、下载、同步和权限管理
+  - **IAM 管理**：用户、角色、策略的创建和权限控制
+
+  ## 常用命令
+
+  ```bash
+  aws configure              # 配置 AWS 凭据和区域
+  aws s3 ls                  # 列出 S3 存储桶
+  aws s3 cp file.txt s3://bucket/  # 上传文件到 S3
+  aws ec2 describe-instances # 查看 EC2 实例列表
+  aws lambda invoke --function-name my-func output.json  # 调用 Lambda 函数
+  aws sts get-caller-identity # 查看当前身份信息
+  aws iam list-users         # 列出 IAM 用户
+  ```

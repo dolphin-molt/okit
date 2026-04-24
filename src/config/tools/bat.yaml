@@ -1,0 +1,47 @@
+name: bat
+category: Utilities
+
+description: cat 的增强替代品，支持语法高亮、Git 集成和行号显示
+homepage: https://github.com/sharkdp/bat
+
+install:
+  darwin: brew install bat
+  linux: sudo apt-get update && sudo apt-get install -y bat
+upgrade:
+  darwin: brew upgrade bat
+  linux: sudo apt-get update && sudo apt-get install -y bat
+uninstall:
+  darwin: brew uninstall bat
+  linux: sudo apt-get remove -y bat
+check: command -v bat
+versionCmd: "bat --version 2>/dev/null | head -1"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 bat
+
+  bat 是 cat 命令的现代增强替代品，由 sharkdp 开发。它在保留 cat 核心功能的基础上，增加了语法高亮、Git 集成、行号显示、非打印字符可视化等特性，是终端中查看文件内容的最佳选择。
+
+  ## 核心功能
+
+  - **语法高亮**：基于 syntect 引擎，支持 150+ 编程语言的语法高亮
+  - **Git 集成**：在侧边栏显示文件的 Git 修改状态（新增、修改、删除）
+  - **行号显示**：默认显示行号，方便代码阅读和讨论
+  - **非打印字符**：可视化显示制表符、换行符等不可见字符
+  - **分页集成**：自动调用 less 等分页器处理长文件
+  - **主题支持**：支持多种颜色主题，可自定义配置
+
+  ## 常用命令
+
+  ```bash
+  bat file.txt                 # 查看文件（带语法高亮和行号）
+  bat -n file.txt              # 只显示行号，不显示边框
+  bat -A file.txt              # 显示所有不可见字符
+  bat --style=plain file.txt   # 无装饰纯文本输出
+  bat file1.txt file2.txt      # 一次查看多个文件
+  bat --list-themes            # 列出可用主题
+  bat --theme=Dracula file.py  # 指定主题
+  bat -p file.txt | head -20   # 管道模式（plain 模式）
+  ```

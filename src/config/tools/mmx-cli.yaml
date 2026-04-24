@@ -1,0 +1,46 @@
+name: MMX-CLI
+category: AI Coding
+
+description: MiniMax 多模态命令行工具，提供文本、图片、视频、语音、音乐等生成能力
+homepage: https://github.com/MiniMax-AI/cli
+
+install: npm install -g mmx-cli
+upgrade: "npm update -g mmx-cli"
+uninstall: "npm uninstall -g mmx-cli"
+check: command -v mmx
+versionCmd: "mmx --version 2>/dev/null || echo unknown"
+
+authCheck: "mmx auth status 2>&1"
+authFix: "echo '请前往 https://platform.minimax.io 获取 API Key，然后运行: mmx auth login --key' && mmx auth login --key"
+
+dependencies:
+  - Node.js
+
+skill: "MiniMax 推出的多模态命令行工具，为 AI Agent 提供七种生成能力：文本、图片、视频、语音、音乐、视觉和搜索。通过 mmx <command> 调用，支持 mmx text generate、mmx image generate、mmx video generate 等子命令。需要 MiniMax API Key，通过 mmx auth login 配置。"
+
+detail: |
+  ## 什么是 MMX-CLI
+
+  MMX-CLI 是 MiniMax 推出的多模态命令行工具，为 AI Agent 提供七种生成能力：文本生成、图片生成、视频生成、语音合成、音乐生成、视觉理解和搜索。通过简洁的子命令调用，轻松集成多模态 AI 能力。
+
+  ## 核心功能
+
+  - **文本生成**：通过 `mmx text generate` 调用 MiniMax 大语言模型
+  - **图片生成**：根据文字描述生成高质量图片
+  - **视频生成**：文字或图片转视频，支持多种风格
+  - **语音合成**：高质量文本转语音，支持多种音色
+  - **音乐生成**：根据描述生成背景音乐和音效
+  - **视觉理解**：上传图片进行识别、分析和问答
+
+  ## 常用命令
+
+  ```bash
+  mmx auth login             # 登录配置 API Key
+  mmx text generate          # 文本生成
+  mmx image generate         # 图片生成
+  mmx video generate         # 视频生成
+  mmx speech generate        # 语音合成
+  mmx music generate         # 音乐生成
+  mmx vision analyze         # 视觉分析
+  mmx auth status            # 查看认证状态
+  ```

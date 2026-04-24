@@ -1,0 +1,47 @@
+name: ngrok
+category: Network
+
+description: 内网穿透工具，将本地服务暴露到公网，便于调试和演示
+homepage: https://ngrok.com
+
+install:
+  darwin: brew install ngrok/ngrok/ngrok
+  linux: "curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo 'deb https://ngrok-agent.s3.amazonaws.com buster main' | sudo tee /etc/apt/sources.list.d/ngrok.list && sudo apt-get update && sudo apt-get install -y ngrok"
+upgrade:
+  darwin: brew upgrade ngrok/ngrok/ngrok
+  linux: sudo apt-get update && sudo apt-get install -y ngrok
+uninstall:
+  darwin: brew uninstall ngrok
+  linux: sudo apt-get remove -y ngrok
+check: command -v ngrok
+versionCmd: ngrok --version 2>/dev/null
+authCheck: "ngrok config check 2>&1"
+authFix: "ngrok config add-authtoken"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 ngrok
+
+  ngrok 是一款流行的内网穿透工具，能够将本地运行的服务通过安全隧道暴露到公网。它非常适合开发调试 Webhook、演示本地项目、远程协作等场景，无需配置路由器或公网 IP 即可让外部访问本地服务。
+
+  ## 核心功能
+
+  - **快速隧道**：一行命令 `ngrok http 3000` 即可将本地端口暴露到公网
+  - **自动 HTTPS**：自动为本地服务提供 HTTPS 支持
+  - **Webhook 调试**：内置请求检查器，实时查看所有 HTTP 请求和响应
+  - **自定义域名**：付费版支持绑定自定义域名
+  - **TCP 隧道**：支持 SSH、数据库等 TCP 服务的内网穿透
+  - **多隧道管理**：同时建立多个隧道，穿透多个本地服务
+
+  ## 常用命令
+
+  ```bash
+  ngrok http 3000              # 将本地 3000 端口暴露到公网
+  ngrok http 8080              # 将本地 8080 端口暴露到公网
+  ngrok tcp 22                 # 创建 SSH 隧道
+  ngrok config add-authtoken   # 配置认证令牌
+  ngrok config check           # 检查配置状态
+  ngrok http --domain=xxx 3000 # 使用自定义域名
+  ```

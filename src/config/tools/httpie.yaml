@@ -1,0 +1,46 @@
+name: httpie
+category: Network
+
+description: 人性化的命令行 HTTP 客户端，替代 curl，语法更简洁直观
+homepage: https://httpie.io
+
+install:
+  darwin: brew install httpie
+  linux: sudo apt-get update && sudo apt-get install -y httpie
+upgrade:
+  darwin: brew upgrade httpie
+  linux: sudo apt-get update && sudo apt-get install -y httpie
+uninstall:
+  darwin: brew uninstall httpie
+  linux: sudo apt-get remove -y httpie
+check: command -v http
+versionCmd: "http --version 2>/dev/null | head -1"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 httpie
+
+  httpie（HTTPie）是一款人性化的命令行 HTTP 客户端，旨在让与 HTTP 服务的交互更加直观和友好。它是 curl 的现代替代品，语法简洁自然，支持语法高亮、JSON 支持、表单和文件上传等功能。
+
+  ## 核心功能
+
+  - **直观语法**：`http POST example.org name=John` 比 curl 更易读易写
+  - **自动 JSON**：自动识别 JSON 响应并格式化输出
+  - **语法高亮**：彩色输出请求和响应，方便阅读
+  - **认证支持**：内置 Basic Auth、Bearer Token、Digest Auth 等认证方式
+  - **会话管理**：支持跨请求的会话持久化
+  - **下载模式**：支持文件下载，类似 wget 的体验
+
+  ## 常用命令
+
+  ```bash
+  http GET https://api.example.com/users    # 发送 GET 请求
+  http POST https://api.example.com/users name=John age=30  # 发送 JSON POST
+  http PUT https://api.example.com/users/1 name=Jane  # 发送 PUT 请求
+  http DELETE https://api.example.com/users/1  # 发送 DELETE 请求
+  http https://api.example.com Authorization:Bearer-TOKEN  # 带认证头
+  http --download https://example.com/file.zip  # 下载文件
+  http --form POST https://example.com/upload file@photo.jpg  # 上传文件
+  ```

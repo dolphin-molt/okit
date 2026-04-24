@@ -1,0 +1,46 @@
+name: yt-dlp
+category: Media
+
+description: 强大的视频下载工具，支持 YouTube、Bilibili 等 1000+ 视频网站
+homepage: https://github.com/yt-dlp/yt-dlp
+
+install:
+  darwin: brew install yt-dlp
+  linux: "sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp"
+upgrade:
+  darwin: brew upgrade yt-dlp
+  linux: sudo yt-dlp -U
+uninstall:
+  darwin: brew uninstall yt-dlp
+  linux: "sudo rm -f /usr/local/bin/yt-dlp"
+check: command -v yt-dlp
+versionCmd: yt-dlp --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 yt-dlp
+
+  yt-dlp 是一个功能强大的命令行视频下载工具，是 youtube-dl 的活跃分支。它支持从 YouTube、Bilibili、Twitter 等 1000 多个视频网站下载视频和音频，并提供丰富的格式转换和后处理选项。
+
+  ## 核心功能
+
+  - **多站支持**：支持 YouTube、Bilibili、Twitter、抖音等 1000+ 视频平台
+  - **格式选择**：灵活选择视频分辨率、编码格式和音频质量
+  - **批量下载**：支持播放列表、频道批量下载
+  - **字幕下载**：自动下载并嵌入字幕，支持多语言
+  - **格式转换**：内置音视频格式转换，可使用 ffmpeg 后处理
+  - **Cookie 支持**：支持导入浏览器 Cookie 下载会员视频
+
+  ## 常用命令
+
+  ```bash
+  yt-dlp <url>                       # 下载视频
+  yt-dlp -f best <url>               # 下载最佳质量
+  yt-dlp -x --audio-format mp3 <url> # 仅下载音频并转为 MP3
+  yt-dlp --write-sub <url>           # 下载时包含字幕
+  yt-dlp -o "%(title)s.%(ext)s" <url> # 自定义文件名
+  yt-dlp --playlist-items 1-5 <url>  # 下载播放列表前 5 个
+  yt-dlp -U                          # 更新到最新版本
+  ```

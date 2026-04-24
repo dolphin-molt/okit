@@ -1,0 +1,46 @@
+name: Node.js
+category: Development
+
+description: 基于 Chrome V8 引擎的 JavaScript 运行时，用于构建服务端和网络应用
+homepage: https://nodejs.org
+
+install:
+  darwin: brew install node
+  linux: "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"
+upgrade:
+  darwin: brew upgrade node
+  linux: "sudo apt-get update && sudo apt-get install -y nodejs"
+uninstall:
+  darwin: brew uninstall node
+  linux: "sudo apt-get remove -y nodejs"
+check: command -v node
+versionCmd: node --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Node.js
+
+  Node.js 是一个基于 Chrome V8 引擎的 JavaScript 运行时环境，让 JavaScript 可以在服务器端运行。它采用事件驱动、非阻塞 I/O 模型，非常适合构建高性能、可扩展的网络应用。
+
+  ## 核心功能
+
+  - **服务端 JavaScript**：让 JS 脱离浏览器运行，用于构建后端服务和 API
+  - **npm 生态**：内置 npm 包管理器，拥有超过 200 万个开源包
+  - **非阻塞 I/O**：事件驱动架构，擅长处理高并发 I/O 密集型任务
+  - **全栈统一**：前后端使用同一种语言，降低开发复杂度
+  - **跨平台**：支持 macOS、Linux、Windows 等多个操作系统
+  - **LTS 版本**：提供长期支持版本，保障生产环境稳定性
+
+  ## 常用命令
+
+  ```bash
+  node --version             # 查看版本
+  node app.js                # 运行 JS 文件
+  node -e "console.log('hi')" # 执行单行代码
+  npm init                   # 初始化项目
+  npm install <package>      # 安装依赖包
+  npm run <script>           # 运行 package.json 中的脚本
+  npx <command>              # 执行 npm 包中的命令
+  ```

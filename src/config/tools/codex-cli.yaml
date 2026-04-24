@@ -1,0 +1,39 @@
+name: Codex CLI
+category: AI Coding
+
+description: OpenAI 的 AI 编程代理 CLI，通过自然语言驱动代码生成、修改和执行
+homepage: https://github.com/openai/codex
+
+install: "sudo npm install -g @openai/codex"
+upgrade: "sudo npm update -g @openai/codex"
+uninstall: "sudo npm uninstall -g @openai/codex"
+check: command -v codex
+versionCmd: "codex --version 2>/dev/null || echo unknown"
+
+dependencies:
+  - Node.js
+
+skill: "OpenAI 的 AI 编程助手 CLI。在项目目录下运行 codex 并用自然语言描述任务，它会读取代码上下文、生成代码、执行命令并提交修改。适合自动化代码重构、bug 修复和功能开发。需要设置 OPENAI_API_KEY 环境变量。"
+
+detail: |
+  ## 什么是 Codex CLI
+
+  Codex CLI 是 OpenAI 推出的 AI 编程代理命令行工具，基于 GPT 系列模型。它能在终端中通过自然语言指令驱动代码生成、修改和命令执行，适合自动化代码重构、bug 修复和功能开发。
+
+  ## 核心功能
+
+  - **自然语言驱动**：用中文或英文描述需求，自动生成和修改代码
+  - **代码上下文理解**：自动读取项目文件，理解代码结构和依赖关系
+  - **命令执行**：可执行 shell 命令、运行测试、安装依赖
+  - **自动提交**：完成任务后可自动创建 Git 提交
+  - **沙箱模式**：在网络隔离的沙箱环境中安全执行命令
+  - **多模型支持**：可配置使用不同的 OpenAI 模型
+
+  ## 常用命令
+
+  ```bash
+  codex                      # 启动交互式会话
+  codex "重构这个函数"       # 直接执行任务
+  codex --model o4-mini      # 指定模型
+  codex --full-auto          # 全自动模式
+  ```

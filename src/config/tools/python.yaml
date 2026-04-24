@@ -1,0 +1,47 @@
+name: Python
+category: Development
+
+description: 通用编程语言，广泛用于数据科学、AI、Web 开发和自动化脚本
+homepage: https://python.org
+
+install:
+  darwin: brew install python
+  linux: "sudo apt-get update && sudo apt-get install -y python3 python3-pip"
+upgrade:
+  darwin: brew upgrade python
+  linux: "sudo apt-get update && sudo apt-get install -y python3 python3-pip"
+uninstall:
+  darwin: brew uninstall python
+  linux: "sudo apt-get remove -y python3"
+check: command -v python3
+versionCmd: python3 --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Python
+
+  Python 是一种高级通用编程语言，以简洁优雅的语法著称。它广泛应用于数据科学、人工智能、Web 开发、自动化脚本等领域，拥有庞大的第三方库生态，是全球最受欢迎的编程语言之一。
+
+  ## 核心功能
+
+  - **简洁语法**：代码可读性极高，开发效率优于多数语言
+  - **丰富生态**：PyPI 上有超过 50 万个第三方包，覆盖几乎所有领域
+  - **数据科学**：NumPy、Pandas、Matplotlib 等构成完整数据分析栈
+  - **AI/ML 首选**：TensorFlow、PyTorch、scikit-learn 等主流 ML 框架
+  - **Web 开发**：Django、FastAPI、Flask 等成熟 Web 框架
+  - **自动化脚本**：系统运维、文件处理、网络爬虫等场景的首选
+
+  ## 常用命令
+
+  ```bash
+  python3 --version          # 查看版本
+  python3 script.py          # 运行脚本
+  pip3 install <package>     # 安装包
+  pip3 list                  # 列出已安装的包
+  python3 -m venv .venv      # 创建虚拟环境
+  source .venv/bin/activate  # 激活虚拟环境
+  python3 -c "print('hi')"   # 执行单行代码
+  pip3 freeze > requirements.txt  # 导出依赖
+  ```

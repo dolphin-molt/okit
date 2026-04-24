@@ -1,0 +1,46 @@
+name: ImageMagick
+category: Media
+
+description: 命令行图片处理工具，支持格式转换、缩放、裁剪、加水印等
+homepage: https://imagemagick.org
+
+install:
+  darwin: brew install imagemagick
+  linux: sudo apt-get update && sudo apt-get install -y imagemagick
+upgrade:
+  darwin: brew upgrade imagemagick
+  linux: sudo apt-get update && sudo apt-get install -y imagemagick
+uninstall:
+  darwin: brew uninstall imagemagick
+  linux: sudo apt-get remove -y imagemagick
+check: command -v convert
+versionCmd: convert --version | head -1
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 ImageMagick
+
+  ImageMagick 是一款功能强大的命令行图片处理工具套件，支持超过 200 种图片格式的读取、写入和处理。它可以进行图片格式转换、缩放裁剪、添加水印、调整色彩、合成图片等操作，是图片批量处理和自动化工作流的首选工具。
+
+  ## 核心功能
+
+  - **格式转换**：支持 PNG、JPEG、GIF、TIFF、WebP、SVG 等 200+ 格式互转
+  - **图片变换**：缩放、裁剪、旋转、翻转、变形等几何操作
+  - **色彩调整**：亮度、对比度、饱和度、色阶、伽马校正等
+  - **文字水印**：在图片上添加文字或图片水印
+  - **批量处理**：通过 mogrify 命令批量处理目录下的所有图片
+  - **图片合成**：多张图片叠加、拼接、制作 GIF 动画
+
+  ## 常用命令
+
+  ```bash
+  convert input.png output.jpg              # 格式转换
+  convert input.jpg -resize 800x600 output.jpg  # 缩放图片
+  convert input.jpg -crop 400x300+100+50 output.jpg  # 裁剪图片
+  convert input.jpg -rotate 90 output.jpg   # 旋转图片
+  convert input.jpg -quality 85 output.jpg  # 调整 JPEG 质量
+  mogrify -resize 50% *.jpg                 # 批量缩放当前目录所有图片
+  convert -size 200x100 xc:white -gravity center -annotate 0 "Watermark" output.png  # 添加文字水印
+  ```

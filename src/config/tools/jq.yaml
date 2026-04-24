@@ -1,0 +1,46 @@
+name: jq
+category: Data
+
+description: 命令行 JSON 处理器，支持查询、过滤、转换 JSON 数据
+homepage: https://jqlang.github.io/jq
+
+install:
+  darwin: brew install jq
+  linux: sudo apt-get update && sudo apt-get install -y jq
+upgrade:
+  darwin: brew upgrade jq
+  linux: sudo apt-get update && sudo apt-get install -y jq
+uninstall:
+  darwin: brew uninstall jq
+  linux: sudo apt-get remove -y jq
+check: command -v jq
+versionCmd: jq --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 jq
+
+  jq 是一款轻量级且强大的命令行 JSON 处理器。它提供了类似 awk/sed 的能力但专门针对 JSON 数据格式，支持查询、过滤、映射、转换等操作，是处理 API 响应和 JSON 配置文件的必备工具。
+
+  ## 核心功能
+
+  - **JSON 查询**：通过简洁的表达式语法从 JSON 中提取数据
+  - **过滤筛选**：支持条件过滤、数组操作和对象选择
+  - **数据转换**：将 JSON 数据重新构造为需要的格式
+  - **管道组合**：通过管道符 `|` 串联多个操作，实现复杂处理逻辑
+  - **格式化输出**：美化和压缩 JSON 输出，支持彩色显示
+  - **与其他工具配合**：与 curl、aws 等 CLI 工具完美搭配，处理 JSON 输出
+
+  ## 常用命令
+
+  ```bash
+  cat data.json | jq '.'                    # 美化输出 JSON
+  cat data.json | jq '.name'                # 提取字段
+  cat data.json | jq '.items[0]'            # 提取数组第一个元素
+  cat data.json | jq '.items | length'      # 计算数组长度
+  cat data.json | jq '[.[] | select(.age > 18)]'  # 条件过滤
+  cat data.json | jq '.name = "new_name"'   # 修改字段值
+  curl -s api.example.com/data | jq '.'     # 处理 API 响应
+  ```

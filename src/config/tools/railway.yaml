@@ -1,0 +1,43 @@
+name: Railway CLI
+category: Cloud
+
+description: Railway 云平台命令行工具，用于部署和管理后端服务
+homepage: https://railway.app
+
+install: npm install -g @railway/cli
+upgrade: npm update -g @railway/cli
+uninstall: npm uninstall -g @railway/cli
+check: command -v railway
+versionCmd: railway --version 2>/dev/null
+authCheck: "railway whoami 2>&1"
+authFix: "railway login"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Railway CLI
+
+  Railway CLI 是 Railway 云平台的官方命令行工具，用于从终端部署和管理后端服务。Railway 提供简洁的部署体验，支持一键部署数据库、后端 API、定时任务等服务，自动处理基础设施配置，让开发者专注于代码而非运维。
+
+  ## 核心功能
+
+  - **一键部署**：通过 `railway up` 快速部署项目到 Railway 云平台
+  - **数据库服务**：一键创建 PostgreSQL、MySQL、Redis 等数据库实例
+  - **环境变量管理**：安全地管理服务环境变量和 Secrets
+  - **日志查看**：实时查看服务运行日志和部署状态
+  - **项目关联**：将本地项目与 Railway 项目关联，支持多环境部署
+  - **GitHub 集成**：支持从 GitHub 仓库自动部署
+
+  ## 常用命令
+
+  ```bash
+  railway login               # 登录 Railway 账号
+  railway init                # 初始化并关联 Railway 项目
+  railway up                  # 部署项目
+  railway logs                # 查看服务日志
+  railway variables           # 管理环境变量
+  railway run <command>       # 在 Railway 环境中运行命令
+  railway status              # 查看服务状态
+  railway whoami              # 查看当前账号信息
+  ```

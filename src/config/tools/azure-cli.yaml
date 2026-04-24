@@ -1,0 +1,48 @@
+name: Azure CLI
+category: Cloud
+
+description: Microsoft Azure 官方命令行工具，管理 VM、Storage、App Service 等
+homepage: https://learn.microsoft.com/cli/azure
+
+install:
+  darwin: brew install azure-cli
+  linux: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+upgrade:
+  darwin: brew upgrade azure-cli
+  linux: sudo apt-get update && sudo apt-get install -y azure-cli
+uninstall:
+  darwin: brew uninstall azure-cli
+  linux: sudo apt-get remove -y azure-cli
+check: command -v az
+versionCmd: "az --version 2>/dev/null | head -1"
+authCheck: "az account show 2>&1 | head -5"
+authFix: "az login"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Azure CLI
+
+  Azure CLI 是 Microsoft Azure 的官方命令行工具，提供跨平台的 Azure 云服务管理能力。通过简洁的命令语法，开发者可以在终端中管理虚拟机、存储、数据库、容器等 Azure 资源，是 Azure 云运维和自动化的核心工具。
+
+  ## 核心功能
+
+  - **统一接口**：通过 `az` 命令管理所有 Azure 服务，覆盖计算、存储、网络、数据库等
+  - **订阅管理**：支持多订阅切换，`az account set` 快速切换工作订阅
+  - **资源组管理**：通过资源组组织和管理相关云资源
+  - **ARM 模板部署**：通过 JSON 模板批量部署和配置云资源
+  - **容器服务**：管理 Azure Kubernetes Service (AKS) 和 Container Instances
+  - **CI/CD 集成**：支持在 GitHub Actions、Azure DevOps 等 CI/CD 管道中使用
+
+  ## 常用命令
+
+  ```bash
+  az login                     # 登录 Azure 账号
+  az account list              # 列出所有订阅
+  az group create --name myRG --location eastus  # 创建资源组
+  az vm create --name myVM --resource-group myRG --image Ubuntu2204  # 创建虚拟机
+  az storage account list      # 列出存储账号
+  az webapp up --name myapp    # 部署 Web 应用
+  az aks list                  # 列出 AKS 集群
+  ```

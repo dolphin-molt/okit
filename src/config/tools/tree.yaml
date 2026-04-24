@@ -1,0 +1,47 @@
+name: tree
+category: Utilities
+
+description: 以树状图格式列出目录结构的工具
+homepage: https://gitlab.com/OldManProgrammer/unix-tree
+
+install:
+  darwin: brew install tree
+  linux: sudo apt-get update && sudo apt-get install -y tree
+upgrade:
+  darwin: brew upgrade tree
+  linux: sudo apt-get update && sudo apt-get install -y tree
+uninstall:
+  darwin: brew uninstall tree
+  linux: sudo apt-get remove -y tree
+check: command -v tree
+versionCmd: "tree --version 2>/dev/null | head -1"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 tree
+
+  tree 是一个经典的目录结构可视化工具，以树状图的形式递归列出目录和文件。它是 `ls -R` 的增强替代品，能够直观地展示项目的文件层级结构，非常适合项目文档、代码审查和目录浏览。
+
+  ## 核心功能
+
+  - **树状展示**：以缩进的树状图格式展示目录层级关系
+  - **过滤控制**：支持按文件名模式（glob）和正则表达式过滤
+  - **深度限制**：通过 `-L n` 限制显示的目录深度
+  - **文件统计**：统计目录和文件数量，显示总大小
+  - **输出格式**：支持纯文本、JSON、XML、HTML 等多种输出格式
+  - **彩色输出**：根据文件类型自动着色，增强可读性
+
+  ## 常用命令
+
+  ```bash
+  tree                         # 显示当前目录树
+  tree -L 2                    # 限制显示深度为 2 层
+  tree src/                    # 显示指定目录的树
+  tree -I 'node_modules|.git'  # 排除指定目录
+  tree -P '*.ts'               # 只显示匹配模式的文件
+  tree -d                      # 只显示目录
+  tree -h                      # 显示文件大小
+  tree --json                  # 以 JSON 格式输出
+  ```

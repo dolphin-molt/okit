@@ -1,0 +1,38 @@
+name: GitHub Copilot CLI
+category: AI Coding
+
+description: GitHub Copilot 的命令行扩展，提供 shell 命令建议和解释
+homepage: https://docs.github.com/copilot
+
+install: gh extension install github/gh-copilot
+upgrade: gh extension upgrade copilot
+uninstall: gh extension remove copilot
+check: "gh copilot --help 2>/dev/null"
+versionCmd: "gh extension list 2>/dev/null | grep copilot"
+
+dependencies:
+  - GitHub CLI
+
+skill: "GitHub Copilot 的命令行扩展。通过 gh copilot suggest 获取命令建议，gh copilot explain 解释命令含义。依赖 gh CLI 和 GitHub Copilot 订阅。适合在终端中获取 shell 命令和 Git 操作的 AI 辅助。"
+
+detail: |
+  ## 什么是 GitHub Copilot CLI
+
+  GitHub Copilot CLI 是 GitHub Copilot 的命令行扩展，作为 gh CLI 的插件运行。它通过 AI 帮助你在终端中生成 shell 命令、解释命令含义，让不熟悉命令行的开发者也能高效使用终端。
+
+  ## 核心功能
+
+  - **命令建议**：用自然语言描述意图，自动生成对应的 shell 命令
+  - **命令解释**：输入不明命令，AI 详细解释其作用和参数含义
+  - **gh 集成**：作为 gh extension 运行，与 GitHub CLI 无缝集成
+  - **多 Shell 支持**：支持 bash、zsh、PowerShell 等多种 shell
+  - **上下文感知**：考虑当前目录和项目环境生成建议
+
+  ## 常用命令
+
+  ```bash
+  gh copilot suggest         # 获取命令建议
+  gh copilot explain         # 解释命令含义
+  gh copilot suggest -t git  # 获取 git 相关命令建议
+  gh copilot suggest -t gh   # 获取 gh 相关命令建议
+  ```

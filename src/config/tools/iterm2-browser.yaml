@@ -1,0 +1,39 @@
+name: iTerm2 Browser Plugin
+category: Terminals
+
+description: iTerm2 的浏览器集成插件，支持在终端中预览网页和 API 响应
+homepage: https://iterm2.com
+
+install:
+  darwin: bash -lc 'set -euo pipefail; TMP_DIR="$(mktemp -d)"; trap "rm -rf \"$TMP_DIR\"" EXIT; ZIP_PATH="$TMP_DIR/iTermBrowserPlugin-1.0.zip"; curl -fL "https://iterm2.com/downloads/browser-plugin/iTermBrowserPlugin-1.0.zip" -o "$ZIP_PATH"; unzip -o "$ZIP_PATH" -d "$TMP_DIR" >/dev/null; APP_PATH="$(find "$TMP_DIR" -maxdepth 3 -type d -name "iTermBrowserPlugin*.app" | head -n 1)"; if [ -z "$APP_PATH" ]; then echo "未在压缩包中找到 iTermBrowserPlugin.app"; exit 1; fi; sudo rm -rf "/Applications/$(basename "$APP_PATH")"; sudo mv "$APP_PATH" /Applications/'
+upgrade:
+  darwin: bash -lc 'set -euo pipefail; TMP_DIR="$(mktemp -d)"; trap "rm -rf \"$TMP_DIR\"" EXIT; ZIP_PATH="$TMP_DIR/iTermBrowserPlugin-1.0.zip"; curl -fL "https://iterm2.com/downloads/browser-plugin/iTermBrowserPlugin-1.0.zip" -o "$ZIP_PATH"; unzip -o "$ZIP_PATH" -d "$TMP_DIR" >/dev/null; APP_PATH="$(find "$TMP_DIR" -maxdepth 3 -type d -name "iTermBrowserPlugin*.app" | head -n 1)"; if [ -z "$APP_PATH" ]; then echo "未在压缩包中找到 iTermBrowserPlugin.app"; exit 1; fi; sudo rm -rf "/Applications/$(basename "$APP_PATH")"; sudo mv "$APP_PATH" /Applications/'
+uninstall:
+  darwin: sudo rm -rf /Applications/iTermBrowserPlugin.app
+check:
+  darwin: test -d /Applications/iTermBrowserPlugin.app
+
+dependencies:
+  - iTerm2
+
+detail: |
+  ## 什么是 iTerm2 Browser Plugin
+
+  iTerm2 Browser Plugin 是 iTerm2 的浏览器集成插件，允许在终端中直接预览网页内容和 API 响应结果。它与 iTerm2 终端深度集成，开发者无需离开终端即可查看 HTTP 响应、网页渲染结果和 JSON 数据的可视化展示。
+
+  ## 核心功能
+
+  - **网页预览**：在终端中直接预览网页内容，无需切换到浏览器
+  - **API 响应可视化**：格式化展示 HTTP API 的 JSON/XML 响应
+  - **iTerm2 集成**：与 iTerm2 终端无缝集成，利用 iTerm2 的渲染能力
+  - **Markdown 渲染**：在终端中预览 Markdown 文件的渲染效果
+  - **快速查看**：通过快捷操作快速打开预览面板
+
+  ## 常用命令
+
+  ```bash
+  # 安装后在 iTerm2 中使用
+  # 通过 iTerm2 的 Shell Integration 调用
+  # 支持 imgcat 等命令配合使用
+  open -a iTermBrowserPlugin        # 打开插件
+  ```

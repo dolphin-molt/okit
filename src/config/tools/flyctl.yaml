@@ -1,0 +1,49 @@
+name: Fly.io CLI
+category: Cloud
+
+description: Fly.io 边缘计算平台 CLI，用于部署和管理全球分布式应用
+homepage: https://fly.io/docs/hands-on/install-flyctl
+
+install:
+  darwin: brew install flyctl
+  linux: curl -L https://fly.io/install.sh | sh
+upgrade:
+  darwin: brew upgrade flyctl
+  linux: flyctl version update
+uninstall:
+  darwin: brew uninstall flyctl
+  linux: rm -rf ~/.fly
+check: "command -v flyctl || command -v fly"
+versionCmd: "flyctl version 2>/dev/null | head -1"
+authCheck: "flyctl auth whoami 2>&1"
+authFix: "flyctl auth login"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Fly.io CLI
+
+  Fly.io CLI（flyctl）是 Fly.io 边缘计算平台的命令行工具，用于将应用部署到全球多个边缘节点。它支持将 Docker 容器或源代码一键部署到离用户最近的边缘位置，实现超低延迟的全球分布式应用。
+
+  ## 核心功能
+
+  - **一键部署**：`fly deploy` 将应用部署到全球多个边缘节点
+  - **边缘运行**：应用在离用户最近的边缘节点运行，延迟极低
+  - **自动扩缩**：根据流量自动调整实例数量和分布区域
+  - **持久存储**：通过 Volumes 提供持久化存储支持
+  - **内置数据库**：集成 PostgreSQL 数据库服务
+  - **私有网络**：应用间通过 WireGuard 私有网络安全通信
+
+  ## 常用命令
+
+  ```bash
+  flyctl launch                 # 初始化并创建新应用
+  flyctl deploy                 # 部署应用到边缘节点
+  flyctl logs                   # 查看应用日志
+  flyctl status                 # 查看应用运行状态
+  flyctl regions add --group ap  # 添加部署区域
+  flyctl scale count 3          # 扩展实例数量
+  flyctl ssh console            # SSH 进入运行中的容器
+  flyctl auth login             # 登录 Fly.io 账号
+  ```

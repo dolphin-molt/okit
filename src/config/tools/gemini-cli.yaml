@@ -1,0 +1,38 @@
+name: Gemini CLI
+category: AI Coding
+
+description: Google 的开源 AI 编程代理，基于 Gemini 模型提供代码生成和多模态输入
+homepage: https://github.com/google-gemini/gemini-cli
+
+install: "sudo npm install -g @google/gemini-cli"
+upgrade: "sudo npm update -g @google/gemini-cli"
+uninstall: "sudo npm uninstall -g @google/gemini-cli"
+check: command -v gemini
+versionCmd: "gemini --version 2>/dev/null || echo unknown"
+
+dependencies:
+  - Node.js
+
+skill: "Google 的开源 AI 编程代理 CLI。运行 gemini 启动，基于 Gemini 模型提供代码生成、文件操作和终端命令执行。支持多轮对话、文件上下文理解和多模态输入（图片）。需要 Google 账号登录。"
+
+detail: |
+  ## 什么是 Gemini CLI
+
+  Gemini CLI 是 Google 推出的开源 AI 编程代理命令行工具，基于 Gemini 大语言模型。它支持多轮对话、文件上下文理解和多模态输入（包括图片），可通过 Google 账号登录使用。
+
+  ## 核心功能
+
+  - **Gemini 模型驱动**：基于 Google 最新的 Gemini 模型，代码理解能力强
+  - **多模态输入**：支持文本和图片输入，可识别和分析截图中的代码
+  - **文件上下文**：自动读取项目文件，理解整体代码架构
+  - **多轮对话**：支持连续对话，逐步完成复杂开发任务
+  - **命令执行**：可在终端中执行 shell 命令和脚本
+  - **开源免费**：开源项目，通过 Google 账号即可使用
+
+  ## 常用命令
+
+  ```bash
+  gemini                     # 启动交互式会话
+  gemini "解释这段代码"      # 直接提问
+  gemini --version           # 查看版本
+  ```

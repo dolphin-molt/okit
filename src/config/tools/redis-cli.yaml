@@ -1,0 +1,47 @@
+name: Redis CLI
+category: Database
+
+description: Redis 内存数据库命令行客户端，用于数据操作和服务器管理
+homepage: https://redis.io
+
+install:
+  darwin: brew install redis
+  linux: sudo apt-get update && sudo apt-get install -y redis-tools
+upgrade:
+  darwin: brew upgrade redis
+  linux: sudo apt-get update && sudo apt-get install -y redis-tools
+uninstall:
+  darwin: brew uninstall redis
+  linux: sudo apt-get remove -y redis-tools
+check: command -v redis-cli
+versionCmd: redis-cli --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Redis CLI
+
+  Redis CLI（redis-cli）是 Redis 内存数据库的官方命令行客户端，用于连接 Redis 服务器、执行数据操作和管理服务器状态。Redis 是高性能的键值存储系统，广泛用于缓存、消息队列、实时排行榜等场景。
+
+  ## 核心功能
+
+  - **数据操作**：支持 String、Hash、List、Set、ZSet 等多种数据类型的读写
+  - **发布订阅**：支持 Pub/Sub 消息模式，实时收发消息
+  - **流水线操作**：通过 pipeline 批量执行命令，提升吞吐量
+  - **集群管理**：管理和监控 Redis Cluster 集群状态
+  - **性能测试**：内置 `redis-benchmark` 工具进行性能基准测试
+  - **服务器管理**：查看服务器信息、监控延迟、管理客户端连接
+
+  ## 常用命令
+
+  ```bash
+  redis-cli                    # 连接本地 Redis 服务器
+  redis-cli -h host -p 6379 -a password  # 连接远程服务器
+  redis-cli SET key value      # 设置键值
+  redis-cli GET key            # 获取值
+  redis-cli KEYS *             # 列出所有键
+  redis-cli INFO               # 查看服务器信息
+  redis-cli MONITOR            # 实时监控所有命令
+  redis-cli --stat             # 实时统计信息
+  ```

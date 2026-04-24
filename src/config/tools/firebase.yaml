@@ -1,0 +1,43 @@
+name: Firebase CLI
+category: Cloud
+
+description: Google Firebase 命令工具，用于管理 Hosting、Functions、Firestore 等
+homepage: https://firebase.google.com/docs/cli
+
+install: npm install -g firebase-tools
+upgrade: npm update -g firebase-tools
+uninstall: npm uninstall -g firebase-tools
+check: command -v firebase
+versionCmd: firebase --version 2>/dev/null
+authCheck: "firebase login:list 2>&1"
+authFix: "firebase login"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Firebase CLI
+
+  Firebase CLI 是 Google Firebase 平台的官方命令行工具，用于管理 Firebase Hosting、Cloud Functions、Firestore、Authentication 等服务。它支持项目初始化、本地开发、部署和配置管理，是 Firebase 开发者不可或缺的工具。
+
+  ## 核心功能
+
+  - **项目管理**：创建、管理和切换多个 Firebase 项目
+  - **Hosting 部署**：将静态网站和前端应用部署到 Firebase Hosting
+  - **Cloud Functions**：本地开发、测试和部署云函数
+  - **Firestore 管理**：管理数据库规则、索引和数据导入导出
+  - **Emulator Suite**：本地运行完整的 Firebase 模拟器套件
+  - **多环境支持**：支持开发、预发布和生产等多环境配置
+
+  ## 常用命令
+
+  ```bash
+  firebase login               # 登录 Google 账号
+  firebase init                # 初始化 Firebase 项目
+  firebase deploy              # 部署项目到 Firebase
+  firebase serve               # 本地启动开发服务器
+  firebase emulators:start     # 启动本地模拟器套件
+  firebase functions:log       # 查看云函数日志
+  firebase firestore:export    # 导出 Firestore 数据
+  firebase projects:list       # 列出所有项目
+  ```

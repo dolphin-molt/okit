@@ -1,0 +1,41 @@
+name: Homebrew
+category: System
+
+description: macOS 和 Linux 的包管理器，用于安装、更新和管理软件包
+homepage: https://brew.sh
+
+install:
+  darwin: __DYNAMIC__
+upgrade:
+  darwin: brew update && brew upgrade
+check:
+  darwin: command -v brew
+versionCmd:
+  darwin: "brew --version | head -1"
+
+detail: |
+  ## 什么是 Homebrew
+
+  Homebrew 是 macOS 和 Linux 上最流行的包管理器，让安装、更新和卸载软件变得简单高效。它通过 formula（配方）定义软件的安装方式，用户只需一行命令即可完成安装。
+
+  ## 核心功能
+
+  - **一键安装**：通过 `brew install <package>` 快速安装数千款开源软件和工具
+  - **依赖管理**：自动解析和安装软件依赖，避免版本冲突
+  - **Cask 支持**：通过 `brew install --cask` 安装 macOS 桌面应用（如 Chrome、VS Code）
+  - **自动更新**：`brew update && brew upgrade` 一键更新所有已安装软件
+  - **Tap 仓库**：支持第三方仓库扩展，丰富可用软件源
+  - **国内镜像**：支持配置国内镜像源，加速下载
+
+  ## 常用命令
+
+  ```bash
+  brew install <package>     # 安装软件包
+  brew uninstall <package>   # 卸载软件包
+  brew update                # 更新 Homebrew 自身和软件列表
+  brew upgrade               # 升级所有已安装的软件包
+  brew list                  # 列出已安装的软件包
+  brew search <keyword>      # 搜索软件包
+  brew info <package>        # 查看软件包详细信息
+  brew cleanup               # 清理旧版本缓存
+  ```

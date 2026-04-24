@@ -1,0 +1,42 @@
+name: Wrangler
+category: Cloud
+
+description: Cloudflare Workers 官方 CLI，用于开发和部署边缘计算应用
+homepage: https://developers.cloudflare.com/workers/wrangler
+
+install: npm install -g wrangler
+upgrade: npm update -g wrangler
+uninstall: npm uninstall -g wrangler
+check: command -v wrangler
+versionCmd: wrangler --version 2>/dev/null | head -1
+authCheck: "wrangler whoami 2>&1"
+authFix: "wrangler login"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Wrangler
+
+  Wrangler 是 Cloudflare Workers 的官方命令行开发工具，用于在本地开发、测试和部署边缘计算应用。它提供了完整的项目脚手架、本地开发服务器和一键部署能力，让开发者能够快速构建运行在 Cloudflare 全球边缘网络上的应用。
+
+  ## 核心功能
+
+  - **本地开发服务器**：通过 `wrangler dev` 在本地启动开发环境，模拟 Workers 运行时
+  - **一键部署**：`wrangler deploy` 将应用部署到 Cloudflare 全球 300+ 边缘节点
+  - **KV 存储管理**：管理 Workers KV 键值存储，用于边缘数据缓存
+  - **D1 数据库**：创建和管理 Cloudflare D1 SQLite 数据库
+  - **Pages 集成**：支持 Cloudflare Pages 全栈应用的开发和部署
+  - **密钥管理**：安全地管理环境变量和 Secrets
+
+  ## 常用命令
+
+  ```bash
+  wrangler init <name>        # 初始化新的 Workers 项目
+  wrangler dev                # 启动本地开发服务器
+  wrangler deploy             # 部署到 Cloudflare 边缘网络
+  wrangler tail               # 实时查看 Workers 日志
+  wrangler kv:key put --namespace-id <id> "key" "value"  # 写入 KV 存储
+  wrangler d1 create <name>   # 创建 D1 数据库
+  wrangler whoami             # 查看当前登录账号信息
+  ```

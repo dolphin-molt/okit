@@ -1,0 +1,63 @@
+name: Supabase CLI
+category: Cloud
+
+description: Supabase 官方 CLI，用于本地开发、数据库迁移和项目部署
+homepage: https://supabase.com/docs/guides/cli
+
+install:
+  darwin: brew install supabase/tap/supabase
+  linux: npm install -g supabase
+upgrade:
+  darwin: brew upgrade supabase/tap/supabase
+  linux: npm update -g supabase
+uninstall:
+  darwin: brew uninstall supabase
+  linux: npm uninstall -g supabase
+check: command -v supabase
+versionCmd: supabase --version 2>/dev/null
+authCheck: "supabase projects list 2>&1"
+authFix: "supabase login --no-browser"
+
+authMethods:
+  - name: Access Token (推荐)
+    description: 从 Dashboard 生成 Access Token，粘贴到下方完成授权
+    tokenUrl: https://supabase.com/dashboard/account/tokens
+    tokenHint: 登录后点击 Generate New Token
+    command: "supabase login --token '{token}'"
+    recommended: true
+  - name: 浏览器登录
+    description: 自动打开浏览器完成 OAuth 授权，然后回填验证码
+    interactive: true
+    loginCommand: "supabase login"
+    autoEnter: "Press Enter"
+    waitFor: "verification code"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Supabase CLI
+
+  Supabase CLI 是 Supabase 平台的官方命令行工具，用于本地开发、数据库迁移管理和项目部署。它提供了完整的本地开发环境，包括 PostgreSQL 数据库、Auth、Storage 和 Realtime 服务，让开发者能够在本地完成所有开发调试后再部署到云端。
+
+  ## 核心功能
+
+  - **本地开发环境**：通过 `supabase init` 和 `supabase start` 一键启动完整的本地 Supabase 环境
+  - **数据库迁移**：管理数据库 Schema 变更，支持版本化的迁移文件
+  - **类型生成**：根据数据库 Schema 自动生成 TypeScript 类型定义
+  - **一键部署**：将本地项目部署到 Supabase 云平台
+  - **边缘函数**：本地开发和部署 Supabase Edge Functions
+  - **数据导入导出**：方便地导入种子数据和导出数据库快照
+
+  ## 常用命令
+
+  ```bash
+  supabase init                # 初始化 Supabase 项目
+  supabase start               # 启动本地开发环境
+  supabase stop                # 停止本地环境
+  supabase db push             # 推送迁移到远程数据库
+  supabase db pull             # 拉取远程数据库变更
+  supabase gen types typescript # 生成 TypeScript 类型
+  supabase functions deploy     # 部署 Edge Functions
+  supabase login               # 登录 Supabase 账号
+  ```

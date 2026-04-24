@@ -1,0 +1,44 @@
+name: DuckDB
+category: Data
+
+description: 高性能内嵌式分析数据库，专为 OLAP 查询和大数据分析设计
+homepage: https://duckdb.org
+
+install:
+  darwin: brew install duckdb
+  linux: curl -fsSL https://install.duckdb.org | sh
+upgrade:
+  darwin: brew upgrade duckdb
+  linux: curl -fsSL https://install.duckdb.org | sh
+uninstall:
+  darwin: brew uninstall duckdb
+  linux: sudo rm -f /usr/local/bin/duckdb
+check: command -v duckdb
+versionCmd: duckdb --version 2>/dev/null || echo unknown
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 DuckDB
+
+  DuckDB 是一款高性能的内嵌式分析数据库，专为 OLAP（联机分析处理）场景设计。它类似于 SQLite 的嵌入式架构，但针对分析型查询进行了深度优化，支持大规模数据的快速聚合、窗口函数和复杂 SQL 查询，是数据分析和处理的理想选择。
+
+  ## 核心功能
+
+  - **内嵌式架构**：无需独立服务器进程，直接嵌入应用中使用
+  - **列式存储**：采用列式存储引擎，分析查询性能优异
+  - **SQL 兼容**：支持完整的 SQL 语法，包括窗口函数、CTE、JOIN 等
+  - **多格式支持**：直接查询 Parquet、CSV、JSON 文件，无需导入
+  - **Python 集成**：与 Pandas DataFrame 无缝互转，pandas 替代方案
+  - **零配置**：无需安装和配置，开箱即用
+
+  ## 常用命令
+
+  ```bash
+  duckdb                              # 启动交互式 SQL Shell
+  duckdb mydb.duckdb                  # 打开指定数据库文件
+  duckdb -c "SELECT * FROM read_csv('data.csv')"  # 直接查询 CSV 文件
+  duckdb -c "SELECT * FROM read_parquet('data.parquet')"  # 查询 Parquet 文件
+  duckdb -c "COPY (SELECT * FROM t) TO 'output.parquet' (FORMAT PARQUET)"  # 导出数据
+  ```

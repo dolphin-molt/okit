@@ -1,0 +1,45 @@
+name: tmux
+category: Utilities
+
+description: 终端复用器，支持会话管理、窗口分屏和后台运行
+homepage: https://github.com/tmux/tmux
+
+install:
+  darwin: brew install tmux
+  linux: sudo apt-get update && sudo apt-get install -y tmux
+upgrade:
+  darwin: brew upgrade tmux
+  linux: sudo apt-get update && sudo apt-get install -y tmux
+uninstall:
+  darwin: brew uninstall tmux
+  linux: sudo apt-get remove -y tmux
+check: command -v tmux
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 tmux
+
+  tmux（Terminal Multiplexer）是一个终端复用器，允许用户在一个终端中创建、访问和管理多个终端会话。它支持窗口分屏、会话 detach/attach（即使 SSH 断开连接会话也不会丢失），是服务器运维、远程开发和多任务管理的必备工具。
+
+  ## 核心功能
+
+  - **会话管理**：创建、分离（detach）和重新连接（attach）终端会话
+  - **窗口分屏**：水平或垂直分割终端窗口，同时查看多个终端
+  - **后台运行**：断开 SSH 后会话继续运行，重新连接可恢复
+  - **多窗口**：在一个会话中创建多个窗口，类似终端标签页
+  - **脚本自动化**：通过命令行和配置文件自动化 tmux 操作
+  - **自定义配置**：支持通过 .tmux.conf 高度自定义快捷键和外观
+
+  ## 常用命令
+
+  ```bash
+  tmux new -s mysession          # 创建命名会话
+  tmux attach -t mysession       # 连接到已有会话
+  tmux ls                        # 列出所有会话
+  tmux kill-session -t mysession # 关闭指定会话
+  tmux split-window -h           # 水平分屏
+  tmux split-window -v           # 垂直分屏
+  tmux new-window                # 创建新窗口
+  ```

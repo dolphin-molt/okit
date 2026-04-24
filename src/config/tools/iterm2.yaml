@@ -1,0 +1,43 @@
+name: iTerm2
+category: Terminals
+
+description: macOS 上功能强大的终端模拟器，支持分屏、搜索、自动补全等
+homepage: https://iterm2.com
+
+install:
+  darwin: brew install --cask iterm2
+upgrade:
+  darwin: brew upgrade --cask iterm2
+uninstall:
+  darwin: brew uninstall --cask iterm2
+check:
+  darwin: test -d /Applications/iTerm.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 iTerm2
+
+  iTerm2 是 macOS 上最受欢迎的终端模拟器，作为 Terminal.app 的替代品而设计。它提供了丰富的功能，包括分屏、搜索、自动补全、历史回放、密码管理和强大的自定义能力，是 macOS 开发者的首选终端。
+
+  ## 核心功能
+
+  - **分屏操作**：支持水平和垂直分割终端面板，多任务并行
+  - **智能搜索**：支持正则表达式搜索终端输出内容
+  - **自动补全**：基于历史命令的智能自动补全
+  - **Shell Integration**：与 Shell 深度集成，增强命令行体验
+  - **Hotkey Window**：通过快捷键快速呼出终端窗口
+  - **丰富主题**：支持自定义配色方案、背景图片和透明度
+
+  ## 常用命令
+
+  ```bash
+  # iTerm2 为 GUI 应用，通过快捷键操作：
+  Cmd+D           # 垂直分屏
+  Cmd+Shift+D     # 水平分屏
+  Cmd+K           # 清除缓冲区
+  Cmd+F           # 搜索终端内容
+  Cmd+Shift+H     # 查看粘贴历史
+  Cmd+Option+I    # 广播模式（同时向所有面板输入）
+  ```

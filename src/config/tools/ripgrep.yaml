@@ -1,0 +1,46 @@
+name: ripgrep
+category: Utilities
+
+description: 极速文本搜索工具，替代 grep，默认支持 .gitignore 规则
+homepage: https://github.com/BurntSushi/ripgrep
+
+install:
+  darwin: brew install ripgrep
+  linux: sudo apt-get update && sudo apt-get install -y ripgrep
+upgrade:
+  darwin: brew upgrade ripgrep
+  linux: sudo apt-get update && sudo apt-get install -y ripgrep
+uninstall:
+  darwin: brew uninstall ripgrep
+  linux: sudo apt-get remove -y ripgrep
+check: command -v rg
+versionCmd: rg --version | head -1
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 ripgrep
+
+  ripgrep（rg）是一个极速的命令行文本搜索工具，作为 grep 的现代替代品而设计。它默认遵守 .gitignore 规则，自动跳过隐藏文件和二进制文件，使用 Rust 编写，搜索速度极快，是开发者在大型代码库中搜索代码的首选工具。
+
+  ## 核心功能
+
+  - **极速搜索**：基于 Rust 编写和内存映射技术，搜索速度远超 grep
+  - **智能过滤**：默认遵守 .gitignore 规则，跳过不需要搜索的文件
+  - **正则表达式**：支持完整的正则表达式语法
+  - **Unicode 支持**：原生支持 Unicode，正确处理中文等多语言文本
+  - **多文件类型**：通过文件类型过滤，精准搜索特定类型文件
+  - **压缩文件**：支持搜索压缩文件内的内容
+
+  ## 常用命令
+
+  ```bash
+  rg "pattern"                  # 在当前目录搜索模式
+  rg "pattern" --type py        # 只搜索 Python 文件
+  rg "pattern" -l               # 只列出匹配的文件名
+  rg "pattern" -C 3             # 显示匹配行的前后 3 行上下文
+  rg "pattern" -r "replace"     # 搜索并替换（仅显示结果）
+  rg -i "pattern"               # 忽略大小写搜索
+  rg "pattern" --glob '!*.min.js'  # 排除特定文件
+  ```

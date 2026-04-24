@@ -1,0 +1,48 @@
+name: xurl
+category: Social
+
+description: "X (Twitter) 官方 API 命令行工具，用于发推、搜索和管理账号"
+homepage: https://github.com/xdevplatform/xurl
+
+install:
+  darwin: brew install xdevplatform/tap/xurl
+  linux: curl -fsSL https://raw.githubusercontent.com/xdevplatform/xurl/main/install.sh | bash
+upgrade:
+  darwin: brew upgrade xurl
+  linux: curl -fsSL https://raw.githubusercontent.com/xdevplatform/xurl/main/install.sh | bash
+uninstall:
+  darwin: brew uninstall xurl
+  linux: rm -f ~/.local/bin/xurl
+check: command -v xurl
+versionCmd: "xurl --version 2>/dev/null || echo unknown"
+authCheck: "xurl auth status 2>&1 | head -5"
+authFix: "xurl auth apps add"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 xurl
+
+  xurl 是 X（Twitter）官方推出的 API 命令行工具，让开发者直接在终端中完成发推、搜索、管理账号等操作。它封装了 X API v2 的核心功能，无需编写代码即可快速测试和使用 X 平台的数据和功能。
+
+  ## 核心功能
+
+  - **发推发文**：直接在终端发布推文，支持文本、图片和投票
+  - **搜索推文**：通过关键词、话题标签搜索推文和用户
+  - **账号管理**：查看和管理多个 X 应用和认证凭据
+  - **用户操作**：关注、取关、获取用户信息和时间线
+  - **数据导出**：导出推文数据用于分析和存档
+  - **流式 API**：实时监听和过滤推文流
+
+  ## 常用命令
+
+  ```bash
+  xurl auth apps add           # 添加 API 应用凭据
+  xurl auth status             # 查看认证状态
+  xurl tweet "Hello World!"    # 发送推文
+  xurl search "OpenAI"         # 搜索推文
+  xurl user elonmusk           # 查看用户信息
+  xurl timeline                # 查看时间线
+  xurl --help                  # 查看帮助
+  ```

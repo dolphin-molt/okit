@@ -1,0 +1,45 @@
+name: cloudflared
+category: Network
+
+description: Cloudflare Tunnel 客户端，安全地将本地服务暴露到公网
+homepage: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks
+
+install:
+  darwin: brew install cloudflare/cloudflare/cloudflared
+  linux: "curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb && sudo dpkg -i /tmp/cloudflared.deb && rm /tmp/cloudflared.deb"
+upgrade:
+  darwin: brew upgrade cloudflare/cloudflare/cloudflared
+  linux: "curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o /tmp/cloudflared.deb && sudo dpkg -i /tmp/cloudflared.deb && rm /tmp/cloudflared.deb"
+uninstall:
+  darwin: brew uninstall cloudflared
+  linux: sudo apt-get remove -y cloudflared
+check: command -v cloudflared
+versionCmd: cloudflared --version 2>/dev/null
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 cloudflared
+
+  cloudflared 是 Cloudflare Tunnel 的官方客户端，用于建立从本地到 Cloudflare 全球网络的安全隧道。它无需开放公网端口即可将本地服务安全地暴露到互联网，适合开发调试、远程访问和零信任网络架构。
+
+  ## 核心功能
+
+  - **安全隧道**：通过 Cloudflare 全球网络建立加密隧道，无需暴露公网端口
+  - **快速隧道**：`cloudflared tunnel --url localhost:3000` 无需登录即可创建临时隧道
+  - **自定义域名**：将本地服务绑定到自有域名，支持 HTTPS 自动证书
+  - **零信任访问**：配合 Cloudflare Zero Trust 实现安全的远程访问策略
+  - **负载均衡**：支持多隧道负载均衡和高可用配置
+  - **DNS 管理**：通过隧道自动管理 DNS 记录
+
+  ## 常用命令
+
+  ```bash
+  cloudflared tunnel --url localhost:3000  # 创建快速临时隧道
+  cloudflared tunnel create my-tunnel      # 创建命名隧道
+  cloudflared tunnel route dns my-tunnel app.example.com  # 绑定域名
+  cloudflared tunnel run my-tunnel         # 运行隧道
+  cloudflared tunnel list                  # 列出所有隧道
+  cloudflared access login                 # 登录 Cloudflare
+  ```

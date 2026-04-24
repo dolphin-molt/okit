@@ -454,7 +454,7 @@ program
 // web 子命令 - 启动 Web UI
 program
   .command("web")
-  .description("启动 Claude Code Web UI")
+  .description("启动 OKIT 工具管理 Web UI")
   .option("-p, --port <number>", "端口号", "3000")
   .option("-o, --open", "自动打开浏览器", false)
   .action(async (options: { port: string; open: boolean }) => {

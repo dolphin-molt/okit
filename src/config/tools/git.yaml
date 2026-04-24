@@ -1,0 +1,46 @@
+name: Git
+category: Development
+
+description: 分布式版本控制系统，用于跟踪代码变更和团队协作开发
+homepage: https://git-scm.com
+
+install:
+  darwin: brew install git
+  linux: "sudo apt-get update && sudo apt-get install -y git"
+upgrade:
+  darwin: brew upgrade git
+  linux: "sudo apt-get update && sudo apt-get install -y git"
+uninstall:
+  darwin: "brew uninstall --force git"
+  linux: "sudo apt-get remove -y git"
+check: command -v git
+versionCmd: git --version
+
+detail: |
+  ## 什么是 Git
+
+  Git 是目前最流行的分布式版本控制系统，由 Linus Torvalds 创建。它能高效地追踪文件变更历史，支持多人协作开发，是现代软件开发不可或缺的基础工具。
+
+  ## 核心功能
+
+  - **版本追踪**：记录每次代码变更，支持随时回退到任意历史版本
+  - **分支管理**：轻量级分支模型，支持并行开发和功能隔离
+  - **分布式架构**：每个开发者拥有完整仓库副本，无需依赖中央服务器
+  - **合并与变基**：灵活的代码整合方式，支持 merge 和 rebase 两种策略
+  - **暂存区机制**：通过 staging area 精确控制每次提交的内容
+  - **协作生态**：与 GitHub、GitLab 等平台深度集成
+
+  ## 常用命令
+
+  ```bash
+  git init                   # 初始化仓库
+  git clone <url>            # 克隆远程仓库
+  git add .                  # 暂存所有变更
+  git commit -m "message"    # 提交变更
+  git push                   # 推送到远程
+  git pull                   # 拉取远程更新
+  git branch <name>          # 创建分支
+  git checkout <branch>      # 切换分支
+  git log --oneline          # 查看简洁提交历史
+  git diff                   # 查看未暂存的变更
+  ```

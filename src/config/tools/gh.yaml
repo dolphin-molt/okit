@@ -1,0 +1,51 @@
+name: GitHub CLI
+category: Development
+
+description: GitHub 官方命令行工具，用于管理 PR、Issues、Actions 等 GitHub 功能
+homepage: https://cli.github.com
+
+install:
+  darwin: brew install gh
+  linux: "type -p curl >/dev/null && (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && echo 'deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && sudo apt-get update && sudo apt-get install -y gh)"
+upgrade:
+  darwin: brew upgrade gh
+  linux: "sudo apt-get update && sudo apt-get install -y gh"
+uninstall:
+  darwin: brew uninstall gh
+  linux: "sudo apt-get remove -y gh"
+check: command -v gh
+versionCmd: "gh --version | head -1"
+
+authCheck: "gh auth status 2>&1"
+authFix: gh auth login
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 GitHub CLI
+
+  GitHub CLI（gh）是 GitHub 官方推出的命令行工具，让你无需离开终端即可管理 GitHub 上的 Pull Request、Issues、Actions、Releases 等资源。它将 GitHub 的核心工作流直接带到命令行中。
+
+  ## 核心功能
+
+  - **PR 管理**：创建、查看、审查、合并 Pull Request，支持 draft PR
+  - **Issue 管理**：创建、编辑、关闭 Issue，支持标签和里程碑管理
+  - **Actions 操作**：查看工作流运行状态、触发重新运行、下载日志
+  - **Release 发布**：创建 Release、上传附件、管理发布版本
+  - **Repo 管理**：创建仓库、克隆仓库、查看仓库信息
+  - **扩展生态**：支持通过 `gh extension install` 安装社区扩展
+
+  ## 常用命令
+
+  ```bash
+  gh auth login              # 登录 GitHub 账号
+  gh pr create               # 创建 Pull Request
+  gh pr list                 # 列出 PR
+  gh pr checkout <number>    # 切换到 PR 分支
+  gh pr merge <number>       # 合并 PR
+  gh issue create            # 创建 Issue
+  gh run list                # 查看 Actions 运行列表
+  gh repo clone <repo>       # 克隆仓库
+  gh extension install <ext> # 安装扩展
+  ```

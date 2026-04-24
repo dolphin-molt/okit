@@ -1,0 +1,46 @@
+name: fzf
+category: Utilities
+
+description: 通用命令行模糊查找器，可用于文件、历史命令、进程等搜索
+homepage: https://github.com/junegunn/fzf
+
+install:
+  darwin: brew install fzf
+  linux: sudo apt-get update && sudo apt-get install -y fzf
+upgrade:
+  darwin: brew upgrade fzf
+  linux: sudo apt-get update && sudo apt-get install -y fzf
+uninstall:
+  darwin: brew uninstall fzf
+  linux: sudo apt-get remove -y fzf
+check: command -v fzf
+versionCmd: fzf --version
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 fzf
+
+  fzf（Fuzzy Finder）是一个通用的命令行模糊查找器，可以用于文件搜索、历史命令查找、进程过滤等场景。它提供交互式的模糊匹配界面，支持实时预览和自定义操作，是提升终端使用效率的必备工具。
+
+  ## 核心功能
+
+  - **模糊匹配**：智能模糊匹配算法，输入部分关键字即可快速定位
+  - **文件搜索**：替代 find，快速搜索文件和目录
+  - **历史命令**：增强 Shell 历史命令搜索，Ctrl+R 一键调用
+  - **实时预览**：支持在搜索时实时预览文件内容
+  - **高度可定制**：支持自定义快捷键、颜色主题和布局
+  - **管道集成**：可与其他命令行工具通过管道组合使用
+
+  ## 常用命令
+
+  ```bash
+  fzf                           # 交互式搜索当前目录文件
+  find . -type f | fzf          # 通过管道搜索文件
+  cat ~/.zsh_history | fzf      # 搜索历史命令
+  fzf --preview 'cat {}'        # 搜索时预览文件内容
+  vim $(fzf)                    # 选择文件并用 vim 打开
+  cd $(find . -type d | fzf)    # 选择目录并跳转
+  kill -9 $(ps aux | fzf | awk '{print $2}')  # 模糊选择进程并杀掉
+  ```

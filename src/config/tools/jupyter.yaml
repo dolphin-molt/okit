@@ -1,0 +1,38 @@
+name: Jupyter
+category: Data
+
+description: 交互式数据分析和可视化笔记本环境，支持 Python、R 等语言
+homepage: https://jupyter.org
+
+install: pipx install --include-deps jupyter
+upgrade: pipx upgrade --include-deps jupyter
+uninstall: pipx uninstall jupyter
+check: command -v jupyter
+
+dependencies:
+  - pipx
+
+detail: |
+  ## 什么是 Jupyter
+
+  Jupyter 是一个开源的交互式计算平台，提供基于 Web 的笔记本环境，让数据分析、可视化和机器学习开发变得更加直观。它支持 Python、R、Julia 等 40 多种编程语言，是数据科学家和研究人员最常用的工具之一。
+
+  ## 核心功能
+
+  - **交互式笔记本**：代码、文档、可视化一体化，支持实时运行和编辑
+  - **多语言内核**：通过不同内核支持 Python、R、Julia 等 40+ 编程语言
+  - **丰富可视化**：内嵌 Matplotlib、Plotly 等图表库，直接展示数据可视化
+  - **Markdown 支持**：用 Markdown 编写文档说明，代码和文档混排
+  - **扩展生态**：丰富的扩展插件，支持代码格式化、变量检查器等
+  - **协作分享**：支持导出为 HTML、PDF、LaTeX 等格式分享
+
+  ## 常用命令
+
+  ```bash
+  jupyter notebook                  # 启动笔记本服务器
+  jupyter lab                       # 启动 JupyterLab 环境
+  jupyter nbconvert --to html notebook.ipynb  # 转换为 HTML
+  jupyter nbconvert --to pdf notebook.ipynb   # 转换为 PDF
+  jupyter kernelspec list           # 列出已安装的内核
+  jupyter notebook list             # 列出运行中的笔记本服务器
+  ```

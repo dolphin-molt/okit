@@ -1,0 +1,47 @@
+name: pipx
+category: Development
+
+description: 在隔离环境中安装和运行 Python CLI 应用的工具
+homepage: https://pypa.github.io/pipx
+
+install:
+  darwin: brew install pipx && pipx ensurepath
+  linux: sudo apt-get update && sudo apt-get install -y pipx && pipx ensurepath
+upgrade:
+  darwin: brew upgrade pipx
+  linux: sudo apt-get update && sudo apt-get install -y pipx
+uninstall:
+  darwin: brew uninstall pipx
+  linux: sudo apt-get remove -y pipx
+check: command -v pipx
+versionCmd: pipx --version
+
+dependencies:
+  - Homebrew
+  - Python
+
+detail: |
+  ## 什么是 pipx
+
+  pipx 是 Python 官方推荐的 CLI 应用安装工具，专门用于在隔离的虚拟环境中安装和运行 Python 命令行应用。它解决了直接用 pip 全局安装导致的依赖冲突问题，确保每个应用都有独立的运行环境，同时保持全局命令可直接调用。
+
+  ## 核心功能
+
+  - **隔离安装**：每个 Python CLI 应用安装到独立的虚拟环境中
+  - **全局可用**：安装后的命令可直接在终端中调用
+  - **依赖隔离**：不同应用的依赖互不干扰，避免版本冲突
+  - **一键运行**：通过 pipx run 直接运行包中的命令，无需预先安装
+  - **注入依赖**：可向已安装的应用注入额外的依赖包
+  - **自动管理**：自动创建、管理和清理虚拟环境
+
+  ## 常用命令
+
+  ```bash
+  pipx install <package>         # 安装 Python CLI 应用
+  pipx uninstall <package>       # 卸载应用
+  pipx upgrade <package>         # 升级应用
+  pipx upgrade-all               # 升级所有已安装应用
+  pipx list                      # 列出已安装的应用
+  pipx run <package> <command>   # 临时运行包中的命令
+  pipx inject <package> <dep>    # 向应用注入额外依赖
+  ```

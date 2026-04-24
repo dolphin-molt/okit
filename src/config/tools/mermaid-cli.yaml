@@ -1,0 +1,38 @@
+name: Mermaid CLI
+category: Documents
+
+description: 从 Markdown 风格的文本描述生成流程图、时序图、甘特图等图表
+homepage: https://github.com/mermaid-js/mermaid-cli
+
+install: echo '安装 Mermaid CLI (跳过 Puppeteer 浏览器下载)' && mkdir -p "$HOME/.cache/puppeteer" && chmod -R u+rwX "$HOME/.cache/puppeteer" || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR="$HOME/.cache/puppeteer" npm install -g @mermaid-js/mermaid-cli
+upgrade: mkdir -p "$HOME/.cache/puppeteer" && chmod -R u+rwX "$HOME/.cache/puppeteer" || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR="$HOME/.cache/puppeteer" npm update -g @mermaid-js/mermaid-cli
+uninstall: sudo npm uninstall -g @mermaid-js/mermaid-cli
+check: command -v mmdc
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Mermaid CLI
+
+  Mermaid CLI 是 Mermaid 图表语言的命令行渲染工具，能将 Markdown 风格的文本描述转换为高质量的流程图、时序图、甘特图、类图、状态图等可视化图表。它基于 Puppeteer 在无头浏览器中渲染图表，支持输出 PNG、SVG、PDF 等多种格式。
+
+  ## 核心功能
+
+  - **流程图**：用简洁文本语法定义流程图、决策树和算法流程
+  - **时序图**：描述系统间的交互时序和消息传递
+  - **甘特图**：项目进度规划和里程碑展示
+  - **多格式输出**：支持 PNG、SVG、PDF 等多种输出格式
+  - **批量渲染**：支持批量处理多个 .mmd 文件
+  - **主题定制**：内置多种主题样式，可自定义图表外观
+
+  ## 常用命令
+
+  ```bash
+  mmdc -i diagram.mmd -o diagram.png    # 渲染为 PNG
+  mmdc -i diagram.mmd -o diagram.svg    # 渲染为 SVG
+  mmdc -i diagram.mmd -o diagram.pdf    # 渲染为 PDF
+  mmdc -i diagram.mmd -w 2048          # 指定输出宽度
+  mmdc -t dark -i diagram.mmd -o out.png  # 使用暗色主题
+  mmdc -p puppeteer-config.json -i diagram.mmd -o out.png  # 自定义 Puppeteer 配置
+  ```

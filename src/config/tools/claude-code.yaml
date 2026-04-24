@@ -1,0 +1,41 @@
+name: Claude Code
+category: AI Coding
+
+description: Anthropic 的 AI 编程代理，支持文件读写、命令执行、代码搜索等交互式编程
+homepage: https://docs.anthropic.com/en/docs/claude-code
+
+install: "sudo npm install -g @anthropic-ai/claude-code"
+upgrade: "sudo npm update -g @anthropic-ai/claude-code"
+uninstall: "sudo npm uninstall -g @anthropic-ai/claude-code"
+check: command -v claude
+versionCmd: "claude --version 2>/dev/null || echo unknown"
+
+dependencies:
+  - Node.js
+
+skill: "Anthropic 的 AI 编程代理 CLI。运行 claude 启动交互式编程会话，支持文件读写、命令执行、代码搜索、Git 操作等。可通过 /help 查看所有命令，支持 MCP 服务器扩展能力。需要 Anthropic 账号或 API Key。"
+
+detail: |
+  ## 什么是 Claude Code
+
+  Claude Code 是 Anthropic 推出的 AI 编程代理，基于 Claude 模型提供交互式编程体验。它支持文件读写、命令执行、代码搜索、Git 操作等完整开发工作流，可通过 MCP 服务器扩展能力，是目前最强大的 AI 编程助手之一。
+
+  ## 核心功能
+
+  - **交互式编程**：在终端中与 Claude 对话，自然语言驱动开发
+  - **文件操作**：读取、创建、编辑项目文件，智能理解代码结构
+  - **命令执行**：运行 shell 命令、安装依赖、启动服务
+  - **代码搜索**：在整个代码库中搜索和分析代码模式
+  - **Git 集成**：自动创建提交、解决合并冲突、生成 PR
+  - **MCP 扩展**：通过 Model Context Protocol 连接外部工具和数据源
+
+  ## 常用命令
+
+  ```bash
+  claude                     # 启动交互式会话
+  claude "帮我修复这个 bug"  # 直接执行任务
+  claude --version           # 查看版本
+  claude config              # 配置设置
+  /help                      # 在会话中查看帮助
+  /clear                     # 清除对话上下文
+  ```

@@ -1,0 +1,42 @@
+name: Vercel CLI
+category: Cloud
+
+description: Vercel 官方命令行工具，用于部署和管理前端项目
+homepage: https://vercel.com/docs/cli
+
+install: npm install -g vercel
+upgrade: npm update -g vercel
+uninstall: npm uninstall -g vercel
+check: command -v vercel
+versionCmd: vercel --version 2>/dev/null | head -1
+authCheck: "vercel whoami 2>&1"
+authFix: "vercel login"
+
+dependencies:
+  - Node.js
+
+detail: |
+  ## 什么是 Vercel CLI
+
+  Vercel CLI 是 Vercel 平台的官方命令行工具，让开发者从终端完成前端项目的部署、预览和管理。它支持将 Next.js、React、Vue 等框架项目一键部署到 Vercel 的全球 CDN 边缘网络，并提供本地开发服务器模拟生产环境。
+
+  ## 核心功能
+
+  - **一键部署**：`vercel deploy` 将项目部署到 Vercel 全球 CDN，自动生成预览 URL
+  - **本地开发**：`vercel dev` 在本地启动开发服务器，模拟 Vercel 生产环境
+  - **环境变量管理**：安全地管理项目环境变量和 Secrets
+  - **域名管理**：绑定自定义域名、配置 DNS 记录
+  - **Serverless Functions**：本地开发和调试 Serverless API 函数
+  - **项目协作**：支持多人协作项目的管理和部署权限控制
+
+  ## 常用命令
+
+  ```bash
+  vercel                     # 部署项目（交互式）
+  vercel --prod              # 部署到生产环境
+  vercel dev                 # 启动本地开发服务器
+  vercel env pull            # 拉取远程环境变量到本地
+  vercel env add <name>      # 添加环境变量
+  vercel domains add <domain> # 添加自定义域名
+  vercel logs <url>          # 查看部署日志
+  ```

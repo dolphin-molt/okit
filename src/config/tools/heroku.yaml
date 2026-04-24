@@ -1,0 +1,49 @@
+name: Heroku CLI
+category: Cloud
+
+description: Heroku 云平台命令行工具，用于创建、部署和管理应用
+homepage: https://devcenter.heroku.com/articles/heroku-cli
+
+install:
+  darwin: "brew tap heroku/brew && brew install heroku"
+  linux: curl https://cli-assets.heroku.com/install.sh | sh
+upgrade:
+  darwin: brew upgrade heroku
+  linux: curl https://cli-assets.heroku.com/install.sh | sh
+uninstall:
+  darwin: brew uninstall heroku
+  linux: "sudo rm -rf /usr/local/lib/heroku /usr/local/bin/heroku"
+check: command -v heroku
+versionCmd: "heroku --version 2>/dev/null | head -1"
+authCheck: "heroku auth:whoami 2>&1"
+authFix: "heroku auth:login"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Heroku CLI
+
+  Heroku CLI 是 Heroku 云平台的官方命令行工具，用于在终端中创建、部署和管理应用。Heroku 是最早的 PaaS 平台之一，以极致的开发体验著称，支持多种编程语言，通过 Git 推送即可完成部署。
+
+  ## 核心功能
+
+  - **Git 部署**：通过 `git push heroku main` 一键部署应用
+  - **多语言支持**：原生支持 Node.js、Python、Ruby、Java、Go 等语言
+  - **Add-ons 生态**：一键集成数据库、缓存、监控等第三方服务
+  - **环境管理**：支持 Review Apps、Staging 和生产多环境
+  - **日志管理**：实时查看应用日志和运行时指标
+  - **Dyno 管理**：灵活配置应用的计算资源和自动扩缩
+
+  ## 常用命令
+
+  ```bash
+  heroku login                 # 登录 Heroku 账号
+  heroku create myapp          # 创建新应用
+  git push heroku main         # 部署应用
+  heroku ps                    # 查看运行中的 Dyno
+  heroku logs --tail           # 实时查看日志
+  heroku addons:add heroku-postgresql  # 添加数据库插件
+  heroku config:set KEY=value  # 设置环境变量
+  heroku run bash              # 在 Dyno 中运行命令
+  ```

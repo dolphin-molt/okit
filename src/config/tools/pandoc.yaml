@@ -1,0 +1,45 @@
+name: Pandoc
+category: Documents
+
+description: 通用文档格式转换器，支持 Markdown、HTML、PDF、Word、LaTeX 等互转
+homepage: https://pandoc.org
+
+install:
+  darwin: brew install pandoc
+  linux: sudo apt-get update && sudo apt-get install -y pandoc
+upgrade:
+  darwin: brew upgrade pandoc
+  linux: sudo apt-get update && sudo apt-get install -y pandoc
+uninstall:
+  darwin: brew uninstall pandoc
+  linux: sudo apt-get remove -y pandoc
+check: command -v pandoc
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Pandoc
+
+  Pandoc 是一款通用的文档格式转换工具，被誉为"文档转换领域的瑞士军刀"。它能在 Markdown、HTML、LaTeX、Word、PDF、EPUB、reStructuredText 等数十种文档格式之间互相转换，是学术写作、技术文档和内容出版的必备工具。
+
+  ## 核心功能
+
+  - **多格式互转**：支持数十种文档格式之间的相互转换
+  - **Markdown 增强**：扩展 Markdown 语法，支持表格、脚注、数学公式等
+  - **模板系统**：通过自定义模板控制输出文档的样式和结构
+  - **学术论文**：完美支持 LaTeX 数学公式和参考文献管理
+  - **过滤器**：通过 Lua 和 Haskell 过滤器自定义转换逻辑
+  - **批量处理**：支持命令行批量转换，适合自动化工作流
+
+  ## 常用命令
+
+  ```bash
+  pandoc input.md -o output.pdf          # Markdown 转 PDF
+  pandoc input.md -o output.docx         # Markdown 转 Word
+  pandoc input.md -o output.html         # Markdown 转 HTML
+  pandoc input.docx -o output.md         # Word 转 Markdown
+  pandoc input.md -s -o output.html      # 生成完整 HTML 文档（带头部）
+  pandoc input.md --pdf-engine=xelatex -o output.pdf  # 使用 XeLaTeX 引擎（支持中文）
+  pandoc input.md -V geometry:margin=1in -o output.pdf  # 设置 PDF 页边距
+  ```

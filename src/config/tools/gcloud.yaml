@@ -1,0 +1,49 @@
+name: Google Cloud CLI
+category: Cloud
+
+description: Google Cloud Platform 官方命令行工具，管理 GCE、GCS、GKE 等服务
+homepage: https://cloud.google.com/cli
+
+install:
+  darwin: brew install --cask google-cloud-sdk
+  linux: "curl https://sdk.cloud.google.com | bash -s -- --disable-prompts && echo 'source ~/google-cloud-sdk/path.bash.inc' >> ~/.bashrc"
+upgrade:
+  darwin: brew upgrade --cask google-cloud-sdk
+  linux: gcloud components update --quiet
+uninstall:
+  darwin: brew uninstall --cask google-cloud-sdk
+  linux: "rm -rf ~/google-cloud-sdk && sed -i '/google-cloud-sdk/d' ~/.bashrc"
+check: command -v gcloud
+versionCmd: "gcloud --version 2>/dev/null | head -1"
+authCheck: "gcloud auth list 2>&1 | head -5"
+authFix: "gcloud auth login"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Google Cloud CLI
+
+  Google Cloud CLI（gcloud）是 Google Cloud Platform 的统一命令行工具，提供了对 GCP 所有服务的编程式访问能力。通过它可以在终端中管理 Compute Engine 虚拟机、Cloud Storage 存储、GKE 集群、Cloud Functions 等数百种云服务。
+
+  ## 核心功能
+
+  - **统一管理**：一个命令行工具管理所有 GCP 服务，覆盖计算、存储、网络、AI 等
+  - **项目切换**：通过 `gcloud config set project` 快速切换项目和区域
+  - **IAM 管理**：管理服务账号、角色和权限策略
+  - **容器编排**：与 GKE 深度集成，管理 Kubernetes 集群和工作负载
+  - **Serverless 部署**：部署和管理 Cloud Functions、Cloud Run 服务
+  - **脚本自动化**：支持 `--format=json` 等输出格式，便于脚本处理
+
+  ## 常用命令
+
+  ```bash
+  gcloud auth login            # 登录 Google 账号
+  gcloud config set project my-project  # 设置当前项目
+  gcloud compute instances list  # 列出虚拟机实例
+  gcloud storage ls            # 列出 Cloud Storage 存储桶
+  gcloud container clusters list  # 列出 GKE 集群
+  gcloud functions deploy my-func --trigger-http  # 部署云函数
+  gcloud app deploy            # 部署 App Engine 应用
+  gcloud services enable compute.googleapis.com  # 启用 API 服务
+  ```

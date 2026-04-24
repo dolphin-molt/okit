@@ -1,0 +1,38 @@
+name: Whisper
+category: AI Coding
+
+description: OpenAI 开源语音识别模型，支持多语言转录和翻译
+homepage: https://github.com/openai/whisper
+
+install: pipx install openai-whisper
+upgrade: pipx upgrade openai-whisper
+uninstall: pipx uninstall openai-whisper
+check: command -v whisper
+
+dependencies:
+  - pipx
+
+detail: |
+  ## 什么是 Whisper
+
+  Whisper 是 OpenAI 开源的自动语音识别（ASR）系统，基于 68 万小时的多语言监督数据训练而成。它支持多语言语音转录、语音翻译、语言识别和语音活动检测，是目前最强大的开源语音识别模型之一。
+
+  ## 核心功能
+
+  - **多语言转录**：支持 99 种语言的语音转文字
+  - **语音翻译**：将任意语言的语音翻译为英文文字
+  - **语言检测**：自动识别音频中的语言
+  - **多种模型**：从 tiny 到 large 五种模型，平衡速度和精度
+  - **长音频处理**：支持自动分段处理长音频文件
+  - **多格式支持**：支持 WAV、MP3、MP4 等常见音频格式
+
+  ## 常用命令
+
+  ```bash
+  whisper audio.mp3                    # 转录音频文件
+  whisper audio.mp3 --model medium     # 使用 medium 模型
+  whisper audio.mp3 --language Chinese # 指定语言
+  whisper audio.mp3 --output_format srt  # 输出 SRT 字幕格式
+  whisper audio.mp3 --translate        # 翻译为英文
+  whisper audio.mp3 --output_dir ./out  # 指定输出目录
+  ```

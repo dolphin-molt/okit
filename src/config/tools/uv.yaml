@@ -1,0 +1,45 @@
+name: uv (uvx)
+category: Development
+
+description: 极速 Python 包管理器和运行时工具，替代 pip、virtualenv、pipx
+homepage: https://docs.astral.sh/uv
+
+install:
+  darwin: brew install uv
+  linux: curl -LsSf https://astral.sh/uv/install.sh | sh
+upgrade:
+  darwin: brew upgrade uv
+  linux: uv self update
+uninstall:
+  darwin: brew uninstall uv
+  linux: uv self uninstall
+check: command -v uv && command -v uvx
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 uv
+
+  uv 是由 Astral（Ruff 的创建团队）开发的极速 Python 包管理器和运行时工具，旨在替代 pip、virtualenv、pipx 等多个 Python 工具。它用 Rust 编写，速度比传统 Python 包管理器快 10-100 倍，提供统一的包管理、虚拟环境管理和工具运行能力。
+
+  ## 核心功能
+
+  - **极速安装**：用 Rust 编写，包安装速度比 pip 快 10-100 倍
+  - **统一工具链**：替代 pip、virtualenv、pipx 等多个工具
+  - **uvx 运行**：通过 uvx 直接运行 Python CLI 工具，无需预装
+  - **项目管理**：内置项目依赖管理和 lockfile 支持
+  - **Python 版本管理**：支持安装和管理多个 Python 版本
+  - **全局缓存**：跨项目共享下载缓存，节省磁盘空间
+
+  ## 常用命令
+
+  ```bash
+  uv pip install <package>        # 安装包（极速）
+  uv pip install -r requirements.txt  # 从文件安装依赖
+  uv venv                         # 创建虚拟环境
+  uvx <tool>                      # 直接运行 Python CLI 工具
+  uv pip compile pyproject.toml -o requirements.txt  # 编译依赖
+  uv python install 3.12          # 安装指定 Python 版本
+  uv init                         # 初始化新项目
+  ```

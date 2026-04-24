@@ -1,0 +1,48 @@
+name: Ollama
+category: AI Coding
+
+description: 本地大模型运行平台，支持拉取和运行 llama3、qwen2 等开源模型
+homepage: https://ollama.com
+
+install:
+  darwin: brew install --cask ollama
+  linux: curl -fsSL https://ollama.com/install.sh | sh
+upgrade:
+  darwin: brew upgrade --cask ollama
+  linux: curl -fsSL https://ollama.com/install.sh | sh
+uninstall:
+  darwin: brew uninstall --cask ollama
+  linux: sudo rm -f /usr/local/bin/ollama
+check: command -v ollama
+versionCmd: ollama --version 2>/dev/null
+
+dependencies:
+  - Homebrew
+
+skill: "本地大模型运行平台。用 ollama pull <model> 拉取模型（如 llama3、qwen2、codellama），ollama run <model> 启动交互式对话，ollama list 查看已下载模型。支持通过 API（默认 localhost:11434）集成到应用中。无需 API Key，完全本地运行。"
+
+detail: |
+  ## 什么是 Ollama
+
+  Ollama 是一个本地大语言模型运行平台，让你在本地机器上一键运行 llama3、qwen2、codellama 等开源大模型。它无需 API Key，完全本地运行，数据不出本地，是隐私敏感场景和离线环境的理想选择。
+
+  ## 核心功能
+
+  - **一键运行模型**：`ollama run llama3` 即可启动模型对话，无需复杂配置
+  - **模型库**：提供丰富的开源模型，涵盖对话、代码、嵌入等多种类型
+  - **REST API**：默认监听 localhost:11434，提供兼容 OpenAI 的 API 接口
+  - **Modelfile**：支持自定义模型参数、系统提示词和量化设置
+  - **多模态支持**：支持 LLaVA 等视觉语言模型，处理图片输入
+  - **模型管理**：拉取、删除、列表管理本地模型
+
+  ## 常用命令
+
+  ```bash
+  ollama pull llama3           # 下载 llama3 模型
+  ollama run llama3            # 启动 llama3 对话
+  ollama run qwen2             # 启动 qwen2 对话
+  ollama list                  # 列出已下载的模型
+  ollama rm llama3             # 删除模型
+  ollama create mymodel -f Modelfile  # 从 Modelfile 创建自定义模型
+  ollama serve                 # 启动 API 服务
+  ```

@@ -1,0 +1,38 @@
+name: CodeBuddy Code
+category: AI Coding
+
+description: 腾讯推出的 AI CLI 编程工具，支持代码生成、依赖安装和自动化 Debug
+homepage: https://copilot.tencent.com
+
+install: npm install -g @tencent-ai/codebuddy-code
+upgrade: "npm update -g @tencent-ai/codebuddy-code"
+uninstall: "npm uninstall -g @tencent-ai/codebuddy-code"
+check: command -v codebuddy
+versionCmd: "codebuddy --version 2>/dev/null || echo unknown"
+
+dependencies:
+  - Node.js
+
+skill: "腾讯推出的 AI CLI 编程工具。运行 codebuddy 启动，支持微信扫码登录，用自然语言驱动代码生成、依赖安装、测试运行和 Debug。支持 MCP 服务搭建，适合全流程自动化开发。需要 Node.js >= 18。"
+
+detail: |
+  ## 什么是 CodeBuddy Code
+
+  CodeBuddy Code 是腾讯推出的 AI CLI 编程工具，通过自然语言驱动代码生成、依赖安装、测试运行和 Debug。它支持微信扫码登录，适合全流程自动化开发，是国内开发者的 AI 编程好帮手。
+
+  ## 核心功能
+
+  - **微信扫码登录**：无需 API Key，微信扫码即可开始使用
+  - **代码生成**：自然语言描述需求，自动生成代码并写入文件
+  - **依赖管理**：自动安装项目依赖，解决版本冲突
+  - **智能 Debug**：分析错误信息，定位问题并生成修复方案
+  - **MCP 服务**：支持搭建 MCP 服务，扩展 AI Agent 能力
+  - **中文优化**：对中文理解和生成进行专门优化
+
+  ## 常用命令
+
+  ```bash
+  codebuddy                  # 启动交互式会话
+  codebuddy "创建一个 Vue 项目"  # 直接执行任务
+  codebuddy --version        # 查看版本
+  ```

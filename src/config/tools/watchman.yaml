@@ -1,0 +1,46 @@
+name: watchman
+category: Development
+
+description: Facebook 出品的文件监控服务，监视文件变更并触发操作
+homepage: https://facebook.github.io/watchman
+
+install:
+  darwin: brew install watchman
+  linux: sudo apt-get update && sudo apt-get install -y watchman
+upgrade:
+  darwin: brew upgrade watchman
+  linux: sudo apt-get update && sudo apt-get install -y watchman
+uninstall:
+  darwin: brew uninstall watchman
+  linux: sudo apt-get remove -y watchman
+check: command -v watchman
+versionCmd: watchman --version 2>/dev/null
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 watchman
+
+  watchman 是 Facebook 开源的文件系统监控服务，能够高效地监视文件和目录的变更，并在变化发生时触发相应的操作。它比传统的 inotify/fsevents 方案更高效，适合大型项目的文件监控需求。
+
+  ## 核心功能
+
+  - **高效监控**：使用操作系统原生 API 高效监控大量文件变更
+  - **递归监视**：支持递归监视整个目录树，自动跟踪新增文件
+  - **触发器机制**：文件变更时自动触发自定义命令或脚本
+  - **订阅模式**：支持长连接订阅，实时接收文件变更通知
+  - **去重合并**：智能合并短时间内的多次变更，避免重复触发
+  - **状态持久化**：支持保存和查询文件变更的游标状态
+
+  ## 常用命令
+
+  ```bash
+  watchman watch ~/projects/myapp  # 开始监视目录
+  watchman watch-list              # 列出所有被监视的目录
+  watchman since /path trigger-name  # 查询自上次以来的变更
+  watchman trigger ~/project -- name trigger-name -- bash build.sh  # 设置触发器
+  watchman watch-del ~/projects/myapp  # 停止监视目录
+  watchman shutdown-server        # 关闭 watchman 服务
+  watchman log                    # 查看日志
+  ```

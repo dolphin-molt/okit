@@ -3,365 +3,300 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OKIT — Claude Code Dashboard</title>
+  <title>OKIT</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css?v=2.1.9">
 </head>
 <body>
-  <!-- Ambient background -->
-  <div class="ambient-bg">
-    <div class="ambient-orb ambient-orb--1"></div>
-    <div class="ambient-orb ambient-orb--2"></div>
-    <div class="ambient-orb ambient-orb--3"></div>
-  </div>
 
-  <div id="app">
-    <nav class="sidebar">
-      <div class="sidebar-header">
-        <div class="logo">
-          <div class="logo-mark">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#logoGrad)" stroke-width="2"/>
-              <circle cx="10" cy="11" r="2" fill="url(#logoGrad)"/>
-              <circle cx="18" cy="11" r="2" fill="url(#logoGrad)"/>
-              <path d="M9 18c1.5 2 4 3 5 3s3.5-1 5-3" stroke="url(#logoGrad)" stroke-width="1.5" stroke-linecap="round"/>
-              <defs>
-                <linearGradient id="logoGrad" x1="0" y1="0" x2="28" y2="28">
-                  <stop stop-color="#c084fc"/>
-                  <stop offset="1" stop-color="#60a5fa"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <span class="logo-text">OKIT</span>
+<div id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-shape"></div>
+      <span class="brand-text">OKIT</span>
+      <span class="brand-hand">工具箱</span>
+    </div>
+    <div class="sidebar-cut"></div>
+    <ul class="nav-links">
+      <li class="nav-item active" data-tab="tools" onclick="switchTab('tools')">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+          <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.7"/>
+          <rect x="11" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.5"/>
+          <rect x="1" y="11" width="6" height="6" rx="1" fill="currentColor" opacity="0.5"/>
+          <rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor" opacity="0.3"/>
+        </svg>
+        <span>工具列表</span>
+      </li>
+      <li class="nav-item" data-tab="vault" onclick="switchTab('vault')">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+          <rect x="2" y="7" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <path d="M5 7V5a4 4 0 0 1 8 0v2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>密钥管理</span>
+      </li>
+      <li class="nav-item" data-tab="auth" onclick="switchTab('auth')">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" fill="none">
+          <circle cx="9" cy="9" r="7"/>
+          <path d="M9 6v3.5l2.5 1.5" stroke-linecap="round" stroke="currentColor"/>
+          <circle cx="9" cy="9" r="1" fill="currentColor"/>
+        </svg>
+        <span>授权管理</span>
+      </li>
+      <li class="nav-item" data-tab="logs" onclick="switchTab('logs')">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M3 3h12v12H3z" stroke-linejoin="round"/>
+          <path d="M6 6h6M6 9h4M6 12h5"/>
+        </svg>
+        <span>操作日志</span>
+      </li>
+    </ul>
+    <div class="sidebar-bottom">
+      <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="9" cy="9" r="3.5"/>
+          <path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.7 3.7l1.4 1.4M12.9 12.9l1.4 1.4M3.7 14.3l1.4-1.4M12.9 5.1l1.4-1.4"/>
+        </svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <path d="M15 10.3A6.5 6.5 0 0 1 7.7 3 6.5 6.5 0 1 0 15 10.3z"/>
+        </svg>
+      </button>
+      <span class="status" id="status">
+        <span class="status-dot"></span>
+        <span class="status-text">连接中</span>
+      </span>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main-content">
+
+    <!-- ═══ Tools Tab ═══ -->
+    <div id="tab-tools" class="tab-content">
+      <header class="page-header">
+        <div class="header-paper">
+          <h1 class="page-title">工具管理</h1>
+          <p class="page-subtitle">查看所有开发工具的安装与授权状态</p>
+        </div>
+        <button class="btn-refresh" onclick="refreshTools()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5"/>
+            <path d="M12 2v3h-3"/>
+          </svg>
+          刷新
+        </button>
+      </header>
+
+      <div class="summary">
+        <div class="summary-card" style="--card-bg: #fef3c7; --card-rotate: -1.2deg; --card-shadow: #f59e0b">
+          <span class="summary-num" id="summaryInstalled">—</span>
+          <span class="summary-label">已安装</span>
+        </div>
+        <div class="summary-card" style="--card-bg: #dbeafe; --card-rotate: 0.8deg; --card-shadow: #3b82f6">
+          <span class="summary-num" id="summaryTotal">—</span>
+          <span class="summary-label">总计</span>
+        </div>
+        <div class="summary-card" id="summaryAuthWrap" style="display:none; --card-bg: #fee2e2; --card-rotate: -0.5deg; --card-shadow: #ef4444">
+          <span class="summary-num" id="summaryAuth">0</span>
+          <span class="summary-label">未授权</span>
         </div>
       </div>
 
-      <ul class="nav-links">
-        <li class="active">
-          <a href="#/" data-page="dashboard">
-            <span class="nav-icon">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <rect x="1" y="1" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="12" y="1" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="1" y="12" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="12" y="12" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-            </span>
-            <span class="nav-label">使用量</span>
-          </a>
-        </li>
-        <li>
-          <a href="#/config" data-page="config">
-            <span class="nav-icon">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M10 1v3M10 16v3M1 10h3M16 10h3M3.93 3.93l2.12 2.12M13.95 13.95l2.12 2.12M3.93 16.07l2.12-2.12M13.95 6.05l2.12-2.12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <span class="nav-label">配置</span>
-          </a>
-        </li>
-      </ul>
-
-      <div class="sidebar-footer">
-        <div class="status" id="status">
-          <span class="status-dot"></span>
-          <span class="status-text">连接中...</span>
+      <div class="toolbar">
+        <div class="search-paper">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4">
+            <circle cx="7" cy="7" r="5"/>
+            <path d="M11 11l3.5 3.5"/>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="搜索工具..." oninput="handleSearch(this.value)">
         </div>
-        <div class="version-tag">v2.0</div>
+        <div class="filter-paper">
+          <select id="categoryFilter" class="filter-select" onchange="handleFilter(this.value)">
+            <option value="all">全部分类</option>
+          </select>
+        </div>
       </div>
-    </nav>
 
-    <main class="main-content">
-      <!-- Dashboard Page -->
-      <div id="page-dashboard" class="page active">
-        <header class="page-header">
-          <div class="page-title-group">
-            <h2>使用量统计</h2>
-            <p class="page-subtitle">Claude Code 运行数据总览</p>
-          </div>
-          <button class="btn-refresh" onclick="refreshStats()">
-            <svg class="refresh-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M14 8A6 6 0 1 1 8 2c1.66 0 3.14.69 4.22 1.78L14 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M14 2v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <div class="filter-bar">
+        <div class="status-filters">
+          <button class="status-filter active" data-status="all" onclick="handleStatusFilter('all')">全部</button>
+          <button class="status-filter" data-status="installed" onclick="handleStatusFilter('installed')">已安装</button>
+          <button class="status-filter" data-status="missing" onclick="handleStatusFilter('missing')">未安装</button>
+          <button class="status-filter" data-status="unauthorized" onclick="handleStatusFilter('unauthorized')">未授权</button>
+        </div>
+        <button class="btn-select-all" onclick="selectAll()">全选</button>
+      </div>
+
+      <div class="tool-list" id="toolList">
+        <div class="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          正在检查工具状态...
+        </div>
+      </div>
+
+      <div id="batchBar" class="batch-bar" style="display:none">
+        <div class="batch-bar-inner">
+          <span class="batch-info">已选 <strong id="batchCount">0</strong> 项</span>
+          <button class="btn-batch btn-batch--install" onclick="batchAction('install')">批量安装</button>
+          <button class="btn-batch btn-batch--upgrade" onclick="batchAction('upgrade')">批量升级</button>
+          <button class="btn-batch btn-batch--uninstall" onclick="batchAction('uninstall')">批量卸载</button>
+          <button class="btn-batch-cancel" onclick="clearSelection()">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Vault Tab ═══ -->
+    <div id="tab-vault" class="tab-content" style="display:none">
+      <header class="page-header">
+        <div class="header-paper" style="transform: rotate(0.3deg)">
+          <h1 class="page-title">密钥管理</h1>
+          <p class="page-subtitle">管理 API 密钥、Token 等敏感凭证</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-add" onclick="showVaultForm()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M7 2v10M2 7h10"/>
             </svg>
-            <span>刷新</span>
+            添加密钥
           </button>
-        </header>
-
-        <div class="stats-grid">
-          <div class="stat-card" data-accent="purple">
-            <div class="stat-card-bg"></div>
-            <div class="stat-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <path d="M2 16l3-3 4 4 5-8 6 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="17" cy="6" r="2" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">总 Token 数</div>
-              <div class="stat-value" id="totalTokens">—</div>
-            </div>
-            <div class="stat-glow"></div>
-          </div>
-
-          <div class="stat-card" data-accent="blue">
-            <div class="stat-card-bg"></div>
-            <div class="stat-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M11 6v5.5l3.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M7 2l1 2M15 2l-1 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">估算成本</div>
-              <div class="stat-value" id="totalCost">—</div>
-            </div>
-            <div class="stat-glow"></div>
-          </div>
-
-          <div class="stat-card" data-accent="teal">
-            <div class="stat-card-bg"></div>
-            <div class="stat-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <rect x="3" y="3" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M8 8h6M8 11h6M8 14h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">会话数</div>
-              <div class="stat-value" id="sessionCount">—</div>
-            </div>
-            <div class="stat-glow"></div>
-          </div>
-
-          <div class="stat-card" data-accent="amber">
-            <div class="stat-card-bg"></div>
-            <div class="stat-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M11 6v5l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="stat-content">
-              <div class="stat-label">活跃时间</div>
-              <div class="stat-value" id="activeTime">—</div>
-            </div>
-            <div class="stat-glow"></div>
-          </div>
-        </div>
-
-        <div class="stats-secondary">
-          <div class="stat-pill">
-            <div class="stat-pill-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M4 2v12M8 4v10M12 6v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-pill-content">
-              <span class="stat-pill-label">代码行数</span>
-              <span class="stat-pill-value" id="linesOfCode">—</span>
-            </div>
-          </div>
-          <div class="stat-pill">
-            <div class="stat-pill-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="stat-pill-content">
-              <span class="stat-pill-label">提交数</span>
-              <span class="stat-pill-value" id="commitCount">—</span>
-            </div>
-          </div>
-          <div class="stat-pill">
-            <div class="stat-pill-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M5 1v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M3 9l5 6 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="stat-pill-content">
-              <span class="stat-pill-label">PR 数</span>
-              <span class="stat-pill-value" id="prCount">—</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">
-            <h3>最近会话</h3>
-            <span class="section-badge">实时</span>
-          </div>
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>项目</th>
-                  <th>模型</th>
-                  <th>Token 数</th>
-                  <th>时间</th>
-                </tr>
-              </thead>
-              <tbody id="sessionsTable">
-                <tr>
-                  <td colspan="4" class="loading">
-                    <div class="loading-spinner"></div>
-                    <span>加载中...</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Config Page -->
-      <div id="page-config" class="page">
-        <header class="page-header">
-          <div class="page-title-group">
-            <h2>Claude Code 配置</h2>
-            <p class="page-subtitle">管理模型、界面与运行设置</p>
-          </div>
-          <button class="btn-save" onclick="saveConfig()">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M12.67 2H3.33C2.6 2 2 2.6 2 3.33v9.34C2 13.4 2.6 14 3.33 14h9.34c.73 0 1.33-.6 1.33-1.33V3.33C14 2.6 13.4 2 12.67 2Z" stroke="currentColor" stroke-width="1.3"/>
-              <path d="M5 2v4h6V2" stroke="currentColor" stroke-width="1.3"/>
-              <rect x="5" y="9" width="6" height="3" rx="0.5" stroke="currentColor" stroke-width="1.3"/>
+          <button class="btn-outline" onclick="exportVault()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M2 10v2h10v-2M7 2v7M4 6l3 3 3-3"/>
             </svg>
-            <span>保存配置</span>
+            导出
           </button>
-        </header>
+          <button class="btn-outline" onclick="triggerImportVault()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M2 4v-2h10v2M7 12V5M4 8l3-3 3 3"/>
+            </svg>
+            导入
+          </button>
+          <input type="file" id="vaultImportFile" accept=".json" style="display:none" onchange="handleImportVault(this)">
+          <button class="btn-refresh" onclick="loadVault()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5"/>
+              <path d="M12 2v3h-3"/>
+            </svg>
+            刷新
+          </button>
+        </div>
+      </header>
 
-        <div class="config-grid">
-          <div class="config-section" data-icon="model">
-            <div class="config-section-header">
-              <div class="config-section-icon">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M9 1L1 5v8l8 4 8-4V5L9 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-                  <path d="M1 5l8 4 8-4M9 9v8" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <h3>模型设置</h3>
+      <div id="vaultForm" class="vault-form" style="display:none">
+        <div class="vault-form-inner">
+          <h3 class="vault-form-title" id="vaultFormTitle">添加密钥</h3>
+          <div class="vault-form-row">
+            <div class="vault-form-field">
+              <label>Key</label>
+              <input type="text" id="vaultKey" class="vault-input" placeholder="例如 OPENAI_API_KEY">
             </div>
-            <div class="form-group">
-              <label for="configModel">模型</label>
-              <div class="input-wrap">
-                <input type="text" id="configModel" class="input" placeholder="claude-sonnet-4-5-20250929">
-              </div>
+            <div class="vault-form-field vault-form-field--alias">
+              <label>别名</label>
+              <input type="text" id="vaultAlias" class="vault-input" placeholder="default">
             </div>
           </div>
-
-          <div class="config-section" data-icon="team">
-            <div class="config-section-header">
-              <div class="config-section-icon">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <circle cx="7" cy="6" r="3" stroke="currentColor" stroke-width="1.3"/>
-                  <circle cx="13" cy="7" r="2.5" stroke="currentColor" stroke-width="1.3"/>
-                  <path d="M1 16c0-3.3 2.7-6 6-6 1.3 0 2.5.4 3.5 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                  <path d="M10 16c0-2.5 1.3-4 3-4s3 1.5 3 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <h3>Agent Teams</h3>
-            </div>
-            <div class="form-group">
-              <label for="configTeammateMode">队友显示模式</label>
-              <div class="select-wrap">
-                <select id="configTeammateMode" class="select">
-                  <option value="auto">auto</option>
-                  <option value="in-process">in-process</option>
-                  <option value="tmux">tmux</option>
-                </select>
-                <svg class="select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-            </div>
+          <div class="vault-form-field">
+            <label>Value</label>
+            <input type="password" id="vaultValue" class="vault-input" placeholder="密钥值">
+            <button type="button" class="btn-toggle-vis" onclick="toggleValueVis()">显示</button>
           </div>
-
-          <div class="config-section" data-icon="interface">
-            <div class="config-section-header">
-              <div class="config-section-icon">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <rect x="1" y="3" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/>
-                  <path d="M1 7h16" stroke="currentColor" stroke-width="1.3"/>
-                  <circle cx="4" cy="5" r="0.8" fill="currentColor"/>
-                  <circle cx="7" cy="5" r="0.8" fill="currentColor"/>
-                  <circle cx="10" cy="5" r="0.8" fill="currentColor"/>
-                </svg>
-              </div>
-              <h3>界面设置</h3>
-            </div>
-            <div class="form-group">
-              <label for="configLanguage">语言</label>
-              <div class="select-wrap">
-                <select id="configLanguage" class="select">
-                  <option value="english">English</option>
-                  <option value="japanese">Japanese</option>
-                  <option value="chinese">Chinese</option>
-                </select>
-                <svg class="select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="configOutputStyle">输出风格</label>
-              <div class="select-wrap">
-                <select id="configOutputStyle" class="select">
-                  <option value="Concise">Concise</option>
-                  <option value="Explanatory">Explanatory</option>
-                </select>
-                <svg class="select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div class="config-section" data-icon="other">
-            <div class="config-section-header">
-              <div class="config-section-icon">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.3"/>
-                  <path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <h3>其他设置</h3>
-            </div>
-            <div class="form-group">
-              <label class="toggle-label">
-                <span class="toggle-wrap">
-                  <input type="checkbox" id="configShowTurnDuration" class="toggle-input">
-                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                </span>
-                <span class="toggle-text">显示轮次耗时</span>
-              </label>
-            </div>
-            <div class="form-group">
-              <label class="toggle-label">
-                <span class="toggle-wrap">
-                  <input type="checkbox" id="configSpinnerTipsEnabled" class="toggle-input">
-                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                </span>
-                <span class="toggle-text">启用加载提示</span>
-              </label>
-            </div>
+          <div class="vault-form-actions">
+            <button class="btn-save" onclick="saveVault()">保存</button>
+            <button class="btn-cancel" onclick="hideVaultForm()">取消</button>
           </div>
         </div>
       </div>
-    </main>
+
+      <div class="vault-list" id="vaultList">
+        <div class="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          加载中...
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Logs Tab ═══ -->
+    <div id="tab-logs" class="tab-content" style="display:none">
+      <header class="page-header">
+        <div class="header-paper" style="transform: rotate(-0.3deg)">
+          <h1 class="page-title">操作日志</h1>
+          <p class="page-subtitle">工具安装、升级、卸载的历史记录</p>
+        </div>
+        <button class="btn-refresh" onclick="loadLogs()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5"/>
+            <path d="M12 2v3h-3"/>
+          </svg>
+          刷新
+        </button>
+      </header>
+      <div class="log-list" id="logList">
+        <div class="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          加载中...
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Auth Tab ═══ -->
+    <div id="tab-auth" class="tab-content" style="display:none">
+      <header class="page-header">
+        <div class="header-paper" style="transform: rotate(0.2deg)">
+          <h1 class="page-title">授权管理</h1>
+          <p class="page-subtitle">查看工具授权状态，一键执行授权操作</p>
+        </div>
+        <button class="btn-refresh" onclick="loadAuth()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5"/>
+            <path d="M12 2v3h-3"/>
+          </svg>
+          刷新
+        </button>
+      </header>
+      <div class="auth-summary" id="authSummary"></div>
+      <div class="auth-list" id="authList">
+        <div class="loading">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+          加载中...
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Progress Modal -->
+<div id="progressModal" class="progress-modal" style="display:none">
+  <div class="progress-panel">
+    <div class="progress-header">
+      <span id="progressTitle" class="progress-title">正在安装...</span>
+      <button class="progress-close" onclick="closeProgress()">&times;</button>
+    </div>
+    <pre class="progress-output" id="progressOutput"></pre>
+    <div class="progress-footer" id="progressFooter">
+      <div class="progress-spinner"><span></span><span></span><span></span></div>
+    </div>
   </div>
+</div>
 
-  <!-- Toast notification -->
-  <div id="toast" class="toast"></div>
+<!-- Auth Dialog -->
+<div id="authDialog" class="auth-overlay" style="display:none">
+  <div class="auth-panel">
+    <div class="progress-header">
+      <span id="authDialogTitle" class="progress-title">授权</span>
+      <button class="progress-close" onclick="closeAuthDialog()">&times;</button>
+    </div>
+    <div class="auth-body" id="authDialogBody"></div>
+    <div class="auth-footer" id="authDialogFooter">
+      <button class="auth-btn-cancel" onclick="closeAuthDialog()">取消</button>
+    </div>
+  </div>
+</div>
 
-  <script src="/app.js"></script>
+<div id="toast" class="toast"></div>
+<script src="/app.js?v=2.1.9"></script>
 </body>
 </html>

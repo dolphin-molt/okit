@@ -1,0 +1,43 @@
+name: 飞书 CLI
+category: Documents
+
+description: 飞书官方开源 CLI，让 AI Agent 操作飞书的即时通讯、文档、表格、日历等
+homepage: https://github.com/larksuite/cli
+
+install: npm install -g @larksuite/cli
+upgrade: "npm update -g @larksuite/cli"
+uninstall: "npm uninstall -g @larksuite/cli"
+check: command -v lark
+versionCmd: "lark --version 2>/dev/null || echo unknown"
+
+dependencies:
+  - Node.js
+
+skill: "飞书官方开源 CLI 工具，让 AI Agent 直接操作飞书。支持 11 大业务域、200+ 命令，覆盖即时通讯、云文档、多维表格、日历、邮箱、任务等。内置 19 个 AI Agent Skills，可通过 lark <domain> <action> 调用。适合 AI Agent 集成飞书协作能力。"
+
+detail: |
+  ## 什么是飞书 CLI
+
+  飞书 CLI（Lark CLI）是飞书官方开源的命令行工具，让 AI Agent 能直接操作飞书平台。它覆盖 11 大业务域、200+ 命令，内置 19 个 AI Agent Skills，是目前最全面的飞书自动化工具。
+
+  ## 核心功能
+
+  - **即时通讯**：发送消息、管理群聊、搜索聊天记录
+  - **云文档**：创建和编辑飞书文档，支持 Markdown 导入导出
+  - **多维表格**：操作多维表格（Base），管理字段和记录
+  - **日历管理**：查看日程、创建会议、管理日历
+  - **任务管理**：创建待办任务、更新任务状态
+  - **邮箱操作**：发送邮件、搜索邮件、管理邮箱
+
+  ## 常用命令
+
+  ```bash
+  lark auth login            # 登录飞书账号
+  lark im send-message       # 发送消息
+  lark doc create            # 创建云文档
+  lark base list             # 列出多维表格
+  lark calendar list         # 查看日历日程
+  lark task create           # 创建任务
+  lark mail send             # 发送邮件
+  lark --help                # 查看帮助
+  ```

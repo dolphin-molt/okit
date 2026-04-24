@@ -1,0 +1,46 @@
+name: curl
+category: Network
+
+description: 命令行数据传输工具，支持 HTTP、FTP、SMTP 等多种协议
+homepage: https://curl.se
+
+install:
+  darwin: brew install curl
+  linux: "sudo apt-get update && sudo apt-get install -y curl"
+upgrade:
+  darwin: brew upgrade curl
+  linux: "sudo apt-get update && sudo apt-get install -y curl"
+uninstall:
+  darwin: brew uninstall curl
+  linux: "sudo apt-get remove -y curl"
+check: command -v curl
+versionCmd: "curl --version | head -1"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 curl
+
+  curl 是一个功能强大的命令行数据传输工具，支持 HTTP、HTTPS、FTP、SMTP 等数十种网络协议。它是开发者进行 API 调试、文件下载、网络测试的首选工具，几乎在所有操作系统上预装或可轻松获取。
+
+  ## 核心功能
+
+  - **多协议支持**：支持 HTTP/HTTPS、FTP、SMTP、IMAP、LDAP 等数十种协议
+  - **API 调试**：发送 GET/POST/PUT/DELETE 请求，设置请求头和请求体
+  - **文件传输**：上传和下载文件，支持断点续传
+  - **Cookie 管理**：发送和接收 Cookie，保持会话状态
+  - **代理支持**：支持 HTTP、SOCKS4/5 代理
+  - **SSL/TLS**：支持 HTTPS 和各种 SSL/TLS 选项
+
+  ## 常用命令
+
+  ```bash
+  curl https://example.com              # GET 请求
+  curl -X POST -d "key=value" <url>     # POST 请求
+  curl -H "Content-Type: application/json" -d '{"key":"value"}' <url>  # JSON 请求
+  curl -o file.zip <url>                # 下载文件
+  curl -L <url>                         # 跟随重定向
+  curl -u user:pass <url>               # 基本认证
+  curl -I <url>                         # 只查看响应头
+  ```

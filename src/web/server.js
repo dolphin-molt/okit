@@ -1,23 +1,29 @@
 const express = require('express');
 const path = require('path');
-const { getStats } = require('./api/stats');
-const { getConfig, updateConfig } = require('./api/config');
+const { getTools, toolAction, submitAuthCode } = require('./api/tools');
+const { listVault, setVault, deleteVault, exportVault, importVault } = require('./api/vault');
+const { getLogs } = require('./api/logs');
 
 function createServer(port = 3000) {
   const app = express();
 
   // Middleware
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: false }));
 
   // API Routes
-  app.get('/api/stats', getStats);
-  app.get('/api/config', getConfig);
-  app.post('/api/config', updateConfig);
+  app.get('/api/tools', getTools);
+  app.post('/api/tools/action', toolAction);
+  app.post('/api/tools/auth-code', submitAuthCode);
+  app.get('/api/logs', getLogs);
+  app.get('/api/vault', listVault);
+  app.post('/api/vault', setVault);
+  app.delete('/api/vault', deleteVault);
+  app.get('/api/vault/export', exportVault);
+  app.post('/api/vault/import', importVault);
 
-  // SPA fallback - handle 404 for non-API routes
+  // SPA fallback
   app.use((req, res) => {
-    // Don't redirect API routes
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });
     }
@@ -31,8 +37,8 @@ function startServer(port = 3000) {
   const app = createServer(port);
 
   app.listen(port, '127.0.0.1', () => {
-    console.log(`\n🌐 Claude UI is running at http://localhost:${port}`);
-    console.log(`Press Ctrl+C to stop\n`);
+    console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
+    console.log(`  Press Ctrl+C to stop\n`);
   });
 
   return app;

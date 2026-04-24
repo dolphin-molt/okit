@@ -1,0 +1,45 @@
+name: ffmpeg
+category: Media
+
+description: 音视频处理的瑞士军刀，支持转码、剪辑、合并、流媒体等
+homepage: https://ffmpeg.org
+
+install:
+  darwin: brew install ffmpeg
+  linux: sudo apt-get update && sudo apt-get install -y ffmpeg
+upgrade:
+  darwin: brew upgrade ffmpeg
+  linux: sudo apt-get update && sudo apt-get install -y ffmpeg
+uninstall:
+  darwin: brew uninstall ffmpeg
+  linux: sudo apt-get remove -y ffmpeg
+check: command -v ffmpeg
+versionCmd: ffmpeg -version 2>&1 | head -1
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 ffmpeg
+
+  FFmpeg 是全球最强大的开源音视频处理工具集，支持几乎所有音视频格式的转码、剪辑、合并、抽取、流媒体推送等操作。它是视频网站、直播平台和多媒体应用的核心底层工具，被广泛应用于专业视频制作和自动化处理场景。
+
+  ## 核心功能
+
+  - **格式转换**：支持数百种音视频格式之间的互相转换
+  - **视频剪辑**：精确裁剪视频片段、合并多个视频文件
+  - **音频处理**：提取音频、调整音量、音频格式转换
+  - **视频压缩**：通过调整编码器和码率压缩视频文件大小
+  - **屏幕录制**：录制桌面和摄像头画面
+  - **流媒体**：支持 RTMP、HLS 等流媒体协议的推流和拉流
+
+  ## 常用命令
+
+  ```bash
+  ffmpeg -i input.mp4 output.avi           # 格式转换
+  ffmpeg -i input.mp4 -ss 00:01:00 -t 30 -c copy clip.mp4  # 截取片段
+  ffmpeg -i input.mp4 -vn -c:a libmp3lame output.mp3  # 提取音频
+  ffmpeg -i input.mp4 -c:v libx264 -crf 28 output.mp4  # 压缩视频
+  ffmpeg -f concat -i filelist.txt -c copy output.mp4  # 合并视频
+  ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4  # 调整分辨率
+  ```

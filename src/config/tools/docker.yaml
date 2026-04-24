@@ -1,0 +1,50 @@
+name: Docker
+category: Containers
+
+description: 容器化平台，用于打包、分发和运行应用程序及其依赖环境
+homepage: https://docker.com
+
+install:
+  darwin: "brew install --cask docker || echo 'Homebrew 安装失败，请手动从 https://www.docker.com/products/docker-desktop 下载安装'"
+  linux: "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER"
+upgrade:
+  darwin: "brew upgrade --cask docker"
+  linux: "sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io"
+uninstall:
+  darwin: "brew uninstall --cask docker"
+  linux: "sudo apt-get remove -y docker-ce docker-ce-cli containerd.io"
+check: command -v docker
+versionCmd: docker --version
+
+authCheck: "docker info 2>&1 | head -3"
+authFix: docker login
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Docker
+
+  Docker 是业界领先的容器化平台，通过将应用程序及其所有依赖打包到轻量级容器中，实现"一次构建，处处运行"。它解决了环境一致性问题，是现代 DevOps 和微服务架构的基石。
+
+  ## 核心功能
+
+  - **容器化运行**：将应用和依赖打包为容器，确保开发、测试、生产环境一致
+  - **镜像管理**：通过 Dockerfile 构建可复用的镜像，支持分层缓存加速构建
+  - **Docker Compose**：通过 YAML 配置一键启动多容器应用栈
+  - **镜像仓库**：Docker Hub 提供海量公共镜像，支持私有仓库
+  - **资源隔离**：基于 Linux 容器技术，轻量级隔离，性能接近原生
+  - **跨平台**：支持 macOS、Linux、Windows，配合 Docker Desktop 使用
+
+  ## 常用命令
+
+  ```bash
+  docker build -t <name> .   # 构建镜像
+  docker run -p 8080:80 <image>  # 运行容器并映射端口
+  docker ps                  # 查看运行中的容器
+  docker stop <container>    # 停止容器
+  docker rm <container>      # 删除容器
+  docker images              # 列出本地镜像
+  docker pull <image>        # 拉取远程镜像
+  docker-compose up -d       # 启动 compose 应用栈
+  ```

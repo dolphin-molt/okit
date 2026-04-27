@@ -1,0 +1,38 @@
+name: ChatGPT
+category: AI Tools
+type: app
+
+description: OpenAI 的 AI 对话助手桌面应用，支持 GPT-4o、图像生成、语音对话等
+homepage: https://chatgpt.com
+downloadUrl: https://chatgpt.com
+
+install:
+  darwin: brew install --cask chatgpt
+upgrade:
+  darwin: brew upgrade --cask chatgpt
+uninstall:
+  darwin: bash -c 'brew uninstall --cask chatgpt 2>/dev/null; [ -d "/Applications/ChatGPT.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/ChatGPT.app\""'
+check:
+  darwin: test -d "/Applications/ChatGPT.app"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 ChatGPT
+
+  ChatGPT 是 OpenAI 推出的 AI 对话助手桌面应用，基于 GPT-4o 等大语言模型，支持文字对话、图像生成、语音交互等多种 AI 能力。桌面版相比网页版提供更便捷的系统级访问和快捷键支持。
+
+  ## 核心功能
+
+  - **多模型支持**：支持 GPT-4o、GPT-4o mini 等多种模型切换
+  - **图像生成**：使用 DALL·E 生成和编辑图片
+  - **语音对话**：支持实时语音交互，可替代语音助手
+  - **文件分析**：上传文档、图片、代码进行分析和讨论
+  - **自定义指令**：设定个性化偏好和指令
+  - **对话历史**：跨设备同步对话记录
+  - **快捷键**：全局快捷键 Option+Space 快速唤起
+
+  ## 使用方式
+
+  ChatGPT 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。支持 Apple 账号或 Google 账号登录。

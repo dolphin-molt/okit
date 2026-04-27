@@ -1,0 +1,38 @@
+name: Claude
+category: AI Tools
+type: app
+
+description: Anthropic 的 AI 对话助手桌面应用，支持 Artifacts、项目、对话搜索等
+homepage: https://claude.ai
+downloadUrl: https://claude.ai/download
+
+install:
+  darwin: brew install --cask claude
+upgrade:
+  darwin: brew upgrade --cask claude
+uninstall:
+  darwin: bash -c 'brew uninstall --cask claude 2>/dev/null; [ -d "/Applications/Claude.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Claude.app\""'
+check:
+  darwin: test -d "/Applications/Claude.app"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Claude
+
+  Claude 是 Anthropic 推出的 AI 对话助手桌面应用，基于 Claude 系列大语言模型。桌面版相比网页版提供系统级快捷键、全局唤起和更流畅的使用体验。
+
+  ## 核心功能
+
+  - **多模型切换**：支持 Claude Sonnet、Opus 等模型
+  - **Artifacts**：生成代码、文档、图表等可交互内容
+  - **项目**：按项目组织对话，上传项目文件作为上下文
+  - **对话搜索**：快速搜索历史对话内容
+  - **全局快捷键**：Option+Space 快速唤起对话
+  - **文件分析**：上传图片、文档、代码进行分析
+  - **多语言支持**：优秀的中文理解和生成能力
+
+  ## 使用方式
+
+  Claude 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。需要 Anthropic 账号登录。

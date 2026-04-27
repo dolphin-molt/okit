@@ -1,0 +1,37 @@
+name: Windsurf
+category: AI Coding
+type: app
+
+description: Codeium 推出的 AI 原生 IDE，支持 Cascade 智能代理和实时协作
+homepage: https://windsurf.com
+downloadUrl: https://windsurf.com
+
+install:
+  darwin: brew install --cask windsurf
+upgrade:
+  darwin: brew upgrade --cask windsurf
+uninstall:
+  darwin: bash -c 'brew uninstall --cask windsurf 2>/dev/null; [ -d /Applications/Windsurf.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Windsurf.app\""'
+check:
+  darwin: test -d /Applications/Windsurf.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Windsurf
+
+  Windsurf（原名 Codeium）是一款 AI 原生 IDE，内置 Cascade 智能代理系统，支持实时协作编程。它基于 VS Code 架构，提供深度 AI 集成的开发体验。
+
+  ## 核心功能
+
+  - **Cascade 代理**：AI 代理系统，可自动执行多步骤编程任务
+  - **智能补全**：基于上下文的 AI 代码补全
+  - **AI 对话**：在编辑器内与 AI 对话并直接修改代码
+  - **实时协作**：支持多人实时协作编程
+  - **VS Code 兼容**：完全兼容 VS Code 扩展和设置
+  - **多模型支持**：支持多种 AI 模型切换使用
+
+  ## 使用方式
+
+  Windsurf 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

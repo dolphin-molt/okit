@@ -1,0 +1,42 @@
+name: Obsidian
+category: Productivity
+type: app
+
+description: 本地优先的知识管理工具，基于 Markdown 文件和双向链接构建个人知识图谱
+homepage: https://obsidian.md
+downloadUrl: https://obsidian.md/download
+
+install:
+  darwin: brew install --cask obsidian
+  linux: sudo snap install obsidian --classic
+upgrade:
+  darwin: brew upgrade --cask obsidian
+  linux: sudo snap refresh obsidian
+uninstall:
+  darwin: bash -c 'brew uninstall --cask obsidian 2>/dev/null; [ -d "/Applications/Obsidian.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Obsidian.app\""'
+  linux: sudo snap remove obsidian
+check:
+  darwin: test -d "/Applications/Obsidian.app"
+  linux: command -v obsidian
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Obsidian
+
+  Obsidian 是一款本地优先的知识管理工具，所有笔记以纯 Markdown 文件存储在本地文件夹中。通过双向链接和知识图谱功能，帮助用户构建互联的个人知识库。丰富的社区插件生态使其具备高度可定制性。
+
+  ## 核心功能
+
+  - **本地存储**：所有数据以 Markdown 文件形式存储在本地，完全掌控数据
+  - **双向链接**：通过 `[[]]` 语法创建笔记间链接，自动生成反向链接
+  - **知识图谱**：可视化笔记间的关联关系，发现知识盲区
+  - **插件生态**：上千个社区插件，扩展日历、看板、数据库等功能
+  - **主题定制**：丰富的社区主题，支持 CSS 自定义样式
+  - **多平台同步**：支持 Obsidian Sync 官方同步或 Git、iCloud 等方案
+  - **Canvas**：无限画布功能，可视化组织和排列笔记
+
+  ## 使用方式
+
+  Obsidian 为桌面应用，安装后从启动台或应用程序文件夹打开。首次使用需选择或创建一个本地 Vault（知识库文件夹）。

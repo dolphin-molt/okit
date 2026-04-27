@@ -1,0 +1,21 @@
+name: Typeless
+category: AI Voice
+type: app
+
+description: AI 智能输入助手，自动补全和优化文字输入
+homepage: https://apps.apple.com/search?term=typeless
+downloadUrl: https://apps.apple.com/search?term=typeless
+
+uninstall:
+  darwin: bash -c '[ -d "/Applications/Typeless.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Typeless.app\""'
+check:
+  darwin: test -d "/Applications/Typeless.app"
+
+detail: |
+  ## 什么是 Typeless
+
+  Typeless 是一款 AI 智能输入助手，利用 AI 技术优化文字输入体验，提供智能补全和文本建议。
+
+  ## 使用方式
+
+  Typeless 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

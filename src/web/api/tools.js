@@ -25,6 +25,7 @@ const TOOL_CATEGORIES = {
   'bun': 'Development',
   'Python': 'Development',
   'Docker': 'Development',
+  'Docker Desktop': 'Containers',
   'pipx': 'Development',
   'uv (uvx)': 'Development',
   'Codex CLI': 'AI Coding',
@@ -193,25 +194,49 @@ async function checkSingleTool(step) {
     homepage: step.homepage || null,
     skill: step.skill || null,
     authMethods: step.authMethods || null,
+    type: step.type || 'cli',
+    downloadUrl: step.downloadUrl || null,
   };
 }
 
+const CACHE_DIR = path.join(os.homedir(), '.okit', 'cache');
+const CACHE_FILE = path.join(CACHE_DIR, 'tools.json');
+
 let toolsCache = null;
 let toolsCacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+let bgRefreshRunning = false;
 
-async function getTools(req, res) {
+function loadDiskCache() {
   try {
-    const forceRefresh = req.query.refresh === '1';
-    const now = Date.now();
-
-    if (!forceRefresh && toolsCache && (now - toolsCacheTime) < CACHE_TTL) {
-      return res.json(toolsCache);
+    if (!fs.existsSync(CACHE_FILE)) return null;
+    const raw = fs.readFileSync(CACHE_FILE, 'utf-8');
+    const data = JSON.parse(raw);
+    if (data && data.tools) {
+      toolsCache = data;
+      toolsCacheTime = data._cacheTime || 0;
+      return data;
     }
+  } catch {}
+  return null;
+}
 
+function saveDiskCache(data) {
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    fs.writeFileSync(CACHE_FILE, JSON.stringify({ ...data, _cacheTime: toolsCacheTime }), 'utf-8');
+  } catch {}
+}
+
+// Load disk cache on startup
+loadDiskCache();
+
+async function refreshToolsCache() {
+  if (bgRefreshRunning) return;
+  bgRefreshRunning = true;
+  try {
     const registry = await loadRegistry();
     const steps = registry.steps || [];
-
     const results = [];
     const BATCH = 5;
     for (let i = 0; i < steps.length; i += BATCH) {
@@ -219,18 +244,44 @@ async function getTools(req, res) {
       const batchResults = await Promise.all(batch.map(step => checkSingleTool(step)));
       results.push(...batchResults);
     }
-
     const summary = {
       total: results.length,
       installed: results.filter(t => t.installed).length,
       unauthorized: results.filter(t => t.authStatus === 'unauthorized').length,
     };
-
     const data = { tools: results, summary };
     toolsCache = data;
-    toolsCacheTime = now;
+    toolsCacheTime = Date.now();
+    saveDiskCache(data);
+  } catch (error) {
+    console.error('Background refresh error:', error);
+  } finally {
+    bgRefreshRunning = false;
+  }
+}
 
-    res.json(data);
+async function getTools(req, res) {
+  try {
+    const forceRefresh = req.query.refresh === '1';
+    const now = Date.now();
+    const cacheAge = now - toolsCacheTime;
+
+    // Fresh cache → return directly
+    if (!forceRefresh && toolsCache && cacheAge < CACHE_TTL) {
+      return res.json(toolsCache);
+    }
+
+    // Stale cache exists → return immediately, refresh in background
+    if (!forceRefresh && toolsCache) {
+      refreshToolsCache();
+      return res.json(toolsCache);
+    }
+
+    // No cache at all → must wait for first load
+    await refreshToolsCache();
+    if (toolsCache) return res.json(toolsCache);
+
+    res.status(500).json({ error: 'Failed to fetch tools' });
   } catch (error) {
     console.error('Error fetching tools:', error);
     res.status(500).json({ error: 'Failed to fetch tools' });
@@ -310,11 +361,11 @@ async function toolAction(req, res) {
     send({ type: 'result', success: true, duration });
     const fullOutput = outputLines.join('\n');
     appendLog(name, action, true, duration, fullOutput || undefined, command);
-    toolsCache = null;
+    toolsCache = null; toolsCacheTime = 0;
     res.end();
   }).catch(err => {
     const duration = Date.now() - startTime;
-    toolsCache = null;
+    toolsCache = null; toolsCacheTime = 0;
     const output = ((err.stdout || '') + '\n' + (err.stderr || '')).trim();
     send({ type: 'result', success: false, output: output || err.message, duration });
     appendLog(name, action, false, duration, output || err.message, command);
@@ -322,7 +373,21 @@ async function toolAction(req, res) {
   });
 }
 
-module.exports = { getTools, toolAction, submitAuthCode };
+async function openApp(req, res) {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'name is required' });
+
+  try {
+    await execa('open', ['-a', name]);
+    appendLog(name, 'open', true, 0);
+    res.json({ success: true });
+  } catch (error) {
+    appendLog(name, 'open', false, 0, error.message);
+    res.json({ success: false, message: error.message });
+  }
+}
+
+module.exports = { getTools, toolAction, submitAuthCode, openApp };
 
 function handleInteractiveAuth(req, res, step, method, name) {
   const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -396,12 +461,12 @@ function handleInteractiveAuth(req, res, step, method, name) {
     const duration = Date.now() - startTime;
     send({ type: 'result', success: true, duration });
     appendLog(name, 'auth', true, duration, outputLines.join('\n') || undefined, loginCmd);
-    toolsCache = null;
+    toolsCache = null; toolsCacheTime = 0;
     res.end();
     cleanupSession(sessionId);
   }).catch(err => {
     const duration = Date.now() - startTime;
-    toolsCache = null;
+    toolsCache = null; toolsCacheTime = 0;
     const output = stripAnsi(((err.stdout || '') + '\n' + (err.stderr || '')).trim());
     send({ type: 'result', success: false, output: output || err.message, duration });
     appendLog(name, 'auth', false, duration, output || err.message, loginCmd);

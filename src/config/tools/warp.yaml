@@ -1,15 +1,17 @@
 name: Warp
 category: Terminals
+type: app
 
 description: 基于 Rust 的现代终端，内置 AI 命令补全和协作功能
 homepage: https://warp.dev
+downloadUrl: https://www.warp.dev
 
 install:
   darwin: brew install --cask warp
 upgrade:
   darwin: brew upgrade --cask warp
 uninstall:
-  darwin: brew uninstall --cask warp
+  darwin: bash -c 'brew uninstall --cask warp 2>/dev/null; [ -d /Applications/Warp.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Warp.app\""'
 check:
   darwin: test -d /Applications/Warp.app
 

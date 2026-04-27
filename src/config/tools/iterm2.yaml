@@ -1,15 +1,17 @@
 name: iTerm2
 category: Terminals
+type: app
 
 description: macOS 上功能强大的终端模拟器，支持分屏、搜索、自动补全等
 homepage: https://iterm2.com
+downloadUrl: https://iterm2.com
 
 install:
   darwin: brew install --cask iterm2
 upgrade:
   darwin: brew upgrade --cask iterm2
 uninstall:
-  darwin: brew uninstall --cask iterm2
+  darwin: bash -c 'brew uninstall --cask iterm2 2>/dev/null; [ -d /Applications/iTerm.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/iTerm.app\""'
 check:
   darwin: test -d /Applications/iTerm.app
 

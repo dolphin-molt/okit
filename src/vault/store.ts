@@ -19,6 +19,8 @@ export interface SecretEntry {
   key: string;       // e.g. "GITHUB_TOKEN"
   alias: string;     // e.g. "personal", "company", "default"
   value: string;     // plaintext (only in memory after decrypt)
+  group?: string;    // freeform group name, e.g. "OpenAI", "Stripe", empty = ungrouped
+  expiresAt?: string; // ISO date when the secret expires, empty = no expiry
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +102,7 @@ export class VaultStore {
       const raw = await fs.readFile(SECRETS_FILE, "utf-8");
       const decrypted = decrypt(raw, this.key);
       secrets = JSON.parse(decrypted);
+      for (const s of secrets) { if (s.group === undefined) s.group = ''; if (s.expiresAt === undefined) s.expiresAt = ''; }
     }
 
     if (await fs.pathExists(REGISTRY_FILE)) {
@@ -138,7 +141,7 @@ export class VaultStore {
     return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
   }
 
-  async set(keyAlias: string, value: string): Promise<void> {
+  async set(keyAlias: string, value: string, group?: string, expiresAt?: string): Promise<void> {
     const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
     const data = await this.load();
     const now = new Date().toISOString();
@@ -146,9 +149,11 @@ export class VaultStore {
     const existing = data.secrets.find((s) => s.key === key && s.alias === alias);
     if (existing) {
       existing.value = value;
+      if (group !== undefined) existing.group = group;
+      if (expiresAt !== undefined) existing.expiresAt = expiresAt;
       existing.updatedAt = now;
     } else {
-      data.secrets.push({ key, alias, value, createdAt: now, updatedAt: now });
+      data.secrets.push({ key, alias, value, group: group || '', expiresAt: expiresAt || '', createdAt: now, updatedAt: now });
     }
 
     await this.save();
@@ -175,22 +180,26 @@ export class VaultStore {
     return true;
   }
 
-  async list(): Promise<Array<{ key: string; alias: string; masked: string; updatedAt: string }>> {
+  async list(): Promise<Array<{ key: string; alias: string; masked: string; group: string; expiresAt: string; updatedAt: string }>> {
     const data = await this.load();
     return data.secrets.map((s) => ({
       key: s.key,
       alias: s.alias,
       masked: maskValue(s.value),
+      group: s.group || '',
+      expiresAt: s.expiresAt || '',
       updatedAt: s.updatedAt,
     }));
   }
 
-  async exportAll(): Promise<Array<{ key: string; alias: string; value: string; updatedAt: string }>> {
+  async exportAll(): Promise<Array<{ key: string; alias: string; value: string; group: string; expiresAt: string; updatedAt: string }>> {
     const data = await this.load();
     return data.secrets.map((s) => ({
       key: s.key,
       alias: s.alias,
       value: s.value,
+      group: s.group || '',
+      expiresAt: s.expiresAt || '',
       updatedAt: s.updatedAt,
     }));
   }

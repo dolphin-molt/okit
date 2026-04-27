@@ -1,0 +1,43 @@
+name: OpenCode
+category: AI Coding
+
+description: 开源 AI 编程终端工具，支持多种 AI 模型的交互式编程
+homepage: https://opencode.ai
+downloadUrl: https://opencode.ai
+
+install:
+  darwin: brew install opencode
+  linux: curl -fsSL https://opencode.ai/install.sh | sh
+upgrade:
+  darwin: brew upgrade opencode
+  linux: curl -fsSL https://opencode.ai/install.sh | sh
+uninstall:
+  darwin: brew uninstall opencode
+  linux: rm -f /usr/local/bin/opencode
+check:
+  darwin: command -v opencode
+  linux: command -v opencode
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 OpenCode
+
+  OpenCode 是一款开源的 AI 编程终端工具，支持在终端中与多种 AI 模型进行交互式编程。它提供了统一的接口来访问 Claude、GPT 等模型，适合喜欢在终端环境中工作的开发者。
+
+  ## 核心功能
+
+  - **多模型支持**：统一接口支持 Claude、GPT、Gemini 等多种 AI 模型
+  - **终端原生**：完全在终端中运行，与开发工作流无缝集成
+  - **代码感知**：理解项目结构和代码上下文
+  - **文件操作**：支持读取、创建和修改项目文件
+  - **可扩展**：支持自定义工具和插件
+
+  ## 常用命令
+
+  ```bash
+  opencode                    # 启动交互式会话
+  opencode --model claude     # 指定使用 Claude 模型
+  opencode --help             # 查看帮助
+  ```

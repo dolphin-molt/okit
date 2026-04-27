@@ -1,0 +1,21 @@
+name: 闪电说
+category: AI Voice
+type: app
+
+description: AI 语音转文字工具，支持实时语音识别和文字输出
+homepage: https://apps.apple.com/search?term=%E9%97%AA%E7%94%B5%E8%AF%B4
+downloadUrl: https://apps.apple.com/search?term=%E9%97%AA%E7%94%B5%E8%AF%B4
+
+uninstall:
+  darwin: bash -c '[ -d "/Applications/闪电说.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/闪电说.app\""'
+check:
+  darwin: test -d "/Applications/闪电说.app"
+
+detail: |
+  ## 什么是闪电说
+
+  闪电说是一款 AI 语音转文字应用，支持实时语音识别和快速文字输出，适合会议记录、笔记整理等场景。
+
+  ## 使用方式
+
+  闪电说为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

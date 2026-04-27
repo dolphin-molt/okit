@@ -1,0 +1,432 @@
+/* ─── Header Actions ─── */
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.btn-add:hover {
+  background: var(--ink);
+  color: var(--paper);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+[data-theme="dark"] .btn-add {
+  border-color: var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  color: var(--ink-light);
+}
+
+[data-theme="dark"] .btn-add:hover {
+  background: var(--kraft-dark);
+  color: var(--ink);
+  border-color: var(--ink-muted);
+}
+
+[data-theme="dark"] .settings-card {
+  background: var(--paper);
+  border-color: var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+
+[data-theme="dark"] .settings-input {
+  background: rgba(0,0,0,0.15);
+  border-color: var(--kraft-dark);
+  color: var(--ink);
+}
+[data-theme="dark"] .settings-input:focus { border-color: var(--ink-muted); }
+
+[data-theme="dark"] .settings-plat-card {
+  background: var(--paper);
+  border-color: var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+
+[data-theme="dark"] .settings-plat-header { border-bottom-color: var(--kraft-dark); }
+
+[data-theme="dark"] .settings-test-btn {
+  border-color: var(--kraft-dark);
+  color: var(--ink-light);
+}
+[data-theme="dark"] .settings-test-btn:hover {
+  background: var(--kraft-dark);
+  color: var(--ink);
+  border-color: var(--ink-muted);
+}
+
+[data-theme="dark"] .settings-vault-new-btn {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--kraft-dark);
+}
+[data-theme="dark"] .settings-vault-new-btn:hover {
+  border-color: var(--ink-muted);
+  background: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .confirm-panel {
+  background: var(--paper);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+}
+[data-theme="dark"] .confirm-actions { border-top-color: var(--kraft-dark); }
+[data-theme="dark"] .confirm-btn--ok { background: var(--ink); color: var(--paper); }
+
+.confirm-panel {
+  background: var(--paper);
+  border-radius: 12px;
+  max-width: 480px;
+  width: 88vw;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.12);
+  overflow: hidden;
+  text-align: center;
+}
+
+.confirm-icon {
+  padding: 24px 20px 8px;
+  color: var(--red);
+}
+.confirm-icon.confirm-icon--warn {
+  color: #f59e0b;
+}
+.confirm-icon.confirm-icon--info {
+  color: var(--blue);
+}
+
+.confirm-body {
+  padding: 0 24px 16px;
+}
+
+.confirm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.confirm-message {
+  font-size: 13px;
+  color: var(--ink-light);
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  border-top: 2px dashed var(--border);
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.confirm-btn--cancel {
+  background: transparent;
+  color: var(--ink-muted);
+}
+.confirm-btn--cancel:hover {
+  background: var(--kraft-dark);
+}
+
+.confirm-btn--ok {
+  background: var(--ink);
+  color: var(--kraft);
+}
+.confirm-btn--ok:hover {
+  opacity: 0.85;
+}
+
+.confirm-btn--ok.confirm-btn--danger {
+  background: var(--red);
+  color: #fff;
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section-title {
+  font-family: var(--font-hand);
+  font-size: 18px;
+  color: var(--ink-light);
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.settings-card {
+  background: var(--paper);
+  border-radius: 8px;
+  border: 1.5px solid var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+}
+
+.settings-card-body {
+  padding: 16px 20px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-row-info { flex: 1; }
+
+.settings-row-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.settings-row-desc {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+/* Toggle switch */
+.settings-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--kraft-dark);
+  border-radius: 24px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.settings-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--paper);
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.settings-toggle input:checked + .settings-toggle-slider {
+  background: var(--green);
+}
+
+.settings-toggle input:checked + .settings-toggle-slider::before {
+  transform: translateX(20px);
+}
+
+[data-theme="dark"] .settings-toggle input:checked + .settings-toggle-slider {
+  background: var(--green);
+}
+
+/* Platform cards */
+.settings-platforms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+.settings-plat-card {
+  background: var(--paper);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--kraft-dark);
+  border: 1.5px solid var(--kraft-dark);
+  overflow: hidden;
+}
+
+.settings-plat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px dashed var(--kraft-dark);
+}
+
+.settings-plat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.settings-plat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-plat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.settings-plat-status {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 1px;
+}
+
+.settings-plat-status:is(:contains('已连接')) {
+  color: var(--green);
+}
+
+.settings-plat-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.settings-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1.5px solid var(--kraft-dark);
+  border-radius: 5px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--kraft);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.settings-input:focus {
+  border-color: var(--ink);
+}
+
+.settings-field-btn {
+  padding: 6px 10px;
+  border: 1.5px solid var(--kraft-dark);
+  border-radius: 5px;
+  background: var(--kraft);
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.settings-field-btn:hover {
+  border-color: var(--ink);
+}
+
+.settings-test-btn {
+  align-self: flex-end;
+  padding: 5px 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.settings-test-btn:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.settings-field-hint {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  padding-left: 108px;
+}
+
+.settings-field + .settings-field {
+  margin-top: 8px;
+}
+
+.settings-vault-new-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1.5px solid var(--kraft-dark);
+  background: var(--kraft);
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.settings-vault-new-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.settings-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}

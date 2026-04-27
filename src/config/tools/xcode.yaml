@@ -1,0 +1,39 @@
+name: Xcode
+category: Development
+type: app
+
+description: Apple 官方集成开发环境，用于 iOS、macOS、watchOS、tvOS 应用开发
+homepage: https://developer.apple.com/xcode/
+downloadUrl: https://apps.apple.com/app/xcode/id497799835
+
+install:
+  darwin: mas install 497799835
+upgrade:
+  darwin: mas upgrade 497799835
+uninstall:
+  darwin: bash -c '[ -d "/Applications/Xcode.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Xcode.app\""'
+check:
+  darwin: test -d "/Applications/Xcode.app"
+versionCmd: xcodebuild -version 2>/dev/null | head -1
+
+dependencies:
+  - mas
+
+detail: |
+  ## 什么是 Xcode
+
+  Xcode 是 Apple 官方的集成开发环境（IDE），是开发 iOS、macOS、watchOS、tvOS 和 visionOS 应用的必备工具。它集成了代码编辑器、界面构建器、调试器、性能分析器和模拟器等全套开发工具链。
+
+  ## 核心功能
+
+  - **代码编辑器**：支持 Swift、Objective-C、C/C++ 语法高亮和智能补全
+  - **Interface Builder**：可视化拖拽构建 UI 界面，支持 SwiftUI 预览
+  - **模拟器**：内置 iOS、watchOS 等设备模拟器，无需真机调试
+  - **Instruments**：性能分析工具，检测内存泄漏、CPU 占用等问题
+  - **SwiftUI**：声明式 UI 框架，实时预览界面变更
+  - **调试器**：LLDB 集成，支持断点、变量监视和内存分析
+  - **Xcode Cloud**：Apple 的 CI/CD 服务，自动化构建和测试
+
+  ## 使用方式
+
+  Xcode 为 App Store 应用，需要通过 mas（Mac App Store CLI）安装。安装后首次打开需同意许可协议并安装附加组件。可配合 `xcode-select` 管理命令行工具版本。

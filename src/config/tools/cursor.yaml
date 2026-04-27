@@ -1,0 +1,48 @@
+name: Cursor
+category: AI Coding
+type: app
+
+description: AI 原生代码编辑器，基于 VS Code 深度集成 AI 编程能力
+homepage: https://cursor.com
+downloadUrl: https://cursor.com
+
+install:
+  darwin: brew install --cask cursor
+upgrade:
+  darwin: brew upgrade --cask cursor
+uninstall:
+  darwin: bash -c 'brew uninstall --cask cursor 2>/dev/null; [ -d /Applications/Cursor.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Cursor.app\""'
+check:
+  darwin: test -d /Applications/Cursor.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Cursor
+
+  Cursor 是一款 AI 原生代码编辑器，基于 VS Code 深度集成了 AI 编程能力。它支持智能代码补全、AI 对话、代码库理解等功能，是目前最受欢迎的 AI 编程工具之一。
+
+  ## 核心功能
+
+  - **AI 代码补全**：基于上下文的智能代码补全，支持多行生成
+  - **AI 对话**：在编辑器内与 AI 对话，直接修改代码
+  - **代码库理解**：AI 理解整个代码库的结构和依赖
+  - **多模型支持**：支持 Claude、GPT-4 等多种 AI 模型
+  - **VS Code 兼容**：完全兼容 VS Code 扩展和配置
+  - **内联编辑**：AI 直接在代码中建议修改，一键接受或拒绝
+
+  ## 常用快捷键
+
+  ```
+  Cmd+K          # AI 内联编辑
+  Cmd+L          # 打开 AI 对话
+  Cmd+I          # AI 代码补全
+  Cmd+Shift+L    # 将代码添加到对话上下文
+  @files         # 引用文件作为上下文
+  @docs          # 引用文档作为上下文
+  ```
+
+  ## 使用方式
+
+  Cursor 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

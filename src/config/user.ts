@@ -31,6 +31,43 @@ export type UserConfig = {
     url?: string;
     token?: string;
   };
+  sync?: {
+    autoSync?: boolean;
+    platforms?: {
+      cloudflare?: {
+        enabled?: boolean;
+        storeId?: string;
+      };
+      cloudflareD1?: {
+        enabled?: boolean;
+        databaseId?: string;
+        tableName?: string;
+      };
+      cloudflareR2?: {
+        enabled?: boolean;
+        bucketName?: string;
+      };
+      aliyun?: {
+        enabled?: boolean;
+        region?: string;
+        accessKeyId?: string;
+        accessKeySecret?: string;
+        secretNamePrefix?: string;
+      };
+      tencent?: {
+        enabled?: boolean;
+        region?: string;
+        secretId?: string;
+        secretKey?: string;
+      };
+      volcengine?: {
+        enabled?: boolean;
+        region?: string;
+        accessKey?: string;
+        secretKey?: string;
+      };
+    };
+  };
   hints?: {
     mainHelpShown?: boolean;
   };
@@ -67,6 +104,14 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     git: patch.git ? { ...current.git, ...patch.git } : current.git,
     relay: patch.relay ? { ...current.relay, ...patch.relay } : current.relay,
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
+    sync: patch.sync ? {
+      ...current.sync,
+      ...patch.sync,
+      platforms: patch.sync.platforms ? {
+        ...current.sync?.platforms,
+        ...patch.sync.platforms,
+      } : current.sync?.platforms,
+    } : current.sync,
   };
   await saveUserConfig(merged);
   return merged;

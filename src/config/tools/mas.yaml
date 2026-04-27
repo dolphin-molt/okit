@@ -1,0 +1,32 @@
+name: mas
+category: Development
+
+description: Mac App Store 命令行工具，用于通过终端安装和管理 App Store 应用
+homepage: https://github.com/mas-cli/mas
+
+install:
+  darwin: brew install mas
+upgrade:
+  darwin: brew upgrade mas
+uninstall:
+  darwin: brew uninstall mas
+check: command -v mas
+versionCmd: mas version 2>/dev/null
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 mas
+
+  mas 是 Mac App Store 的命令行界面工具，让你可以通过终端搜索、安装、更新和卸载 Mac App Store 中的应用。它适合自动化部署和脚本化应用管理。
+
+  ## 常用命令
+
+  ```bash
+  mas search Xcode          # 搜索应用
+  mas install 497799835     # 通过 App ID 安装应用
+  mas upgrade               # 更新所有 App Store 应用
+  mas list                  # 列出已安装的 App Store 应用
+  mas outdated              # 查看可更新的应用
+  ```

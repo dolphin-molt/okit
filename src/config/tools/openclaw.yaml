@@ -4,15 +4,23 @@ category: AI Coding
 description: 通用 AI Agent 运行时框架，支持多种 AI 适配器和工具编排
 homepage: https://openclaw.ai
 
-install: "bash -c 'set -e; if command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; elif command -v npm >/dev/null 2>&1; then npm install -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; else echo \"缺少 curl/npm/pnpm，无法安装 OpenClaw\"; exit 1; fi'"
-upgrade: "bash -c 'set -e; if command -v npm >/dev/null 2>&1; then npm update -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; elif command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; else echo \"缺少 curl/npm/pnpm，无法升级 OpenClaw\"; exit 1; fi'"
-uninstall: "bash -c 'if command -v openclaw >/dev/null 2>&1; then openclaw uninstall; elif command -v npm >/dev/null 2>&1; then npm uninstall -g openclaw; elif command -v pnpm >/dev/null 2>&1; then pnpm remove -g openclaw; else echo \"请手动移除 OpenClaw（可能由安装脚本安装）\"; fi'"
-check: command -v openclaw
+install:
+  darwin: bash -c 'set -e; if command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; elif command -v npm >/dev/null 2>&1; then npm install -g openclaw@latest; else echo "缺少 curl/npm，无法安装 OpenClaw"; exit 1; fi'
+  linux: bash -c 'set -e; if command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; elif command -v npm >/dev/null 2>&1; then npm install -g openclaw@latest; else echo "缺少 curl/npm，无法安装 OpenClaw"; exit 1; fi'
+upgrade:
+  darwin: bash -c 'set -e; if command -v npm >/dev/null 2>&1; then npm update -g openclaw@latest; elif command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; else echo "缺少 curl/npm，无法升级 OpenClaw"; exit 1; fi'
+  linux: bash -c 'set -e; if command -v npm >/dev/null 2>&1; then npm update -g openclaw@latest; elif command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; else echo "缺少 curl/npm，无法升级 OpenClaw"; exit 1; fi'
+uninstall:
+  darwin: bash -c 'if command -v openclaw >/dev/null 2>&1; then openclaw uninstall; elif command -v npm >/dev/null 2>&1; then npm uninstall -g openclaw; else echo "请手动移除 OpenClaw"; fi'
+  linux: bash -c 'if command -v openclaw >/dev/null 2>&1; then openclaw uninstall; elif command -v npm >/dev/null 2>&1; then npm uninstall -g openclaw; else echo "请手动移除 OpenClaw"; fi'
+check:
+  darwin: command -v openclaw
+  linux: command -v openclaw
 
 dependencies:
-  - Node.js
+  - Homebrew
 
-skill: "通用 AI Agent 运行时框架。运行 openclaw 启动，支持加载多种 AI 适配器（Claude、OpenAI、Gemini 等），提供统一的工具调用和任务编排能力。适合构建跨模型、跨平台的 AI 自动化工作流。"
+skill: "通用 AI Agent 运行时框架。支持加载多种 AI 适配器（Claude、OpenAI、Gemini 等），提供统一的工具调用和任务编排能力。适合构建跨模型、跨平台的 AI 自动化工作流。"
 
 detail: |
   ## 什么是 OpenClaw
@@ -28,12 +36,6 @@ detail: |
   - **插件系统**：通过插件扩展 Agent 的能力和工具集
   - **跨平台运行**：支持 macOS、Linux 等多平台运行
 
-  ## 常用命令
+  ## 使用方式
 
-  ```bash
-  openclaw                     # 启动交互式会话
-  openclaw --adapter claude    # 指定使用 Claude 适配器
-  openclaw --adapter openai    # 指定使用 OpenAI 适配器
-  openclaw uninstall           # 卸载 OpenClaw
-  openclaw --help              # 查看帮助信息
-  ```
+  macOS 和 Linux 上均为命令行工具，运行 `openclaw` 启动交互式会话。

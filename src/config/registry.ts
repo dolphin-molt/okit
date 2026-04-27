@@ -101,7 +101,7 @@ const TOOLS_DIR = path.join(__dirname, "tools");
 
 function loadToolsFromYaml(): Step[] {
   const order = [
-    "homebrew", "nodejs", "git", "gh", "pnpm", "bun", "python", "docker",
+    "homebrew", "mas", "nodejs", "git", "gh", "pnpm", "bun", "python", "docker",
     "codex-cli", "claude-code", "happy-coder", "gemini-cli", "gh-copilot",
     "codebuddy", "feishu-cli", "mmx-cli",
     "yt-dlp", "curl", "playwright", "chromium", "mermaid-cli", "pandoc",
@@ -116,6 +116,9 @@ function loadToolsFromYaml(): Step[] {
     "kubectl", "terraform",
     "redis-cli", "postgresql",
     "ollama", "openclaw", "xurl",
+    "chatgpt", "obsidian", "shadowrocket", "xcode",
+    "shandianshuo", "typeless",
+    "raycast", "claude", "openscreen",
   ];
   const orderMap = new Map(order.map((name, i) => [name, i]));
 

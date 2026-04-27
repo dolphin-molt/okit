@@ -148,18 +148,18 @@ export async function vaultDelete(keyAlias: string): Promise<void> {
 
 // okit vault inject — output shell export statements
 // Reads .okitenv from current directory to know which keys to inject
-export async function vaultInject(options?: { keys?: string; dir?: string }): Promise<void> {
+export async function vaultInject(options?: { keys?: string; dir?: string; shell?: string }): Promise<void> {
+  const dir = options?.dir || process.cwd();
+  const targetShell = options?.shell || (process.platform === "win32" ? "powershell" : "bash");
   let entries: OkitEnvEntry[];
 
   if (options?.keys) {
-    // Manual key specification: --keys OPENAI_API_KEY,GITHUB_TOKEN/company
     entries = options.keys.split(",").map((k) => {
       const { key, alias } = VaultStore.parseKeyAlias(k.trim());
       return { envName: key, vaultKey: key, vaultAlias: alias };
     });
   } else {
-    // Read from .okitenv
-    const envFile = findOkitEnv(options?.dir);
+    const envFile = findOkitEnv(dir);
     if (!envFile) {
       console.error(kleur.red(t("vaultNoOkitEnv")));
       process.exit(1);
@@ -172,13 +172,29 @@ export async function vaultInject(options?: { keys?: string; dir?: string }): Pr
     process.exit(1);
   }
 
-  // Output export statements for shell eval
+  const loadedKeys: string[] = [];
   for (const entry of entries) {
     const value = await store.resolve(entry.vaultKey, entry.vaultAlias);
     if (value !== null) {
-      // Escape single quotes in value for safe shell export
       const escaped = value.replace(/'/g, "'\\''");
-      process.stdout.write(`export ${entry.envName}='${escaped}'\n`);
+      if (targetShell === "powershell") {
+        process.stdout.write(`$env:${entry.envName} = '${escaped}'\n`);
+      } else {
+        process.stdout.write(`export ${entry.envName}='${escaped}'\n`);
+      }
+      loadedKeys.push(entry.envName);
+    }
+  }
+
+  // Tracking vars for shell hook cleanup
+  if (loadedKeys.length > 0 && !options?.keys) {
+    if (targetShell === "powershell") {
+      process.stdout.write(`$global:_OKIT_LOADED_KEYS = "${loadedKeys.join(" ")}"\n`);
+      process.stdout.write(`$global:_OKIT_LOADED_DIR = "${dir}"\n`);
+    } else {
+      process.stdout.write(`_OKIT_LOADED_KEYS="${loadedKeys.join(" ")}"\n`);
+      process.stdout.write(`_OKIT_LOADED_DIR="${dir}"\n`);
+      process.stdout.write(`export _OKIT_LOADED_KEYS _OKIT_LOADED_DIR\n`);
     }
   }
 }

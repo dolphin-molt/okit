@@ -1,0 +1,38 @@
+name: Raycast
+category: Productivity
+type: app
+
+description: macOS 效率启动器，替代 Spotlight，集成剪贴板、窗口管理、AI 等扩展
+homepage: https://raycast.com
+downloadUrl: https://raycast.com
+
+install:
+  darwin: brew install --cask raycast
+upgrade:
+  darwin: brew upgrade --cask raycast
+uninstall:
+  darwin: bash -c 'brew uninstall --cask raycast 2>/dev/null; [ -d "/Applications/Raycast.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Raycast.app\""'
+check:
+  darwin: test -d "/Applications/Raycast.app"
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Raycast
+
+  Raycast 是一款 macOS 效率启动器，旨在替代系统自带的 Spotlight。它不仅提供快速应用启动和文件搜索，还内置了剪贴板历史、窗口管理、代码片段、AI 助手等功能，并通过丰富的扩展生态集成 Jira、GitHub、Notion 等第三方服务。
+
+  ## 核心功能
+
+  - **快速启动**：瞬间搜索并打开应用、文件、链接
+  - **剪贴板历史**：自动记录剪贴板内容，支持搜索和粘贴
+  - **窗口管理**：快捷键分屏、调整窗口大小和位置
+  - **代码片段**：保存常用代码片段，快捷插入
+  - **AI 助手**：内置 Raycast AI，支持对话、翻译、总结
+  - **扩展商店**：数百个社区和官方扩展，集成常用工具
+  - **系统命令**：控制音量、亮度、Dark Mode、退出应用等
+
+  ## 使用方式
+
+  Raycast 为桌面应用，安装后设置快捷键（默认 Option+Space）即可呼起。通过扩展商店按需安装功能。

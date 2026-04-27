@@ -7,10 +7,13 @@
     "okit": "dist/main.js"
   },
   "scripts": {
-    "build": "tsc && npm run copy-web && npm run copy-tools",
-    "copy-web": "rm -rf dist/web && mkdir -p dist/web && cp -r src/web/public dist/web/ && cp src/web/server.js dist/web/ && cp -r src/web/api dist/web/",
+    "postinstall": "node dist/main.js hook install",
+    "build": "tsc && npm run copy-web && npm run copy-tools && npm run build-frontend",
+    "copy-web": "rm -rf dist/web && mkdir -p dist/web && cp src/web/server.js dist/web/ && cp -r src/web/api dist/web/",
     "copy-tools": "mkdir -p dist/config/tools && cp src/config/tools/*.yaml dist/config/tools/",
+    "build-frontend": "cd src/web/frontend && npm install && npm run build",
     "dev": "ts-node src/main.ts",
+    "dev:web": "cd src/web/frontend && npm run dev",
     "start": "node dist/main.js",
     "pkg": "pkg . --out-path=bin"
   },
@@ -40,7 +43,12 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.53",
+    "@alicloud/kms20160120": "^2.4.0",
+    "@alicloud/openapi-core": "^1.0.7",
     "@types/express": "^5.0.6",
+    "@volcengine/openapi": "^1.36.1",
+    "ai": "^6.0.168",
     "commander": "^11.0.0",
     "execa": "^5.1.1",
     "express": "^5.2.1",
@@ -49,7 +57,9 @@
     "kleur": "^4.1.5",
     "ora": "^5.4.1",
     "prompts": "^2.4.2",
-    "ws": "^8.20.0"
+    "tencentcloud-sdk-nodejs-ssm": "^4.1.207",
+    "ws": "^8.20.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.1",

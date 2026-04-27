@@ -1,0 +1,19 @@
+name: Openscreen
+category: Media
+type: app
+
+description: 屏幕录制与视频剪辑工具，支持录制、剪辑、导出一站式工作流
+homepage: https://openscreen.com
+downloadUrl: https://openscreen.com
+
+check:
+  darwin: test -d "/Applications/Openscreen.app"
+
+detail: |
+  ## 什么是 Openscreen
+
+  Openscreen 是一款屏幕录制与视频剪辑工具，支持屏幕录制、视频剪辑和导出，适合制作教程、演示视频和产品演示。
+
+  ## 使用方式
+
+  Openscreen 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

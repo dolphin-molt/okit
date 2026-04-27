@@ -1,0 +1,36 @@
+name: Antigravity
+category: AI Coding
+type: app
+
+description: Google 推出的 AI 编程助手，支持智能代码生成和多模型协作
+homepage: https://antigravity.google
+downloadUrl: https://antigravity.google
+
+install:
+  darwin: brew install --cask antigravity
+upgrade:
+  darwin: brew upgrade --cask antigravity
+uninstall:
+  darwin: bash -c 'brew uninstall --cask antigravity 2>/dev/null; [ -d /Applications/Antigravity.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Antigravity.app\""'
+check:
+  darwin: test -d /Applications/Antigravity.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Antigravity
+
+  Antigravity 是 Google 推出的 AI 编程助手，集成 Google 最新的 AI 模型能力，支持智能代码生成、多模型协作和上下文理解。它同时提供桌面应用和命令行工具（agy）。
+
+  ## 核心功能
+
+  - **AI 代码生成**：基于 Google AI 模型的智能代码生成
+  - **多模型协作**：支持多种 AI 模型协同工作
+  - **上下文理解**：理解项目结构和代码依赖关系
+  - **命令行工具**：提供 agy CLI 用于终端操作
+  - **Google 生态集成**：与 Google Cloud 等服务深度集成
+
+  ## 使用方式
+
+  Antigravity 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

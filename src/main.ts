@@ -22,6 +22,11 @@ import {
   vaultSync,
 } from "./commands/vault";
 import {
+  hookInstall,
+  hookUninstall,
+  hookStatus,
+} from "./commands/hook";
+import {
   showProfileMenu,
   createProfile,
   applyProfile,
@@ -331,7 +336,8 @@ vault
   .description("输出 shell export 语句（配合 eval 使用）")
   .option("--keys <keys>", "手动指定 key 列表（逗号分隔）")
   .option("--dir <dir>", "指定项目目录")
-  .action(async (options: { keys?: string; dir?: string }) => {
+  .option("--shell <shell>", "输出格式: bash, zsh, powershell")
+  .action(async (options: { keys?: string; dir?: string; shell?: string }) => {
     await vaultInject(options);
   });
 
@@ -355,6 +361,35 @@ vault
   .description("同步所有关联文件（更新密钥后自动刷新）")
   .action(async () => {
     await vaultSync();
+  });
+
+// hook 子命令 - Shell 自动注入钩子
+const hook = program
+  .command("hook")
+  .description("管理 Shell Hook（cd 时自动注入密钥）")
+  .action(async () => {
+    await hookStatus();
+  });
+
+hook
+  .command("install")
+  .description("安装 chpwd 钩子到 shell 配置文件")
+  .action(async () => {
+    await hookInstall();
+  });
+
+hook
+  .command("uninstall")
+  .description("从 shell 配置文件移除钩子")
+  .action(async () => {
+    await hookUninstall();
+  });
+
+hook
+  .command("status")
+  .description("查看 hook 安装状态")
+  .action(async () => {
+    await hookStatus();
   });
 
 // relay 子命令 - 中继服务器

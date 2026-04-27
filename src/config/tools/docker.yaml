@@ -1,20 +1,24 @@
-name: Docker
+name: Docker Desktop
 category: Containers
+type: app
 
-description: 容器化平台，用于打包、分发和运行应用程序及其依赖环境
+description: 容器化平台桌面版，用于打包、分发和运行应用程序及其依赖环境
 homepage: https://docker.com
+downloadUrl: https://www.docker.com/products/docker-desktop
 
 install:
-  darwin: "brew install --cask docker || echo 'Homebrew 安装失败，请手动从 https://www.docker.com/products/docker-desktop 下载安装'"
+  darwin: "brew install --cask docker"
   linux: "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER"
 upgrade:
   darwin: "brew upgrade --cask docker"
   linux: "sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io"
 uninstall:
-  darwin: "brew uninstall --cask docker"
+  darwin: "bash -c 'brew uninstall --cask docker 2>/dev/null; [ -d \"/Applications/Docker.app\" ] && osascript -e \"tell application \\\"Finder\\\" to delete POSIX file \\\"/Applications/Docker.app\\\"\"'"
   linux: "sudo apt-get remove -y docker-ce docker-ce-cli containerd.io"
-check: command -v docker
-versionCmd: docker --version
+check:
+  darwin: test -d "/Applications/Docker.app"
+  linux: command -v docker
+versionCmd: docker --version 2>/dev/null
 
 authCheck: "docker info 2>&1 | head -3"
 authFix: docker login

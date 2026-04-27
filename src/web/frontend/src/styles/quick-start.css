@@ -1,0 +1,134 @@
+/* ─── Quick Start ─── */
+.quick-start-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.quick-start-card {
+  padding: 16px;
+  background: var(--paper);
+  border-radius: 8px;
+  border: 1.5px solid var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.quick-start-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+  border-color: var(--ink-muted);
+}
+
+.quick-start-card-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.quick-start-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+.quick-start-card-desc {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.quick-start-card-meta {
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--ink-light);
+}
+
+.quick-start-card-meta span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Preset Modal */
+.preset-panel {
+  background: var(--paper);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+  width: 420px;
+  max-width: 90vw;
+}
+
+.preset-body {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preset-body .settings-field {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.preset-body .settings-field label {
+  min-width: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.preset-body .settings-field .settings-input {
+  width: 100%;
+}
+
+.preset-key-hint {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: -4px;
+}
+
+.preset-tools-preview {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-tool-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+  color: var(--ink-light);
+}
+
+.preset-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 24px 16px;
+  border-top: 1px dashed var(--kraft-dark);
+}
+
+[data-theme="dark"] .quick-start-card {
+  background: var(--paper);
+  border-color: var(--kraft-dark);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .quick-start-card:hover {
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+  border-color: var(--ink-muted);
+}
+
+[data-theme="dark"] .preset-panel {
+  background: var(--paper);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+}
+[data-theme="dark"] .preset-tool-tag { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .preset-footer { border-top-color: var(--kraft-dark); }

@@ -1,0 +1,36 @@
+name: Trae CN
+category: AI Coding
+type: app
+
+description: 字节跳动推出的国内版 AI IDE，内置豆包等国产 AI 模型
+homepage: https://trae.com.cn
+downloadUrl: https://trae.com.cn
+
+install:
+  darwin: brew install --cask trae-cn
+upgrade:
+  darwin: brew upgrade --cask trae-cn
+uninstall:
+  darwin: bash -c 'brew uninstall --cask trae-cn 2>/dev/null; [ -d "/Applications/Trae CN.app" ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Trae CN.app\""'
+check:
+  darwin: 'test -d "/Applications/Trae CN.app"'
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Trae CN
+
+  Trae CN 是字节跳动推出的面向国内用户的 AI IDE，内置豆包等国产 AI 模型，无需翻墙即可使用。它基于 VS Code 架构，针对国内开发者的网络环境和使用习惯做了深度优化。
+
+  ## 核心功能
+
+  - **国产 AI 模型**：内置豆包等国产大模型，无需海外账号
+  - **智能代码补全**：基于 AI 的上下文感知代码补全
+  - **AI 对话编程**：通过自然语言描述需求生成代码
+  - **VS Code 兼容**：支持 VS Code 扩展和配置迁移
+  - **国内网络优化**：针对国内网络环境优化下载和模型访问
+
+  ## 使用方式
+
+  Trae CN 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

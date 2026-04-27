@@ -1,0 +1,36 @@
+name: Trae
+category: AI Coding
+type: app
+
+description: 字节跳动推出的 AI 原生 IDE，内置多种 AI 模型辅助编程
+homepage: https://trae.ai
+downloadUrl: https://trae.ai
+
+install:
+  darwin: brew install --cask trae
+upgrade:
+  darwin: brew upgrade --cask trae
+uninstall:
+  darwin: bash -c 'brew uninstall --cask trae 2>/dev/null; [ -d /Applications/Trae.app ] && osascript -e "tell application \"Finder\" to delete POSIX file \"/Applications/Trae.app\""'
+check:
+  darwin: test -d /Applications/Trae.app
+
+dependencies:
+  - Homebrew
+
+detail: |
+  ## 什么是 Trae
+
+  Trae 是字节跳动推出的 AI 原生集成开发环境（IDE），内置多种 AI 模型辅助编程。它基于 VS Code 架构，提供智能代码补全、AI 对话、代码生成等功能，支持中文场景优化。
+
+  ## 核心功能
+
+  - **AI 辅助编程**：内置多种 AI 模型，支持代码生成、补全和重构
+  - **智能对话**：通过自然语言描述需求，AI 自动生成代码
+  - **上下文理解**：AI 理解项目结构和代码上下文，提供精准建议
+  - **VS Code 兼容**：基于 VS Code 架构，支持现有扩展和配置
+  - **中文优化**：针对中文开发者场景深度优化
+
+  ## 使用方式
+
+  Trae 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。

@@ -210,7 +210,7 @@ async function pushToOrigin(): Promise<void> {
   await execa.command("git push -u origin main", { shell: true, stdio: "inherit" });
 }
 
-async function commandExists(command: string): Promise<boolean> {
+export async function commandExists(command: string): Promise<boolean> {
   try {
     await execa.command(`command -v ${command}`, { shell: true });
     return true;
@@ -236,7 +236,7 @@ async function handleExistingRepo(
   return true;
 }
 
-function parseCurlResponse(output: string): { body: string; statusCode: number } {
+export function parseCurlResponse(output: string): { body: string; statusCode: number } {
   const trimmed = String(output ?? "").trim();
   const lastNewline = trimmed.lastIndexOf("\n");
   if (lastNewline === -1) {
@@ -247,7 +247,7 @@ function parseCurlResponse(output: string): { body: string; statusCode: number }
   return { body, statusCode: Number.isNaN(statusCode) ? 0 : statusCode };
 }
 
-function isRepoExistsMessage(body: string): boolean {
+export function isRepoExistsMessage(body: string): boolean {
   const text = body.toLowerCase();
   return (
     text.includes("already exists") ||

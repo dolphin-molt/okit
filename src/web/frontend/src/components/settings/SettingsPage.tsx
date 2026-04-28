@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getSettings, updateSettings, testPlatform, testAgent } from '../../api/settings';
-import { listVault, setVault } from '../../api/vault';
+import { listVault } from '../../api/vault';
 import { pushSync, pullSync, getSyncStatus } from '../../api/sync';
-import { PROVIDER_PRESETS, PLATFORM_FIELDS, PLATFORM_IDS } from '../../lib/constants';
+import { PROVIDER_PRESETS, PLATFORM_FIELDS, PLATFORM_IDS, PLATFORM_DOCS } from '../../lib/constants';
 import { useApp } from '../Layout/AppContext';
+import VaultFormModal from '../shared/VaultFormModal';
 
 export default function SettingsPage() {
   const { showToast, setConnectionStatus, theme, toggleTheme } = useApp() as any;
@@ -15,13 +16,12 @@ export default function SettingsPage() {
   const [showModelCustom, setShowModelCustom] = useState(false);
   const [testingPlatform, setTestingPlatform] = useState<string | null>(null);
   const [testingAgent, setTestingAgent] = useState(false);
-  const [vaultFormKey, setVaultFormKey] = useState('');
-  const [vaultFormValue, setVaultFormValue] = useState('');
-  const [vaultFormGroup, setVaultFormGroup] = useState('');
   const [vaultFormVisible, setVaultFormVisible] = useState(false);
   const [syncPassword, setSyncPassword] = useState('');
   const [syncStatus, setSyncStatus] = useState<{ machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean } | null>(null);
   const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
+  const [docPlatform, setDocPlatform] = useState<string | null>(null);
+  const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -135,40 +135,38 @@ export default function SettingsPage() {
     } catch { showToast('拉取失败', 'error'); } finally { setSyncing(null); }
   }
 
-  // Vault quick-add
+  // Vault form handlers
+  const groups = [...new Set(vaultKeys.map(k => k.split('_')[0]).filter(Boolean))].sort();
+
   function openVaultAdd() {
-    setVaultFormKey('');
-    setVaultFormValue('');
-    setVaultFormGroup('');
     setVaultFormVisible(true);
   }
 
-  async function saveVaultQuick() {
-    if (!vaultFormKey || !vaultFormValue) { showToast('Key 和 Value 不能为空', 'error'); return; }
-    try {
-      await setVault({ key: vaultFormKey, alias: 'default', value: vaultFormValue, group: vaultFormGroup || undefined });
-      showToast('密钥已添加');
-      setVaultFormVisible(false);
-      const newAgent = { ...agent, apiKeyVaultKey: vaultFormKey };
+  function handleVaultSaved(key: string) {
+    if (!key) { showToast('保存失败', 'error'); return; }
+    showToast('密钥已添加');
+    setVaultFormVisible(false);
+    setVaultKeys(prev => [...prev, key]);
+    if (vaultTarget) {
+      updatePlatform(vaultTarget.platId, vaultTarget.field, key);
+      setVaultTarget(null);
+    } else {
+      const newAgent = { ...agent, apiKeyVaultKey: key };
       setAgent(newAgent);
-      setVaultKeys(prev => [...prev, vaultFormKey]);
       saveAll(newAgent);
-    } catch { showToast('保存失败', 'error'); }
+    }
   }
 
   // Platform settings
   function updatePlatform(id: string, field: string, value: any) {
     const newPlatforms = { ...platforms, [id]: { ...(platforms[id] || {}), [field]: value } };
     setPlatforms(newPlatforms);
-  }
-
-  async function savePlatformSettings() {
-    await saveAll(undefined, undefined, platforms);
+    saveAll(undefined, undefined, newPlatforms);
   }
 
   async function handleTestPlatform(platformId: string) {
     setTestingPlatform(platformId);
-    await savePlatformSettings();
+    await saveAll();
     try {
       const data = await testPlatform(platformId);
       showToast(data.message || (data.success ? '连接成功' : '连接失败'), data.success ? 'success' : 'error');
@@ -247,15 +245,17 @@ export default function SettingsPage() {
             </div>
             <div className="settings-field">
               <label>密钥名称</label>
-              <select className="settings-input settings-select" value={agent.apiKeyVaultKey} onChange={e => onVaultKeyChange(e.target.value)}>
+              <select className="settings-input settings-select" value={agent.apiKeyVaultKey} onChange={e => {
+                if (e.target.value === '__new__') { openVaultAdd(); return; }
+                onVaultKeyChange(e.target.value);
+              }}>
+                <option value="">选择密钥...</option>
                 {vaultKeys.map(k => <option key={k} value={k}>{k}</option>)}
                 {agent.apiKeyVaultKey && !vaultKeys.includes(agent.apiKeyVaultKey) && (
                   <option value={agent.apiKeyVaultKey}>{agent.apiKeyVaultKey} (未创建)</option>
                 )}
+                <option value="__new__">+ 新建密钥...</option>
               </select>
-              <button className="settings-vault-new-btn" onClick={openVaultAdd} title="新建密钥">
-                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
-              </button>
             </div>
             <button className="settings-test-btn" onClick={handleTestAgent} disabled={testingAgent}>
               {testingAgent ? '测试中...' : '测试连接'}
@@ -274,6 +274,17 @@ export default function SettingsPage() {
               <input type="password" className="settings-input" placeholder="所有机器输入相同密码即可同步"
                 value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
                 onBlur={() => { if (syncPassword) saveAll(undefined, undefined, undefined, syncPassword); }} />
+            </div>
+            <div className="settings-field" style={{ marginBottom: 12 }}>
+              <label>同步平台</label>
+              <select className="settings-input settings-select"
+                value={syncStatus?.platformId || ''}
+                onChange={e => { const newSync: any = { syncPlatform: e.target.value }; updateSettings({ sync: newSync }).then(() => loadData()); }}>
+                <option value="">选择同步平台...</option>
+                {Object.entries(platforms).filter(([, p]: any) => p.enabled).map(([id]: any) => (
+                  <option key={id} value={id}>{PLATFORM_IDS[id] || id}</option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}>
@@ -302,11 +313,6 @@ export default function SettingsPage() {
                 {syncing === 'pull' ? '拉取中...' : '拉取远端数据'}
               </button>
             </div>
-            {syncStatus?.platformId && (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-muted)' }}>
-                同步平台：{PLATFORM_IDS[syncStatus.platformId] || syncStatus.platformId}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -322,7 +328,16 @@ export default function SettingsPage() {
               <div key={platId} className="settings-plat-card">
                 <div className="settings-plat-header">
                   <div className="settings-plat-info">
-                    <div className="settings-plat-name">{platId}</div>
+                    <div className="settings-plat-name">
+                      {PLATFORM_IDS[platId] || platId}
+                      <button className="settings-doc-btn" onClick={() => setDocPlatform(platId)} title="配置文档">
+                        <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 2h7l4 4v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 014 15V3.5A1.5 1.5 0 015.5 2z" />
+                          <path d="M11 2v4h4" />
+                          <path d="M7 10h4M7 13h3" />
+                        </svg>
+                      </button>
+                    </div>
                     <div className="settings-plat-status">{plat.enabled ? '已启用' : '未配置'}</div>
                   </div>
                   <label className="settings-toggle">
@@ -331,14 +346,34 @@ export default function SettingsPage() {
                   </label>
                 </div>
                 <div className="settings-plat-body">
-                  {fields.map(field => (
-                    <div key={field} className="settings-field">
-                      <label>{field}</label>
-                      <input type={field.includes('ecret') || field.includes('oken') || field.includes('Key') ? 'password' : 'text'}
-                        className="settings-input" value={plat[field] || ''} placeholder={field}
-                        onChange={e => updatePlatform(platId, field, e.target.value)} />
-                    </div>
-                  ))}
+                  {fields.map(field => {
+                    const isSecret = /ecret|oken|Key|Id$/i.test(field) && !/storeId|databaseId|bucketName|region/i.test(field);
+                    return (
+                      <div key={field} className="settings-field">
+                        <label>{field}</label>
+                        {isSecret ? (
+                          <select className="settings-input settings-select" value={plat[field] || ''} onChange={e => {
+                            if (e.target.value === '__new__') {
+                              setVaultFormVisible(true);
+                              setVaultTarget({ platId, field });
+                              return;
+                            }
+                            updatePlatform(platId, field, e.target.value);
+                          }}>
+                            <option value="">选择密钥...</option>
+                            {vaultKeys.map(k => <option key={k} value={k}>{k}</option>)}
+                            {plat[field] && !vaultKeys.includes(plat[field]) && (
+                              <option value={plat[field]}>{plat[field]} (未创建)</option>
+                            )}
+                            <option value="__new__">+ 新建密钥...</option>
+                          </select>
+                        ) : (
+                          <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
+                            onChange={e => updatePlatform(platId, field, e.target.value)} />
+                        )}
+                      </div>
+                    );
+                  })}
                   <button className="settings-test-btn" onClick={() => handleTestPlatform(platId)} disabled={testing}>
                     {testing ? '测试中...' : '测试连接'}
                   </button>
@@ -351,33 +386,72 @@ export default function SettingsPage() {
 
       {/* Vault Quick Add Modal */}
       {vaultFormVisible && (
-        <div className="auth-overlay" style={{ display: '' }}>
-          <div className="confirm-panel" style={{ maxWidth: 400, textAlign: 'left' }}>
-            <div className="progress-header">
-              <span className="progress-title">添加密钥</span>
-              <button className="progress-close" onClick={() => setVaultFormVisible(false)}>&times;</button>
-            </div>
-            <div style={{ padding: '16px 20px' }}>
-              <div className="settings-field" style={{ marginBottom: 8 }}>
-                <label>Key</label>
-                <input type="text" className="settings-input" placeholder="例如 OPENAI_API_KEY" value={vaultFormKey} onChange={e => setVaultFormKey(e.target.value)} />
+        <VaultFormModal
+          groups={groups}
+          onClose={() => { setVaultFormVisible(false); setVaultTarget(null); }}
+          onSaved={handleVaultSaved}
+        />
+      )}
+
+      {/* Platform Doc Modal */}
+      {docPlatform && PLATFORM_DOCS[docPlatform] && (() => {
+        const doc = PLATFORM_DOCS[docPlatform];
+        function renderStep(text: string, links?: Record<string, string>) {
+          if (!links) return text;
+          let parts: (string | React.ReactNode)[] = [text];
+          for (const [label, url] of Object.entries(links)) {
+            const next: (string | React.ReactNode)[] = [];
+            for (const part of parts) {
+              if (typeof part !== 'string') { next.push(part); continue; }
+              const idx = part.indexOf(label);
+              if (idx < 0) { next.push(part); continue; }
+              next.push(part.slice(0, idx));
+              next.push(<a key={label} href={url} target="_blank" rel="noopener noreferrer" className="platdoc-inline-link">{label}</a>);
+              next.push(part.slice(idx + label.length));
+            }
+            parts = next;
+          }
+          return parts;
+        }
+        return (
+          <div className="auth-overlay" style={{ display: '' }}>
+            <div className="confirm-panel platdoc-panel" style={{ maxWidth: 520, textAlign: 'left' }}>
+              <div className="progress-header">
+                <span className="progress-title">{PLATFORM_IDS[docPlatform] || docPlatform} 配置指南</span>
+                <button className="progress-close" onClick={() => setDocPlatform(null)}>&times;</button>
               </div>
-              <div className="settings-field" style={{ marginBottom: 8 }}>
-                <label>Value</label>
-                <input type="password" className="settings-input" placeholder="密钥值" value={vaultFormValue} onChange={e => setVaultFormValue(e.target.value)} />
+              <div className="platdoc-body">
+                <div className="platdoc-section">
+                  <div className="platdoc-section-title">配置步骤</div>
+                  <ol className="platdoc-steps">
+                    {doc.steps.map((step, i) => <li key={i}>{renderStep(step.text, step.links)}</li>)}
+                  </ol>
+                </div>
+                <div className="platdoc-section">
+                  <div className="platdoc-section-title">字段说明</div>
+                  <div className="platdoc-fields">
+                    {Object.entries(doc.fields).map(([key, f]) => (
+                      <div key={key} className="platdoc-field">
+                        <span className="platdoc-field-label">{f.label}</span>
+                        <span className="platdoc-field-hint">{f.hint}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {doc.code && (
+                  <div className="platdoc-section">
+                    <div className="platdoc-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{doc.code.title}</span>
+                      <button className="settings-vault-new-btn" style={{ width: 56, fontSize: 11 }} onClick={() => { navigator.clipboard.writeText(doc.code!.sql); showToast('SQL 已复制'); }}>复制</button>
+                    </div>
+                    <pre className="platdoc-code">{doc.code.sql}</pre>
+                  </div>
+                )}
               </div>
-              <div className="settings-field">
-                <label>分组</label>
-                <input type="text" className="settings-input" placeholder="可选" value={vaultFormGroup} onChange={e => setVaultFormGroup(e.target.value)} />
-              </div>
-            </div>
-            <div className="confirm-actions">
-              <button className="confirm-btn confirm-btn--cancel" onClick={() => setVaultFormVisible(false)}>取消</button>
-              <button className="confirm-btn confirm-btn--ok" onClick={saveVaultQuick}>保存</button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

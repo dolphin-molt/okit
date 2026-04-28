@@ -395,6 +395,10 @@ body {
   max-width: 1200px;
 }
 
+.main-content > .tab-content:has(.vault-layout) {
+  max-width: none;
+}
+
 .main-content::-webkit-scrollbar { width: 6px; }
 .main-content::-webkit-scrollbar-track { background: transparent; }
 .main-content::-webkit-scrollbar-thumb { background: var(--kraft-dark); border-radius: 3px; }

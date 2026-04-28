@@ -6,7 +6,7 @@ const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
-const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
+const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus } = require('./api/sync');
 
 function createServer(port = 3000) {
@@ -68,6 +68,7 @@ function createServer(port = 3000) {
   app.get('/api/settings/onboarding', getOnboarding);
   app.post('/api/settings/onboarding/dismiss', dismissOnboarding);
   app.post('/api/settings/onboarding/reset', resetOnboarding);
+  app.post('/api/settings/sync-to-cloud', syncSecretsToPlatform);
 
   // Sync routes
   app.post('/api/sync/push', handlePush);

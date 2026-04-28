@@ -21,7 +21,7 @@ function appendLog(action, name, success, detail) {
   } catch {}
 }
 
-const SENSITIVE_KEYS = ['accessKeySecret', 'secretKey', 'secretId', 'apiToken', 'r2SecretAccessKey', 'password'];
+const SENSITIVE_KEYS = ['accessKeySecret', 'password'];
 
 async function loadConfig() {
   try {
@@ -124,6 +124,30 @@ async function updateSettings(req, res) {
   }
 }
 
+const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
+const SKIP_FIELDS = /storeId|databaseId|bucketName|region/i;
+
+const VAULT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
+
+async function resolveVaultRefs(platConfig) {
+  const { VaultStore } = require('../../vault/store');
+  const store = new VaultStore();
+  const resolved = { ...platConfig };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
+      if (!VAULT_KEY_PATTERN.test(value)) continue;
+      let actual = await store.get(value);
+      if (!actual) {
+        const aliases = await store.getAliases(value);
+        if (aliases.length > 0) actual = await store.get(value + '/' + aliases[0]);
+      }
+      if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
+      resolved[key] = actual;
+    }
+  }
+  return resolved;
+}
+
 async function testPlatformConnection(req, res) {
   const { platform } = req.body;
   if (!platform) return res.status(400).json({ error: 'platform is required' });
@@ -133,8 +157,9 @@ async function testPlatformConnection(req, res) {
   if (!platConfig) return res.status(400).json({ error: `Platform ${platform} not configured` });
 
   try {
+    const resolved = await resolveVaultRefs(platConfig);
     const adapter = require(`./platform-adapters/${platform}`);
-    const result = await adapter.testConnection(platConfig);
+    const result = await adapter.testConnection(resolved);
     appendLog('platform-test', platform, true, result);
     res.json({ success: true, message: result });
   } catch (error) {
@@ -250,4 +275,36 @@ async function testAgentConnection(req, res) {
   }
 }
 
-module.exports = { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };
+async function syncSecretsToPlatform(req, res) {
+  const { platform, keys } = req.body;
+  if (!platform || !Array.isArray(keys)) return res.status(400).json({ error: 'platform and keys are required' });
+
+  const config = await loadConfig();
+  const platConfig = config.sync?.platforms?.[platform];
+  if (!platConfig?.enabled) return res.status(400).json({ error: `平台 ${platform} 未启用` });
+
+  try {
+    const { VaultStore } = require('../../vault/store');
+    const store = new VaultStore();
+    const allSecrets = await store.exportAll();
+    const keySet = new Set(keys);
+    const grouped = {};
+    for (const s of allSecrets) {
+      if (!keySet.has(s.key)) continue;
+      if (!grouped[s.key]) grouped[s.key] = { key: s.key, group: s.group || '', aliases: [] };
+      grouped[s.key].aliases.push({ alias: s.alias || 'default', value: s.value, updatedAt: s.updatedAt });
+    }
+    const secrets = Object.values(grouped);
+
+    const resolved = await resolveVaultRefs(platConfig);
+    const adapter = require(`./platform-adapters/${platform}`);
+    const results = await adapter.syncSecrets(resolved, secrets);
+    appendLog('cloud-push', platform, true, `${secrets.length} secrets`);
+    res.json({ success: true, results });
+  } catch (error) {
+    appendLog('cloud-push', platform, false, error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };

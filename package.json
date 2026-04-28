@@ -44,8 +44,6 @@
   "license": "MIT",
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
-    "@alicloud/kms20160120": "^2.4.0",
-    "@alicloud/openapi-core": "^1.0.7",
     "@types/express": "^5.0.6",
     "@volcengine/openapi": "^1.36.1",
     "ai": "^6.0.168",
@@ -57,7 +55,6 @@
     "kleur": "^4.1.5",
     "ora": "^5.4.1",
     "prompts": "^2.4.2",
-    "tencentcloud-sdk-nodejs-ssm": "^4.1.207",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
   },

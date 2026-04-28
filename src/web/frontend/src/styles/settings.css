@@ -301,6 +301,33 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.settings-doc-btn:hover {
+  background: var(--kraft-dark);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .settings-doc-btn:hover {
+  background: rgba(255,255,255,0.1);
 }
 
 .settings-plat-status {
@@ -430,3 +457,150 @@
   background-position: right 10px center;
   padding-right: 28px;
 }
+
+/* ─── Platform Doc Modal ─── */
+.platdoc-panel {
+  border-radius: 12px;
+}
+
+.platdoc-panel .progress-header {
+  background: var(--paper);
+  border-bottom: 1px dashed var(--kraft-dark);
+  color: var(--ink);
+}
+
+.platdoc-panel .progress-close {
+  color: var(--ink-muted);
+}
+
+.platdoc-panel .progress-close:hover {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .platdoc-panel .progress-header {
+  background: var(--paper);
+  border-bottom-color: var(--kraft-dark);
+}
+
+.platdoc-body {
+  padding: 20px 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.platdoc-section + .platdoc-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--kraft-dark);
+}
+
+[data-theme="dark"] .platdoc-section + .platdoc-section {
+  border-top-color: var(--kraft-dark);
+}
+
+.platdoc-section-title {
+  font-family: var(--font-hand);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.platdoc-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ink-light);
+}
+
+.platdoc-steps li::marker {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.platdoc-inline-link {
+  color: #2563eb;
+  text-decoration: none;
+  border-bottom: 1px solid #93c5fd;
+  transition: all 0.15s;
+}
+
+.platdoc-inline-link:hover {
+  color: #1d4ed8;
+  border-bottom-color: #1d4ed8;
+}
+
+[data-theme="dark"] .platdoc-inline-link {
+  color: #60a5fa;
+  border-bottom-color: rgba(96,165,250,0.3);
+}
+
+[data-theme="dark"] .platdoc-inline-link:hover {
+  color: #93c5fd;
+  border-bottom-color: #93c5fd;
+}
+
+.platdoc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.platdoc-field {
+  padding: 8px 12px;
+  background: #f0f7ff;
+  border-radius: 6px;
+  border: 1px solid #d4e4f7;
+}
+
+[data-theme="dark"] .platdoc-field {
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.15);
+}
+
+.platdoc-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 2px;
+}
+
+[data-theme="dark"] .platdoc-field-label {
+  color: #60a5fa;
+}
+
+.platdoc-field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+.platdoc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.platdoc-code {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ink);
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+[data-theme="dark"] .platdoc-code {
+  background: var(--bg-tertiary);
+}
+

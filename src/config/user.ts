@@ -47,24 +47,20 @@ export type UserConfig = {
         enabled?: boolean;
         bucketName?: string;
       };
-      aliyun?: {
-        enabled?: boolean;
-        region?: string;
-        accessKeyId?: string;
-        accessKeySecret?: string;
-        secretNamePrefix?: string;
-      };
-      tencent?: {
-        enabled?: boolean;
-        region?: string;
-        secretId?: string;
-        secretKey?: string;
-      };
       volcengine?: {
         enabled?: boolean;
         region?: string;
         accessKey?: string;
         secretKey?: string;
+      };
+      supabase?: {
+        enabled?: boolean;
+        projectId?: string;
+        apiKey?: string;
+      };
+      'cloudflare-kv'?: {
+        enabled?: boolean;
+        apiToken?: string;
       };
     };
   };

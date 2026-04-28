@@ -68,10 +68,31 @@ function ensureMachineId(config) {
 
 function getEnabledPlatform(config) {
   const platforms = config.sync?.platforms || {};
-  for (const [id, plat] of Object.entries(platforms)) {
-    if (plat.enabled) return { id, config: plat };
-  }
+  const target = config.sync?.syncPlatform;
+  if (target && platforms[target]?.enabled) return { id: target, config: platforms[target] };
   return null;
+}
+
+async function resolveVaultRefs(platConfig) {
+  const { VaultStore } = require('../../vault/store');
+  const store = new VaultStore();
+  const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
+  const SKIP_FIELDS = /storeId|databaseId|bucketName|region/i;
+  const VAULT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
+  const resolved = { ...platConfig };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
+      if (!VAULT_KEY_PATTERN.test(value)) continue;
+      let actual = await store.get(value);
+      if (!actual) {
+        const aliases = await store.getAliases(value);
+        if (aliases.length > 0) actual = await store.get(value + '/' + aliases[0]);
+      }
+      if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
+      resolved[key] = actual;
+    }
+  }
+  return resolved;
 }
 
 // ─── Merge Logic ───
@@ -111,6 +132,8 @@ async function handlePush(req, res) {
     const platform = getEnabledPlatform(config);
     if (!platform) return res.status(400).json({ error: '请先启用一个同步平台' });
 
+    const resolvedConfig = await resolveVaultRefs(platform.config);
+
     const { userId, encryptionKey } = deriveSyncKeys(password);
     const machineId = ensureMachineId(config);
 
@@ -133,7 +156,7 @@ async function handlePush(req, res) {
 
     // Push to platform
     const adapter = require(`./platform-adapters/${platform.id}`);
-    await adapter.pushSync(platform.config, userId, encrypted);
+    await adapter.pushSync(resolvedConfig, userId, encrypted);
 
     // Update sync metadata
     config.sync.lastSyncAt = new Date().toISOString();
@@ -160,9 +183,11 @@ async function handlePull(req, res) {
 
     const { userId, encryptionKey } = deriveSyncKeys(password);
 
+    const resolvedConfig = await resolveVaultRefs(platform.config);
+
     // Pull from platform
     const adapter = require(`./platform-adapters/${platform.id}`);
-    const encrypted = await adapter.pullSync(platform.config, userId);
+    const encrypted = await adapter.pullSync(resolvedConfig, userId);
     if (!encrypted) return res.status(404).json({ error: '远端没有同步数据' });
 
     const remoteData = decryptBlob(encrypted, encryptionKey);

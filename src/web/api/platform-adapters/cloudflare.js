@@ -44,7 +44,7 @@ async function syncSecrets(config, secrets) {
   let existing = [];
   try {
     const listData = await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets`);
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`);
     existing = listData.result || [];
   } catch {}
 
@@ -53,15 +53,16 @@ async function syncSecrets(config, secrets) {
 
   for (const secret of secrets) {
     try {
+      const val = secret.aliases?.[0]?.value || secret.value || '';
       const existingId = existingMap.get(secret.key);
       if (existingId) {
         await cfFetch(config.apiToken,
-          `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets/${existingId}`,
-          { method: 'PATCH', body: JSON.stringify({ value: secret.value }) });
+          `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets/${existingId}`,
+          { method: 'PATCH', body: JSON.stringify({ value: val }) });
       } else {
         await cfFetch(config.apiToken,
-          `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets`,
-          { method: 'POST', body: JSON.stringify({ name: secret.key, value: secret.value, scopes: ['workers'] }) });
+          `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`,
+          { method: 'POST', body: JSON.stringify([{ name: secret.key, value: val, scopes: ['workers'] }]) });
       }
       results.push({ key: secret.key, success: true });
     } catch (error) {
@@ -84,19 +85,19 @@ async function pushSync(config, userId, encryptedBlob) {
   let existing = [];
   try {
     const listData = await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets`);
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`);
     existing = listData.result || [];
   } catch {}
 
   const found = existing.find(s => s.name === secretName);
   if (found) {
     await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets/${found.id}`,
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets/${found.id}`,
       { method: 'PATCH', body: JSON.stringify({ value }) });
   } else {
     await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets`,
-      { method: 'POST', body: JSON.stringify({ name: secretName, value, scopes: ['workers'] }) });
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`,
+      { method: 'POST', body: JSON.stringify([{ name: secretName, value, scopes: ['workers'] }]) });
   }
 }
 
@@ -111,7 +112,7 @@ async function pullSync(config, userId) {
   let existing = [];
   try {
     const listData = await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets`);
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`);
     existing = listData.result || [];
   } catch {}
 
@@ -121,7 +122,7 @@ async function pullSync(config, userId) {
   // Secrets Store API may not return the value via list; try to get it
   try {
     const detail = await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets-store/stores/${config.storeId}/secrets/${found.id}`);
+      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets/${found.id}`);
     const value = detail.result?.value;
     if (!value) return null;
     return JSON.parse(value);

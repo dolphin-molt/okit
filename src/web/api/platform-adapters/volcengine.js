@@ -1,25 +1,54 @@
-const volcengine = require('@volcengine/openapi');
+const { Service } = require('@volcengine/openapi');
+
+const KMS_VERSION = '2021-02-18';
 
 function createClient(config) {
   if (!config.accessKey || !config.secretKey) {
     throw new Error('请配置 AccessKey 和 SecretKey');
   }
-  const service = volcengine.Service.getInstance('kms');
+  const service = new Service();
   service.setAccessKeyId(config.accessKey);
   service.setSecretKey(config.secretKey);
-  if (config.region) {
-    service.setRegion(config.region);
-  }
   return service;
 }
 
-async function testConnection(config) {
-  try {
-    const client = createClient(config);
-    return `火山引擎 KMS (${config.region || 'cn-beijing'}) 连接成功`;
-  } catch (error) {
-    throw new Error(error.message || '连接失败');
+async function kmsCall(client, action, query, body) {
+  const opts = {
+    Action: action,
+    Version: KMS_VERSION,
+    query,
+  };
+  if (body) {
+    opts.method = 'POST';
+    opts.data = body;
+    opts.headers = { 'Content-Type': 'application/json; charset=utf-8' };
   }
+  const result = await client.fetchOpenAPI(opts, {
+    host: 'open.volcengineapi.com',
+    region: 'cn-beijing',
+    serviceName: 'kms',
+  });
+  const err = result.ResponseMetadata?.Error;
+  if (err) throw new Error(`${err.Code}: ${err.Message}`);
+  return result;
+}
+
+async function testConnection(config) {
+  const client = createClient(config);
+  try {
+    await kmsCall(client, 'DescribeSecrets', {});
+  } catch (e) {
+    const msg = e.message || '';
+    if (msg.includes('not activated') || msg.includes('未开通') || msg.includes('ServiceNotActivated') || msg.includes('ServiceNotOpen') || msg.includes('NotOpen')) {
+      throw new Error('凭据管理服务未开通，请在火山引擎控制台开通密钥管理服务（含凭据管理）');
+    }
+    throw e;
+  }
+  return '火山引擎 KMS 连接成功';
+}
+
+function secretName(key) {
+  return 'okit-' + key.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 async function syncSecrets(config, secrets) {
@@ -27,22 +56,21 @@ async function syncSecrets(config, secrets) {
   const results = [];
 
   for (const secret of secrets) {
-    const secretName = `okit/${secret.key}`;
+    const name = secretName(secret.key);
+    const value = typeof secret === 'object' ? JSON.stringify(secret) : secret.value;
     try {
-      await client.createSecret({
-        SecretName: secretName,
-        SecretData: secret.value,
-        Description: 'Managed by OKIT',
-      });
+      await kmsCall(client, 'CreateSecret',
+        { SecretName: name, SecretType: 'Generic' },
+        { SecretValue: value, Description: 'Managed by OKIT' },
+      );
       results.push({ key: secret.key, success: true });
     } catch (error) {
-      // If exists, try update
-      if (error.message?.includes('already exist') || error.message?.includes('Conflict')) {
+      if (error.message?.includes('already exist') || error.message?.includes('Conflict') || error.message?.includes('already')) {
         try {
-          await client.putSecretValue({
-            SecretName: secretName,
-            SecretData: secret.value,
-          });
+          await kmsCall(client, 'SetSecretValue',
+            { SecretName: name },
+            { SecretValue: value },
+          );
           results.push({ key: secret.key, success: true });
           continue;
         } catch (updateError) {
@@ -58,14 +86,20 @@ async function syncSecrets(config, secrets) {
 
 async function pushSync(config, userId, encryptedBlob) {
   const client = createClient(config);
-  const secretName = `okit/sync/${userId}`;
+  const name = secretName('sync-' + userId);
   const value = JSON.stringify(encryptedBlob);
 
   try {
-    await client.createSecret({ SecretName: secretName, SecretData: value, Description: 'OKIT sync data' });
+    await kmsCall(client, 'CreateSecret',
+      { SecretName: name, SecretType: 'Generic' },
+      { SecretValue: value, Description: 'OKIT sync data' },
+    );
   } catch (e) {
-    if (e.message?.includes('already exist') || e.message?.includes('Conflict')) {
-      await client.putSecretValue({ SecretName: secretName, SecretData: value });
+    if (e.message?.includes('already exist') || e.message?.includes('Conflict') || e.message?.includes('already')) {
+      await kmsCall(client, 'SetSecretValue',
+        { SecretName: name },
+        { SecretValue: value },
+      );
     } else {
       throw e;
     }
@@ -74,14 +108,14 @@ async function pushSync(config, userId, encryptedBlob) {
 
 async function pullSync(config, userId) {
   const client = createClient(config);
-  const secretName = `okit/sync/${userId}`;
+  const name = secretName('sync-' + userId);
 
   try {
-    const result = await client.getSecretValue({ SecretName: secretName });
-    if (!result.SecretData) return null;
-    return JSON.parse(result.SecretData);
+    const result = await kmsCall(client, 'GetSecretValue', { SecretName: name });
+    if (!result?.SecretValue) return null;
+    return JSON.parse(result.SecretValue);
   } catch (e) {
-    if (e.message?.includes('not exist')) return null;
+    if (e.message?.includes('not exist') || e.message?.includes('not found')) return null;
     throw e;
   }
 }

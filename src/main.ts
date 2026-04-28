@@ -363,6 +363,74 @@ vault
     await vaultSync();
   });
 
+vault
+  .command("test <platform>")
+  .description("测试云平台连接（如 supabase、cloudflare-kv）")
+  .action(async (platform: string) => {
+    try {
+      // @ts-ignore
+      const core = require("./web/api/cloud-sync-core");
+      const result = await core.testConnection(platform);
+      console.log(kleur.green(`✓ ${result}`));
+    } catch (error: any) {
+      console.error(kleur.red(`✗ ${error.message}`));
+      process.exit(1);
+    }
+  });
+
+vault
+  .command("push [platform]")
+  .description("推送密钥到云平台（不指定则推送到第一个已启用平台）")
+  .option("--all", "推送所有密钥（默认）")
+  .action(async (platform?: string, options?: { all?: boolean }) => {
+    try {
+      // @ts-ignore
+      const core = require("./web/api/cloud-sync-core");
+      const config = await core.loadConfig();
+      const plats = config.sync?.platforms || {};
+      let target = platform;
+      if (!target) {
+        const enabled = Object.entries(plats).filter(([, p]: any) => p.enabled).map(([id]: any) => id);
+        if (enabled.length === 0) {
+          console.error(kleur.red("没有已启用的同步平台，请先在 Web UI 中配置"));
+          process.exit(1);
+        }
+        target = enabled[0];
+      }
+      console.log(kleur.gray(`推送密钥到 ${target}...`));
+      const results = await core.pushSecrets(target, null);
+      let ok = 0, fail = 0;
+      for (const r of results) {
+        if (r.success) {
+          console.log(kleur.green(`  ✓ ${r.key}`));
+          ok++;
+        } else {
+          console.log(kleur.red(`  ✗ ${r.key} — ${r.error}`));
+          fail++;
+        }
+      }
+      console.log(`\n完成：${kleur.green(`${ok} 成功`)}${fail > 0 ? `，${kleur.red(`${fail} 失败`)}` : ''}`);
+    } catch (error: any) {
+      console.error(kleur.red(`✗ ${error.message}`));
+      process.exit(1);
+    }
+  });
+
+vault
+  .command("pull [platform]")
+  .description("从云平台拉取密钥合并到本地")
+  .action(async (platform?: string) => {
+    try {
+      // @ts-ignore
+      const core = require("./web/api/cloud-sync-core");
+      const result = await core.syncPull();
+      console.log(kleur.green(`✓ 拉取完成：新增 ${result.added} 个，更新 ${result.updated} 个`));
+    } catch (error: any) {
+      console.error(kleur.red(`✗ ${error.message}`));
+      process.exit(1);
+    }
+  });
+
 // hook 子命令 - Shell 自动注入钩子
 const hook = program
   .command("hook")

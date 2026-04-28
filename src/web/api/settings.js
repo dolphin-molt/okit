@@ -151,16 +151,9 @@ async function resolveVaultRefs(platConfig) {
 async function testPlatformConnection(req, res) {
   const { platform } = req.body;
   if (!platform) return res.status(400).json({ error: 'platform is required' });
-
-  const config = await loadConfig();
-  const platConfig = config.sync?.platforms?.[platform];
-  if (!platConfig) return res.status(400).json({ error: `Platform ${platform} not configured` });
-
   try {
-    const resolved = await resolveVaultRefs(platConfig);
-    const adapter = require(`./platform-adapters/${platform}`);
-    const result = await adapter.testConnection(resolved);
-    appendLog('platform-test', platform, true, result);
+    const core = require('./cloud-sync-core');
+    const result = await core.testConnection(platform);
     res.json({ success: true, message: result });
   } catch (error) {
     appendLog('platform-test', platform, false, error.message);
@@ -278,28 +271,9 @@ async function testAgentConnection(req, res) {
 async function syncSecretsToPlatform(req, res) {
   const { platform, keys } = req.body;
   if (!platform || !Array.isArray(keys)) return res.status(400).json({ error: 'platform and keys are required' });
-
-  const config = await loadConfig();
-  const platConfig = config.sync?.platforms?.[platform];
-  if (!platConfig?.enabled) return res.status(400).json({ error: `平台 ${platform} 未启用` });
-
   try {
-    const { VaultStore } = require('../../vault/store');
-    const store = new VaultStore();
-    const allSecrets = await store.exportAll();
-    const keySet = new Set(keys);
-    const grouped = {};
-    for (const s of allSecrets) {
-      if (!keySet.has(s.key)) continue;
-      if (!grouped[s.key]) grouped[s.key] = { key: s.key, group: s.group || '', aliases: [] };
-      grouped[s.key].aliases.push({ alias: s.alias || 'default', value: s.value, updatedAt: s.updatedAt });
-    }
-    const secrets = Object.values(grouped);
-
-    const resolved = await resolveVaultRefs(platConfig);
-    const adapter = require(`./platform-adapters/${platform}`);
-    const results = await adapter.syncSecrets(resolved, secrets);
-    appendLog('cloud-push', platform, true, `${secrets.length} secrets`);
+    const core = require('./cloud-sync-core');
+    const results = await core.pushSecrets(platform, keys);
     res.json({ success: true, results });
   } catch (error) {
     appendLog('cloud-push', platform, false, error.message);

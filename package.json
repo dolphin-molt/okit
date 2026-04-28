@@ -9,7 +9,7 @@
   "scripts": {
     "postinstall": "node dist/main.js hook install",
     "build": "tsc && npm run copy-web && npm run copy-tools && npm run build-frontend",
-    "copy-web": "rm -rf dist/web && mkdir -p dist/web && cp src/web/server.js dist/web/ && cp -r src/web/api dist/web/",
+    "copy-web": "mkdir -p dist/web && cp src/web/server.js dist/web/ && rm -rf dist/web/api && cp -r src/web/api dist/web/",
     "copy-tools": "mkdir -p dist/config/tools && cp src/config/tools/*.yaml dist/config/tools/",
     "build-frontend": "cd src/web/frontend && npm install && npm run build",
     "dev": "ts-node src/main.ts",

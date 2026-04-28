@@ -229,7 +229,15 @@ export default function VaultPage() {
       });
       const result = await res.json();
       if (result.success) {
-        showToast(`已推送 ${cloudKeys.length} 个密钥到 ${PLATFORM_IDS[cloudPlatform] || cloudPlatform}`);
+        const results = result.results || [];
+        const ok = results.filter((r: any) => r.success).length;
+        const failed = results.filter((r: any) => !r.success);
+        if (failed.length === 0) {
+          showToast(`已推送 ${ok} 个密钥到 ${PLATFORM_IDS[cloudPlatform] || cloudPlatform}`);
+        } else {
+          const names = failed.map((r: any) => `${r.key} (${r.error})`).join('、');
+          showToast(`${ok} 成功，${failed.length} 失败：${names}`, 'error');
+        }
         setShowCloud(false);
         setCloudKeys([]);
       } else {

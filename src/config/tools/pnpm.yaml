@@ -2,6 +2,7 @@ name: pnpm
 category: Development
 
 description: 高效、快速的 Node.js 包管理器，使用硬链接节省磁盘空间
+description_en: Fast, efficient Node.js package manager using hard links to save disk space
 homepage: https://pnpm.io
 
 install:
@@ -44,4 +45,31 @@ detail: |
   pnpm list                  # 列出已安装依赖
   pnpm store prune           # 清理未引用的 store 内容
   pnpm -r install            # 在 monorepo 中递归安装
+  ```
+
+detail_en: |
+  ## What is pnpm
+
+  pnpm is a high-performance Node.js package manager, known as "the fast, disk-space efficient package manager." It uses hard links and symbolic links to keep only one copy of each dependency in a global store, significantly reducing disk usage and installation time.
+
+  ## Key Features
+
+  - **Content-addressable Storage**: Dependencies stored only once in a global store, shared across projects via hard links
+  - **Strict Mode**: Creates non-flat node_modules by default, avoiding phantom dependency issues
+  - **Blazing Fast**: 2-3x faster than npm and yarn, especially for monorepo projects
+  - **Monorepo Support**: Built-in workspace support for easy multi-package project management
+  - **npm Compatible**: Supports package.json and the npm ecosystem with low migration cost
+  - **Deterministic Installs**: Ensures consistent install results across the team via lockfile
+
+  ## Common Commands
+
+  ```bash
+  pnpm install               # Install dependencies
+  pnpm add <package>         # Add a dependency
+  pnpm remove <package>      # Remove a dependency
+  pnpm run <script>          # Run a script
+  pnpm update                # Update dependencies
+  pnpm list                  # List installed dependencies
+  pnpm store prune           # Clean unreferenced store contents
+  pnpm -r install            # Recursively install in a monorepo
   ```

@@ -330,46 +330,8 @@
   max-width: none;
 }
 
-.tools-cat-sidebar {
-  width: 180px;
-  flex-shrink: 0;
-  background: var(--paper);
-  border: 1.5px solid var(--kraft-dark);
-  border-radius: 8px;
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
-  position: sticky;
-  top: 0;
-  overflow: hidden;
-}
-
-.cat-sidebar-title {
-  padding: 12px 14px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--ink-muted);
-  border-bottom: 1px dashed var(--kraft-dark);
-}
-
-.cat-sidebar-body { padding: 6px 0; }
-
-.cat-sidebar-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: all 0.12s;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.cat-sidebar-item:hover { background: var(--kraft); }
-.cat-sidebar-item.active { background: var(--ink); color: var(--paper); }
-.cat-sidebar-item.active .cat-sidebar-count { color: rgba(255,255,255,0.6); }
-.cat-sidebar-label { flex: 1; }
-.cat-sidebar-count { font-size: 11px; color: var(--ink-muted); font-weight: 500; min-width: 20px; text-align: right; }
+/* tools sidebar uses page-sidebar base styles, only add extras here */
+.tools-cat-sidebar .cat-sidebar-body { padding: 6px 0; }
 
 .cat-group-header {
   display: flex;
@@ -416,7 +378,7 @@
 .cat-item-label { flex: 1; }
 .cat-item-count { font-size: 10px; color: var(--ink-muted); }
 
-.tools-main { flex: 1; min-width: 0; }
+.tools-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 [data-theme="dark"] .cat-group-header.active { background: rgba(255,255,255,0.04); }
 [data-theme="dark"] .cat-item.active { background: rgba(255,255,255,0.04); }

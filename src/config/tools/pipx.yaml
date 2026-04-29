@@ -2,6 +2,7 @@ name: pipx
 category: Development
 
 description: 在隔离环境中安装和运行 Python CLI 应用的工具
+description_en: Tool for installing and running Python CLI applications in isolated environments
 homepage: https://pypa.github.io/pipx
 
 install:
@@ -44,4 +45,30 @@ detail: |
   pipx list                      # 列出已安装的应用
   pipx run <package> <command>   # 临时运行包中的命令
   pipx inject <package> <dep>    # 向应用注入额外依赖
+  ```
+
+detail_en: |
+  ## What is pipx
+
+  pipx is the officially recommended CLI application installer for Python, designed specifically to install and run Python command-line applications in isolated virtual environments. It solves the dependency conflict issues caused by global pip installations, ensuring each application has its own independent runtime environment while remaining globally accessible from the command line.
+
+  ## Key Features
+
+  - **Isolated Installation**: Each Python CLI app is installed in its own virtual environment
+  - **Globally Available**: Installed commands can be called directly from the terminal
+  - **Dependency Isolation**: Dependencies of different apps don't interfere with each other, avoiding version conflicts
+  - **One-command Run**: Run commands from packages directly via `pipx run` without pre-installing
+  - **Inject Dependencies**: Inject additional dependency packages into installed applications
+  - **Automatic Management**: Automatically creates, manages, and cleans up virtual environments
+
+  ## Common Commands
+
+  ```bash
+  pipx install <package>         # Install a Python CLI application
+  pipx uninstall <package>       # Uninstall an application
+  pipx upgrade <package>         # Upgrade an application
+  pipx upgrade-all               # Upgrade all installed applications
+  pipx list                      # List installed applications
+  pipx run <package> <command>   # Temporarily run a command from a package
+  pipx inject <package> <dep>    # Inject additional dependencies into an application
   ```

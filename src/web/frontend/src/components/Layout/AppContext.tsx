@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { I18nProvider, useI18n } from '../../i18n';
 
 interface Toast {
   id: number;
@@ -31,7 +32,8 @@ export function useApp() {
   return useContext(AppContext);
 }
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+function AppProviderInner({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('okit-theme');
     if (saved === 'dark' || saved === 'light') return saved;
@@ -128,21 +130,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               </svg>
             </div>
             <div className="confirm-body">
-              <div className="confirm-title">{confirmState.current.options.title || '确认操作'}</div>
+              <div className="confirm-title">{confirmState.current.options.title || t('common.confirmAction')}</div>
               <div className="confirm-message" dangerouslySetInnerHTML={{ __html: confirmState.current.message }} />
             </div>
             <div className="confirm-actions">
-              <button className="confirm-btn confirm-btn--cancel" onClick={() => resolveConfirm(false)}>取消</button>
+              <button className="confirm-btn confirm-btn--cancel" onClick={() => resolveConfirm(false)}>{t('common.cancel')}</button>
               <button
                 className={`confirm-btn confirm-btn--ok${confirmState.current.options.type === 'danger' ? ' confirm-btn--danger' : ''}`}
                 onClick={() => resolveConfirm(true)}
               >
-                确认
+                {t('common.confirm')}
               </button>
             </div>
           </div>
         </div>
       )}
     </AppContext.Provider>
+  );
+}
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <I18nProvider>
+      <AppProviderInner>{children}</AppProviderInner>
+    </I18nProvider>
   );
 }

@@ -2,6 +2,7 @@ name: ripgrep
 category: Utilities
 
 description: 极速文本搜索工具，替代 grep，默认支持 .gitignore 规则
+description_en: Blazing-fast text search tool replacing grep with built-in .gitignore support
 homepage: https://github.com/BurntSushi/ripgrep
 
 install:
@@ -43,4 +44,30 @@ detail: |
   rg "pattern" -r "replace"     # 搜索并替换（仅显示结果）
   rg -i "pattern"               # 忽略大小写搜索
   rg "pattern" --glob '!*.min.js'  # 排除特定文件
+  ```
+
+detail_en: |
+  ## What is ripgrep
+
+  ripgrep (rg) is a blazing-fast command-line text search tool designed as a modern replacement for grep. It respects .gitignore rules by default, automatically skips hidden and binary files, is written in Rust for extreme speed, and is the go-to tool for searching code in large codebases.
+
+  ## Key Features
+
+  - **Blazing Fast**: Written in Rust with memory-mapped I/O, far outperforming grep
+  - **Smart Filtering**: Respects .gitignore rules by default, skipping files that don't need searching
+  - **Regular Expressions**: Supports full regular expression syntax
+  - **Unicode Support**: Native Unicode support for correct handling of Chinese and other multi-language text
+  - **File Type Filtering**: Search specific file types for precise results
+  - **Compressed Files**: Supports searching content within compressed files
+
+  ## Common Commands
+
+  ```bash
+  rg "pattern"                  # Search for pattern in current directory
+  rg "pattern" --type py        # Search only Python files
+  rg "pattern" -l               # List only matching file names
+  rg "pattern" -C 3             # Show 3 lines of context before and after matches
+  rg "pattern" -r "replace"     # Search and replace (display only)
+  rg -i "pattern"               # Case-insensitive search
+  rg "pattern" --glob '!*.min.js'  # Exclude specific files
   ```

@@ -2,6 +2,7 @@ name: Claude Code
 category: AI Coding
 
 description: Anthropic 的 AI 编程代理，支持文件读写、命令执行、代码搜索等交互式编程
+description_en: Anthropic's AI coding agent with file I/O, command execution, code search, and interactive programming
 homepage: https://docs.anthropic.com/en/docs/claude-code
 
 install: "sudo npm install -g @anthropic-ai/claude-code"
@@ -38,4 +39,29 @@ detail: |
   claude config              # 配置设置
   /help                      # 在会话中查看帮助
   /clear                     # 清除对话上下文
+  ```
+
+detail_en: |
+  ## What is Claude Code
+
+  Claude Code is Anthropic's AI coding agent, powered by the Claude model to deliver an interactive programming experience. It supports file I/O, command execution, code search, Git operations, and a complete development workflow. It can be extended via MCP servers and is one of the most powerful AI coding assistants available today.
+
+  ## Key Features
+
+  - **Interactive Programming**: Chat with Claude in the terminal, drive development with natural language
+  - **File Operations**: Read, create, and edit project files with smart code structure understanding
+  - **Command Execution**: Run shell commands, install dependencies, and start services
+  - **Code Search**: Search and analyze code patterns across the entire codebase
+  - **Git Integration**: Automatically create commits, resolve merge conflicts, and generate PRs
+  - **MCP Extensions**: Connect external tools and data sources via the Model Context Protocol
+
+  ## Common Commands
+
+  ```bash
+  claude                     # Start interactive session
+  claude "帮我修复这个 bug"  # Execute a task directly
+  claude --version           # Check version
+  claude config              # Configure settings
+  /help                      # View help in session
+  /clear                     # Clear conversation context
   ```

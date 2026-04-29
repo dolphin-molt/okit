@@ -513,4 +513,109 @@ async function autoSyncToPlatforms(key, value) {
   } catch {}
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects };
+async function testApiKey(req, res) {
+  const { baseUrl, type, keyValue, vaultKey } = req.body;
+  if (!baseUrl) {
+    return res.status(400).json({ success: false, message: '缺少 baseUrl' });
+  }
+
+  let resolvedKey = keyValue;
+  if (!resolvedKey && vaultKey) {
+    try {
+      await store.reload();
+      resolvedKey = await store.resolve(vaultKey);
+    } catch (err) {
+      console.error('resolveVaultKey error:', err);
+    }
+  }
+  if (!resolvedKey) {
+    return res.json({ success: false, message: '无可用密钥，请先绑定 API Key' });
+  }
+
+  try {
+    let url;
+    const headers = {};
+
+    if (type === 'anthropic') {
+      url = `${baseUrl}/v1/messages`;
+      headers['x-api-key'] = resolvedKey;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['content-type'] = 'application/json';
+      const body = JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+      const result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+      if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
+      if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+      if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+      return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
+    } else if (type === 'google') {
+      url = `${baseUrl}/v1beta/models?key=${resolvedKey}`;
+      const result = await httpRequest(url, { method: 'GET', timeout: 10000 });
+      if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
+      if (result.status === 400 || result.status === 403) return res.json({ success: false, message: 'API Key 无效' });
+      if (result.status === 200) return res.json({ success: true, message: '连接成功，Key 有效' });
+      return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
+    } else {
+      // openai compatible — try /models first, fallback to /chat/completions probe
+      headers['Authorization'] = `Bearer ${resolvedKey}`;
+      headers['content-type'] = 'application/json';
+      url = baseUrl.replace(/\/+$/, '') + '/models';
+      let result = await httpRequest(url, { method: 'GET', headers, timeout: 10000 });
+
+      if (result.error) {
+        // Connection failed entirely, try /chat/completions as fallback
+        url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const probeBody = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+        result = await httpRequest(url, { method: 'POST', headers, body: probeBody, timeout: 10000 });
+        if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
+        if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+        return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
+      }
+
+      if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+      if (result.status === 200) {
+        let modelCount = 0;
+        try { const d = JSON.parse(result.body); modelCount = d.data?.length || 0; } catch {}
+        return res.json({ success: true, message: `连接成功，可用 ${modelCount} 个模型` });
+      }
+      if (result.status === 404 || result.status === 403 || result.status === 405) {
+        // /models not available, try chat probe
+        url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+        const probeBody = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+        const probeResult = await httpRequest(url, { method: 'POST', headers, body: probeBody, timeout: 10000 });
+        if (probeResult.error) return res.json({ success: false, message: `连接失败: ${probeResult.error}` });
+        if (probeResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        if (probeResult.status === 200 || probeResult.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+        return res.json({ success: false, message: `HTTP ${probeResult.status}: ${truncateBody(probeResult.body)}` });
+      }
+      return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
+    }
+  } catch (err) {
+    res.json({ success: false, message: `连接失败: ${err.message}` });
+  }
+}
+
+function truncateBody(body) {
+  if (!body) return '';
+  const s = typeof body === 'string' ? body : String(body);
+  if (s.length <= 200) return s;
+  return s.slice(0, 200) + '...';
+}
+
+function httpRequest(url, options) {
+  return new Promise((resolve) => {
+    const parsed = new (require('url').URL)(url);
+    const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+    const req = mod.request(url, options, (res) => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => resolve({ status: res.statusCode, body }));
+    });
+    req.on('error', err => resolve({ status: 0, error: err.message }));
+    if (options.body) req.write(options.body);
+    req.setTimeout(options.timeout || 10000, () => { req.destroy(); resolve({ status: 0, error: 'Timeout' }); });
+    req.end();
+  });
+}
+
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey };

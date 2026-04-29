@@ -3,6 +3,7 @@ category: Development
 type: app
 
 description: Apple 官方集成开发环境，用于 iOS、macOS、watchOS、tvOS 应用开发
+description_en: Apple's official IDE for iOS, macOS, watchOS, and tvOS app development
 homepage: https://developer.apple.com/xcode/
 downloadUrl: https://apps.apple.com/app/xcode/id497799835
 
@@ -37,3 +38,22 @@ detail: |
   ## 使用方式
 
   Xcode 为 App Store 应用，需要通过 mas（Mac App Store CLI）安装。安装后首次打开需同意许可协议并安装附加组件。可配合 `xcode-select` 管理命令行工具版本。
+
+detail_en: |
+  ## What is Xcode
+
+  Xcode is Apple's official integrated development environment (IDE), an essential tool for developing iOS, macOS, watchOS, tvOS, and visionOS applications. It integrates a complete development toolchain including a code editor, interface builder, debugger, performance analyzer, and simulator.
+
+  ## Key Features
+
+  - **Code editor**: Syntax highlighting and smart completion for Swift, Objective-C, and C/C++
+  - **Interface Builder**: Visual drag-and-drop UI construction with SwiftUI preview support
+  - **Simulator**: Built-in iOS, watchOS, and other device simulators for testing without physical devices
+  - **Instruments**: Performance analysis tool for detecting memory leaks, CPU usage, and other issues
+  - **SwiftUI**: Declarative UI framework with real-time interface preview
+  - **Debugger**: LLDB integration with breakpoints, variable watching, and memory analysis
+  - **Xcode Cloud**: Apple's CI/CD service for automated building and testing
+
+  ## Usage
+
+  Xcode is an App Store application that requires mas (Mac App Store CLI) for installation. After installation, you must agree to the license agreement and install additional components on first launch. Use `xcode-select` to manage command-line tool versions.

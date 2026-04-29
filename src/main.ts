@@ -39,6 +39,16 @@ import {
 import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
 import { loadUserConfig, updateUserConfig } from "./config/user";
+import {
+  providerList,
+  providerCurrent,
+  providerSwitch,
+  providerUse,
+  providerAdd,
+  providerDeleteAction,
+  providerAuth,
+} from "./commands/provider";
+import { migrateIfNeeded } from "./providers/migration";
 
 const program = new Command();
 
@@ -543,6 +553,87 @@ relay
     await relayTokenRotate(agentName);
   });
 
+// provider 子命令 - Provider/Model 管理
+const provider = program
+  .command("provider")
+  .description("模型管控 — 管理 AI Provider 和模型，一键切换 Agent 配置")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerCurrent();
+  });
+
+provider
+  .command("list")
+  .description("列出所有 Provider")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerList();
+  });
+
+provider
+  .command("switch [agent]")
+  .description("交互式切换 Agent 的 Provider/Model")
+  .action(async (agent?: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerSwitch(agent);
+  });
+
+provider
+  .command("use <provider>")
+  .description("非交互式切换（指定 provider、agent、model）")
+  .option("--agent <agent>", "指定 Agent")
+  .option("--model <model>", "指定 Model")
+  .action(async (providerName: string, options?: { agent?: string; model?: string }) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerUse(providerName, options);
+  });
+
+provider
+  .command("add")
+  .description("添加 Provider")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await providerAdd();
+  });
+
+provider
+  .command("delete <name>")
+  .description("删除 Provider")
+  .action(async (name: string) => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await providerDeleteAction(name);
+  });
+
+provider
+  .command("current")
+  .description("显示所有 Agent 当前配置")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerCurrent();
+  });
+
+provider
+  .command("auth")
+  .description("查看所有 Provider 认证状态")
+  .action(async () => {
+    checkPlatform();
+    await selectLanguageIfNeeded();
+    await migrateIfNeeded();
+    await providerAuth();
+  });
+
 // reset 子命令 - 不需要选择语言
 program
   .command("reset")
@@ -558,11 +649,11 @@ program
 program
   .command("web")
   .description("启动 OKIT 工具管理 Web UI")
-  .option("-p, --port <number>", "端口号", "3000")
+  .option("-p, --port <number>", "端口号", "3780")
   .option("-o, --open", "自动打开浏览器", false)
   .action(async (options: { port: string; open: boolean }) => {
     checkPlatform();
-    const port = parseInt(options.port, 10) || 3000;
+    const port = parseInt(options.port, 10) || 3780;
 
     // 动态导入 web server
     // @ts-ignore

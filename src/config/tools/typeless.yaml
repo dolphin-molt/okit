@@ -3,6 +3,7 @@ category: AI Voice
 type: app
 
 description: AI 智能输入助手，自动补全和优化文字输入
+description_en: AI smart input assistant with auto-completion and text optimization
 homepage: https://apps.apple.com/search?term=typeless
 downloadUrl: https://apps.apple.com/search?term=typeless
 
@@ -19,3 +20,12 @@ detail: |
   ## 使用方式
 
   Typeless 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Typeless
+
+  Typeless is an AI smart input assistant that leverages AI technology to optimize the text input experience, providing intelligent auto-completion and text suggestions.
+
+  ## Usage
+
+  Typeless is a desktop application. After installation, open it from Launchpad or the Applications folder to start using.

@@ -2,6 +2,7 @@ name: cloudflared
 category: Network
 
 description: Cloudflare Tunnel 客户端，安全地将本地服务暴露到公网
+description_en: Cloudflare Tunnel client for securely exposing local services to the internet
 homepage: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks
 
 install:
@@ -42,4 +43,29 @@ detail: |
   cloudflared tunnel run my-tunnel         # 运行隧道
   cloudflared tunnel list                  # 列出所有隧道
   cloudflared access login                 # 登录 Cloudflare
+  ```
+
+detail_en: |
+  ## What is cloudflared
+
+  cloudflared is the official client for Cloudflare Tunnel, used to establish secure tunnels from your local machine to Cloudflare's global network. It allows you to securely expose local services to the internet without opening public ports, making it ideal for development debugging, remote access, and zero-trust network architectures.
+
+  ## Key Features
+
+  - **Secure Tunnels**: Establish encrypted tunnels through Cloudflare's global network, no need to expose public ports
+  - **Quick Tunnels**: `cloudflared tunnel --url localhost:3000` creates a temporary tunnel without login
+  - **Custom Domains**: Bind local services to your own domain with automatic HTTPS certificates
+  - **Zero Trust Access**: Implement secure remote access policies with Cloudflare Zero Trust
+  - **Load Balancing**: Support for multi-tunnel load balancing and high availability configurations
+  - **DNS Management**: Automatically manage DNS records through tunnels
+
+  ## Common Commands
+
+  ```bash
+  cloudflared tunnel --url localhost:3000  # Create a quick temporary tunnel
+  cloudflared tunnel create my-tunnel      # Create a named tunnel
+  cloudflared tunnel route dns my-tunnel app.example.com  # Bind domain
+  cloudflared tunnel run my-tunnel         # Run tunnel
+  cloudflared tunnel list                  # List all tunnels
+  cloudflared access login                 # Log in to Cloudflare
   ```

@@ -2,6 +2,7 @@ name: Python
 category: Development
 
 description: 通用编程语言，广泛用于数据科学、AI、Web 开发和自动化脚本
+description_en: General-purpose programming language widely used in data science, AI, web development, and automation
 homepage: https://python.org
 
 install:
@@ -44,4 +45,31 @@ detail: |
   source .venv/bin/activate  # 激活虚拟环境
   python3 -c "print('hi')"   # 执行单行代码
   pip3 freeze > requirements.txt  # 导出依赖
+  ```
+
+detail_en: |
+  ## What is Python
+
+  Python is a high-level general-purpose programming language known for its clean and elegant syntax. It is widely used in data science, artificial intelligence, web development, automation scripting, and more, with a massive third-party library ecosystem. It is one of the most popular programming languages in the world.
+
+  ## Key Features
+
+  - **Clean Syntax**: Highly readable code with development efficiency surpassing most languages
+  - **Rich Ecosystem**: Over 500,000 third-party packages on PyPI covering virtually every domain
+  - **Data Science**: NumPy, Pandas, Matplotlib, and more form a complete data analysis stack
+  - **AI/ML First Choice**: TensorFlow, PyTorch, scikit-learn, and other leading ML frameworks
+  - **Web Development**: Mature web frameworks like Django, FastAPI, and Flask
+  - **Automation Scripting**: The go-to choice for system administration, file processing, and web scraping
+
+  ## Common Commands
+
+  ```bash
+  python3 --version          # Check version
+  python3 script.py          # Run a script
+  pip3 install <package>     # Install a package
+  pip3 list                  # List installed packages
+  python3 -m venv .venv      # Create a virtual environment
+  source .venv/bin/activate  # Activate the virtual environment
+  python3 -c "print('hi')"   # Execute a one-liner
+  pip3 freeze > requirements.txt  # Export dependencies
   ```

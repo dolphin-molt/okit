@@ -26,8 +26,8 @@
   overflow-y: auto;
 }
 
-.nav-sub-list::-webkit-scrollbar { width: 3px; }
-.nav-sub-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.nav-sub-list::-webkit-scrollbar { width: 2px; }
+.nav-sub-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 1px; }
 
 .nav-conv-item {
   display: flex;

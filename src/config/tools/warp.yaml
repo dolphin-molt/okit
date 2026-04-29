@@ -3,6 +3,7 @@ category: Terminals
 type: app
 
 description: 基于 Rust 的现代终端，内置 AI 命令补全和协作功能
+description_en: Modern Rust-based terminal with built-in AI command completion and collaboration features
 homepage: https://warp.dev
 downloadUrl: https://www.warp.dev
 
@@ -41,4 +42,29 @@ detail: |
   # 命令输出自动分组，方便浏览历史
   # 支持通过 Warp Dashboard 管理工作流
   open -a Warp                    # 打开 Warp 终端
+  ```
+
+detail_en: |
+  ## What is Warp
+
+  Warp is a modern terminal emulator built with Rust, featuring built-in AI command completion and team collaboration. It brings the IDE editing experience to the terminal, supporting command editing, output grouping, workflow sharing, and other innovative features, aiming to redefine the terminal experience.
+
+  ## Key Features
+
+  - **AI command completion**: Built-in AI assistant generates commands from natural language descriptions
+  - **Command editing**: Edit commands like in an editor, with cursor movement and selection support
+  - **Output grouping**: Commands and outputs are grouped for easy review and searching
+  - **Workflow sharing**: Save common command sequences as reusable workflows
+  - **Collaboration**: Share commands and workflows with team members
+  - **Modern UI**: Modern interface design with theme and customization support
+
+  ## Common Commands
+
+  ```bash
+  # Warp is a GUI application, used through the interface:
+  # Ctrl+Shift+I    # Invoke AI command completion
+  # Type a natural language description, Warp AI automatically generates the corresponding command
+  # Command outputs are automatically grouped for easy history browsing
+  # Manage workflows through the Warp Dashboard
+  open -a Warp                    # Open Warp terminal
   ```

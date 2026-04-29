@@ -2,6 +2,7 @@ name: PostgreSQL
 category: Database
 
 description: 功能强大的开源关系数据库，支持 JSON、全文搜索等高级特性
+description_en: Powerful open-source relational database supporting JSON, full-text search, and advanced features
 homepage: https://postgresql.org
 
 install:
@@ -44,4 +45,31 @@ detail: |
   createdb mydb                 # 创建数据库
   dropdb mydb                   # 删除数据库
   psql -l                       # 列出所有数据库
+  ```
+
+detail_en: |
+  ## What is PostgreSQL
+
+  PostgreSQL is the world's most advanced open-source relational database management system, known for its rich feature set, standards compliance, and high extensibility. It supports JSON/JSONB, full-text search, geospatial data (PostGIS), window functions, and other advanced features, and is widely used in applications of all sizes.
+
+  ## Key Features
+
+  - **SQL Standards Compliance**: Highly compliant with SQL standards, supporting complex queries, CTEs, window functions, and more
+  - **JSON Support**: Native JSON/JSONB types, can replace MongoDB for document data
+  - **Full-text Search**: Built-in full-text search engine with Chinese word segmentation support (via extension)
+  - **Extension Ecosystem**: Extend functionality through extensions like PostGIS (geospatial), pg_trgm (fuzzy search)
+  - **MVCC Concurrency**: Multi-version concurrency control with non-blocking read/write operations
+  - **High Availability**: Supports streaming replication, logical replication, and various HA cluster solutions
+
+  ## Common Commands
+
+  ```bash
+  psql -h localhost -U postgres # Connect to database
+  psql -d mydb -f schema.sql    # Execute SQL file
+  pg_dump mydb > backup.sql     # Backup database
+  pg_restore -d mydb backup.sql # Restore database
+  psql -c "SELECT version();"   # Execute a single SQL statement
+  createdb mydb                 # Create database
+  dropdb mydb                   # Drop database
+  psql -l                       # List all databases
   ```

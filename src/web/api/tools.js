@@ -190,13 +190,26 @@ async function checkSingleTool(step) {
     hasUninstall: !!step.uninstall,
     hasAuth: !!step.authFix || !!(step.authMethods && step.authMethods.length),
     description: step.description || null,
+    descriptionEn: step.description_en || step.description_en || null,
     detail: step.detail || null,
+    detailEn: step.detail_en || step.detail_en || null,
     homepage: step.homepage || null,
     skill: step.skill || null,
     authMethods: step.authMethods || null,
     type: step.type || 'cli',
     downloadUrl: step.downloadUrl || null,
   };
+}
+
+// Apply language preference to cached tools data
+function applyLang(data, lang) {
+  if (lang === 'zh') return data;
+  const tools = (data.tools || []).map(t => ({
+    ...t,
+    description: t.descriptionEn || t.description,
+    detail: t.detailEn || t.detail,
+  }));
+  return { ...data, tools };
 }
 
 const CACHE_DIR = path.join(os.homedir(), '.okit', 'cache');
@@ -263,23 +276,24 @@ async function refreshToolsCache() {
 async function getTools(req, res) {
   try {
     const forceRefresh = req.query.refresh === '1';
+    const lang = req.query.lang || 'zh';
     const now = Date.now();
     const cacheAge = now - toolsCacheTime;
 
     // Fresh cache → return directly
     if (!forceRefresh && toolsCache && cacheAge < CACHE_TTL) {
-      return res.json(toolsCache);
+      return res.json(applyLang(toolsCache, lang));
     }
 
     // Stale cache exists → return immediately, refresh in background
     if (!forceRefresh && toolsCache) {
       refreshToolsCache();
-      return res.json(toolsCache);
+      return res.json(applyLang(toolsCache, lang));
     }
 
     // No cache at all → must wait for first load
     await refreshToolsCache();
-    if (toolsCache) return res.json(toolsCache);
+    if (toolsCache) return res.json(applyLang(toolsCache, lang));
 
     res.status(500).json({ error: 'Failed to fetch tools' });
   } catch (error) {

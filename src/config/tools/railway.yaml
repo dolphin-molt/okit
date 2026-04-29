@@ -2,6 +2,7 @@ name: Railway CLI
 category: Cloud
 
 description: Railway 云平台命令行工具，用于部署和管理后端服务
+description_en: Railway cloud platform CLI for deploying and managing backend services
 homepage: https://railway.app
 
 install: npm install -g @railway/cli
@@ -40,4 +41,31 @@ detail: |
   railway run <command>       # 在 Railway 环境中运行命令
   railway status              # 查看服务状态
   railway whoami              # 查看当前账号信息
+  ```
+
+detail_en: |
+  ## What is Railway CLI
+
+  Railway CLI is the official command-line tool for the Railway cloud platform, used to deploy and manage backend services from the terminal. Railway provides a streamlined deployment experience with one-click deployment of databases, backend APIs, scheduled tasks, and more — automatically handling infrastructure configuration so developers can focus on code rather than operations.
+
+  ## Key Features
+
+  - **One-click Deploy**: Quickly deploy projects to the Railway cloud platform via `railway up`
+  - **Database Services**: Create PostgreSQL, MySQL, Redis, and other database instances with one click
+  - **Environment Variables**: Securely manage service environment variables and secrets
+  - **Log Viewing**: Real-time viewing of service logs and deployment status
+  - **Project Linking**: Link local projects to Railway projects with multi-environment deployment support
+  - **GitHub Integration**: Supports automatic deployment from GitHub repositories
+
+  ## Common Commands
+
+  ```bash
+  railway login               # Login to Railway account
+  railway init                # Initialize and link a Railway project
+  railway up                  # Deploy a project
+  railway logs                # View service logs
+  railway variables           # Manage environment variables
+  railway run <command>       # Run a command in the Railway environment
+  railway status              # View service status
+  railway whoami              # View current account info
   ```

@@ -3,6 +3,7 @@ category: Containers
 type: app
 
 description: 容器化平台桌面版，用于打包、分发和运行应用程序及其依赖环境
+description_en: Container platform desktop edition for packaging, distributing, and running applications with dependencies
 homepage: https://docker.com
 downloadUrl: https://www.docker.com/products/docker-desktop
 
@@ -51,4 +52,31 @@ detail: |
   docker images              # 列出本地镜像
   docker pull <image>        # 拉取远程镜像
   docker-compose up -d       # 启动 compose 应用栈
+  ```
+
+detail_en: |
+  ## What is Docker
+
+  Docker is the industry-leading containerization platform that packages applications and all their dependencies into lightweight containers, enabling "build once, run anywhere." It solves environment consistency problems and is the cornerstone of modern DevOps and microservice architectures.
+
+  ## Key Features
+
+  - **Containerized Runtime**: Package apps and dependencies into containers, ensuring consistency across development, testing, and production environments
+  - **Image Management**: Build reusable images via Dockerfile with layered caching for faster builds
+  - **Docker Compose**: Launch multi-container application stacks with a single YAML configuration
+  - **Image Registry**: Docker Hub provides a vast collection of public images with private registry support
+  - **Resource Isolation**: Lightweight isolation based on Linux container technology with near-native performance
+  - **Cross-platform**: Supports macOS, Linux, and Windows via Docker Desktop
+
+  ## Common Commands
+
+  ```bash
+  docker build -t <name> .   # Build image
+  docker run -p 8080:80 <image>  # Run container with port mapping
+  docker ps                  # List running containers
+  docker stop <container>    # Stop container
+  docker rm <container>      # Remove container
+  docker images              # List local images
+  docker pull <image>        # Pull remote image
+  docker-compose up -d       # Start compose application stack
   ```

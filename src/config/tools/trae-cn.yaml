@@ -3,6 +3,7 @@ category: AI Coding
 type: app
 
 description: 字节跳动推出的国内版 AI IDE，内置豆包等国产 AI 模型
+description_en: ByteDance's China-focused AI IDE with built-in domestic AI models like Doubao
 homepage: https://trae.com.cn
 downloadUrl: https://trae.com.cn
 
@@ -34,3 +35,20 @@ detail: |
   ## 使用方式
 
   Trae CN 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Trae CN
+
+  Trae CN is an AI IDE launched by ByteDance for users in China, with built-in domestic AI models like Doubao, usable without a VPN. It is built on the VS Code architecture and deeply optimized for Chinese developers' network environments and usage habits.
+
+  ## Key Features
+
+  - **Domestic AI models**: Built-in models like Doubao, no overseas accounts required
+  - **Smart code completion**: AI-powered context-aware code completion
+  - **AI conversational programming**: Generate code through natural language descriptions
+  - **VS Code compatibility**: Supports VS Code extensions and configuration migration
+  - **China network optimization**: Optimized downloads and model access for the Chinese network environment
+
+  ## Usage
+
+  Trae CN is a desktop application. After installation, open it from Launchpad or the Applications folder to start using.

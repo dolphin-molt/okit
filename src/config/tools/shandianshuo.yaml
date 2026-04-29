@@ -3,6 +3,7 @@ category: AI Voice
 type: app
 
 description: AI 语音转文字工具，支持实时语音识别和文字输出
+description_en: AI speech-to-text tool with real-time voice recognition and text output
 homepage: https://apps.apple.com/search?term=%E9%97%AA%E7%94%B5%E8%AF%B4
 downloadUrl: https://apps.apple.com/search?term=%E9%97%AA%E7%94%B5%E8%AF%B4
 
@@ -19,3 +20,12 @@ detail: |
   ## 使用方式
 
   闪电说为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Shandianshuo
+
+  Shandianshuo (Lightning Speech) is an AI speech-to-text application that supports real-time voice recognition and fast text output, ideal for meeting notes, document organization, and similar scenarios.
+
+  ## Usage
+
+  Shandianshuo is a desktop application. After installation, open it from Launchpad or the Applications folder to start using.

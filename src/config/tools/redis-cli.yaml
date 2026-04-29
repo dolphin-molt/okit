@@ -2,6 +2,7 @@ name: Redis CLI
 category: Database
 
 description: Redis 内存数据库命令行客户端，用于数据操作和服务器管理
+description_en: Redis in-memory database CLI client for data operations and server management
 homepage: https://redis.io
 
 install:
@@ -44,4 +45,31 @@ detail: |
   redis-cli INFO               # 查看服务器信息
   redis-cli MONITOR            # 实时监控所有命令
   redis-cli --stat             # 实时统计信息
+  ```
+
+detail_en: |
+  ## What is Redis CLI
+
+  Redis CLI (redis-cli) is the official command-line client for the Redis in-memory database, used to connect to Redis servers, execute data operations, and manage server state. Redis is a high-performance key-value store widely used for caching, message queues, real-time leaderboards, and more.
+
+  ## Key Features
+
+  - **Data Operations**: Supports read/write for multiple data types including String, Hash, List, Set, and ZSet
+  - **Pub/Sub**: Supports publish/subscribe messaging for real-time message sending and receiving
+  - **Pipeline Operations**: Batch execute commands via pipeline for improved throughput
+  - **Cluster Management**: Manage and monitor Redis Cluster state
+  - **Performance Testing**: Built-in `redis-benchmark` tool for performance benchmarks
+  - **Server Management**: View server info, monitor latency, and manage client connections
+
+  ## Common Commands
+
+  ```bash
+  redis-cli                    # Connect to local Redis server
+  redis-cli -h host -p 6379 -a password  # Connect to a remote server
+  redis-cli SET key value      # Set a key-value pair
+  redis-cli GET key            # Get a value
+  redis-cli KEYS *             # List all keys
+  redis-cli INFO               # View server information
+  redis-cli MONITOR            # Real-time monitor all commands
+  redis-cli --stat             # Real-time statistics
   ```

@@ -2,6 +2,7 @@ name: curl
 category: Network
 
 description: 命令行数据传输工具，支持 HTTP、FTP、SMTP 等多种协议
+description_en: Command-line data transfer tool supporting HTTP, FTP, SMTP, and many other protocols
 homepage: https://curl.se
 
 install:
@@ -43,4 +44,30 @@ detail: |
   curl -L <url>                         # 跟随重定向
   curl -u user:pass <url>               # 基本认证
   curl -I <url>                         # 只查看响应头
+  ```
+
+detail_en: |
+  ## What is curl
+
+  curl is a powerful command-line data transfer tool supporting dozens of network protocols including HTTP, HTTPS, FTP, SMTP, and more. It is the go-to tool for developers performing API debugging, file downloads, and network testing. It is pre-installed or easily available on nearly all operating systems.
+
+  ## Key Features
+
+  - **Multi-protocol Support**: Supports HTTP/HTTPS, FTP, SMTP, IMAP, LDAP, and dozens of other protocols
+  - **API Debugging**: Send GET/POST/PUT/DELETE requests with custom headers and body
+  - **File Transfer**: Upload and download files with resume support
+  - **Cookie Management**: Send and receive cookies to maintain session state
+  - **Proxy Support**: Supports HTTP and SOCKS4/5 proxies
+  - **SSL/TLS**: Supports HTTPS and various SSL/TLS options
+
+  ## Common Commands
+
+  ```bash
+  curl https://example.com              # GET request
+  curl -X POST -d "key=value" <url>     # POST request
+  curl -H "Content-Type: application/json" -d '{"key":"value"}' <url>  # JSON request
+  curl -o file.zip <url>                # Download file
+  curl -L <url>                         # Follow redirects
+  curl -u user:pass <url>               # Basic authentication
+  curl -I <url>                         # View response headers only
   ```

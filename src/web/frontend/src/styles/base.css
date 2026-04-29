@@ -395,10 +395,14 @@ body {
   max-width: 1200px;
 }
 
-.main-content > .tab-content:has(.vault-layout) {
+.main-content > .tab-content:has(.page-with-sidebar) {
   max-width: none;
 }
 
-.main-content::-webkit-scrollbar { width: 6px; }
+.main-content > .tab-content:has(.tools-layout) {
+  max-width: none;
+}
+
+.main-content::-webkit-scrollbar { width: 2px; }
 .main-content::-webkit-scrollbar-track { background: transparent; }
-.main-content::-webkit-scrollbar-thumb { background: var(--kraft-dark); border-radius: 3px; }
+.main-content::-webkit-scrollbar-thumb { background: var(--kraft-dark); border-radius: 1px; }

@@ -2,6 +2,7 @@ name: MMX-CLI
 category: AI Coding
 
 description: MiniMax 多模态命令行工具，提供文本、图片、视频、语音、音乐等生成能力
+description_en: MiniMax multimodal CLI tool providing text, image, video, speech, and music generation
 homepage: https://github.com/MiniMax-AI/cli
 
 install: npm install -g mmx-cli
@@ -43,4 +44,31 @@ detail: |
   mmx music generate         # 音乐生成
   mmx vision analyze         # 视觉分析
   mmx auth status            # 查看认证状态
+  ```
+
+detail_en: |
+  ## What is MMX-CLI
+
+  MMX-CLI is a multimodal command-line tool by MiniMax that provides seven generation capabilities for AI Agents: text generation, image generation, video generation, speech synthesis, music generation, and visual understanding. It enables easy integration of multimodal AI capabilities through simple subcommands.
+
+  ## Key Features
+
+  - **Text Generation**: Call MiniMax large language models via `mmx text generate`
+  - **Image Generation**: Generate high-quality images from text descriptions
+  - **Video Generation**: Convert text or images to videos with multiple styles
+  - **Speech Synthesis**: High-quality text-to-speech with various voice options
+  - **Music Generation**: Generate background music and sound effects from descriptions
+  - **Visual Understanding**: Upload images for recognition, analysis, and Q&A
+
+  ## Common Commands
+
+  ```bash
+  mmx auth login             # Login and configure API Key
+  mmx text generate          # Text generation
+  mmx image generate         # Image generation
+  mmx video generate         # Video generation
+  mmx speech generate        # Speech synthesis
+  mmx music generate         # Music generation
+  mmx vision analyze         # Visual analysis
+  mmx auth status            # Check authentication status
   ```

@@ -2,6 +2,7 @@ name: Supabase CLI
 category: Cloud
 
 description: Supabase 官方 CLI，用于本地开发、数据库迁移和项目部署
+description_en: Official Supabase CLI for local development, database migrations, and project deployment
 homepage: https://supabase.com/docs/guides/cli
 
 install:
@@ -60,4 +61,31 @@ detail: |
   supabase gen types typescript # 生成 TypeScript 类型
   supabase functions deploy     # 部署 Edge Functions
   supabase login               # 登录 Supabase 账号
+  ```
+
+detail_en: |
+  ## What is Supabase CLI
+
+  Supabase CLI is the official command-line tool for the Supabase platform, used for local development, database migration management, and project deployment. It provides a complete local development environment including PostgreSQL database, Auth, Storage, and Realtime services, allowing developers to complete all development and debugging locally before deploying to the cloud.
+
+  ## Key Features
+
+  - **Local development environment**: Start a complete local Supabase environment with `supabase init` and `supabase start`
+  - **Database migrations**: Manage database schema changes with versioned migration files
+  - **Type generation**: Automatically generate TypeScript type definitions from database schema
+  - **One-click deployment**: Deploy local projects to the Supabase cloud platform
+  - **Edge Functions**: Develop and deploy Supabase Edge Functions locally
+  - **Data import/export**: Easily import seed data and export database snapshots
+
+  ## Common Commands
+
+  ```bash
+  supabase init                # Initialize a Supabase project
+  supabase start               # Start the local development environment
+  supabase stop                # Stop the local environment
+  supabase db push             # Push migrations to remote database
+  supabase db pull             # Pull remote database changes
+  supabase gen types typescript # Generate TypeScript types
+  supabase functions deploy     # Deploy Edge Functions
+  supabase login               # Log in to Supabase account
   ```

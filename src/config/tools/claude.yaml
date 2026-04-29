@@ -3,6 +3,7 @@ category: AI Tools
 type: app
 
 description: Anthropic 的 AI 对话助手桌面应用，支持 Artifacts、项目、对话搜索等
+description_en: Anthropic's AI chat assistant desktop app with Artifacts, projects, and conversation search
 homepage: https://claude.ai
 downloadUrl: https://claude.ai/download
 
@@ -36,3 +37,22 @@ detail: |
   ## 使用方式
 
   Claude 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。需要 Anthropic 账号登录。
+
+detail_en: |
+  ## What is Claude
+
+  Claude is Anthropic's AI chat assistant desktop app, powered by the Claude family of large language models. The desktop version offers system-level keyboard shortcuts, global invocation, and a smoother experience compared to the web version.
+
+  ## Key Features
+
+  - **Multi-model Switching**: Supports Claude Sonnet, Opus, and other models
+  - **Artifacts**: Generate interactive content such as code, documents, and charts
+  - **Projects**: Organize conversations by project, upload project files as context
+  - **Conversation Search**: Quickly search through conversation history
+  - **Global Shortcuts**: Option+Space to quickly invoke conversations
+  - **File Analysis**: Upload images, documents, and code for analysis
+  - **Multi-language Support**: Excellent Chinese understanding and generation capabilities
+
+  ## Usage
+
+  Claude is a desktop application. After installation, open it from Launchpad or the Applications folder. Requires an Anthropic account to log in.

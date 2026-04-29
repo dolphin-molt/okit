@@ -2,6 +2,7 @@ name: tree
 category: Utilities
 
 description: 以树状图格式列出目录结构的工具
+description_en: Tool for listing directory structures in a tree-like format
 homepage: https://gitlab.com/OldManProgrammer/unix-tree
 
 install:
@@ -44,4 +45,31 @@ detail: |
   tree -d                      # 只显示目录
   tree -h                      # 显示文件大小
   tree --json                  # 以 JSON 格式输出
+  ```
+
+detail_en: |
+  ## What is tree
+
+  tree is a classic directory structure visualization tool that recursively lists directories and files in a tree-like diagram. It is an enhanced alternative to `ls -R`, intuitively displaying a project's file hierarchy, making it ideal for project documentation, code reviews, and directory browsing.
+
+  ## Key Features
+
+  - **Tree display**: Shows directory hierarchy in an indented tree format
+  - **Filtering**: Supports filtering by filename patterns (glob) and regular expressions
+  - **Depth limit**: Limit display depth with `-L n`
+  - **File statistics**: Counts directories and files, displays total size
+  - **Output formats**: Supports plain text, JSON, XML, HTML, and other output formats
+  - **Color output**: Automatic coloring by file type for enhanced readability
+
+  ## Common Commands
+
+  ```bash
+  tree                         # Display the current directory tree
+  tree -L 2                    # Limit display depth to 2 levels
+  tree src/                    # Display tree for a specific directory
+  tree -I 'node_modules|.git'  # Exclude specified directories
+  tree -P '*.ts'               # Only show files matching the pattern
+  tree -d                      # Only show directories
+  tree -h                      # Show file sizes
+  tree --json                  # Output in JSON format
   ```

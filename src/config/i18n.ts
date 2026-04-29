@@ -211,6 +211,37 @@ export interface Translations {
   relayConfigSaved: string;
   relayNoAgents: string;
   relayAgentList: string;
+  // provider
+  providerMenu: string;
+  providerListTitle: string;
+  providerSelectAgent: string;
+  providerSelectProvider: string;
+  providerSelectModel: string;
+  providerName: string;
+  providerType: string;
+  providerBaseUrl: string;
+  providerApiKey: string;
+  providerModels: string;
+  providerPreset: string;
+  providerPresetCustom: string;
+  providerAdded: string;
+  providerDeleted: string;
+  providerExists: string;
+  providerNotFound: string;
+  providerNoProviders: string;
+  providerCancel: string;
+  providerConfirmDelete: string;
+  providerSwitched: string;
+  providerCurrentTitle: string;
+  providerAgentNotConfigured: string;
+  providerAuthTitle: string;
+  providerAuthApiKey: string;
+  providerAuthOAuth: string;
+  providerAuthNone: string;
+  providerAuthLoggedIn: string;
+  providerAuthNotLoggedIn: string;
+  providerVaultKey: string;
+  providerId: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -420,6 +451,37 @@ const translations: Record<Language, Translations> = {
     relayConfigSaved: "中继配置已保存",
     relayNoAgents: "当前没有在线 Agent",
     relayAgentList: "在线 Agent",
+    // provider
+    providerMenu: "Provider 管理",
+    providerListTitle: "Provider 列表",
+    providerSelectAgent: "选择 Agent",
+    providerSelectProvider: "选择 Provider",
+    providerSelectModel: "选择模型",
+    providerName: "Provider 名称",
+    providerType: "API 类型",
+    providerBaseUrl: "Base URL",
+    providerApiKey: "API Key",
+    providerModels: "模型列表（逗号分隔）",
+    providerPreset: "选择预置 Provider",
+    providerPresetCustom: "自定义",
+    providerAdded: "已添加 Provider",
+    providerDeleted: "已删除 Provider",
+    providerExists: "Provider 已存在",
+    providerNotFound: "未找到 Provider",
+    providerNoProviders: "暂无 Provider，请先添加",
+    providerCancel: "已取消",
+    providerConfirmDelete: "确认删除 Provider？",
+    providerSwitched: "已切换",
+    providerCurrentTitle: "当前 Agent 配置",
+    providerAgentNotConfigured: "未配置",
+    providerAuthTitle: "认证状态",
+    providerAuthApiKey: "API Key",
+    providerAuthOAuth: "OAuth",
+    providerAuthNone: "未认证",
+    providerAuthLoggedIn: "已登录",
+    providerAuthNotLoggedIn: "未登录",
+    providerVaultKey: "Vault Key",
+    providerId: "ID",
     help: "帮助",
     helpContent:
       "快捷键说明:\n- ↑/↓: 移动\n- 空格: 选择/取消\n- 回车: 确认\n- Ctrl+A: 全选/取消全选\n",
@@ -630,6 +692,37 @@ const translations: Record<Language, Translations> = {
     relayConfigSaved: "Relay config saved",
     relayNoAgents: "No agents online",
     relayAgentList: "Online Agents",
+    // provider
+    providerMenu: "Provider Management",
+    providerListTitle: "Provider List",
+    providerSelectAgent: "Select Agent",
+    providerSelectProvider: "Select Provider",
+    providerSelectModel: "Select Model",
+    providerName: "Provider Name",
+    providerType: "API Type",
+    providerBaseUrl: "Base URL",
+    providerApiKey: "API Key",
+    providerModels: "Models (comma-separated)",
+    providerPreset: "Choose preset provider",
+    providerPresetCustom: "Custom",
+    providerAdded: "Provider added",
+    providerDeleted: "Provider deleted",
+    providerExists: "Provider already exists",
+    providerNotFound: "Provider not found",
+    providerNoProviders: "No providers yet, add one first",
+    providerCancel: "Cancelled",
+    providerConfirmDelete: "Delete provider?",
+    providerSwitched: "Switched",
+    providerCurrentTitle: "Current Agent Config",
+    providerAgentNotConfigured: "Not configured",
+    providerAuthTitle: "Auth Status",
+    providerAuthApiKey: "API Key",
+    providerAuthOAuth: "OAuth",
+    providerAuthNone: "Not authenticated",
+    providerAuthLoggedIn: "Logged in",
+    providerAuthNotLoggedIn: "Not logged in",
+    providerVaultKey: "Vault Key",
+    providerId: "ID",
     help: "Help",
     helpContent:
       "Shortcuts:\n- ↑/↓: Move\n- Space: Toggle\n- Enter: Confirm\n- Ctrl+A: Toggle all\n",

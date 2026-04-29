@@ -2,6 +2,7 @@ name: Playwright
 category: Development
 
 description: 微软出品的浏览器自动化测试框架，支持 Chromium、Firefox、WebKit
+description_en: Microsoft's browser automation testing framework supporting Chromium, Firefox, and WebKit
 homepage: https://playwright.dev
 
 install: "echo '安装 Playwright (跳过浏览器下载，请稍后手动运行: npx playwright install)' && sudo npm install -g @playwright/test"
@@ -36,4 +37,30 @@ detail: |
   npx playwright codegen <url>      # 录制测试代码
   npx playwright show-report        # 查看测试报告
   npx playwright test -g "test name" # 运行匹配的测试
+  ```
+
+detail_en: |
+  ## What is Playwright
+
+  Playwright is an open-source browser automation testing framework by Microsoft, supporting the three major browser engines: Chromium, Firefox, and WebKit. It provides reliable end-to-end testing capabilities with advanced features like auto-waiting, network interception, and multi-tab support, making it the preferred tool for modern web testing.
+
+  ## Key Features
+
+  - **Cross-browser**: One codebase runs on Chromium, Firefox, and WebKit
+  - **Auto-waiting**: Intelligently waits for elements to be actionable, reducing flaky tests
+  - **Network Interception**: Intercept and modify network requests to simulate various network scenarios
+  - **Multi-page Support**: Supports multi-tab, iframe, and popup window operations
+  - **Code Generation**: Record user actions to generate test code via the Codegen tool
+  - **Trace Viewer**: Generates complete operation trace reports on test failure
+
+  ## Common Commands
+
+  ```bash
+  npx playwright install            # Install browser engines
+  npx playwright test               # Run all tests
+  npx playwright test --headed      # Run in headed mode
+  npx playwright test --debug       # Debug mode
+  npx playwright codegen <url>      # Record test code
+  npx playwright show-report        # View test report
+  npx playwright test -g "test name" # Run matching tests
   ```

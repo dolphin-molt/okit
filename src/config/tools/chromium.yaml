@@ -2,6 +2,7 @@ name: Chromium (Puppeteer)
 category: Development
 
 description: Google Chrome 团队出品的 Node.js 浏览器自动化库，用于爬虫和测试
+description_en: Node.js browser automation library by Google Chrome team for scraping and testing
 homepage: https://pptr.dev
 
 install: "echo '安装 Puppeteer 浏览器 (Chromium)...' && sudo npm install -g puppeteer && npx puppeteer browsers install chrome"
@@ -33,4 +34,27 @@ detail: |
   npx puppeteer browsers install firefox # 安装 Firefox
   npx puppeteer browsers list            # 查看已安装的浏览器
   npx puppeteer browsers install --help  # 查看帮助
+  ```
+
+detail_en: |
+  ## What is Chromium (Puppeteer)
+
+  Puppeteer is a Node.js browser automation library developed by the Google Chrome team, controlling Chromium browsers through the DevTools Protocol. It is widely used for web scraping, automated testing, PDF generation, screenshots, and more, making it the most popular tool in the Headless Chrome ecosystem.
+
+  ## Key Features
+
+  - **Headless Mode**: Control browsers without a graphical interface, ideal for server environments
+  - **Page Screenshots**: Capture full-page or regional screenshots with mobile device emulation
+  - **PDF Generation**: Render web pages into high-quality PDF documents
+  - **Automation**: Simulate user actions like clicks, typing, and navigation
+  - **Network Interception**: Intercept and modify HTTP requests and responses
+  - **Performance Analysis**: Obtain page performance data through Chrome DevTools Protocol
+
+  ## Common Commands
+
+  ```bash
+  npx puppeteer browsers install chrome  # Install Chromium browser
+  npx puppeteer browsers install firefox # Install Firefox
+  npx puppeteer browsers list            # List installed browsers
+  npx puppeteer browsers install --help  # View help
   ```

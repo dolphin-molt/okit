@@ -2,6 +2,7 @@ name: mas
 category: Development
 
 description: Mac App Store 命令行工具，用于通过终端安装和管理 App Store 应用
+description_en: Mac App Store CLI for installing and managing App Store applications from the terminal
 homepage: https://github.com/mas-cli/mas
 
 install:
@@ -29,4 +30,19 @@ detail: |
   mas upgrade               # 更新所有 App Store 应用
   mas list                  # 列出已安装的 App Store 应用
   mas outdated              # 查看可更新的应用
+  ```
+
+detail_en: |
+  ## What is mas
+
+  mas is a command-line interface tool for the Mac App Store, allowing you to search, install, update, and uninstall Mac App Store applications from the terminal. It is ideal for automated deployments and scripted application management.
+
+  ## Common Commands
+
+  ```bash
+  mas search Xcode          # Search for apps
+  mas install 497799835     # Install an app by App ID
+  mas upgrade               # Update all App Store apps
+  mas list                  # List installed App Store apps
+  mas outdated              # View apps with available updates
   ```

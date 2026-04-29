@@ -2,6 +2,7 @@ name: bun
 category: Development
 
 description: 高性能 JavaScript 运行时、包管理器和构建工具一体化方案
+description_en: High-performance JavaScript runtime, package manager, and bundler in one
 homepage: https://bun.sh
 
 install: "curl -fsSL https://bun.sh/install | bash"
@@ -34,4 +35,30 @@ detail: |
   bun test                   # 运行测试
   bun build ./src/index.ts --outdir ./dist  # 打包项目
   bun upgrade                # 升级 Bun 自身
+  ```
+
+detail_en: |
+  ## What is Bun
+
+  Bun is a high-performance JavaScript/TypeScript runtime built on the JavaScriptCore engine, integrating a package manager, bundler, and test runner. Written in Zig, it boasts extremely fast startup times and serves as a modern alternative to Node.js.
+
+  ## Key Features
+
+  - **Blazing-fast Runtime**: Built on the JSC engine, startup and execution speeds far exceed Node.js
+  - **Built-in Bundler**: Natively supports bundling JavaScript/TypeScript with zero configuration
+  - **Package Manager**: `bun install` is dozens of times faster than npm, fully compatible with package.json
+  - **Native TypeScript**: Run .ts files directly without any configuration
+  - **Built-in Testing**: `bun test` provides a Jest-compatible testing framework
+  - **Node.js Compatibility**: Compatible with most Node.js APIs and the npm ecosystem
+
+  ## Common Commands
+
+  ```bash
+  bun run app.ts             # Run TypeScript file
+  bun install                # Install dependencies (ultra-fast)
+  bun add <package>          # Add dependency
+  bun run <script>           # Run package.json script
+  bun test                   # Run tests
+  bun build ./src/index.ts --outdir ./dist  # Bundle project
+  bun upgrade                # Upgrade Bun itself
   ```

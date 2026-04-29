@@ -3,6 +3,7 @@ category: AI Coding
 type: app
 
 description: 字节跳动推出的 AI 原生 IDE，内置多种 AI 模型辅助编程
+description_en: ByteDance's AI-native IDE with multiple built-in AI models for assisted programming
 homepage: https://trae.ai
 downloadUrl: https://trae.ai
 
@@ -34,3 +35,20 @@ detail: |
   ## 使用方式
 
   Trae 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Trae
+
+  Trae is an AI-native integrated development environment (IDE) launched by ByteDance, with multiple built-in AI models for assisted programming. Built on the VS Code architecture, it provides intelligent code completion, AI conversations, code generation, and more, with optimizations for Chinese-language scenarios.
+
+  ## Key Features
+
+  - **AI-assisted programming**: Built-in AI models for code generation, completion, and refactoring
+  - **Intelligent conversation**: Describe requirements in natural language and AI generates code automatically
+  - **Context understanding**: AI understands project structure and code context for precise suggestions
+  - **VS Code compatibility**: Based on VS Code architecture, supports existing extensions and configurations
+  - **Chinese optimization**: Deeply optimized for Chinese developer scenarios
+
+  ## Usage
+
+  Trae is a desktop application. After installation, open it from Launchpad or the Applications folder to start using.

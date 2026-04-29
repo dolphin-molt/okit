@@ -2,6 +2,7 @@ name: tmux
 category: Utilities
 
 description: 终端复用器，支持会话管理、窗口分屏和后台运行
+description_en: Terminal multiplexer with session management, window splitting, and background execution
 homepage: https://github.com/tmux/tmux
 
 install:
@@ -42,4 +43,30 @@ detail: |
   tmux split-window -h           # 水平分屏
   tmux split-window -v           # 垂直分屏
   tmux new-window                # 创建新窗口
+  ```
+
+detail_en: |
+  ## What is tmux
+
+  tmux (Terminal Multiplexer) is a terminal multiplexer that allows users to create, access, and manage multiple terminal sessions within a single terminal. It supports window splitting, session detach/attach (sessions persist even when SSH connections drop), making it an essential tool for server administration, remote development, and multitasking.
+
+  ## Key Features
+
+  - **Session management**: Create, detach, and reattach terminal sessions
+  - **Window splitting**: Split terminal windows horizontally or vertically to view multiple terminals simultaneously
+  - **Background execution**: Sessions continue running after SSH disconnect; reconnect to resume
+  - **Multiple windows**: Create multiple windows within a session, similar to terminal tabs
+  - **Script automation**: Automate tmux operations via command line and configuration files
+  - **Custom configuration**: Highly customizable keybindings and appearance via .tmux.conf
+
+  ## Common Commands
+
+  ```bash
+  tmux new -s mysession          # Create a named session
+  tmux attach -t mysession       # Attach to an existing session
+  tmux ls                        # List all sessions
+  tmux kill-session -t mysession # Kill a specific session
+  tmux split-window -h           # Split horizontally
+  tmux split-window -v           # Split vertically
+  tmux new-window                # Create a new window
   ```

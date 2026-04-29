@@ -2,6 +2,7 @@ name: OpenClaw
 category: AI Coding
 
 description: 通用 AI Agent 运行时框架，支持多种 AI 适配器和工具编排
+description_en: Universal AI Agent runtime framework supporting multiple AI adapters and tool orchestration
 homepage: https://openclaw.ai
 
 install:
@@ -39,3 +40,21 @@ detail: |
   ## 使用方式
 
   macOS 和 Linux 上均为命令行工具，运行 `openclaw` 启动交互式会话。
+
+detail_en: |
+  ## What is OpenClaw
+
+  OpenClaw is a universal AI Agent runtime framework that supports loading multiple AI adapters (Claude, OpenAI, Gemini, etc.) and provides unified tool calling and task orchestration capabilities. It enables developers to build cross-model, cross-platform AI automation workflows without writing separate integration code for each model.
+
+  ## Key Features
+
+  - **Multi-model Adapters**: Unified interface supporting Claude, OpenAI, Gemini, and other AI models
+  - **Tool Calling**: Standardized tool definition and calling protocol with custom tool support
+  - **Task Orchestration**: Definition, scheduling, and execution of complex workflows
+  - **Session Management**: Multi-turn conversation and context persistence support
+  - **Plugin System**: Extend Agent capabilities and toolsets through plugins
+  - **Cross-platform**: Runs on macOS, Linux, and other platforms
+
+  ## Usage
+
+  On both macOS and Linux, it is a command-line tool. Run `openclaw` to start an interactive session.

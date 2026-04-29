@@ -2,6 +2,7 @@ name: kubectl
 category: Containers
 
 description: Kubernetes 命令行工具，用于管理集群、部署、服务和配置
+description_en: Kubernetes command-line tool for managing clusters, deployments, services, and configurations
 homepage: https://kubernetes.io/docs/reference/kubectl
 
 install:
@@ -46,4 +47,31 @@ detail: |
   kubectl port-forward svc/myapp 8080:80  # 端口转发
   kubectl describe pod <name>   # 查看 Pod 详情
   kubectl config get-contexts   # 查看集群上下文
+  ```
+
+detail_en: |
+  ## What is kubectl
+
+  kubectl is the command-line management tool for Kubernetes clusters, used to deploy applications, manage cluster resources, view logs, and debug services. It is the primary way to interact with the Kubernetes API server and is the core tool for container orchestration and cloud-native operations.
+
+  ## Key Features
+
+  - **Resource Management**: Create, update, and delete Kubernetes resources such as Pods, Services, and Deployments
+  - **Application Deployment**: Deploy and manage containerized applications via declarative or imperative approaches
+  - **Log Viewing**: View container logs in real-time, supporting multi-container and multi-Pod log aggregation
+  - **Debugging and Troubleshooting**: Exec into containers, port forwarding, resource description, and event viewing
+  - **Configuration Management**: Manage ConfigMaps, Secrets, Namespaces, and other configuration resources
+  - **Multi-cluster Management**: Manage access configurations for multiple clusters via kubeconfig files
+
+  ## Common Commands
+
+  ```bash
+  kubectl get pods              # List all Pods
+  kubectl get services          # List all Services
+  kubectl apply -f deploy.yaml  # Apply YAML configuration
+  kubectl logs <pod-name>       # View Pod logs
+  kubectl exec -it <pod-name> -- bash  # Enter a container
+  kubectl port-forward svc/myapp 8080:80  # Port forwarding
+  kubectl describe pod <name>   # View Pod details
+  kubectl config get-contexts   # View cluster contexts
   ```

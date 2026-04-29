@@ -2,6 +2,7 @@ name: Pandoc
 category: Documents
 
 description: 通用文档格式转换器，支持 Markdown、HTML、PDF、Word、LaTeX 等互转
+description_en: Universal document format converter supporting Markdown, HTML, PDF, Word, LaTeX, and more
 homepage: https://pandoc.org
 
 install:
@@ -42,4 +43,30 @@ detail: |
   pandoc input.md -s -o output.html      # 生成完整 HTML 文档（带头部）
   pandoc input.md --pdf-engine=xelatex -o output.pdf  # 使用 XeLaTeX 引擎（支持中文）
   pandoc input.md -V geometry:margin=1in -o output.pdf  # 设置 PDF 页边距
+  ```
+
+detail_en: |
+  ## What is Pandoc
+
+  Pandoc is a universal document format conversion tool, known as the "Swiss Army knife of document conversion." It can convert between dozens of document formats including Markdown, HTML, LaTeX, Word, PDF, EPUB, and reStructuredText, making it an essential tool for academic writing, technical documentation, and content publishing.
+
+  ## Key Features
+
+  - **Multi-format Conversion**: Supports conversion between dozens of document formats
+  - **Markdown Extensions**: Extended Markdown syntax with support for tables, footnotes, math formulas, and more
+  - **Template System**: Control output document style and structure through custom templates
+  - **Academic Writing**: Full support for LaTeX math formulas and bibliography management
+  - **Filters**: Customize conversion logic through Lua and Haskell filters
+  - **Batch Processing**: Command-line batch conversion suitable for automated workflows
+
+  ## Common Commands
+
+  ```bash
+  pandoc input.md -o output.pdf          # Markdown to PDF
+  pandoc input.md -o output.docx         # Markdown to Word
+  pandoc input.md -o output.html         # Markdown to HTML
+  pandoc input.docx -o output.md         # Word to Markdown
+  pandoc input.md -s -o output.html      # Generate a complete HTML document (with header)
+  pandoc input.md --pdf-engine=xelatex -o output.pdf  # Use XeLaTeX engine (supports Chinese)
+  pandoc input.md -V geometry:margin=1in -o output.pdf  # Set PDF margins
   ```

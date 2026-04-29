@@ -20,8 +20,12 @@ export interface ToolsResponse {
   summary: Record<string, number>;
 }
 
-export async function getTools(refresh = false): Promise<ToolsResponse> {
-  const url = refresh ? '/api/tools?refresh=1' : '/api/tools';
+export async function getTools(refresh = false, lang = 'zh'): Promise<ToolsResponse> {
+  const params = new URLSearchParams();
+  if (refresh) params.set('refresh', '1');
+  if (lang && lang !== 'zh') params.set('lang', lang);
+  const qs = params.toString();
+  const url = qs ? `/api/tools?${qs}` : '/api/tools';
   return api<ToolsResponse>(url);
 }
 

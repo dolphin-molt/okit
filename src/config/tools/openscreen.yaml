@@ -3,6 +3,7 @@ category: Media
 type: app
 
 description: 屏幕录制与视频剪辑工具，支持录制、剪辑、导出一站式工作流
+description_en: Screen recording and video editing tool with an all-in-one record, edit, and export workflow
 homepage: https://openscreen.com
 downloadUrl: https://openscreen.com
 
@@ -17,3 +18,12 @@ detail: |
   ## 使用方式
 
   Openscreen 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Openscreen
+
+  Openscreen is a screen recording and video editing tool that supports recording, editing, and exporting. It is ideal for creating tutorials, demo videos, and product presentations.
+
+  ## Usage
+
+  Openscreen is a desktop application. After installation, open it from Launchpad or the Applications folder.

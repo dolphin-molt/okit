@@ -3,6 +3,7 @@ category: AI Coding
 type: app
 
 description: Codeium 推出的 AI 原生 IDE，支持 Cascade 智能代理和实时协作
+description_en: Codeium's AI-native IDE with Cascade intelligent agent and real-time collaboration
 homepage: https://windsurf.com
 downloadUrl: https://windsurf.com
 
@@ -35,3 +36,21 @@ detail: |
   ## 使用方式
 
   Windsurf 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Windsurf
+
+  Windsurf (formerly Codeium) is an AI-native IDE with a built-in Cascade intelligent agent system and real-time collaborative programming. Built on the VS Code architecture, it provides a deeply AI-integrated development experience.
+
+  ## Key Features
+
+  - **Cascade agent**: An AI agent system that can automatically execute multi-step programming tasks
+  - **Smart completion**: Context-aware AI code completion
+  - **AI conversation**: Chat with AI within the editor and directly modify code
+  - **Real-time collaboration**: Supports multi-person real-time collaborative programming
+  - **VS Code compatibility**: Fully compatible with VS Code extensions and settings
+  - **Multi-model support**: Supports switching between multiple AI models
+
+  ## Usage
+
+  Windsurf is a desktop application. After installation, open it from Launchpad or the Applications folder to start using.

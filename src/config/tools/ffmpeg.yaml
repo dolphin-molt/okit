@@ -2,6 +2,7 @@ name: ffmpeg
 category: Media
 
 description: 音视频处理的瑞士军刀，支持转码、剪辑、合并、流媒体等
+description_en: Swiss army knife for audio/video processing with transcoding, editing, merging, and streaming
 homepage: https://ffmpeg.org
 
 install:
@@ -42,4 +43,29 @@ detail: |
   ffmpeg -i input.mp4 -c:v libx264 -crf 28 output.mp4  # 压缩视频
   ffmpeg -f concat -i filelist.txt -c copy output.mp4  # 合并视频
   ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4  # 调整分辨率
+  ```
+
+detail_en: |
+  ## What is FFmpeg
+
+  FFmpeg is the world's most powerful open-source audio and video processing toolkit, supporting transcoding, editing, merging, extracting, streaming, and more across virtually all audio and video formats. It is the core underlying tool for video platforms, live streaming services, and multimedia applications, widely used in professional video production and automated processing scenarios.
+
+  ## Key Features
+
+  - **Format Conversion**: Supports conversion between hundreds of audio and video formats
+  - **Video Editing**: Precisely trim video clips and merge multiple video files
+  - **Audio Processing**: Extract audio, adjust volume, convert audio formats
+  - **Video Compression**: Compress video file size by adjusting codecs and bitrates
+  - **Screen Recording**: Record desktop and camera footage
+  - **Streaming**: Supports RTMP, HLS, and other streaming protocols for pushing and pulling streams
+
+  ## Common Commands
+
+  ```bash
+  ffmpeg -i input.mp4 output.avi           # Format conversion
+  ffmpeg -i input.mp4 -ss 00:01:00 -t 30 -c copy clip.mp4  # Extract clip
+  ffmpeg -i input.mp4 -vn -c:a libmp3lame output.mp3  # Extract audio
+  ffmpeg -i input.mp4 -c:v libx264 -crf 28 output.mp4  # Compress video
+  ffmpeg -f concat -i filelist.txt -c copy output.mp4  # Merge videos
+  ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4  # Change resolution
   ```

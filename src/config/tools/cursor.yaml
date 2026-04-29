@@ -3,6 +3,7 @@ category: AI Coding
 type: app
 
 description: AI 原生代码编辑器，基于 VS Code 深度集成 AI 编程能力
+description_en: AI-native code editor based on VS Code with deeply integrated AI coding capabilities
 homepage: https://cursor.com
 downloadUrl: https://cursor.com
 
@@ -46,3 +47,32 @@ detail: |
   ## 使用方式
 
   Cursor 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Cursor
+
+  Cursor is an AI-native code editor built on VS Code with deeply integrated AI coding capabilities. It supports smart code completion, AI chat, codebase understanding, and more, making it one of the most popular AI coding tools available.
+
+  ## Key Features
+
+  - **AI Code Completion**: Context-aware smart code completion with multi-line generation
+  - **AI Chat**: Chat with AI directly in the editor to modify code
+  - **Codebase Understanding**: AI understands the entire codebase structure and dependencies
+  - **Multi-model Support**: Works with Claude, GPT-4, and other AI models
+  - **VS Code Compatibility**: Fully compatible with VS Code extensions and settings
+  - **Inline Editing**: AI suggests modifications directly in code, accept or reject with one click
+
+  ## Common Shortcuts
+
+  ```
+  Cmd+K          # AI inline edit
+  Cmd+L          # Open AI chat
+  Cmd+I          # AI code completion
+  Cmd+Shift+L    # Add code to chat context
+  @files         # Reference files as context
+  @docs          # Reference documentation as context
+  ```
+
+  ## Usage
+
+  Cursor is a desktop application. After installation, open it from Launchpad or the Applications folder.

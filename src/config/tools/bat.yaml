@@ -2,6 +2,7 @@ name: bat
 category: Utilities
 
 description: cat 的增强替代品，支持语法高亮、Git 集成和行号显示
+description_en: Enhanced cat replacement with syntax highlighting, Git integration, and line numbers
 homepage: https://github.com/sharkdp/bat
 
 install:
@@ -44,4 +45,31 @@ detail: |
   bat --list-themes            # 列出可用主题
   bat --theme=Dracula file.py  # 指定主题
   bat -p file.txt | head -20   # 管道模式（plain 模式）
+  ```
+
+detail_en: |
+  ## What is bat
+
+  bat is a modern enhanced replacement for the cat command, developed by sharkdp. It preserves cat's core functionality while adding syntax highlighting, Git integration, line number display, and non-printing character visualization. It is the best choice for viewing file contents in the terminal.
+
+  ## Key Features
+
+  - **Syntax Highlighting**: Based on the syntect engine, supports syntax highlighting for 150+ programming languages
+  - **Git Integration**: Shows file Git modification status (added, modified, deleted) in the sidebar
+  - **Line Numbers**: Displays line numbers by default for easy code reading and discussion
+  - **Non-printing Characters**: Visualizes tabs, line endings, and other invisible characters
+  - **Paging Integration**: Automatically invokes pagers like less for long files
+  - **Theme Support**: Supports multiple color themes with customizable configuration
+
+  ## Common Commands
+
+  ```bash
+  bat file.txt                 # View file (with syntax highlighting and line numbers)
+  bat -n file.txt              # Show line numbers only, no decorations
+  bat -A file.txt              # Show all invisible characters
+  bat --style=plain file.txt   # Plain text output without decorations
+  bat file1.txt file2.txt      # View multiple files at once
+  bat --list-themes            # List available themes
+  bat --theme=Dracula file.py  # Specify a theme
+  bat -p file.txt | head -20   # Pipe mode (plain mode)
   ```

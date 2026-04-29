@@ -3,6 +3,7 @@ category: Productivity
 type: app
 
 description: macOS 效率启动器，替代 Spotlight，集成剪贴板、窗口管理、AI 等扩展
+description_en: macOS productivity launcher replacing Spotlight with clipboard, window management, AI, and extensions
 homepage: https://raycast.com
 downloadUrl: https://raycast.com
 
@@ -36,3 +37,22 @@ detail: |
   ## 使用方式
 
   Raycast 为桌面应用，安装后设置快捷键（默认 Option+Space）即可呼起。通过扩展商店按需安装功能。
+
+detail_en: |
+  ## What is Raycast
+
+  Raycast is a macOS productivity launcher designed to replace the built-in Spotlight. Beyond quick app launching and file search, it includes clipboard history, window management, code snippets, an AI assistant, and a rich extension ecosystem that integrates with third-party services like Jira, GitHub, and Notion.
+
+  ## Key Features
+
+  - **Quick Launch**: Instantly search and open apps, files, and links
+  - **Clipboard History**: Automatically records clipboard content with search and paste support
+  - **Window Management**: Keyboard shortcuts for split screen, resizing, and repositioning windows
+  - **Code Snippets**: Save frequently used code snippets for quick insertion
+  - **AI Assistant**: Built-in Raycast AI supporting conversation, translation, and summarization
+  - **Extension Store**: Hundreds of community and official extensions integrating popular tools
+  - **System Commands**: Control volume, brightness, Dark Mode, quit apps, and more
+
+  ## Usage
+
+  Raycast is a desktop application. After installation, set a hotkey (default Option+Space) to invoke it. Install features on demand through the extension store.

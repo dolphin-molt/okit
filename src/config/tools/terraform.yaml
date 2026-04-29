@@ -2,6 +2,7 @@ name: Terraform
 category: Cloud
 
 description: 基础设施即代码工具，用声明式配置管理云资源和基础设施
+description_en: Infrastructure as Code tool for managing cloud resources with declarative configuration
 homepage: https://terraform.io
 
 install:
@@ -44,4 +45,31 @@ detail: |
   terraform output             # 查看输出值
   terraform import <resource> <id>  # 导入已有资源
   terraform fmt                # 格式化配置文件
+  ```
+
+detail_en: |
+  ## What is Terraform
+
+  Terraform is an Infrastructure as Code (IaC) tool by HashiCorp that uses the declarative HCL language to define cloud resources and infrastructure. It supports hundreds of cloud providers and platforms including AWS, Azure, and GCP, enabling one-click creation and management of cross-cloud infrastructure with `terraform apply`.
+
+  ## Key Features
+
+  - **Declarative configuration**: Describe desired infrastructure state in HCL; Terraform automatically plans changes
+  - **Multi-cloud support**: Uniformly manage resources across AWS, Azure, GCP, Alibaba Cloud, and more
+  - **State management**: Track resource state through state files, ensuring configuration matches reality
+  - **Execution plans**: `terraform plan` previews all changes before applying, preventing accidental destruction
+  - **Modularity**: Encapsulate and reuse infrastructure configurations through Modules
+  - **Dependency graph**: Automatically resolve resource dependencies and create/destroy resources in the correct order
+
+  ## Common Commands
+
+  ```bash
+  terraform init               # Initialize the working directory
+  terraform plan               # Preview the change plan
+  terraform apply              # Apply changes
+  terraform destroy            # Destroy all resources
+  terraform state list         # List resources in state
+  terraform output             # View output values
+  terraform import <resource> <id>  # Import existing resources
+  terraform fmt                # Format configuration files
   ```

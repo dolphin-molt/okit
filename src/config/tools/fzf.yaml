@@ -2,6 +2,7 @@ name: fzf
 category: Utilities
 
 description: 通用命令行模糊查找器，可用于文件、历史命令、进程等搜索
+description_en: General-purpose command-line fuzzy finder for searching files, command history, processes, and more
 homepage: https://github.com/junegunn/fzf
 
 install:
@@ -43,4 +44,30 @@ detail: |
   vim $(fzf)                    # 选择文件并用 vim 打开
   cd $(find . -type d | fzf)    # 选择目录并跳转
   kill -9 $(ps aux | fzf | awk '{print $2}')  # 模糊选择进程并杀掉
+  ```
+
+detail_en: |
+  ## What is fzf
+
+  fzf (Fuzzy Finder) is a general-purpose command-line fuzzy finder that can be used for file search, command history lookup, process filtering, and more. It provides an interactive fuzzy matching interface with real-time preview and custom actions, making it an essential tool for boosting terminal productivity.
+
+  ## Key Features
+
+  - **Fuzzy Matching**: Smart fuzzy matching algorithm — type partial keywords to quickly locate targets
+  - **File Search**: Replaces find for quickly searching files and directories
+  - **Command History**: Enhanced shell history search, invoke with Ctrl+R
+  - **Real-time Preview**: Supports real-time file content preview during search
+  - **Highly Customizable**: Supports custom keybindings, color themes, and layouts
+  - **Pipeline Integration**: Can be combined with other CLI tools via pipes
+
+  ## Common Commands
+
+  ```bash
+  fzf                           # Interactively search files in current directory
+  find . -type f | fzf          # Search files via pipe
+  cat ~/.zsh_history | fzf      # Search command history
+  fzf --preview 'cat {}'        # Preview file content while searching
+  vim $(fzf)                    # Select a file and open with vim
+  cd $(find . -type d | fzf)    # Select a directory and navigate to it
+  kill -9 $(ps aux | fzf | awk '{print $2}')  # Fuzzy select a process and kill it
   ```

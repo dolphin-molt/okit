@@ -2,6 +2,7 @@ name: Mermaid CLI
 category: Documents
 
 description: 从 Markdown 风格的文本描述生成流程图、时序图、甘特图等图表
+description_en: Generate flowcharts, sequence diagrams, Gantt charts, and more from Markdown-style text descriptions
 homepage: https://github.com/mermaid-js/mermaid-cli
 
 install: echo '安装 Mermaid CLI (跳过 Puppeteer 浏览器下载)' && mkdir -p "$HOME/.cache/puppeteer" && chmod -R u+rwX "$HOME/.cache/puppeteer" || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR="$HOME/.cache/puppeteer" npm install -g @mermaid-js/mermaid-cli
@@ -35,4 +36,29 @@ detail: |
   mmdc -i diagram.mmd -w 2048          # 指定输出宽度
   mmdc -t dark -i diagram.mmd -o out.png  # 使用暗色主题
   mmdc -p puppeteer-config.json -i diagram.mmd -o out.png  # 自定义 Puppeteer 配置
+  ```
+
+detail_en: |
+  ## What is Mermaid CLI
+
+  Mermaid CLI is the command-line rendering tool for the Mermaid diagram language, converting Markdown-style text descriptions into high-quality flowcharts, sequence diagrams, Gantt charts, class diagrams, state diagrams, and other visual charts. It renders diagrams in a headless browser via Puppeteer, supporting output in PNG, SVG, PDF, and other formats.
+
+  ## Key Features
+
+  - **Flowcharts**: Define flowcharts, decision trees, and algorithm flows with concise text syntax
+  - **Sequence Diagrams**: Describe interaction sequences and message passing between systems
+  - **Gantt Charts**: Project schedule planning and milestone display
+  - **Multi-format Output**: Supports PNG, SVG, PDF, and other output formats
+  - **Batch Rendering**: Supports batch processing of multiple .mmd files
+  - **Theme Customization**: Built-in multiple theme styles with customizable chart appearance
+
+  ## Common Commands
+
+  ```bash
+  mmdc -i diagram.mmd -o diagram.png    # Render to PNG
+  mmdc -i diagram.mmd -o diagram.svg    # Render to SVG
+  mmdc -i diagram.mmd -o diagram.pdf    # Render to PDF
+  mmdc -i diagram.mmd -w 2048          # Specify output width
+  mmdc -t dark -i diagram.mmd -o out.png  # Use dark theme
+  mmdc -p puppeteer-config.json -i diagram.mmd -o out.png  # Custom Puppeteer config
   ```

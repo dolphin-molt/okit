@@ -2,6 +2,7 @@ name: Vercel CLI
 category: Cloud
 
 description: Vercel 官方命令行工具，用于部署和管理前端项目
+description_en: Official Vercel CLI for deploying and managing frontend projects
 homepage: https://vercel.com/docs/cli
 
 install: npm install -g vercel
@@ -39,4 +40,30 @@ detail: |
   vercel env add <name>      # 添加环境变量
   vercel domains add <domain> # 添加自定义域名
   vercel logs <url>          # 查看部署日志
+  ```
+
+detail_en: |
+  ## What is Vercel CLI
+
+  Vercel CLI is the official command-line tool for the Vercel platform, enabling developers to deploy, preview, and manage frontend projects from the terminal. It supports one-click deployment of Next.js, React, Vue, and other framework projects to Vercel's global CDN edge network, and provides a local development server that simulates the production environment.
+
+  ## Key Features
+
+  - **One-click deployment**: `vercel deploy` deploys projects to Vercel's global CDN with auto-generated preview URLs
+  - **Local development**: `vercel dev` starts a local development server simulating the Vercel production environment
+  - **Environment variables**: Securely manage project environment variables and secrets
+  - **Domain management**: Bind custom domains and configure DNS records
+  - **Serverless Functions**: Develop and debug serverless API functions locally
+  - **Team collaboration**: Manage multi-person collaborative projects with deployment permission controls
+
+  ## Common Commands
+
+  ```bash
+  vercel                     # Deploy project (interactive)
+  vercel --prod              # Deploy to production
+  vercel dev                 # Start local development server
+  vercel env pull            # Pull remote environment variables locally
+  vercel env add <name>      # Add an environment variable
+  vercel domains add <domain> # Add a custom domain
+  vercel logs <url>          # View deployment logs
   ```

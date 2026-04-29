@@ -2,6 +2,7 @@ name: xurl
 category: Social
 
 description: "X (Twitter) 官方 API 命令行工具，用于发推、搜索和管理账号"
+description_en: "Official X (Twitter) API CLI for posting tweets, searching, and managing accounts"
 homepage: https://github.com/xdevplatform/xurl
 
 install:
@@ -45,4 +46,30 @@ detail: |
   xurl user elonmusk           # 查看用户信息
   xurl timeline                # 查看时间线
   xurl --help                  # 查看帮助
+  ```
+
+detail_en: |
+  ## What is xurl
+
+  xurl is the official API command-line tool for X (Twitter), enabling developers to post tweets, search, manage accounts, and more directly from the terminal. It wraps the core functionality of the X API v2, allowing quick testing and use of X platform data and features without writing code.
+
+  ## Key Features
+
+  - **Tweet posting**: Post tweets directly from the terminal with support for text, images, and polls
+  - **Tweet search**: Search tweets and users by keywords and hashtags
+  - **Account management**: View and manage multiple X apps and authentication credentials
+  - **User operations**: Follow, unfollow, get user info, and view timelines
+  - **Data export**: Export tweet data for analysis and archiving
+  - **Streaming API**: Real-time monitoring and filtering of tweet streams
+
+  ## Common Commands
+
+  ```bash
+  xurl auth apps add           # Add API app credentials
+  xurl auth status             # View authentication status
+  xurl tweet "Hello World!"    # Post a tweet
+  xurl search "OpenAI"         # Search tweets
+  xurl user elonmusk           # View user info
+  xurl timeline                # View timeline
+  xurl --help                  # View help
   ```

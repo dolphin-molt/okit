@@ -2,6 +2,7 @@ name: CodeBuddy Code
 category: AI Coding
 
 description: 腾讯推出的 AI CLI 编程工具，支持代码生成、依赖安装和自动化 Debug
+description_en: Tencent's AI CLI coding tool with code generation, dependency installation, and automated debugging
 homepage: https://copilot.tencent.com
 
 install: npm install -g @tencent-ai/codebuddy-code
@@ -35,4 +36,26 @@ detail: |
   codebuddy                  # 启动交互式会话
   codebuddy "创建一个 Vue 项目"  # 直接执行任务
   codebuddy --version        # 查看版本
+  ```
+
+detail_en: |
+  ## What is CodeBuddy Code
+
+  CodeBuddy Code is Tencent's AI CLI coding tool, driven by natural language for code generation, dependency installation, test execution, and debugging. It supports WeChat QR code login and is designed for full-workflow automated development, making it a great AI coding companion for developers in China.
+
+  ## Key Features
+
+  - **WeChat QR Login**: No API key needed, just scan with WeChat to get started
+  - **Code Generation**: Describe requirements in natural language and automatically generate code into files
+  - **Dependency Management**: Automatically install project dependencies and resolve version conflicts
+  - **Smart Debugging**: Analyze error messages, locate issues, and generate fix proposals
+  - **MCP Services**: Support building MCP services to extend AI Agent capabilities
+  - **Chinese Optimization**: Specially optimized for Chinese language understanding and generation
+
+  ## Common Commands
+
+  ```bash
+  codebuddy                  # Start interactive session
+  codebuddy "创建一个 Vue 项目"  # Execute a task directly
+  codebuddy --version        # Check version
   ```

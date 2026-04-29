@@ -3,6 +3,7 @@ category: AI Tools
 type: app
 
 description: OpenAI 的 AI 对话助手桌面应用，支持 GPT-4o、图像生成、语音对话等
+description_en: OpenAI's AI chat assistant desktop app with GPT-4o, image generation, and voice chat
 homepage: https://chatgpt.com
 downloadUrl: https://chatgpt.com
 
@@ -36,3 +37,22 @@ detail: |
   ## 使用方式
 
   ChatGPT 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。支持 Apple 账号或 Google 账号登录。
+
+detail_en: |
+  ## What is ChatGPT
+
+  ChatGPT is OpenAI's AI chat assistant desktop app, powered by large language models like GPT-4o. It supports text conversations, image generation, voice interaction, and other AI capabilities. The desktop version offers more convenient system-level access and keyboard shortcuts compared to the web version.
+
+  ## Key Features
+
+  - **Multi-model Support**: Switch between GPT-4o, GPT-4o mini, and other models
+  - **Image Generation**: Generate and edit images using DALL-E
+  - **Voice Chat**: Real-time voice interaction, can replace voice assistants
+  - **File Analysis**: Upload documents, images, and code for analysis and discussion
+  - **Custom Instructions**: Set personalized preferences and instructions
+  - **Chat History**: Sync conversation history across devices
+  - **Keyboard Shortcuts**: Global shortcut Option+Space to quickly invoke
+
+  ## Usage
+
+  ChatGPT is a desktop application. After installation, open it from Launchpad or the Applications folder. Supports Apple ID or Google account login.

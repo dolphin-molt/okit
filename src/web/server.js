@@ -1,15 +1,16 @@
 const express = require('express');
 const path = require('path');
 const { getTools, toolAction, submitAuthCode, openApp } = require('./api/tools');
-const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects } = require('./api/vault');
+const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey } = require('./api/vault');
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus } = require('./api/sync');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
 
-function createServer(port = 3000) {
+function createServer(port = 3780) {
   const app = express();
 
   // Middleware
@@ -34,6 +35,7 @@ function createServer(port = 3000) {
   app.get('/api/vault/browse-dirs', browseDirs);
   app.get('/api/vault/impact', checkKeyImpact);
   app.get('/api/vault/projects', listProjects);
+  app.post('/api/vault/test-key', testApiKey);
 
   // Cloudflare sync routes
   app.get('/api/cloudflare/check', checkWrangler);
@@ -75,6 +77,17 @@ function createServer(port = 3000) {
   app.post('/api/sync/pull', handlePull);
   app.get('/api/sync/status', handleStatus);
 
+  // Provider routes
+  app.get('/api/providers', listProviders);
+  app.get('/api/providers/adapters', getAdaptersList);
+  app.post('/api/providers', createProvider);
+  app.put('/api/providers/:id', updateProvider);
+  app.delete('/api/providers/:id', deleteProvider);
+  app.post('/api/providers/switch', switchProvider);
+  app.get('/api/providers/auth', getAuthStatus);
+  app.post('/api/providers/auth/login', triggerOAuthLogin);
+  app.post('/api/providers/fetch-models', fetchModels);
+
   // SPA fallback
   app.use((req, res) => {
     if (req.path.startsWith('/api/')) {
@@ -86,12 +99,22 @@ function createServer(port = 3000) {
   return app;
 }
 
-function startServer(port = 3000) {
+function startServer(port = 3780) {
   const app = createServer(port);
 
-  app.listen(port, '127.0.0.1', () => {
+  const server = app.listen(port, '127.0.0.1', () => {
     console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
     console.log(`  Press Ctrl+C to stop\n`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      const nextPort = port + 1;
+      console.log(`  Port ${port} in use, trying ${nextPort}...`);
+      startServer(nextPort);
+    } else {
+      throw err;
+    }
   });
 
   return app;

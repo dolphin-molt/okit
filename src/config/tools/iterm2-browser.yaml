@@ -2,6 +2,7 @@ name: iTerm2 Browser Plugin
 category: Terminals
 
 description: iTerm2 的浏览器集成插件，支持在终端中预览网页和 API 响应
+description_en: iTerm2 browser integration plugin for previewing web pages and API responses in the terminal
 homepage: https://iterm2.com
 
 install:
@@ -36,4 +37,26 @@ detail: |
   # 通过 iTerm2 的 Shell Integration 调用
   # 支持 imgcat 等命令配合使用
   open -a iTermBrowserPlugin        # 打开插件
+  ```
+
+detail_en: |
+  ## What is iTerm2 Browser Plugin
+
+  iTerm2 Browser Plugin is a browser integration plugin for iTerm2 that allows you to preview web content and API responses directly in the terminal. It integrates deeply with the iTerm2 terminal, enabling developers to view HTTP responses, web rendering results, and visual JSON data without leaving the terminal.
+
+  ## Key Features
+
+  - **Web Preview**: Preview web content directly in the terminal without switching to a browser
+  - **API Response Visualization**: Formatted display of HTTP API JSON/XML responses
+  - **iTerm2 Integration**: Seamlessly integrated with iTerm2 terminal, leveraging iTerm2's rendering capabilities
+  - **Markdown Rendering**: Preview rendered Markdown files in the terminal
+  - **Quick View**: Quickly open the preview panel via shortcut actions
+
+  ## Common Commands
+
+  ```bash
+  # Use within iTerm2 after installation
+  # Invoked via iTerm2's Shell Integration
+  # Works with commands like imgcat
+  open -a iTermBrowserPlugin        # Open the plugin
   ```

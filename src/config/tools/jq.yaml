@@ -2,6 +2,7 @@ name: jq
 category: Data
 
 description: 命令行 JSON 处理器，支持查询、过滤、转换 JSON 数据
+description_en: Command-line JSON processor for querying, filtering, and transforming JSON data
 homepage: https://jqlang.github.io/jq
 
 install:
@@ -43,4 +44,30 @@ detail: |
   cat data.json | jq '[.[] | select(.age > 18)]'  # 条件过滤
   cat data.json | jq '.name = "new_name"'   # 修改字段值
   curl -s api.example.com/data | jq '.'     # 处理 API 响应
+  ```
+
+detail_en: |
+  ## What is jq
+
+  jq is a lightweight yet powerful command-line JSON processor. It provides awk/sed-like capabilities specifically designed for JSON data format, supporting querying, filtering, mapping, transforming, and other operations. It is an essential tool for processing API responses and JSON configuration files.
+
+  ## Key Features
+
+  - **JSON Query**: Extract data from JSON using concise expression syntax
+  - **Filtering**: Supports conditional filtering, array operations, and object selection
+  - **Data Transformation**: Restructure JSON data into the desired format
+  - **Pipeline Composition**: Chain multiple operations via the pipe `|` for complex processing logic
+  - **Formatted Output**: Pretty-print and compact JSON output with color support
+  - **Tool Integration**: Pairs perfectly with CLI tools like curl and aws for processing JSON output
+
+  ## Common Commands
+
+  ```bash
+  cat data.json | jq '.'                    # Pretty-print JSON
+  cat data.json | jq '.name'                # Extract a field
+  cat data.json | jq '.items[0]'            # Extract first array element
+  cat data.json | jq '.items | length'      # Count array length
+  cat data.json | jq '[.[] | select(.age > 18)]'  # Conditional filter
+  cat data.json | jq '.name = "new_name"'   # Modify a field value
+  curl -s api.example.com/data | jq '.'     # Process API response
   ```

@@ -2,6 +2,7 @@ name: Happy Coder
 category: AI Coding
 
 description: AI 编程助手 CLI 工具，通过自然语言对话进行代码生成和编辑
+description_en: AI coding assistant CLI tool for code generation and editing via natural language dialogue
 homepage: https://www.npmjs.com/package/happy-coder
 
 install: npm install -g happy-coder
@@ -32,4 +33,24 @@ detail: |
   ```bash
   happy-coder                # 启动交互式会话
   happy-coder "创建一个 Express 服务器"  # 直接执行任务
+  ```
+
+detail_en: |
+  ## What is Happy Coder
+
+  Happy Coder is an AI coding assistant command-line tool that performs code generation and editing through natural language dialogue. It supports multiple programming languages and frameworks, aiming to boost developer productivity.
+
+  ## Key Features
+
+  - **Natural Language Programming**: Describe requirements in natural language and automatically generate corresponding code
+  - **Multi-language Support**: Supports mainstream programming languages including JavaScript, Python, Go, and Rust
+  - **Framework Recognition**: Automatically identifies frameworks used in the project and provides targeted suggestions
+  - **Code Editing**: Supports modifying and refactoring existing code
+  - **Interactive Dialogue**: Supports multi-turn conversations to iteratively refine code implementations
+
+  ## Common Commands
+
+  ```bash
+  happy-coder                # Start an interactive session
+  happy-coder "create an Express server"  # Execute a task directly
   ```

@@ -2,6 +2,7 @@ name: Heroku CLI
 category: Cloud
 
 description: Heroku 云平台命令行工具，用于创建、部署和管理应用
+description_en: Heroku cloud platform CLI for creating, deploying, and managing applications
 homepage: https://devcenter.heroku.com/articles/heroku-cli
 
 install:
@@ -46,4 +47,31 @@ detail: |
   heroku addons:add heroku-postgresql  # 添加数据库插件
   heroku config:set KEY=value  # 设置环境变量
   heroku run bash              # 在 Dyno 中运行命令
+  ```
+
+detail_en: |
+  ## What is Heroku CLI
+
+  Heroku CLI is the official command-line tool for the Heroku cloud platform, used to create, deploy, and manage applications from the terminal. Heroku is one of the earliest PaaS platforms, renowned for its极致 developer experience, supporting multiple programming languages with deployment completed through a simple git push.
+
+  ## Key Features
+
+  - **Git Deploy**: One-click application deployment via `git push heroku main`
+  - **Multi-language Support**: Native support for Node.js, Python, Ruby, Java, Go, and more
+  - **Add-ons Ecosystem**: One-click integration of databases, caching, monitoring, and other third-party services
+  - **Environment Management**: Supports Review Apps, Staging, and production environments
+  - **Log Management**: Real-time application log viewing and runtime metrics
+  - **Dyno Management**: Flexible configuration of application compute resources and auto-scaling
+
+  ## Common Commands
+
+  ```bash
+  heroku login                 # Login to Heroku account
+  heroku create myapp          # Create a new app
+  git push heroku main         # Deploy application
+  heroku ps                    # View running Dynos
+  heroku logs --tail           # View logs in real-time
+  heroku addons:add heroku-postgresql  # Add database add-on
+  heroku config:set KEY=value  # Set environment variable
+  heroku run bash              # Run command in a Dyno
   ```

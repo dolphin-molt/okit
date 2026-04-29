@@ -2,6 +2,7 @@ name: Fly.io CLI
 category: Cloud
 
 description: Fly.io 边缘计算平台 CLI，用于部署和管理全球分布式应用
+description_en: Fly.io edge computing platform CLI for deploying and managing globally distributed applications
 homepage: https://fly.io/docs/hands-on/install-flyctl
 
 install:
@@ -46,4 +47,31 @@ detail: |
   flyctl scale count 3          # 扩展实例数量
   flyctl ssh console            # SSH 进入运行中的容器
   flyctl auth login             # 登录 Fly.io 账号
+  ```
+
+detail_en: |
+  ## What is Fly.io CLI
+
+  Fly.io CLI (flyctl) is the command-line tool for the Fly.io edge computing platform, used to deploy applications to multiple edge locations worldwide. It supports one-click deployment of Docker containers or source code to the edge location closest to users, enabling ultra-low latency globally distributed applications.
+
+  ## Key Features
+
+  - **One-Click Deploy**: `fly deploy` deploys applications to multiple edge locations worldwide
+  - **Edge Runtime**: Applications run on the edge node closest to the user, with minimal latency
+  - **Auto Scaling**: Automatically adjusts instance count and distribution regions based on traffic
+  - **Persistent Storage**: Provides persistent storage support through Volumes
+  - **Built-in Database**: Integrated PostgreSQL database service
+  - **Private Networking**: Applications communicate securely via WireGuard private network
+
+  ## Common Commands
+
+  ```bash
+  flyctl launch                 # Initialize and create a new app
+  flyctl deploy                 # Deploy app to edge nodes
+  flyctl logs                   # View application logs
+  flyctl status                 # View app running status
+  flyctl regions add --group ap  # Add deployment regions
+  flyctl scale count 3          # Scale instance count
+  flyctl ssh console            # SSH into a running container
+  flyctl auth login             # Login to Fly.io account
   ```

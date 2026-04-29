@@ -2,6 +2,7 @@ name: Node.js
 category: Development
 
 description: 基于 Chrome V8 引擎的 JavaScript 运行时，用于构建服务端和网络应用
+description_en: JavaScript runtime built on Chrome V8 engine for building server-side and network applications
 homepage: https://nodejs.org
 
 install:
@@ -43,4 +44,30 @@ detail: |
   npm install <package>      # 安装依赖包
   npm run <script>           # 运行 package.json 中的脚本
   npx <command>              # 执行 npm 包中的命令
+  ```
+
+detail_en: |
+  ## What is Node.js
+
+  Node.js is a JavaScript runtime built on Chrome's V8 engine that enables JavaScript to run on the server side. It uses an event-driven, non-blocking I/O model, making it well-suited for building high-performance, scalable network applications.
+
+  ## Key Features
+
+  - **Server-side JavaScript**: Run JS outside the browser for building backend services and APIs
+  - **npm Ecosystem**: Built-in npm package manager with over 2 million open-source packages
+  - **Non-blocking I/O**: Event-driven architecture, excels at handling high-concurrency I/O-intensive tasks
+  - **Full-stack Unification**: Use the same language for both frontend and backend, reducing complexity
+  - **Cross-platform**: Supports macOS, Linux, Windows, and other operating systems
+  - **LTS Releases**: Long-term support versions ensure production environment stability
+
+  ## Common Commands
+
+  ```bash
+  node --version             # Check version
+  node app.js                # Run a JS file
+  node -e "console.log('hi')" # Execute a one-liner
+  npm init                   # Initialize a project
+  npm install <package>      # Install a dependency
+  npm run <script>           # Run a script from package.json
+  npx <command>              # Execute a command from an npm package
   ```

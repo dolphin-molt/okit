@@ -2,6 +2,7 @@ name: Homebrew
 category: System
 
 description: macOS 和 Linux 的包管理器，用于安装、更新和管理软件包
+description_en: Package manager for macOS and Linux for installing, updating, and managing software packages
 homepage: https://brew.sh
 
 install:
@@ -38,4 +39,31 @@ detail: |
   brew search <keyword>      # 搜索软件包
   brew info <package>        # 查看软件包详细信息
   brew cleanup               # 清理旧版本缓存
+  ```
+
+detail_en: |
+  ## What is Homebrew
+
+  Homebrew is the most popular package manager for macOS and Linux, making it simple and efficient to install, update, and uninstall software. It uses formulas (recipes) to define how software is installed, allowing users to complete installations with a single command.
+
+  ## Key Features
+
+  - **One-Click Install**: Quickly install thousands of open-source software and tools via `brew install <package>`
+  - **Dependency Management**: Automatically resolves and installs software dependencies, avoiding version conflicts
+  - **Cask Support**: Install macOS desktop applications (e.g., Chrome, VS Code) via `brew install --cask`
+  - **Auto Update**: Update all installed software with `brew update && brew upgrade`
+  - **Tap Repositories**: Supports third-party repository extensions to enrich available software sources
+  - **China Mirrors**: Supports configuring China mirror sources for faster downloads
+
+  ## Common Commands
+
+  ```bash
+  brew install <package>     # Install a package
+  brew uninstall <package>   # Uninstall a package
+  brew update                # Update Homebrew itself and package lists
+  brew upgrade               # Upgrade all installed packages
+  brew list                  # List installed packages
+  brew search <keyword>      # Search for packages
+  brew info <package>        # View package details
+  brew cleanup               # Clean up old version caches
   ```

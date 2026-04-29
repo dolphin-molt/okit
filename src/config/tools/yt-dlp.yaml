@@ -2,6 +2,7 @@ name: yt-dlp
 category: Media
 
 description: 强大的视频下载工具，支持 YouTube、Bilibili 等 1000+ 视频网站
+description_en: Powerful video download tool supporting YouTube, Bilibili, and 1000+ video sites
 homepage: https://github.com/yt-dlp/yt-dlp
 
 install:
@@ -43,4 +44,30 @@ detail: |
   yt-dlp -o "%(title)s.%(ext)s" <url> # 自定义文件名
   yt-dlp --playlist-items 1-5 <url>  # 下载播放列表前 5 个
   yt-dlp -U                          # 更新到最新版本
+  ```
+
+detail_en: |
+  ## What is yt-dlp
+
+  yt-dlp is a powerful command-line video download tool and an active fork of youtube-dl. It supports downloading videos and audio from over 1000 video sites including YouTube, Bilibili, and Twitter, with rich format conversion and post-processing options.
+
+  ## Key Features
+
+  - **Multi-site support**: Supports 1000+ video platforms including YouTube, Bilibili, Twitter, Douyin, and more
+  - **Format selection**: Flexible choice of video resolution, encoding format, and audio quality
+  - **Batch downloads**: Supports playlist and channel batch downloads
+  - **Subtitle downloads**: Automatically download and embed subtitles in multiple languages
+  - **Format conversion**: Built-in audio/video format conversion with ffmpeg post-processing support
+  - **Cookie support**: Import browser cookies to download member-exclusive videos
+
+  ## Common Commands
+
+  ```bash
+  yt-dlp <url>                       # Download a video
+  yt-dlp -f best <url>               # Download best quality
+  yt-dlp -x --audio-format mp3 <url> # Download audio only and convert to MP3
+  yt-dlp --write-sub <url>           # Include subtitles when downloading
+  yt-dlp -o "%(title)s.%(ext)s" <url> # Custom filename
+  yt-dlp --playlist-items 1-5 <url>  # Download first 5 items from a playlist
+  yt-dlp -U                          # Update to the latest version
   ```

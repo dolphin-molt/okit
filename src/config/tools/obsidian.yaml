@@ -3,6 +3,7 @@ category: Productivity
 type: app
 
 description: 本地优先的知识管理工具，基于 Markdown 文件和双向链接构建个人知识图谱
+description_en: Local-first knowledge management tool using Markdown files and bidirectional links to build personal knowledge graphs
 homepage: https://obsidian.md
 downloadUrl: https://obsidian.md/download
 
@@ -40,3 +41,22 @@ detail: |
   ## 使用方式
 
   Obsidian 为桌面应用，安装后从启动台或应用程序文件夹打开。首次使用需选择或创建一个本地 Vault（知识库文件夹）。
+
+detail_en: |
+  ## What is Obsidian
+
+  Obsidian is a local-first knowledge management tool that stores all notes as plain Markdown files in a local folder. Through bidirectional links and knowledge graph features, it helps users build an interconnected personal knowledge base. A rich community plugin ecosystem provides extensive customization.
+
+  ## Key Features
+
+  - **Local Storage**: All data stored as Markdown files locally, giving users full control over their data
+  - **Bidirectional Links**: Create links between notes using `[[]]` syntax with automatic backlinks
+  - **Knowledge Graph**: Visualize relationships between notes and discover knowledge gaps
+  - **Plugin Ecosystem**: Thousands of community plugins for calendars, kanban boards, databases, and more
+  - **Theme Customization**: Rich community themes with CSS custom styling support
+  - **Multi-platform Sync**: Supports Obsidian Sync official sync or Git, iCloud, and other solutions
+  - **Canvas**: Infinite canvas feature for visual organization and arrangement of notes
+
+  ## Usage
+
+  Obsidian is a desktop application. After installation, open it from Launchpad or the Applications folder. On first use, select or create a local Vault (knowledge base folder).

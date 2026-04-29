@@ -3,6 +3,7 @@ category: AI Coding
 type: app
 
 description: Google 推出的 AI 编程助手，支持智能代码生成和多模型协作
+description_en: Google's AI coding assistant with smart code generation and multi-model collaboration
 homepage: https://antigravity.google
 downloadUrl: https://antigravity.google
 
@@ -34,3 +35,20 @@ detail: |
   ## 使用方式
 
   Antigravity 为桌面应用，安装后从启动台或应用程序文件夹打开即可使用。
+
+detail_en: |
+  ## What is Antigravity
+
+  Antigravity is Google's AI coding assistant, integrating Google's latest AI model capabilities to support smart code generation, multi-model collaboration, and contextual understanding. It provides both a desktop application and a command-line tool (agy).
+
+  ## Key Features
+
+  - **AI Code Generation**: Smart code generation powered by Google AI models
+  - **Multi-model Collaboration**: Support for multiple AI models working together
+  - **Contextual Understanding**: Understands project structure and code dependencies
+  - **Command-line Tool**: Provides the agy CLI for terminal operations
+  - **Google Ecosystem Integration**: Deep integration with Google Cloud and other services
+
+  ## Usage
+
+  Antigravity is a desktop application. After installation, open it from Launchpad or the Applications folder.

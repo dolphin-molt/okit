@@ -2,6 +2,7 @@ name: Wrangler
 category: Cloud
 
 description: Cloudflare Workers 官方 CLI，用于开发和部署边缘计算应用
+description_en: Official Cloudflare Workers CLI for developing and deploying edge computing applications
 homepage: https://developers.cloudflare.com/workers/wrangler
 
 install: npm install -g wrangler
@@ -39,4 +40,30 @@ detail: |
   wrangler kv:key put --namespace-id <id> "key" "value"  # 写入 KV 存储
   wrangler d1 create <name>   # 创建 D1 数据库
   wrangler whoami             # 查看当前登录账号信息
+  ```
+
+detail_en: |
+  ## What is Wrangler
+
+  Wrangler is the official command-line development tool for Cloudflare Workers, used for local development, testing, and deployment of edge computing applications. It provides complete project scaffolding, a local development server, and one-click deployment capabilities, enabling developers to quickly build applications that run on Cloudflare's global edge network.
+
+  ## Key Features
+
+  - **Local development server**: Start a local development environment with `wrangler dev` that simulates the Workers runtime
+  - **One-click deployment**: `wrangler deploy` deploys applications to Cloudflare's 300+ global edge nodes
+  - **KV storage management**: Manage Workers KV key-value stores for edge data caching
+  - **D1 database**: Create and manage Cloudflare D1 SQLite databases
+  - **Pages integration**: Supports development and deployment of Cloudflare Pages full-stack applications
+  - **Secret management**: Securely manage environment variables and secrets
+
+  ## Common Commands
+
+  ```bash
+  wrangler init <name>        # Initialize a new Workers project
+  wrangler dev                # Start the local development server
+  wrangler deploy             # Deploy to Cloudflare edge network
+  wrangler tail               # View Workers logs in real time
+  wrangler kv:key put --namespace-id <id> "key" "value"  # Write to KV storage
+  wrangler d1 create <name>   # Create a D1 database
+  wrangler whoami             # View current logged-in account info
   ```

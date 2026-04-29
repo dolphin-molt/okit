@@ -2,6 +2,7 @@ name: OpenCode
 category: AI Coding
 
 description: 开源 AI 编程终端工具，支持多种 AI 模型的交互式编程
+description_en: Open-source AI coding terminal tool supporting interactive programming with multiple AI models
 homepage: https://opencode.ai
 downloadUrl: https://opencode.ai
 
@@ -40,4 +41,25 @@ detail: |
   opencode                    # 启动交互式会话
   opencode --model claude     # 指定使用 Claude 模型
   opencode --help             # 查看帮助
+  ```
+
+detail_en: |
+  ## What is OpenCode
+
+  OpenCode is an open-source AI coding terminal tool that supports interactive programming with multiple AI models in the terminal. It provides a unified interface to access Claude, GPT, and other models, ideal for developers who prefer working in a terminal environment.
+
+  ## Key Features
+
+  - **Multi-model Support**: Unified interface supporting Claude, GPT, Gemini, and other AI models
+  - **Terminal Native**: Runs entirely in the terminal, seamlessly integrated with development workflows
+  - **Code Aware**: Understands project structure and code context
+  - **File Operations**: Supports reading, creating, and modifying project files
+  - **Extensible**: Supports custom tools and plugins
+
+  ## Common Commands
+
+  ```bash
+  opencode                    # Start an interactive session
+  opencode --model claude     # Specify using the Claude model
+  opencode --help             # Show help
   ```

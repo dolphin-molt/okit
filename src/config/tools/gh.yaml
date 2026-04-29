@@ -2,6 +2,7 @@ name: GitHub CLI
 category: Development
 
 description: GitHub 官方命令行工具，用于管理 PR、Issues、Actions 等 GitHub 功能
+description_en: GitHub official CLI for managing PRs, Issues, Actions, and other GitHub features
 homepage: https://cli.github.com
 
 install:
@@ -48,4 +49,32 @@ detail: |
   gh run list                # 查看 Actions 运行列表
   gh repo clone <repo>       # 克隆仓库
   gh extension install <ext> # 安装扩展
+  ```
+
+detail_en: |
+  ## What is GitHub CLI
+
+  GitHub CLI (gh) is the official command-line tool from GitHub, letting you manage Pull Requests, Issues, Actions, Releases, and other GitHub resources without leaving the terminal. It brings GitHub's core workflow directly to the command line.
+
+  ## Key Features
+
+  - **PR Management**: Create, view, review, and merge Pull Requests, including draft PRs
+  - **Issue Management**: Create, edit, and close Issues with label and milestone management
+  - **Actions Operations**: View workflow run status, trigger re-runs, and download logs
+  - **Release Publishing**: Create Releases, upload assets, and manage release versions
+  - **Repo Management**: Create repos, clone repos, and view repo information
+  - **Extension Ecosystem**: Install community extensions via `gh extension install`
+
+  ## Common Commands
+
+  ```bash
+  gh auth login              # Login to GitHub account
+  gh pr create               # Create a Pull Request
+  gh pr list                 # List PRs
+  gh pr checkout <number>    # Checkout a PR branch
+  gh pr merge <number>       # Merge a PR
+  gh issue create            # Create an Issue
+  gh run list                # View Actions run list
+  gh repo clone <repo>       # Clone a repository
+  gh extension install <ext> # Install an extension
   ```

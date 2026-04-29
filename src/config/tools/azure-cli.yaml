@@ -2,6 +2,7 @@ name: Azure CLI
 category: Cloud
 
 description: Microsoft Azure 官方命令行工具，管理 VM、Storage、App Service 等
+description_en: Official Microsoft Azure CLI for managing VMs, Storage, App Service and more
 homepage: https://learn.microsoft.com/cli/azure
 
 install:
@@ -45,4 +46,30 @@ detail: |
   az storage account list      # 列出存储账号
   az webapp up --name myapp    # 部署 Web 应用
   az aks list                  # 列出 AKS 集群
+  ```
+
+detail_en: |
+  ## What is Azure CLI
+
+  Azure CLI is the official command-line tool for Microsoft Azure, providing cross-platform Azure cloud service management. With concise command syntax, developers can manage virtual machines, storage, databases, containers, and other Azure resources from the terminal. It is a core tool for Azure cloud operations and automation.
+
+  ## Key Features
+
+  - **Unified Interface**: Manage all Azure services via the `az` command, covering compute, storage, networking, databases, and more
+  - **Subscription Management**: Supports multi-subscription switching with `az account set` for quick context switching
+  - **Resource Group Management**: Organize and manage related cloud resources through resource groups
+  - **ARM Template Deployment**: Batch deploy and configure cloud resources via JSON templates
+  - **Container Services**: Manage Azure Kubernetes Service (AKS) and Container Instances
+  - **CI/CD Integration**: Works in GitHub Actions, Azure DevOps, and other CI/CD pipelines
+
+  ## Common Commands
+
+  ```bash
+  az login                     # Log in to Azure account
+  az account list              # List all subscriptions
+  az group create --name myRG --location eastus  # Create resource group
+  az vm create --name myVM --resource-group myRG --image Ubuntu2204  # Create virtual machine
+  az storage account list      # List storage accounts
+  az webapp up --name myapp    # Deploy web app
+  az aks list                  # List AKS clusters
   ```

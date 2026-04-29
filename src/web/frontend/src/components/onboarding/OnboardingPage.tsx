@@ -4,6 +4,7 @@ import { getOnboarding, getPresets, dismissOnboarding, resetOnboarding } from '.
 import { setVault } from '../../api/vault';
 import { executeAction } from '../../api/tools';
 import { useApp } from '../Layout/AppContext';
+import { useI18n } from '../../i18n';
 
 interface PresetKey {
   key: string;
@@ -23,6 +24,7 @@ interface Preset {
 
 export default function OnboardingPage() {
   const { showToast, setConnectionStatus } = useApp();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [presets, setPresets] = useState<Preset[]>([]);
   const [dismissed, setDismissed] = useState(false);
@@ -56,13 +58,13 @@ export default function OnboardingPage() {
     // Validate required keys
     for (const k of selectedPreset.requiredKeys) {
       if (!keyValues[k.key]?.trim()) {
-        showToast('请填写所有密钥', 'error');
+        showToast(t('onboarding.fillAll'), 'error');
         return;
       }
     }
 
     setExecuting(true);
-    setProgress('正在配置...\n');
+    setProgress(t('onboarding.configuring'));
 
     // 1. Save keys to vault
     let keysOk = 0;
@@ -87,7 +89,7 @@ export default function OnboardingPage() {
     setExecuting(false);
     setSelectedPreset(null);
     await dismissOnboardingAction();
-    showToast(`${toolsOk} 个工具已安装，${keysOk} 个密钥已保存`);
+    showToast(t('onboarding.result', { tools: toolsOk, keys: keysOk }));
     navigate('/tools');
   }
 
@@ -107,8 +109,8 @@ export default function OnboardingPage() {
       <div>
         <div id="quickStartEmpty" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: 48, opacity: 0.15, marginBottom: 16 }}>&#10003;</div>
-          <p style={{ color: 'var(--ink-muted)', marginBottom: 16 }}>你已完成初始配置</p>
-          <button className="btn-action" onClick={handleReset} style={{ fontSize: 13, padding: '8px 20px' }}>重新配置</button>
+          <p style={{ color: 'var(--ink-muted)', marginBottom: 16 }}>{t('onboarding.completed')}</p>
+          <button className="btn-action" onClick={handleReset} style={{ fontSize: 13, padding: '8px 20px' }}>{t('onboarding.reconfigure')}</button>
         </div>
       </div>
     );
@@ -129,14 +131,14 @@ export default function OnboardingPage() {
             <div className="quick-start-card-name">{p.name}</div>
             <div className="quick-start-card-desc">{p.desc}</div>
             <div className="quick-start-card-meta">
-              <span>{p.tools.length} 个工具</span>
-              <span>{p.requiredKeys.length} 个密钥</span>
+              <span>{t('onboarding.toolsCount', { n: p.tools.length })}</span>
+              <span>{t('onboarding.keysCount', { n: p.requiredKeys.length })}</span>
             </div>
           </div>
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button className="btn-outline" onClick={dismissOnboardingAction} style={{ fontSize: 12, opacity: 0.6 }}>跳过配置</button>
+        <button className="btn-outline" onClick={dismissOnboardingAction} style={{ fontSize: 12, opacity: 0.6 }}>{t('onboarding.skip')}</button>
       </div>
 
       {/* Preset modal */}
@@ -152,7 +154,7 @@ export default function OnboardingPage() {
                 {selectedPreset.tools.map(t => (
                   <span key={t} className="preset-tool-tag">{t}</span>
                 ))}
-                <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>将自动安装</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>{t('onboarding.willInstall')}</span>
               </div>
               {selectedPreset.requiredKeys.map(k => (
                 <div key={k.key} className="settings-field" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
@@ -173,9 +175,9 @@ export default function OnboardingPage() {
               )}
             </div>
             <div className="preset-footer">
-              <button className="btn-cancel" onClick={() => setSelectedPreset(null)} disabled={executing}>取消</button>
+              <button className="btn-cancel" onClick={() => setSelectedPreset(null)} disabled={executing}>{t('common.cancel')}</button>
               <button className="btn-save" onClick={executePreset} disabled={executing}>
-                {executing ? '配置中...' : '一键配置'}
+                {executing ? t('onboarding.configuring2') : t('onboarding.oneClick')}
               </button>
             </div>
           </div>

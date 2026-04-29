@@ -2,6 +2,7 @@ name: 飞书 CLI
 category: Documents
 
 description: 飞书官方开源 CLI，让 AI Agent 操作飞书的即时通讯、文档、表格、日历等
+description_en: Official open-source Feishu/Lark CLI enabling AI agents to operate messaging, docs, sheets, calendars, and more
 homepage: https://github.com/larksuite/cli
 
 install: npm install -g @larksuite/cli
@@ -40,4 +41,31 @@ detail: |
   lark task create           # 创建任务
   lark mail send             # 发送邮件
   lark --help                # 查看帮助
+  ```
+
+detail_en: |
+  ## What is Feishu CLI
+
+  Feishu CLI (Lark CLI) is the official open-source command-line tool from Feishu, enabling AI agents to directly operate the Feishu platform. It covers 11 major business domains with 200+ commands and includes 19 built-in AI Agent Skills, making it the most comprehensive Feishu automation tool available.
+
+  ## Key Features
+
+  - **Instant Messaging**: Send messages, manage group chats, search chat history
+  - **Cloud Documents**: Create and edit Feishu documents with Markdown import/export support
+  - **Bitable (Base)**: Operate multi-dimensional tables, manage fields and records
+  - **Calendar Management**: View schedules, create meetings, manage calendars
+  - **Task Management**: Create to-do tasks, update task status
+  - **Email Operations**: Send emails, search emails, manage mailboxes
+
+  ## Common Commands
+
+  ```bash
+  lark auth login            # Log in to Feishu account
+  lark im send-message       # Send message
+  lark doc create            # Create cloud document
+  lark base list             # List Bitable bases
+  lark calendar list         # View calendar events
+  lark task create           # Create task
+  lark mail send             # Send email
+  lark --help                # View help
   ```

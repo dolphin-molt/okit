@@ -2,6 +2,7 @@ name: httpie
 category: Network
 
 description: 人性化的命令行 HTTP 客户端，替代 curl，语法更简洁直观
+description_en: Human-friendly command-line HTTP client, a curl alternative with more intuitive syntax
 homepage: https://httpie.io
 
 install:
@@ -43,4 +44,30 @@ detail: |
   http https://api.example.com Authorization:Bearer-TOKEN  # 带认证头
   http --download https://example.com/file.zip  # 下载文件
   http --form POST https://example.com/upload file@photo.jpg  # 上传文件
+  ```
+
+detail_en: |
+  ## What is httpie
+
+  httpie (HTTPie) is a human-friendly command-line HTTP client designed to make interacting with HTTP services more intuitive and user-friendly. It is a modern alternative to curl with clean, natural syntax, supporting syntax highlighting, JSON support, form and file uploads, and more.
+
+  ## Key Features
+
+  - **Intuitive Syntax**: `http POST example.org name=John` is more readable and writable than curl
+  - **Auto JSON**: Automatically detects JSON responses and formats the output
+  - **Syntax Highlighting**: Colorized request and response output for easy reading
+  - **Auth Support**: Built-in Basic Auth, Bearer Token, Digest Auth, and more
+  - **Session Management**: Supports persistent sessions across requests
+  - **Download Mode**: Supports file downloads with a wget-like experience
+
+  ## Common Commands
+
+  ```bash
+  http GET https://api.example.com/users    # Send a GET request
+  http POST https://api.example.com/users name=John age=30  # Send a JSON POST
+  http PUT https://api.example.com/users/1 name=Jane  # Send a PUT request
+  http DELETE https://api.example.com/users/1  # Send a DELETE request
+  http https://api.example.com Authorization:Bearer-TOKEN  # With auth header
+  http --download https://example.com/file.zip  # Download a file
+  http --form POST https://example.com/upload file@photo.jpg  # Upload a file
   ```

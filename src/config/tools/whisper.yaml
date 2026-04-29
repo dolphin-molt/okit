@@ -2,6 +2,7 @@ name: Whisper
 category: AI Coding
 
 description: OpenAI 开源语音识别模型，支持多语言转录和翻译
+description_en: OpenAI's open-source speech recognition model supporting multilingual transcription and translation
 homepage: https://github.com/openai/whisper
 
 install: pipx install openai-whisper
@@ -35,4 +36,29 @@ detail: |
   whisper audio.mp3 --output_format srt  # 输出 SRT 字幕格式
   whisper audio.mp3 --translate        # 翻译为英文
   whisper audio.mp3 --output_dir ./out  # 指定输出目录
+  ```
+
+detail_en: |
+  ## What is Whisper
+
+  Whisper is an open-source automatic speech recognition (ASR) system by OpenAI, trained on 680,000 hours of multilingual supervised data. It supports multilingual speech transcription, speech translation, language identification, and voice activity detection, and is one of the most powerful open-source speech recognition models available.
+
+  ## Key Features
+
+  - **Multilingual transcription**: Supports speech-to-text in 99 languages
+  - **Speech translation**: Translate speech from any language into English text
+  - **Language detection**: Automatically identify the language in audio
+  - **Multiple models**: Five models from tiny to large, balancing speed and accuracy
+  - **Long audio processing**: Supports automatic segmentation for long audio files
+  - **Multi-format support**: Supports common audio formats including WAV, MP3, and MP4
+
+  ## Common Commands
+
+  ```bash
+  whisper audio.mp3                    # Transcribe an audio file
+  whisper audio.mp3 --model medium     # Use the medium model
+  whisper audio.mp3 --language Chinese # Specify the language
+  whisper audio.mp3 --output_format srt  # Output in SRT subtitle format
+  whisper audio.mp3 --translate        # Translate to English
+  whisper audio.mp3 --output_dir ./out  # Specify output directory
   ```

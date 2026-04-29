@@ -2,6 +2,7 @@ name: Git
 category: Development
 
 description: 分布式版本控制系统，用于跟踪代码变更和团队协作开发
+description_en: Distributed version control system for tracking code changes and collaborative development
 homepage: https://git-scm.com
 
 install:
@@ -43,4 +44,33 @@ detail: |
   git checkout <branch>      # 切换分支
   git log --oneline          # 查看简洁提交历史
   git diff                   # 查看未暂存的变更
+  ```
+
+detail_en: |
+  ## What is Git
+
+  Git is the most popular distributed version control system, created by Linus Torvalds. It efficiently tracks file change history, supports multi-person collaborative development, and is an indispensable foundational tool for modern software development.
+
+  ## Key Features
+
+  - **Version Tracking**: Records every code change and supports reverting to any historical version at any time
+  - **Branch Management**: Lightweight branching model supporting parallel development and feature isolation
+  - **Distributed Architecture**: Every developer has a full repository copy without depending on a central server
+  - **Merge and Rebase**: Flexible code integration strategies supporting both merge and rebase approaches
+  - **Staging Area**: Precise control over what goes into each commit through the staging area
+  - **Collaboration Ecosystem**: Deep integration with platforms like GitHub and GitLab
+
+  ## Common Commands
+
+  ```bash
+  git init                   # Initialize a repository
+  git clone <url>            # Clone a remote repository
+  git add .                  # Stage all changes
+  git commit -m "message"    # Commit changes
+  git push                   # Push to remote
+  git pull                   # Pull remote updates
+  git branch <name>          # Create a branch
+  git checkout <branch>      # Switch branches
+  git log --oneline          # View concise commit history
+  git diff                   # View unstaged changes
   ```

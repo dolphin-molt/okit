@@ -2,6 +2,7 @@ name: AWS CLI
 category: Cloud
 
 description: Amazon Web Services 官方命令行工具，管理 EC2、S3、Lambda 等云服务
+description_en: Official AWS command-line tool for managing EC2, S3, Lambda and other cloud services
 homepage: https://aws.amazon.com/cli
 
 install:
@@ -45,4 +46,30 @@ detail: |
   aws lambda invoke --function-name my-func output.json  # 调用 Lambda 函数
   aws sts get-caller-identity # 查看当前身份信息
   aws iam list-users         # 列出 IAM 用户
+  ```
+
+detail_en: |
+  ## What is AWS CLI
+
+  AWS CLI is the unified command-line tool for Amazon Web Services, providing programmatic access to all AWS services. With concise command syntax, developers can manage EC2 instances, S3 storage, Lambda functions, DynamoDB databases, and hundreds of other cloud services from the terminal. It is an essential tool for AWS cloud operations and automation.
+
+  ## Key Features
+
+  - **Unified Interface**: Manage all AWS services with a single CLI tool, no need to switch between consoles
+  - **Script Automation**: Supports Shell scripting for batch operations, ideal for CI/CD and automated operations
+  - **Multiple Profiles**: Supports switching between multiple AWS accounts and regions
+  - **JSON Output**: Structured output works seamlessly with tools like jq for data filtering
+  - **S3 File Operations**: Efficient upload, download, sync, and permission management
+  - **IAM Management**: User, role, and policy creation with access control
+
+  ## Common Commands
+
+  ```bash
+  aws configure              # Configure AWS credentials and region
+  aws s3 ls                  # List S3 buckets
+  aws s3 cp file.txt s3://bucket/  # Upload file to S3
+  aws ec2 describe-instances # List EC2 instances
+  aws lambda invoke --function-name my-func output.json  # Invoke Lambda function
+  aws sts get-caller-identity # View current identity info
+  aws iam list-users         # List IAM users
   ```

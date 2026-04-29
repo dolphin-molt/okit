@@ -3,6 +3,7 @@ category: Terminals
 type: app
 
 description: macOS 上功能强大的终端模拟器，支持分屏、搜索、自动补全等
+description_en: Powerful terminal emulator for macOS with split panes, search, auto-completion, and more
 homepage: https://iterm2.com
 downloadUrl: https://iterm2.com
 
@@ -42,4 +43,30 @@ detail: |
   Cmd+F           # 搜索终端内容
   Cmd+Shift+H     # 查看粘贴历史
   Cmd+Option+I    # 广播模式（同时向所有面板输入）
+  ```
+
+detail_en: |
+  ## What is iTerm2
+
+  iTerm2 is the most popular terminal emulator for macOS, designed as a replacement for Terminal.app. It provides rich features including split panes, search, auto-completion, history replay, password management, and powerful customization, making it the terminal of choice for macOS developers.
+
+  ## Key Features
+
+  - **Split Panes**: Supports horizontal and vertical terminal pane splitting for multitasking
+  - **Smart Search**: Supports regex search within terminal output
+  - **Auto-Completion**: Smart auto-completion based on command history
+  - **Shell Integration**: Deep integration with Shell for an enhanced command-line experience
+  - **Hotkey Window**: Quick-access terminal window via keyboard shortcut
+  - **Rich Themes**: Supports custom color schemes, background images, and transparency
+
+  ## Common Commands
+
+  ```bash
+  # iTerm2 is a GUI application, operated via keyboard shortcuts:
+  Cmd+D           # Vertical split
+  Cmd+Shift+D     # Horizontal split
+  Cmd+K           # Clear buffer
+  Cmd+F           # Search terminal content
+  Cmd+Shift+H     # View paste history
+  Cmd+Option+I    # Broadcast mode (input to all panes simultaneously)
   ```

@@ -2,6 +2,7 @@ name: watchman
 category: Development
 
 description: Facebook 出品的文件监控服务，监视文件变更并触发操作
+description_en: Facebook's file watching service that monitors file changes and triggers actions
 homepage: https://facebook.github.io/watchman
 
 install:
@@ -43,4 +44,30 @@ detail: |
   watchman watch-del ~/projects/myapp  # 停止监视目录
   watchman shutdown-server        # 关闭 watchman 服务
   watchman log                    # 查看日志
+  ```
+
+detail_en: |
+  ## What is watchman
+
+  watchman is an open-source file system monitoring service from Facebook that efficiently watches files and directories for changes and triggers corresponding actions when changes occur. It is more efficient than traditional inotify/fsevents solutions, making it suitable for large-scale project file monitoring needs.
+
+  ## Key Features
+
+  - **Efficient monitoring**: Uses OS-native APIs to efficiently monitor large numbers of file changes
+  - **Recursive watching**: Supports recursive watching of entire directory trees, automatically tracking new files
+  - **Trigger mechanism**: Automatically trigger custom commands or scripts on file changes
+  - **Subscription mode**: Supports long-lived subscriptions for real-time file change notifications
+  - **Deduplication**: Intelligently merges multiple changes within short time windows to avoid duplicate triggers
+  - **State persistence**: Supports saving and querying cursor states for file changes
+
+  ## Common Commands
+
+  ```bash
+  watchman watch ~/projects/myapp  # Start watching a directory
+  watchman watch-list              # List all watched directories
+  watchman since /path trigger-name  # Query changes since last time
+  watchman trigger ~/project -- name trigger-name -- bash build.sh  # Set up a trigger
+  watchman watch-del ~/projects/myapp  # Stop watching a directory
+  watchman shutdown-server        # Shut down the watchman service
+  watchman log                    # View logs
   ```

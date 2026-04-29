@@ -2,6 +2,7 @@ name: Gemini CLI
 category: AI Coding
 
 description: Google 的开源 AI 编程代理，基于 Gemini 模型提供代码生成和多模态输入
+description_en: Google's open-source AI coding agent powered by the Gemini model with code generation and multimodal input
 homepage: https://github.com/google-gemini/gemini-cli
 
 install: "sudo npm install -g @google/gemini-cli"
@@ -35,4 +36,26 @@ detail: |
   gemini                     # 启动交互式会话
   gemini "解释这段代码"      # 直接提问
   gemini --version           # 查看版本
+  ```
+
+detail_en: |
+  ## What is Gemini CLI
+
+  Gemini CLI is an open-source AI coding agent command-line tool from Google, based on the Gemini large language model. It supports multi-turn conversations, file context understanding, and multimodal input (including images), accessible via Google account login.
+
+  ## Key Features
+
+  - **Gemini Model Powered**: Built on Google's latest Gemini model with strong code understanding capabilities
+  - **Multimodal Input**: Supports text and image input — can recognize and analyze code in screenshots
+  - **File Context**: Automatically reads project files to understand the overall code architecture
+  - **Multi-turn Conversations**: Supports continuous dialogue to progressively complete complex development tasks
+  - **Command Execution**: Can execute shell commands and scripts in the terminal
+  - **Open Source and Free**: Open-source project, usable with a Google account
+
+  ## Common Commands
+
+  ```bash
+  gemini                     # Start an interactive session
+  gemini "explain this code"      # Ask a question directly
+  gemini --version           # Check version
   ```

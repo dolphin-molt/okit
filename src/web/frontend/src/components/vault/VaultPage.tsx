@@ -3,13 +3,17 @@ import { listVault, deleteVault, getVaultValue, syncToProject, browseDirs, check
 import { getSettings } from '../../api/settings';
 import { formatDate, formatBytes } from '../../lib/utils';
 import { useApp } from '../Layout/AppContext';
+import { useI18n } from '../../i18n';
+import CustomSelect from '../shared/CustomSelect';
 import VaultFormModal from '../shared/VaultFormModal';
+import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
 
 type ViewMode = 'keys' | 'projects';
 
 export default function VaultPage() {
   const { showToast, confirm, setConnectionStatus } = useApp();
+  const { t } = useI18n();
   const [secrets, setSecrets] = useState<VaultSecret[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('keys');
@@ -77,8 +81,8 @@ export default function VaultPage() {
   }
 
   function handleFormSaved(key: string) {
-    if (key) showToast(editKey ? '密钥已更新' : '密钥已添加');
-    else showToast('保存失败', 'error');
+    if (key) showToast(t(editKey ? 'vault.keyUpdated' : 'vault.keyAdded'));
+    else showToast(t('vault.saveFail'), 'error');
     setShowForm(false);
     loadVault();
   }
@@ -88,24 +92,24 @@ export default function VaultPage() {
     try {
       const imp = await checkKeyImpact(key);
       if (imp.projects && imp.projects.length > 0) {
-        impactHtml = `<div style="margin-top:8px">以下 ${imp.projects.length} 个项目将失去该密钥引用：<br/>${imp.projects.map((p: string) => `- ${p}`).join('<br/>')}</div>`;
+        impactHtml = `<div style="margin-top:8px">${t('vault.keyImpact', { n: imp.projects.length })}<br/>${imp.projects.map((p: string) => `- ${p}`).join('<br/>')}</div>`;
       }
     } catch {}
-    const ok = await confirm(`确定删除 <strong>${key}</strong>？此操作不可撤销。${impactHtml}`);
+    const ok = await confirm(t('vault.confirmDelete', { key: `<strong>${key}</strong>` }) + `.${impactHtml}`);
     if (!ok) return;
     try {
       await deleteVault(key, alias);
-      showToast('已删除');
+      showToast(t('vault.deleted', { key }));
       loadVault();
-    } catch { showToast('删除失败', 'error'); }
+    } catch { showToast(t('vault.deleteFail'), 'error'); }
   }
 
   async function handleCopy(key: string, alias: string) {
     try {
       const data = await getVaultValue(key, alias);
       await navigator.clipboard.writeText(data.value);
-      showToast('已复制到剪贴板');
-    } catch { showToast('复制失败', 'error'); }
+      showToast(t('vault.copySuccess'));
+    } catch { showToast(t('vault.copyFail'), 'error'); }
   }
 
   // Sync project modal
@@ -117,15 +121,15 @@ export default function VaultPage() {
       const data = await browseDirs('');
       const home = data.currentPath;
       setSyncSidebar([
-        { label: '个人目录', path: home, icon: '🏠' },
-        { label: '桌面', path: home + '/Desktop', icon: '🖥' },
-        { label: '文档', path: home + '/Documents', icon: '📄' },
-        { label: '下载', path: home + '/Downloads', icon: '📥' },
-        { label: '根目录', path: '/', icon: '💾' },
+        { label: t('vault.dirs.home'), path: home, icon: '🏠' },
+        { label: t('vault.dirs.desktop'), path: home + '/Desktop', icon: '🖥' },
+        { label: t('vault.dirs.documents'), path: home + '/Documents', icon: '📄' },
+        { label: t('vault.dirs.downloads'), path: home + '/Downloads', icon: '📥' },
+        { label: t('vault.dirs.root'), path: '/', icon: '💾' },
       ]);
       setSyncDirs(data);
       setSyncPath(data.currentPath);
-    } catch { showToast('加载目录失败', 'error'); }
+    } catch { showToast(t('vault.dirFail'), 'error'); }
   }
 
   async function browseDir(dir: string) {
@@ -133,17 +137,17 @@ export default function VaultPage() {
       const data = await browseDirs(dir);
       setSyncDirs(data);
       setSyncPath(data.currentPath);
-    } catch { showToast('加载目录失败', 'error'); }
+    } catch { showToast(t('vault.dirFail'), 'error'); }
   }
 
   async function confirmSync() {
-    if (!syncPath) { showToast('请选择目录', 'error'); return; }
+    if (!syncPath) { showToast(t('vault.selectDir'), 'error'); return; }
     try {
       const data = await syncToProject([{ key: syncKey, alias: 'default' }], syncPath);
       setShowSync(false);
-      showToast(`已写入 ${data.synced} 个密钥`);
+      showToast(t('vault.written', { n: data.synced }));
       loadVault();
-    } catch { showToast('同步失败', 'error'); }
+    } catch { showToast(t('vault.syncFail'), 'error'); }
   }
 
   async function handleExport() {
@@ -153,19 +157,19 @@ export default function VaultPage() {
       const a = document.createElement('a');
       a.href = url; a.download = 'okit-vault-export.json'; a.click();
       URL.revokeObjectURL(url);
-      showToast('导出文件已下载');
-    } catch { showToast('导出失败', 'error'); }
+      showToast(t('vault.exportDownloaded'));
+    } catch { showToast(t('vault.exportFail'), 'error'); }
   }
 
   async function handleImport(file: File) {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      if (!data.secrets || !Array.isArray(data.secrets)) { showToast('无效的导出文件', 'error'); return; }
+      if (!data.secrets || !Array.isArray(data.secrets)) { showToast(t('vault.importInvalid'), 'error'); return; }
       const result = await importVault(data);
-      showToast(`导入完成：${result.imported} 个新增，${result.skipped} 个跳过`);
+      showToast(t('vault.importDone', { added: result.imported, skipped: result.skipped }));
       loadVault();
-    } catch { showToast('文件解析失败', 'error'); }
+    } catch { showToast(t('vault.importFail'), 'error'); }
   }
 
   // Project view
@@ -219,7 +223,7 @@ export default function VaultPage() {
   }
 
   async function handleCloudPush() {
-    if (!cloudPlatform || cloudKeys.length === 0) { showToast('请选择平台和密钥', 'error'); return; }
+    if (!cloudPlatform || cloudKeys.length === 0) { showToast(t('vault.selectPlatformKey'), 'error'); return; }
     setClouding(true);
     try {
       const res = await fetch('/api/settings/sync-to-cloud', {
@@ -233,83 +237,79 @@ export default function VaultPage() {
         const ok = results.filter((r: any) => r.success).length;
         const failed = results.filter((r: any) => !r.success);
         if (failed.length === 0) {
-          showToast(`已推送 ${ok} 个密钥到 ${PLATFORM_IDS[cloudPlatform] || cloudPlatform}`);
+          showToast(t('vault.pushSuccess', { n: ok, platform: PLATFORM_IDS[cloudPlatform] || cloudPlatform }));
         } else {
           const names = failed.map((r: any) => `${r.key} (${r.error})`).join('、');
-          showToast(`${ok} 成功，${failed.length} 失败：${names}`, 'error');
+          showToast(t('vault.pushResult', { success: ok, failed: failed.length, names }), 'error');
         }
         setShowCloud(false);
         setCloudKeys([]);
       } else {
-        showToast(result.error || '推送失败', 'error');
+        showToast(result.error || t('vault.pushFail'), 'error');
       }
-    } catch (e: any) { showToast(e.message || '推送失败', 'error'); } finally { setClouding(false); }
+    } catch (e: any) { showToast(e.message || t('vault.pushFail'), 'error'); } finally { setClouding(false); }
   }
 
-  if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>加载中...</div>;
+  if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div className="vault-layout">
+    <div className="page-with-sidebar">
       {/* Sidebar */}
-      <div className="vault-sidebar">
-        <div className="vault-sidebar-section">
-          <div className="vault-sidebar-title">分组</div>
-          <div className={`vault-sidebar-item${viewMode === 'keys' && groupFilter === 'all' ? ' active' : ''}`}
-            onClick={() => { setViewMode('keys'); setGroupFilter('all'); }}>
-            全部 <span className="vault-sidebar-count">{secrets.length}</span>
-          </div>
-          {groups.map(g => (
-            <div key={g} className={`vault-sidebar-item${viewMode === 'keys' && groupFilter === g ? ' active' : ''}`}
-              onClick={() => { setViewMode('keys'); setGroupFilter(g); }}>
-              {g} <span className="vault-sidebar-count">{secrets.filter(s => s.group === g).length}</span>
-            </div>
-          ))}
-          <div className={`vault-sidebar-item${viewMode === 'keys' && groupFilter === '' ? ' active' : ''}`}
-            onClick={() => { setViewMode('keys'); setGroupFilter(''); }}>
-            未分组 <span className="vault-sidebar-count">{secrets.filter(s => !s.group).length}</span>
-          </div>
-        </div>
-        {projectMap.map.size > 0 && (
-          <div className="vault-sidebar-section">
-            <div className="vault-sidebar-title">同步项目</div>
-            {Array.from(projectMap.map.entries()).map(([path, proj]) => (
-              <div key={path} className={`vault-sidebar-item${viewMode === 'projects' && selectedProject === path ? ' active' : ''}`}
-                onClick={() => { setViewMode('projects'); setSelectedProject(path); }}>
-                {proj.name} <span className="vault-sidebar-count">{proj.keys.length}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <PageSidebar sections={[
+        {
+          title: t('common.group'),
+          items: [
+            { key: '__all__', label: t('common.all'), count: secrets.length, active: viewMode === 'keys' && groupFilter === 'all', onClick: () => { setViewMode('keys'); setGroupFilter('all'); } },
+            ...groups.map(g => ({
+              key: `g-${g}`,
+              label: g,
+              count: secrets.filter(s => s.group === g).length,
+              active: viewMode === 'keys' && groupFilter === g,
+              onClick: () => { setViewMode('keys'); setGroupFilter(g); },
+            })),
+            { key: '__none__', label: t('common.ungrouped'), count: secrets.filter(s => !s.group).length, active: viewMode === 'keys' && groupFilter === '', onClick: () => { setViewMode('keys'); setGroupFilter(''); } },
+          ],
+        },
+        ...(projectMap.map.size > 0 ? [{
+          title: t('vault.syncProjects'),
+          items: Array.from(projectMap.map.entries()).map(([path, proj]) => ({
+            key: `proj-${path}`,
+            label: proj.name,
+            count: proj.keys.length,
+            active: viewMode === 'projects' && selectedProject === path,
+            onClick: () => { setViewMode('projects'); setSelectedProject(path); },
+          })),
+        }] : []),
+      ]} />
 
       {/* Main content */}
-      <div className="vault-main">
+      <div className="page-sidebar-main">
         {/* Toolbar */}
         <div className="vault-toolbar">
           <div className="vault-toolbar-left">
             <div className="search-paper">
-              <input type="text" className="search-input" placeholder="搜索密钥..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
           <div className="vault-toolbar-right">
-            <button className="vault-toolbar-btn" onClick={openAddForm} title="添加密钥">
+            <button className="vault-toolbar-btn" onClick={openAddForm} title={t('vault.addKey')}>
               <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
-              <span>添加</span>
+              <span>{t('vault.add')}</span>
             </button>
-            <button className="vault-toolbar-btn" onClick={handleExport} title="导出">
+            <button className="vault-toolbar-btn" onClick={handleExport} title={t('common.export')}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 10v2h10v-2M7 2v8M4 7l3 3 3-3" /></svg>
             </button>
-            <button className="vault-toolbar-btn" onClick={() => importRef.current?.click()} title="导入">
+            <button className="vault-toolbar-btn" onClick={() => importRef.current?.click()} title={t('common.import')}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 4v-2h10v2M7 12V5M4 8l3-3 3 3" /></svg>
             </button>
             <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
-            <button className="vault-toolbar-btn" onClick={() => loadVault()} title="刷新">
+            <button className="vault-toolbar-btn" onClick={() => loadVault()} title={t('common.refresh')}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5" /><path d="M12 2v3h-3" /></svg>
             </button>
             {cloudPlatforms.length > 0 && (
-              <button className={`vault-toolbar-btn${showCloud ? ' vault-toolbar-btn--active' : ''}`} onClick={() => { setShowCloud(!showCloud); setCloudKeys([]); }} title="推送到云端">
+              <button className={`vault-toolbar-btn${showCloud ? ' vault-toolbar-btn--active' : ''}`} onClick={() => { setShowCloud(!showCloud); setCloudKeys([]); }} title={t('vault.pushCloud')}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 10.5A3.5 3.5 0 0 1 4.5 4a5 5 0 0 1 9.5 1.5A2.5 2.5 0 0 1 13 11H3.5" /></svg>
-                <span>推送</span>
+                <span>{t('vault.push')}</span>
               </button>
             )}
           </div>
@@ -319,16 +319,20 @@ export default function VaultPage() {
         {showCloud && viewMode === 'keys' && (
           <div className="cloud-push-bar">
             <div className="cloud-push-bar-left">
-              <span className="cloud-push-count">已选 {cloudKeys.length} 个密钥</span>
-              <button className="cloud-push-link" onClick={selectAllCloud}>全选</button>
-              <button className="cloud-push-link" onClick={clearCloudKeys}>清空</button>
+              <span className="cloud-push-count">{t('vault.selected', { n: cloudKeys.length })}</span>
+              <button className="cloud-push-link" onClick={selectAllCloud}>{t('common.selectAll')}</button>
+              <button className="cloud-push-link" onClick={clearCloudKeys}>{t('common.deselect')}</button>
             </div>
             <div className="cloud-push-bar-right">
-              <select className="cloud-push-select" value={cloudPlatform} onChange={e => setCloudPlatform(e.target.value)}>
-                {cloudPlatforms.map(id => <option key={id} value={id}>{PLATFORM_IDS[id] || id}</option>)}
-              </select>
+              <CustomSelect
+                className="cloud-push-select"
+                value={cloudPlatform}
+                onChange={setCloudPlatform}
+                placeholder={t('vault.selectPlatform')}
+                options={cloudPlatforms.map(id => ({ value: id, label: PLATFORM_IDS[id] || id }))}
+              />
               <button className="btn-save" onClick={handleCloudPush} disabled={clouding || cloudKeys.length === 0}>
-                {clouding ? '推送中...' : '确认推送'}
+                {clouding ? t('vault.pushing') : t('vault.confirmPush')}
               </button>
             </div>
           </div>
@@ -337,14 +341,14 @@ export default function VaultPage() {
         {/* Keys view */}
         {viewMode === 'keys' && (
           <div className="vault-list">
-            {filtered.length === 0 && <div className="loading" style={{ padding: 40 }}>暂无密钥</div>}
+            {filtered.length === 0 && <div className="loading" style={{ padding: 40 }}>{t('vault.noKeys')}</div>}
             {groupedFiltered.map(([group, items]) => {
               const isCollapsed = collapsedGroups.has(group);
               return (
                 <div key={group} className="vault-group">
                   <div className="vault-group-header" onClick={() => toggleGroup(group)}>
                     <span className={`vault-group-toggle${isCollapsed ? ' collapsed' : ''}`}>▼</span>
-                    <span className="vault-group-name">{group || '未分组'}</span>
+                    <span className="vault-group-name">{group || t('common.ungrouped')}</span>
                     <span className="vault-group-count">{items.length}</span>
                   </div>
                   {!isCollapsed && items.map((secret) => (
@@ -358,10 +362,10 @@ export default function VaultPage() {
                             <span className="vault-key">{secret.key}</span>
                           </div>
                           <div className="vault-card-actions">
-                            <button className="btn-icon btn-icon--copy" title="复制" onClick={() => handleCopy(secret.key, secret.aliases[0]?.alias || 'default')}>📋</button>
-                            <button className="btn-icon" title="同步到项目" onClick={() => openSyncModal(secret.key, secret.aliases[0]?.alias || 'default')}>☁️</button>
-                            <button className="btn-icon" title="编辑" onClick={() => openEditForm(secret)}>✏️</button>
-                            <button className="btn-icon btn-icon--danger" title="删除" onClick={() => handleDelete(secret.key, secret.aliases[0]?.alias || 'default')}>🗑</button>
+                            <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key, secret.aliases[0]?.alias || 'default')}>📋</button>
+                            <button className="btn-icon" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key, secret.aliases[0]?.alias || 'default')}>☁️</button>
+                            <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}>✏️</button>
+                            <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key, secret.aliases[0]?.alias || 'default')}>🗑</button>
                           </div>
                         </div>
                         <div className="vault-aliases">
@@ -421,13 +425,13 @@ export default function VaultPage() {
         <div className="auth-overlay" style={{ display: '' }}>
           <div className="sync-panel">
             <div className="progress-header">
-              <span className="progress-title">同步密钥到项目</span>
+              <span className="progress-title">{t('vault.syncProject')}</span>
               <button className="progress-close" onClick={() => setShowSync(false)}>&times;</button>
             </div>
             <div className="sync-body">
               <div className="sync-main">
                 <div className="sync-sidebar">
-                  <div className="sync-sidebar-label">快捷访问</div>
+                  <div className="sync-sidebar-label">{t('vault.quickAccess')}</div>
                   {syncSidebar.map((s, i) => (
                     <div key={i} className={`sync-sidebar-item${s.path === syncPath ? ' sync-sidebar-item--active' : ''}`}
                       onClick={() => browseDir(s.path)}>{s.icon} {s.label}</div>
@@ -442,7 +446,7 @@ export default function VaultPage() {
                     {syncDirs.dirs.map((d: any) => (
                       <div key={d.path} className="sync-dir-item" onClick={() => browseDir(d.path)}>📁 {d.name}</div>
                     ))}
-                    {syncDirs.dirs.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink-muted)' }}>没有子目录</div>}
+                    {syncDirs.dirs.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: 'var(--ink-muted)' }}>{t('vault.noSubDirs')}</div>}
                   </div>
                 </div>
               </div>
@@ -450,8 +454,8 @@ export default function VaultPage() {
             <div className="sync-footer">
               <span className="sync-selected-info">{syncPath}</span>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-cancel" onClick={() => setShowSync(false)}>取消</button>
-                <button className="btn-save" onClick={confirmSync}>确认同步</button>
+                <button className="btn-cancel" onClick={() => setShowSync(false)}>{t('common.cancel')}</button>
+                <button className="btn-save" onClick={confirmSync}>{t('vault.confirmSync')}</button>
               </div>
             </div>
           </div>

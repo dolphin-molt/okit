@@ -2,6 +2,7 @@ name: ngrok
 category: Network
 
 description: 内网穿透工具，将本地服务暴露到公网，便于调试和演示
+description_en: Reverse proxy tool that exposes local services to the public internet for debugging and demos
 homepage: https://ngrok.com
 
 install:
@@ -44,4 +45,29 @@ detail: |
   ngrok config add-authtoken   # 配置认证令牌
   ngrok config check           # 检查配置状态
   ngrok http --domain=xxx 3000 # 使用自定义域名
+  ```
+
+detail_en: |
+  ## What is ngrok
+
+  ngrok is a popular reverse proxy tool that exposes locally running services to the public internet through secure tunnels. It is ideal for debugging webhooks, demoing local projects, remote collaboration, and more — allowing external access to local services without configuring routers or public IPs.
+
+  ## Key Features
+
+  - **Quick Tunnels**: A single command `ngrok http 3000` exposes a local port to the public internet
+  - **Auto HTTPS**: Automatically provides HTTPS support for local services
+  - **Webhook Debugging**: Built-in request inspector for real-time viewing of all HTTP requests and responses
+  - **Custom Domains**: Paid plans support custom domain binding
+  - **TCP Tunnels**: Supports reverse proxy for TCP services like SSH and databases
+  - **Multi-tunnel Management**: Establish multiple tunnels simultaneously for multiple local services
+
+  ## Common Commands
+
+  ```bash
+  ngrok http 3000              # Expose local port 3000 to the public internet
+  ngrok http 8080              # Expose local port 8080 to the public internet
+  ngrok tcp 22                 # Create an SSH tunnel
+  ngrok config add-authtoken   # Configure auth token
+  ngrok config check           # Check configuration status
+  ngrok http --domain=xxx 3000 # Use a custom domain
   ```

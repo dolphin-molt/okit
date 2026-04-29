@@ -2,6 +2,7 @@ name: ImageMagick
 category: Media
 
 description: 命令行图片处理工具，支持格式转换、缩放、裁剪、加水印等
+description_en: Command-line image processing tool supporting format conversion, resizing, cropping, watermarks, and more
 homepage: https://imagemagick.org
 
 install:
@@ -43,4 +44,30 @@ detail: |
   convert input.jpg -quality 85 output.jpg  # 调整 JPEG 质量
   mogrify -resize 50% *.jpg                 # 批量缩放当前目录所有图片
   convert -size 200x100 xc:white -gravity center -annotate 0 "Watermark" output.png  # 添加文字水印
+  ```
+
+detail_en: |
+  ## What is ImageMagick
+
+  ImageMagick is a powerful command-line image processing toolkit that supports reading, writing, and processing over 200 image formats. It can perform format conversion, resizing, cropping, watermarking, color adjustment, compositing, and more, making it the top choice for batch image processing and automated workflows.
+
+  ## Key Features
+
+  - **Format Conversion**: Supports mutual conversion among 200+ formats including PNG, JPEG, GIF, TIFF, WebP, SVG, and more
+  - **Image Transforms**: Geometric operations such as scaling, cropping, rotating, flipping, and distorting
+  - **Color Adjustment**: Brightness, contrast, saturation, levels, gamma correction, and more
+  - **Text Watermarks**: Add text or image watermarks to images
+  - **Batch Processing**: Process all images in a directory via the mogrify command
+  - **Image Compositing**: Overlay, stitch, and create GIF animations from multiple images
+
+  ## Common Commands
+
+  ```bash
+  convert input.png output.jpg              # Format conversion
+  convert input.jpg -resize 800x600 output.jpg  # Resize image
+  convert input.jpg -crop 400x300+100+50 output.jpg  # Crop image
+  convert input.jpg -rotate 90 output.jpg   # Rotate image
+  convert input.jpg -quality 85 output.jpg  # Adjust JPEG quality
+  mogrify -resize 50% *.jpg                 # Batch resize all images in current directory
+  convert -size 200x100 xc:white -gravity center -annotate 0 "Watermark" output.png  # Add text watermark
   ```

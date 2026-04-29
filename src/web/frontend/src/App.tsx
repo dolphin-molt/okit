@@ -9,6 +9,8 @@ import MonitorPage from './components/monitor/MonitorPage';
 import AgentPage from './components/agent/AgentPage';
 import SettingsPage from './components/settings/SettingsPage';
 import OnboardingPage from './components/onboarding/OnboardingPage';
+import ModelsPage from './components/models/ModelsPage';
+import AgentsPage from './components/agents/AgentsPage';
 
 export default function App() {
   const { sidebarCollapsed } = useApp();
@@ -23,6 +25,8 @@ export default function App() {
             <Route path="/tools" element={<ToolsPage />} />
             <Route path="/vault" element={<VaultPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/models" element={<ModelsPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/monitor" element={<MonitorPage />} />
             <Route path="/agent" element={<AgentPage />} />

@@ -2,9 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { listConversations, getConversation, createConversation, updateConversation, deleteConversation, agentChat, agentConfirm, type Conversation, type AgentMessage } from '../../api/agent';
 import { renderMd } from '../../lib/markdown';
 import { useApp } from '../Layout/AppContext';
+import { useI18n } from '../../i18n';
 
 export default function AgentPage() {
   const { showToast, confirm, setConnectionStatus, currentConvId, setCurrentConvId } = useApp() as any;
+  const { t } = useI18n();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -108,7 +110,7 @@ export default function AgentPage() {
         saveConv([...newMessages, assistantMsg]);
       }
     } catch (e: any) {
-      if (e.name !== 'AbortError') showToast('发送失败', 'error');
+      if (e.name !== 'AbortError') showToast(t('agent.sendFail'), 'error');
     } finally {
       setStreaming(false);
     }
@@ -126,9 +128,9 @@ export default function AgentPage() {
     } else if (type === 'tool_call') {
       rawTextRef.current = '';
       const toolLabels: Record<string, string> = {
-        list_tools: '查看工具', install_tool: '安装', upgrade_tool: '升级', uninstall_tool: '卸载', open_app: '打开应用',
-        list_vault_keys: '列出密钥', get_vault_value: '查看密钥', set_vault_key: '设置密钥', delete_vault_key: '删除密钥',
-        get_system_info: '系统信息', get_disk_usage: '磁盘占用', get_logs: '操作日志', get_settings: '查看配置', update_settings: '更新配置',
+        list_tools: t('agent.suggest.tools'), install_tool: t('common.install'), upgrade_tool: t('common.upgrade'), uninstall_tool: t('common.uninstall'), open_app: t('common.open'),
+        list_vault_keys: t('agent.suggest.keys'), get_vault_value: t('agent.suggest.keys'), set_vault_key: t('common.save'), delete_vault_key: t('common.delete'),
+        get_system_info: t('agent.suggest.system'), get_disk_usage: t('monitor.disk'), get_logs: t('agent.suggest.logs'), get_settings: t('nav.settings'), update_settings: t('common.save'),
       };
       const label = toolLabels[data.tool] || data.tool;
       let argsText = '';
@@ -144,12 +146,12 @@ export default function AgentPage() {
         const next = [...prev];
         const last = next[next.length - 1];
         if (last && (last as any).props?.className === 'agent-tool-call') {
-          let resultText = '完成';
+          let resultText = t('agent.completed');
           try {
             const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-            if (Array.isArray(parsed)) resultText = parsed.slice(0, 3).map((i: any) => i.name || i.key || JSON.stringify(i)).join(', ') + (parsed.length > 3 ? ` ...等${parsed.length}项` : '');
-            else if (parsed?.error) resultText = '错误: ' + parsed.error;
-            else if (parsed?.success) resultText = '成功';
+            if (Array.isArray(parsed)) resultText = parsed.slice(0, 3).map((i: any) => i.name || i.key || JSON.stringify(i)).join(', ') + (parsed.length > 3 ? ` ...${parsed.length}` : '');
+            else if (parsed?.error) resultText = t('common.failed') + ': ' + parsed.error;
+            else if (parsed?.success) resultText = t('common.success');
             else resultText = JSON.stringify(parsed).substring(0, 100);
           } catch { resultText = String(data.result).substring(0, 100); }
           next[next.length - 1] = <div key={next.length - 1} className="agent-tool-call agent-tool-done"><span className="agent-tool-name">{(last.props as any).children[0].props.children}</span><span className="agent-tool-args">{(last.props as any).children[1].props.children}</span><div className="agent-tool-result">{resultText}</div></div>;
@@ -162,13 +164,13 @@ export default function AgentPage() {
           <div className="agent-confirm-msg">{data.action}: <code>{data.target}</code></div>
           {data.reason && <div className="agent-confirm-reason">{data.reason}</div>}
           <div className="agent-confirm-actions">
-            <button className="agent-confirm-yes" onClick={() => handleConfirm(true, prev.length)}>确认</button>
-            <button className="agent-confirm-no" onClick={() => handleConfirm(false, prev.length)}>取消</button>
+            <button className="agent-confirm-yes" onClick={() => handleConfirm(true, prev.length)}>{t('common.confirm')}</button>
+            <button className="agent-confirm-no" onClick={() => handleConfirm(false, prev.length)}>{t('common.cancel')}</button>
           </div>
         </div>
       ]);
     } else if (type === 'error') {
-      setStreamingBody(prev => [...prev, <div key={prev.length} className="ai-error">{data.message || '出错了'}</div>]);
+      setStreamingBody(prev => [...prev, <div key={prev.length} className="ai-error">{data.message || t('agent.error')}</div>]);
     }
   }
 
@@ -177,7 +179,7 @@ export default function AgentPage() {
       await agentConfirm(sessionIdRef.current || '', approved);
       setStreamingBody(prev => {
         const next = [...prev];
-        next[idx] = <div key={idx} className={approved ? 'agent-deleted' : 'agent-confirm-rejected'}>{approved ? '用户已确认' : '用户已拒绝'}</div>;
+        next[idx] = <div key={idx} className={approved ? 'agent-deleted' : 'agent-confirm-rejected'}>{approved ? t('agent.confirmed') : t('agent.rejected')}</div>;
         return next;
       });
     } catch {}
@@ -203,12 +205,12 @@ export default function AgentPage() {
                 <circle cx="11.5" cy="9" r="0.8" fill="currentColor" />
               </svg>
             </div>
-            <p>你好！我是 OKIT 智能助手，可以帮你管理开发工具、密钥和系统资源。</p>
+            <p>{t('agent.welcome')}</p>
             <div className="agent-suggestions">
-              <button className="agent-suggestion" onClick={() => setInput('查看我的工具安装状态')}>查看工具状态</button>
-              <button className="agent-suggestion" onClick={() => setInput('查看系统资源使用情况')}>查看系统资源</button>
-              <button className="agent-suggestion" onClick={() => setInput('列出所有密钥')}>列出密钥</button>
-              <button className="agent-suggestion" onClick={() => setInput('查看最近的操作日志')}>查看日志</button>
+              <button className="agent-suggestion" onClick={() => setInput('查看我的工具安装状态')}>{t('agent.suggest.tools')}</button>
+              <button className="agent-suggestion" onClick={() => setInput('查看系统资源使用情况')}>{t('agent.suggest.system')}</button>
+              <button className="agent-suggestion" onClick={() => setInput('列出所有密钥')}>{t('agent.suggest.keys')}</button>
+              <button className="agent-suggestion" onClick={() => setInput('查看最近的操作日志')}>{t('agent.suggest.logs')}</button>
             </div>
           </div>
         )}
@@ -243,7 +245,7 @@ export default function AgentPage() {
           <textarea
             ref={inputRef}
             className="agent-input"
-            placeholder="给 OKIT 助手发消息..."
+            placeholder={t('agent.placeholder')}
             rows={1}
             value={input}
             onChange={e => { setInput(e.target.value); autoResize(); }}

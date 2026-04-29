@@ -2,6 +2,7 @@ name: Google Cloud CLI
 category: Cloud
 
 description: Google Cloud Platform 官方命令行工具，管理 GCE、GCS、GKE 等服务
+description_en: Google Cloud Platform official CLI for managing GCE, GCS, GKE, and other GCP services
 homepage: https://cloud.google.com/cli
 
 install:
@@ -46,4 +47,31 @@ detail: |
   gcloud functions deploy my-func --trigger-http  # 部署云函数
   gcloud app deploy            # 部署 App Engine 应用
   gcloud services enable compute.googleapis.com  # 启用 API 服务
+  ```
+
+detail_en: |
+  ## What is Google Cloud CLI
+
+  Google Cloud CLI (gcloud) is the unified command-line tool for Google Cloud Platform, providing programmatic access to all GCP services. It enables managing Compute Engine VMs, Cloud Storage buckets, GKE clusters, Cloud Functions, and hundreds of other cloud services directly from the terminal.
+
+  ## Key Features
+
+  - **Unified Management**: One CLI tool manages all GCP services — compute, storage, networking, AI, and more
+  - **Project Switching**: Quickly switch projects and regions via `gcloud config set project`
+  - **IAM Management**: Manage service accounts, roles, and permission policies
+  - **Container Orchestration**: Deep integration with GKE for managing Kubernetes clusters and workloads
+  - **Serverless Deployment**: Deploy and manage Cloud Functions and Cloud Run services
+  - **Script Automation**: Supports `--format=json` and other output formats for easy scripting
+
+  ## Common Commands
+
+  ```bash
+  gcloud auth login            # Login to Google account
+  gcloud config set project my-project  # Set current project
+  gcloud compute instances list  # List VM instances
+  gcloud storage ls            # List Cloud Storage buckets
+  gcloud container clusters list  # List GKE clusters
+  gcloud functions deploy my-func --trigger-http  # Deploy a cloud function
+  gcloud app deploy            # Deploy App Engine application
+  gcloud services enable compute.googleapis.com  # Enable API services
   ```

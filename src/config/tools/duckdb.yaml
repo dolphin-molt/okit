@@ -2,6 +2,7 @@ name: DuckDB
 category: Data
 
 description: 高性能内嵌式分析数据库，专为 OLAP 查询和大数据分析设计
+description_en: High-performance embedded analytical database designed for OLAP queries and big data analysis
 homepage: https://duckdb.org
 
 install:
@@ -41,4 +42,28 @@ detail: |
   duckdb -c "SELECT * FROM read_csv('data.csv')"  # 直接查询 CSV 文件
   duckdb -c "SELECT * FROM read_parquet('data.parquet')"  # 查询 Parquet 文件
   duckdb -c "COPY (SELECT * FROM t) TO 'output.parquet' (FORMAT PARQUET)"  # 导出数据
+  ```
+
+detail_en: |
+  ## What is DuckDB
+
+  DuckDB is a high-performance embedded analytical database designed for OLAP (Online Analytical Processing) workloads. It features a SQLite-like embedded architecture but is deeply optimized for analytical queries, supporting fast aggregation, window functions, and complex SQL on large-scale data. It is an ideal choice for data analysis and processing.
+
+  ## Key Features
+
+  - **Embedded Architecture**: No standalone server process needed, embeds directly into applications
+  - **Columnar Storage**: Columnar storage engine delivers excellent analytical query performance
+  - **SQL Compatible**: Supports full SQL syntax including window functions, CTEs, JOINs, and more
+  - **Multi-format Support**: Query Parquet, CSV, and JSON files directly without importing
+  - **Python Integration**: Seamless conversion to/from Pandas DataFrames, a pandas alternative
+  - **Zero Configuration**: No installation or setup required, works out of the box
+
+  ## Common Commands
+
+  ```bash
+  duckdb                              # Start interactive SQL shell
+  duckdb mydb.duckdb                  # Open a specific database file
+  duckdb -c "SELECT * FROM read_csv('data.csv')"  # Query CSV file directly
+  duckdb -c "SELECT * FROM read_parquet('data.parquet')"  # Query Parquet file
+  duckdb -c "COPY (SELECT * FROM t) TO 'output.parquet' (FORMAT PARQUET)"  # Export data
   ```

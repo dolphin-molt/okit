@@ -3,6 +3,7 @@ category: Network
 type: app
 
 description: iOS/macOS 平台的网络代理客户端，支持 SS、VMess、Trojan 等多种协议
+description_en: Network proxy client for iOS/macOS supporting SS, VMess, Trojan and more
 homepage: https://apps.apple.com/app/shadowrocket/id6606638066
 downloadUrl: https://apps.apple.com/app/shadowrocket/id6606638066
 
@@ -36,3 +37,22 @@ detail: |
   ## 使用方式
 
   Shadowrocket 为 App Store 应用。安装后打开，添加服务器节点或导入订阅链接即可使用。需要通过 mas（Mac App Store CLI）进行安装。
+
+detail_en: |
+  ## What is Shadowrocket
+
+  Shadowrocket is a highly acclaimed network proxy client for iOS/macOS, supporting multiple proxy protocols including Shadowsocks, VMess, VLESS, Trojan, and Hysteria. It provides advanced features such as rule-based routing, URL rewriting, and script injection, making it a popular tool for developers and privacy-conscious users.
+
+  ## Key Features
+
+  - **Multi-protocol support**: SS, VMess, VLESS, Trojan, Hysteria2, TUIC and other mainstream protocols
+  - **Rule-based routing**: Smart routing rules based on domain, IP, and geographic location
+  - **URL rewriting**: Supports URL Rewrite, Header Rewrite, Map Local, and more
+  - **Scripting**: JavaScript scripts for request/response processing
+  - **MitM decryption**: HTTPS decryption for debugging and analysis
+  - **Subscription management**: Auto-update nodes via subscription links
+  - **Global/Rule mode**: Flexible proxy mode switching
+
+  ## Usage
+
+  Shadowrocket is an App Store application. After installation, open it and add server nodes or import subscription links to start using. Requires mas (Mac App Store CLI) for installation.

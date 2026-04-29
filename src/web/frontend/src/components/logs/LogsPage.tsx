@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { getLogs } from '../../api/logs';
 import { useApp } from '../Layout/AppContext';
-
-const ACTION_LABELS: Record<string, string> = { install: '安装', upgrade: '升级', uninstall: '卸载', auth: '授权', open: '打开' };
+import { useI18n } from '../../i18n';
 
 export default function LogsPage() {
   const { setConnectionStatus } = useApp();
+  const { t } = useI18n();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  const actionLabels: Record<string, string> = {
+    install: t('logs.actionInstall'),
+    upgrade: t('logs.actionUpgrade'),
+    uninstall: t('logs.actionUninstall'),
+    auth: t('logs.actionAuth'),
+    open: t('logs.actionOpen'),
+  };
 
   useEffect(() => { loadLogs(); }, []);
 
@@ -43,24 +51,24 @@ export default function LogsPage() {
     return s.length > n ? s.slice(0, n) + '...' : s;
   }
 
-  if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>加载中...</div>;
+  if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
     <div className="log-table-wrap">
       <table className="log-table">
         <thead>
           <tr>
-            <th className="log-th-status">状态</th>
-            <th className="log-th-name">工具</th>
-            <th className="log-th-action">操作</th>
-            <th className="log-th-time">时间</th>
-            <th className="log-th-duration">耗时</th>
-            <th className="log-th-output">详情</th>
+            <th className="log-th-status">{t('logs.status')}</th>
+            <th className="log-th-name">{t('logs.tool')}</th>
+            <th className="log-th-action">{t('logs.action')}</th>
+            <th className="log-th-time">{t('logs.time')}</th>
+            <th className="log-th-duration">{t('logs.duration')}</th>
+            <th className="log-th-output">{t('logs.detail')}</th>
           </tr>
         </thead>
         <tbody>
           {logs.length === 0 ? (
-            <tr><td colSpan={6} className="log-empty">暂无操作记录</td></tr>
+            <tr><td colSpan={6} className="log-empty">{t('logs.noRecords')}</td></tr>
           ) : logs.map((log, i) => {
             const outputText = log.output || log.message || '';
             const command = log.command || '';
@@ -74,7 +82,7 @@ export default function LogsPage() {
                   </td>
                   <td className="log-td-name">{log.name}</td>
                   <td className="log-td-action">
-                    <span className={`log-action-tag log-action-${log.action}`}>{ACTION_LABELS[log.action] || log.action}</span>
+                    <span className={`log-action-tag log-action-${log.action}`}>{actionLabels[log.action] || log.action}</span>
                   </td>
                   <td className="log-td-time">{formatTime(log.timestamp)}</td>
                   <td className="log-td-duration">{formatDuration(log.duration)}</td>
@@ -93,13 +101,13 @@ export default function LogsPage() {
                       <div className="log-detail-content">
                         {command && (
                           <div className="log-detail-section">
-                            <div className="log-detail-label">命令</div>
+                            <div className="log-detail-label">{t('logs.command')}</div>
                             <code className="log-detail-code">{command}</code>
                           </div>
                         )}
                         {outputText && (
                           <div className="log-detail-section">
-                            <div className="log-detail-label">输出</div>
+                            <div className="log-detail-label">{t('logs.output')}</div>
                             <pre className="log-detail-pre">{outputText}</pre>
                           </div>
                         )}

@@ -2,6 +2,7 @@ name: uv (uvx)
 category: Development
 
 description: 极速 Python 包管理器和运行时工具，替代 pip、virtualenv、pipx
+description_en: Ultra-fast Python package manager and runtime tool, replacing pip, virtualenv, and pipx
 homepage: https://docs.astral.sh/uv
 
 install:
@@ -42,4 +43,30 @@ detail: |
   uv pip compile pyproject.toml -o requirements.txt  # 编译依赖
   uv python install 3.12          # 安装指定 Python 版本
   uv init                         # 初始化新项目
+  ```
+
+detail_en: |
+  ## What is uv
+
+  uv is an ultra-fast Python package manager and runtime tool developed by Astral (the team behind Ruff), designed to replace multiple Python tools including pip, virtualenv, and pipx. Written in Rust, it is 10-100x faster than traditional Python package managers, providing unified package management, virtual environment management, and tool execution capabilities.
+
+  ## Key Features
+
+  - **Ultra-fast installation**: Written in Rust, 10-100x faster than pip for package installation
+  - **Unified toolchain**: Replaces pip, virtualenv, pipx, and other tools
+  - **uvx execution**: Run Python CLI tools directly via uvx without pre-installing them
+  - **Project management**: Built-in project dependency management with lockfile support
+  - **Python version management**: Install and manage multiple Python versions
+  - **Global cache**: Share download cache across projects, saving disk space
+
+  ## Common Commands
+
+  ```bash
+  uv pip install <package>        # Install a package (ultra-fast)
+  uv pip install -r requirements.txt  # Install dependencies from file
+  uv venv                         # Create a virtual environment
+  uvx <tool>                      # Run a Python CLI tool directly
+  uv pip compile pyproject.toml -o requirements.txt  # Compile dependencies
+  uv python install 3.12          # Install a specific Python version
+  uv init                         # Initialize a new project
   ```

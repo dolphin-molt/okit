@@ -2,6 +2,7 @@ name: Jupyter
 category: Data
 
 description: 交互式数据分析和可视化笔记本环境，支持 Python、R 等语言
+description_en: Interactive data analysis and visualization notebook environment supporting Python, R, and more
 homepage: https://jupyter.org
 
 install: pipx install --include-deps jupyter
@@ -35,4 +36,29 @@ detail: |
   jupyter nbconvert --to pdf notebook.ipynb   # 转换为 PDF
   jupyter kernelspec list           # 列出已安装的内核
   jupyter notebook list             # 列出运行中的笔记本服务器
+  ```
+
+detail_en: |
+  ## What is Jupyter
+
+  Jupyter is an open-source interactive computing platform that provides a web-based notebook environment, making data analysis, visualization, and machine learning development more intuitive. It supports over 40 programming languages including Python, R, and Julia, and is one of the most commonly used tools by data scientists and researchers.
+
+  ## Key Features
+
+  - **Interactive Notebooks**: Code, documentation, and visualization in one place with real-time execution and editing
+  - **Multi-language Kernels**: Supports 40+ programming languages including Python, R, and Julia via different kernels
+  - **Rich Visualization**: Embedded chart libraries like Matplotlib and Plotly for direct data visualization
+  - **Markdown Support**: Write documentation with Markdown, mixing code and narrative text
+  - **Extension Ecosystem**: Rich extension plugins for code formatting, variable inspectors, and more
+  - **Collaboration and Sharing**: Export to HTML, PDF, LaTeX, and other formats for sharing
+
+  ## Common Commands
+
+  ```bash
+  jupyter notebook                  # Start notebook server
+  jupyter lab                       # Start JupyterLab environment
+  jupyter nbconvert --to html notebook.ipynb  # Convert to HTML
+  jupyter nbconvert --to pdf notebook.ipynb   # Convert to PDF
+  jupyter kernelspec list           # List installed kernels
+  jupyter notebook list             # List running notebook servers
   ```

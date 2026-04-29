@@ -2,6 +2,7 @@ name: Ollama
 category: AI Coding
 
 description: 本地大模型运行平台，支持拉取和运行 llama3、qwen2 等开源模型
+description_en: Local LLM runtime platform for pulling and running open-source models like llama3 and qwen2
 homepage: https://ollama.com
 
 install:
@@ -45,4 +46,30 @@ detail: |
   ollama rm llama3             # 删除模型
   ollama create mymodel -f Modelfile  # 从 Modelfile 创建自定义模型
   ollama serve                 # 启动 API 服务
+  ```
+
+detail_en: |
+  ## What is Ollama
+
+  Ollama is a local large language model runtime platform that lets you run open-source LLMs like llama3, qwen2, and codellama on your local machine with a single command. It requires no API key, runs entirely locally, and keeps data on your machine — making it ideal for privacy-sensitive scenarios and offline environments.
+
+  ## Key Features
+
+  - **One-command Models**: `ollama run llama3` starts a model conversation without complex configuration
+  - **Model Library**: Rich collection of open-source models covering conversation, code, embeddings, and more
+  - **REST API**: Listens on localhost:11434 by default, providing an OpenAI-compatible API interface
+  - **Modelfile**: Supports custom model parameters, system prompts, and quantization settings
+  - **Multimodal Support**: Supports visual language models like LLaVA for image input
+  - **Model Management**: Pull, delete, and list local models
+
+  ## Common Commands
+
+  ```bash
+  ollama pull llama3           # Download the llama3 model
+  ollama run llama3            # Start a llama3 conversation
+  ollama run qwen2             # Start a qwen2 conversation
+  ollama list                  # List downloaded models
+  ollama rm llama3             # Delete a model
+  ollama create mymodel -f Modelfile  # Create a custom model from a Modelfile
+  ollama serve                 # Start the API server
   ```

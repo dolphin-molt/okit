@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Module from 'module';
-import fse from 'fs-extra';
+import os from 'os';
+
+vi.spyOn(os, 'homedir').mockReturnValue('/tmp/test-okit-cloud-platform');
+
+const mockFs = vi.hoisted(() => ({
+  readJson: vi.fn(),
+  pathExists: vi.fn(),
+  ensureDir: vi.fn(),
+  writeJson: vi.fn(),
+  mkdirSync: vi.fn(),
+  appendFileSync: vi.fn(),
+}));
+
+vi.mock('fs-extra', () => ({ default: mockFs, ...mockFs }));
 
 const mockStore = { get: vi.fn(), getAliases: vi.fn(), exportAll: vi.fn(), set: vi.fn() };
 function MockVaultStore() { return mockStore; }
@@ -15,17 +28,11 @@ const mockSupabaseAdapter = {
 
 const origRequire = Module.prototype.require;
 Module.prototype.require = function (id) {
+  if (id === 'fs-extra') return mockFs;
   if (id === '../../vault/store') return { VaultStore: MockVaultStore };
   if (id === './platform-adapters/supabase') return mockSupabaseAdapter;
   return origRequire.apply(this, arguments);
 };
-
-const readJsonSpy = vi.spyOn(fse, 'readJson');
-vi.spyOn(fse, 'pathExists').mockResolvedValue(true);
-vi.spyOn(fse, 'ensureDir').mockResolvedValue(undefined);
-vi.spyOn(fse, 'writeJson').mockResolvedValue(undefined);
-vi.spyOn(fse, 'mkdirSync').mockReturnValue(undefined);
-vi.spyOn(fse, 'appendFileSync').mockReturnValue(undefined);
 
 const { testConnection, pushSecrets } = await import('../src/web/api/cloud-sync-core.js');
 
@@ -48,17 +55,22 @@ const SAMPLE_SECRETS = [
 
 beforeEach(() => {
   vi.clearAllMocks();
-  readJsonSpy.mockResolvedValue({});
+  mockFs.pathExists.mockResolvedValue(true);
+  mockFs.readJson.mockResolvedValue({});
+  mockFs.ensureDir.mockResolvedValue(undefined);
+  mockFs.writeJson.mockResolvedValue(undefined);
+  mockFs.mkdirSync.mockReturnValue(undefined);
+  mockFs.appendFileSync.mockReturnValue(undefined);
 });
 
 describe('testConnection', () => {
   it('throws when platform not configured', async () => {
-    readJsonSpy.mockResolvedValue({ sync: { platforms: {} } });
+    mockFs.readJson.mockResolvedValue({ sync: { platforms: {} } });
     await expect(testConnection('supabase')).rejects.toThrow('平台 supabase 未配置');
   });
 
   it('calls adapter testConnection with resolved config', async () => {
-    readJsonSpy.mockResolvedValue(VALID_CONFIG);
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.get.mockResolvedValue('resolved-token');
     mockStore.getAliases.mockResolvedValue([]);
     mockSupabaseAdapter.testConnection.mockResolvedValue('连接成功');
@@ -73,14 +85,14 @@ describe('testConnection', () => {
 
 describe('pushSecrets', () => {
   it('throws when platform not enabled', async () => {
-    readJsonSpy.mockResolvedValue({
+    mockFs.readJson.mockResolvedValue({
       sync: { platforms: { supabase: { enabled: false } } },
     });
     await expect(pushSecrets('supabase', null)).rejects.toThrow('平台 supabase 未启用');
   });
 
   it('pushes all secrets when keys is null', async () => {
-    readJsonSpy.mockResolvedValue(VALID_CONFIG);
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
     mockStore.get.mockResolvedValue('resolved');
     mockStore.getAliases.mockResolvedValue([]);
@@ -98,7 +110,7 @@ describe('pushSecrets', () => {
   });
 
   it('filters secrets by keys when provided', async () => {
-    readJsonSpy.mockResolvedValue(VALID_CONFIG);
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
     mockStore.get.mockResolvedValue('resolved');
     mockStore.getAliases.mockResolvedValue([]);

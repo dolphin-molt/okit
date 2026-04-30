@@ -27,6 +27,8 @@ export interface AgentInfo {
   id: string;
   name: string;
   supportedTypes: string[];
+  canLaunch?: boolean;
+  installed?: boolean;
   current: { providerId: string; providerName: string; modelId: string } | null;
   compatibleProviders: { id: string; name: string; type: string; models: ProviderModel[] }[];
 }
@@ -61,6 +63,13 @@ export async function switchProvider(agentId: string, providerId: string, modelI
   return api('/api/providers/switch', {
     method: 'POST',
     body: JSON.stringify({ agentId, providerId, modelId }),
+  });
+}
+
+export async function launchAgent(agentId: string): Promise<{ success: boolean; command: string }> {
+  return api('/api/providers/launch', {
+    method: 'POST',
+    body: JSON.stringify({ agentId }),
   });
 }
 

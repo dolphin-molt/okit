@@ -133,14 +133,21 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
           </aside>
           <div className="vault-picker-main">
             <div className="vault-picker-search">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input
-                className="vault-picker-search-input"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={t('vaultPicker.search')}
-                autoFocus
-              />
+              <div className="vault-picker-search-field">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input
+                  className="vault-picker-search-input"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={t('vaultPicker.search')}
+                  autoFocus
+                />
+              </div>
+              {!showCreate && (
+                <button className="vault-picker-create-btn vault-picker-create-btn--toolbar" onClick={() => setShowCreate(true)}>
+                  {t('vaultPicker.newKey')}
+                </button>
+              )}
             </div>
             <div className="vault-picker-list">
               {filtered.length === 0 && !showCreate && (
@@ -162,57 +169,68 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                 </div>
               ))}
             </div>
-            {!showCreate ? (
-              <button className="vault-picker-create-btn" onClick={() => setShowCreate(true)}>
-                {t('vaultPicker.newKey')}
-              </button>
-            ) : (
+            {showCreate && (
               <div className="vault-picker-create-form">
-                <input
-                  className="vault-input vault-picker-create-input"
-                  placeholder={t('vaultPicker.keyPlaceholder')}
-                  value={newKey}
-                  onChange={e => setNewKey(e.target.value)}
-                  autoFocus
-                />
-                <div className="vault-picker-create-row">
+                <label className="vault-picker-create-field vault-picker-create-field--span">
+                  <span className="vault-picker-create-label">{t('vaultPicker.keyLabel')}</span>
                   <input
                     className="vault-input vault-picker-create-input"
-                    placeholder={t('common.alias')}
-                    value={newAlias}
-                    onChange={e => setNewAlias(e.target.value)}
+                    placeholder={t('vaultPicker.keyPlaceholder')}
+                    value={newKey}
+                    onChange={e => setNewKey(e.target.value)}
+                    autoFocus
                   />
-                  <CustomSelect
-                    className="vault-picker-create-select"
-                    value={newGroup}
-                    onChange={v => setNewGroup(v)}
-                    placeholder={t('common.selectGroup')}
-                    options={[
-                      ...groupNames.map(g => ({ value: g, label: g })),
-                      { value: '__custom__', label: t('common.manualInput') },
-                    ]}
-                  />
+                </label>
+                <div className="vault-picker-create-row">
+                  <label className="vault-picker-create-field">
+                    <span className="vault-picker-create-label">{t('common.alias')}</span>
+                    <input
+                      className="vault-input vault-picker-create-input"
+                      placeholder="default"
+                      value={newAlias}
+                      onChange={e => setNewAlias(e.target.value)}
+                    />
+                  </label>
+                  <label className="vault-picker-create-field">
+                    <span className="vault-picker-create-label">{t('common.selectGroup')}</span>
+                    <CustomSelect
+                      className="vault-picker-create-select"
+                      value={newGroup}
+                      onChange={v => setNewGroup(v)}
+                      placeholder={t('common.selectGroup')}
+                      options={[
+                        { value: '__custom__', label: t('common.manualInput') },
+                        ...groupNames.map(g => ({ value: g, label: g })),
+                      ]}
+                    />
+                  </label>
                 </div>
                 {newGroup === '__custom__' && (
-                  <input
-                    className="vault-input vault-picker-create-input"
-                    placeholder={t('common.enterGroup')}
-                    value={newGroupCustom}
-                    onChange={e => setNewGroupCustom(e.target.value)}
-                  />
+                  <label className="vault-picker-create-field vault-picker-create-field--span">
+                    <span className="vault-picker-create-label">{t('common.enterGroup')}</span>
+                    <input
+                      className="vault-input vault-picker-create-input"
+                      placeholder={t('common.enterGroup')}
+                      value={newGroupCustom}
+                      onChange={e => setNewGroupCustom(e.target.value)}
+                    />
+                  </label>
                 )}
-                <div className="vault-picker-create-value">
-                  <input
-                    className="vault-input vault-picker-create-input"
-                    type={showValue ? 'text' : 'password'}
-                    placeholder={t('vaultPicker.valuePlaceholder')}
-                    value={newValue}
-                    onChange={e => { setNewValue(e.target.value); setTestResult(null); }}
-                  />
-                  <button type="button" className="vault-picker-create-vis" onClick={() => setShowValue(!showValue)}>
-                    {showValue ? t('common.hide') : t('common.show')}
-                  </button>
-                </div>
+                <label className="vault-picker-create-field vault-picker-create-field--span">
+                  <span className="vault-picker-create-label">{t('vaultPicker.valueLabel')}</span>
+                  <div className="vault-picker-create-value">
+                    <input
+                      className="vault-input vault-picker-create-input"
+                      type={showValue ? 'text' : 'password'}
+                      placeholder={t('vaultPicker.valuePlaceholder')}
+                      value={newValue}
+                      onChange={e => { setNewValue(e.target.value); setTestResult(null); }}
+                    />
+                    <button type="button" className="vault-picker-create-vis" onClick={() => setShowValue(!showValue)}>
+                      {showValue ? t('common.hide') : t('common.show')}
+                    </button>
+                  </div>
+                </label>
                 {testEndpoint && newValue.trim() && (
                   <div className="vault-picker-test-row">
                     <button

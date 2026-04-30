@@ -15,6 +15,8 @@ export interface PlatformConfig {
 export interface Settings {
   sync: {
     autoSync: boolean;
+    syncPlatform?: string;
+    password?: string;
     platforms: Record<string, PlatformConfig>;
   };
   agent: AgentConfig;
@@ -24,7 +26,10 @@ export async function getSettings(): Promise<Settings> {
   return api('/api/settings');
 }
 
-export async function updateSettings(data: Partial<Settings>): Promise<{ ok: boolean }> {
+export async function updateSettings(data: {
+  sync?: Partial<Settings['sync']>;
+  agent?: Partial<AgentConfig>;
+}): Promise<{ ok: boolean }> {
   return api('/api/settings', {
     method: 'POST',
     body: JSON.stringify(data),

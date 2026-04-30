@@ -105,6 +105,11 @@ export default function ToolsPage() {
     });
   }
 
+  const installedCount = summary.installed || tools.filter(tool => tool.status === 'installed').length;
+  const totalCount = summary.total || tools.length;
+  const unauthorizedCount = summary.unauthorized || tools.filter(tool => (tool as any).authStatus === 'unauthorized' || (tool as any).authStatus === 'partial').length;
+  const appCount = tools.filter(tool => (tool as any).type === 'app').length;
+
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('tools.checking')}</div>;
 
   // ─── Detail view ───
@@ -235,30 +240,30 @@ export default function ToolsPage() {
         </div>
       </nav>
 
-      <div className="tools-main">
-        <header className="page-header">
+      <div className="tools-main access-workspace tools-workspace">
+        <header className="access-hero">
+          <div className="access-hero-copy">
+            <h1>{t('tools.title')}</h1>
+            <p>{t('tools.lede')}</p>
+          </div>
+          <div className="access-hero-stats" aria-label="Tools summary">
+            <div><span>{t('common.installed')}</span><strong>{installedCount}</strong></div>
+            <div><span>{t('common.total')}</span><strong>{totalCount}</strong></div>
+            <div><span>{t('common.unauthorized')}</span><strong>{unauthorizedCount}</strong></div>
+            <div><span>{t('tools.desktop')}</span><strong>{appCount}</strong></div>
+          </div>
+        </header>
+
+        <div className="access-command-bar tools-command-bar">
+          <div>
+            <span>{t('tools.filtered')}</span>
+            <strong>{filtered.length}</strong>
+          </div>
           <button className="btn-refresh" onClick={() => { setLoading(true); loadTools(); }} title={t('common.refresh')}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5" /><path d="M12 2v3h-3" />
             </svg>
           </button>
-        </header>
-
-        <div className="summary">
-          <div className="summary-card">
-            <span className="summary-num">{summary.installed || 0}</span>
-            <span className="summary-label">{t('common.installed')}</span>
-          </div>
-          <div className="summary-card">
-            <span className="summary-num">{summary.total || tools.length}</span>
-            <span className="summary-label">{t('common.total')}</span>
-          </div>
-          {(summary.unauthorized || 0) > 0 && (
-            <div className="summary-card">
-              <span className="summary-num">{summary.unauthorized}</span>
-              <span className="summary-label">{t('common.unauthorized')}</span>
-            </div>
-          )}
         </div>
 
         <div className="toolbar">

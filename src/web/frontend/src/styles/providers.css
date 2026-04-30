@@ -1255,3 +1255,386 @@
   font-size: 11px;
   padding: 4px 12px;
 }
+
+/* ─── Access Layer Pages: Models / Agents / Auth ─── */
+.access-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.access-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
+  gap: 18px;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(239, 255, 97, 0.08), transparent 42%),
+    radial-gradient(circle at 90% 8%, rgba(56, 189, 248, 0.12), transparent 32%),
+    rgba(18, 23, 21, 0.82);
+  color: var(--ink);
+}
+
+.access-hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 150px;
+}
+
+.access-hero h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(38px, 5.5vw, 72px);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.access-hero p {
+  max-width: 740px;
+  margin-top: 16px;
+  color: rgba(245, 243, 235, 0.58);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.access-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.access-hero-stats > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 86px;
+  border: 1px solid rgba(245, 243, 235, 0.1);
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(7, 8, 7, 0.34);
+}
+
+.access-hero-stats span,
+.access-command-bar span {
+  color: rgba(245, 243, 235, 0.48);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.access-hero-stats strong,
+.access-command-bar strong {
+  color: var(--ink);
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.access-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(18, 23, 21, 0.82);
+}
+
+.access-command-bar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 8px;
+}
+
+.models-workspace .provider-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.models-workspace .provider-card,
+.agents-workspace .agent-card,
+.auth-workspace .auth-card,
+.picker-panel,
+.modal-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.04), transparent 36%),
+    rgba(18, 23, 21, 0.82);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.models-workspace .provider-card:hover,
+.agents-workspace .agent-card:hover,
+.auth-workspace .auth-card:hover {
+  border-color: rgba(239, 255, 97, 0.22);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+  transform: translateY(-1px);
+}
+
+.models-workspace .provider-card-header,
+.models-workspace .provider-card-meta,
+.models-workspace .provider-card-usage,
+.picker-header,
+.picker-sidebar,
+.picker-content-header,
+.modal-panel-header,
+.modal-actions {
+  border-color: rgba(245, 243, 235, 0.08);
+}
+
+.models-workspace .provider-card-header,
+.models-workspace .provider-card-meta,
+.models-workspace .provider-card-models {
+  padding: 16px;
+}
+
+.models-workspace .provider-card-title h3,
+.agents-workspace .agent-card-title h3,
+.auth-workspace .auth-card-name,
+.picker-header h2,
+.modal-panel-header h2 {
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.models-workspace .provider-meta-row {
+  align-items: flex-start;
+}
+
+.models-workspace .provider-meta-label,
+.provider-models-label,
+.modal-panel-body .form-group label,
+.picker-sidebar-label {
+  color: rgba(56, 189, 248, 0.82);
+  font-family: "SF Mono", ui-monospace, monospace;
+}
+
+.models-workspace .provider-meta-value,
+.models-workspace .provider-meta-url,
+.model-item-id,
+.auth-card-detail,
+.auth-card-message,
+.picker-content-url {
+  color: rgba(245, 243, 235, 0.52);
+}
+
+.models-workspace .provider-meta-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-item,
+.picker-model-btn {
+  border: 1px solid rgba(245, 243, 235, 0.08);
+  border-radius: 8px;
+  background: rgba(245, 243, 235, 0.045);
+}
+
+.model-item {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.model-item-name,
+.picker-model-name,
+.picker-content-name {
+  color: var(--ink);
+}
+
+.models-expand-btn {
+  border-top-color: rgba(245, 243, 235, 0.08);
+  color: rgba(245, 243, 235, 0.48);
+}
+
+.agents-workspace .agents-list,
+.auth-workspace .auth-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agents-workspace .agent-card-header {
+  padding: 18px;
+  gap: 14px;
+}
+
+.agents-workspace .agent-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.agents-workspace .agent-card-title {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.agents-workspace .agent-card-current {
+  padding: 0 18px 18px;
+}
+
+.agents-workspace .agent-current-row,
+.agents-workspace .agent-current-none {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  border: 1px solid rgba(245, 243, 235, 0.08);
+  border-radius: 10px;
+  padding: 0 14px;
+  background: rgba(245, 243, 235, 0.045);
+}
+
+.agents-workspace .agent-current-active {
+  overflow: hidden;
+  color: rgba(245, 243, 235, 0.72);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agents-workspace .agent-current-active strong {
+  color: #8cf7c4;
+}
+
+.auth-workspace .auth-card {
+  overflow: hidden;
+}
+
+.auth-workspace .auth-card-body {
+  padding: 18px;
+}
+
+.auth-workspace .auth-card-main {
+  align-items: flex-start;
+}
+
+.auth-workspace .auth-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid rgba(245, 243, 235, 0.1);
+  background: rgba(245, 243, 235, 0.045);
+  font-size: 15px;
+}
+
+.auth-workspace .auth-card-cat {
+  color: rgba(245, 243, 235, 0.42);
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.auth-workspace .auth-badge {
+  border: 1px solid rgba(245, 243, 235, 0.1);
+  border-radius: 999px;
+  margin-left: 0;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.auth-workspace .auth-card-detail,
+.auth-workspace .auth-card-message {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(245, 243, 235, 0.08);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-workspace .auth-card-actions {
+  margin-top: 14px;
+}
+
+.auth-progress-output {
+  max-height: 140px;
+  margin-top: 12px;
+  overflow: auto;
+  border: 1px solid rgba(245, 243, 235, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(245, 243, 235, 0.72);
+  font-size: 11px;
+}
+
+.picker-panel {
+  width: min(820px, 92vw);
+  max-height: 82vh;
+}
+
+.picker-provider.active,
+.picker-model-btn--active,
+.picker-model-btn:hover {
+  border-color: rgba(239, 255, 97, 0.42);
+  background: rgba(239, 255, 97, 0.12);
+  color: var(--accent);
+}
+
+.picker-provider.active .picker-provider-name {
+  color: var(--accent);
+}
+
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 1180px) {
+  .access-hero,
+  .models-workspace .provider-list,
+  .agents-workspace .agents-list,
+  .auth-workspace .auth-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .page-with-sidebar:has(.access-workspace) .page-sidebar {
+    width: 100%;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .access-hero {
+    padding: 20px;
+  }
+
+  .access-hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .access-command-bar,
+  .agents-workspace .agent-card-header,
+  .provider-card-header,
+  .endpoint-row,
+  .model-form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .picker-body {
+    flex-direction: column;
+  }
+
+  .picker-sidebar {
+    width: 100%;
+    max-height: 190px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(245, 243, 235, 0.08);
+  }
+}

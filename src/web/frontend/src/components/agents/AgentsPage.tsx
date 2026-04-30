@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getAdapters, switchProvider, AgentInfo } from '../../api/providers';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getAdapters, launchAgent, switchProvider, AgentInfo } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
@@ -9,6 +9,7 @@ export default function AgentsPage() {
   const [adapters, setAdapters] = useState<AgentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<string | null>(null);
   const [pickerAgent, setPickerAgent] = useState<AgentInfo | null>(null);
 
   const load = useCallback(async () => {
@@ -24,6 +25,13 @@ export default function AgentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const stats = useMemo(() => {
+    const configured = adapters.filter(adapter => adapter.current).length;
+    const compatible = adapters.reduce((sum, adapter) => sum + adapter.compatibleProviders.length, 0);
+    const types = new Set(adapters.flatMap(adapter => adapter.supportedTypes));
+    return { configured, compatible, types: types.size };
+  }, [adapters]);
+
   async function handleSwitch(agentId: string, providerId: string, modelId: string) {
     setSwitching(agentId);
     try {
@@ -38,17 +46,38 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleLaunch(agent: AgentInfo) {
+    setLaunching(agent.id);
+    try {
+      await launchAgent(agent.id);
+      toast(t('agents.launchSuccess'), 'success');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setLaunching(null);
+    }
+  }
+
   if (loading) return <div className="page-loading">{t('common.loading')}</div>;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>{t('agents.title')}</h1>
-      </div>
+    <div className="access-workspace agents-workspace">
+      <header className="access-hero">
+        <div className="access-hero-copy">
+          <h1>{t('agents.title')}</h1>
+          <p>{t('agents.lede')}</p>
+        </div>
+        <div className="access-hero-stats" aria-label="Agent routing summary">
+          <div><span>{t('agents.totalAgents')}</span><strong>{adapters.length}</strong></div>
+          <div><span>{t('agents.configured')}</span><strong>{stats.configured}</strong></div>
+          <div><span>{t('agents.compatibleRoutes')}</span><strong>{stats.compatible}</strong></div>
+          <div><span>{t('agents.modelTypes')}</span><strong>{stats.types}</strong></div>
+        </div>
+      </header>
 
       <div className="agents-list">
         {adapters.map(adapter => (
-          <div key={adapter.id} className="agent-card">
+          <article key={adapter.id} className="agent-card">
             <div className="agent-card-header">
               <div className="agent-card-title">
                 <h3>{adapter.name}</h3>
@@ -58,12 +87,24 @@ export default function AgentsPage() {
                   ))}
                 </div>
               </div>
-              <button
-                className="vault-toolbar-btn"
-                onClick={() => setPickerAgent(adapter)}
-              >
-                {adapter.current ? t('agents.switchModel') : t('agents.selectModel')}
-              </button>
+              <div className="agent-card-actions">
+                <button
+                  className="vault-toolbar-btn"
+                  onClick={() => setPickerAgent(adapter)}
+                >
+                  {adapter.current ? t('agents.switchModel') : t('agents.selectModel')}
+                </button>
+                {adapter.canLaunch && (
+                  <button
+                    className="vault-toolbar-btn vault-toolbar-btn--secondary"
+                    disabled={launching === adapter.id || adapter.installed === false}
+                    title={adapter.installed === false ? t('agents.launchNotInstalled') : t('agents.launchTerminal')}
+                    onClick={() => handleLaunch(adapter)}
+                  >
+                    {launching === adapter.id ? t('common.loading') : t('agents.launchTerminal')}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="agent-card-current">
@@ -80,7 +121,7 @@ export default function AgentsPage() {
                 <span className="agent-current-none">{t('common.notConfigured')}</span>
               )}
             </div>
-          </div>
+          </article>
         ))}
       </div>
 
@@ -131,7 +172,6 @@ function ModelPicker({ agent, switching, onSwitch, onClose }: {
                 onClick={() => setSelectedProvider(p.id)}
               >
                 <span className="picker-provider-name">{providerName(p.id, p.name)}</span>
-                <span className={`type-badge type-badge--${p.type}`}>{p.type}</span>
               </div>
             ))}
           </div>
@@ -143,7 +183,7 @@ function ModelPicker({ agent, switching, onSwitch, onClose }: {
               <>
                 <div className="picker-content-header">
                   <span className="picker-content-name">{activeProvider.name}</span>
-                  <span className="picker-content-url">{activeProvider.type} · {t('agents.platformsAvailable', { n: providers.length })}</span>
+                  <span className="picker-content-url">{t('agents.platformsAvailable', { n: providers.length })}</span>
                 </div>
                 <div className="picker-model-list">
                   {activeProvider.models.map(m => {

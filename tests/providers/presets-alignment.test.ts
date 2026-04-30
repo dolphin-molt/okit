@@ -4,13 +4,13 @@ import { PRESET_PROVIDERS } from '../../src/providers/presets';
 describe('PRESET_PROVIDERS alignment', () => {
   const EXPECTED_IDS = [
     'anthropic', 'openai', 'openai-codex', 'google', 'volcengine',
-    'zai', 'minimax', 'deepseek', 'moonshot', 'kimi-coding',
+    'zai', 'zai-global', 'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
     'qwen', 'qianfan', 'xai', 'mistral', 'stepfun', 'xiaomi',
     'openrouter', 'groq', 'fireworks', 'together', 'ollama', 'litellm',
   ];
 
-  it('has exactly 22 presets', () => {
-    expect(PRESET_PROVIDERS.length).toBe(22);
+  it('has exactly 24 presets', () => {
+    expect(PRESET_PROVIDERS.length).toBe(24);
   });
 
   it('contains all expected provider IDs', () => {

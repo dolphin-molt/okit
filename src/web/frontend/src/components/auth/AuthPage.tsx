@@ -41,51 +41,59 @@ export default function AuthPage() {
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div>
-      <div className="auth-summary">
-        <div className="summary-card">
-          <span className="summary-num">{authorized.length}</span>
-          <span className="summary-label">{t('common.authorized')}</span>
+    <div className="access-workspace auth-workspace">
+      <header className="access-hero">
+        <div className="access-hero-copy">
+          <h1>{t('auth.title')}</h1>
+          <p>{t('auth.lede')}</p>
         </div>
-        <div className="summary-card">
-          <span className="summary-num">{unauthorized.length}</span>
-          <span className="summary-label">{t('auth.needsAuth')}</span>
+        <div className="access-hero-stats" aria-label="Authorization summary">
+          <div><span>{t('common.authorized')}</span><strong>{authorized.length}</strong></div>
+          <div><span>{t('auth.needsAuth')}</span><strong>{unauthorized.length}</strong></div>
+          <div><span>{t('auth.managedTools')}</span><strong>{tools.length}</strong></div>
+          <div><span>{t('auth.actioning')}</span><strong>{actioningTool ? 1 : 0}</strong></div>
         </div>
-        <div className="summary-card">
-          <span className="summary-num">{tools.length}</span>
-          <span className="summary-label">{t('common.authorize')}</span>
-        </div>
-      </div>
+      </header>
+
       <div className="auth-list">
-        {tools.length === 0 && <div className="loading" style={{ padding: 40 }}>{t('auth.allAuthorized')}</div>}
+        {tools.length === 0 && (
+          <div className="vault-empty-state">
+            <strong>{t('auth.allAuthorized')}</strong>
+            <span>{t('auth.emptyDesc')}</span>
+          </div>
+        )}
         {tools.map(tool => {
           const isAuth = (tool as any).authStatus === 'authorized';
           return (
-            <div key={tool.id || tool.name} className="tool-card">
-              <div className="tool-card-body">
-                <div className="tool-card-row">
-                  <span className="tool-name">{tool.name}</span>
-                  <span className={`tool-auth ${isAuth ? 'ok' : 'fail'}`}>
+            <article key={tool.id || tool.name} className={`auth-card${isAuth ? ' auth-card--ok' : ' auth-card--fail'}`}>
+              <div className="auth-card-body">
+                <div className="auth-card-main">
+                  <span className={`auth-status-icon ${isAuth ? 'auth-ok' : 'auth-fail'}`}>{isAuth ? '✓' : '!'}</span>
+                  <div className="auth-card-info">
+                    <span className="auth-card-name">{tool.name}</span>
+                    <span className="auth-card-cat">{tool.category || tool.id || 'tool'}</span>
+                  </div>
+                  <span className={`auth-badge ${isAuth ? 'auth-badge--ok' : 'auth-badge--fail'}`}>
                     {isAuth ? t('common.authorized') : t('common.unauthorized')}
                   </span>
                 </div>
-                <div className="tool-desc">{tool.description}</div>
-                {(tool as any).authMessage && <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 4 }}>{(tool as any).authMessage}</div>}
-                <div className="tool-card-actions">
+                <div className="auth-card-detail">{tool.description}</div>
+                {(tool as any).authMessage && <div className="auth-card-message">{(tool as any).authMessage}</div>}
+                <div className="auth-card-actions">
                   {!isAuth && (
                     <button className="btn-action btn-action--auth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool.name, 'auth')}>
                       {actioningTool === tool.name ? t('common.authorizing') : t('common.authorize')}
                     </button>
                   )}
-                  <button className="btn-action" disabled={actioningTool === tool.name} onClick={() => handleAction(tool.name, 'auth')}>
+                  <button className="btn-action btn-action--reauth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool.name, 'auth')}>
                     {t('common.reAuth')}
                   </button>
                 </div>
                 {actioningTool === tool.name && output && (
-                  <pre className="progress-output" style={{ marginTop: 8, maxHeight: 120, overflow: 'auto', fontSize: 11 }}>{output}</pre>
+                  <pre className="progress-output auth-progress-output">{output}</pre>
                 )}
               </div>
-            </div>
+            </article>
           );
         })}
       </div>

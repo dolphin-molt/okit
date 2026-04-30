@@ -10,7 +10,13 @@ interface ConvItem {
   updatedAt?: number;
 }
 
-const NAV_ITEMS = [
+const WORKSPACE_ITEMS = [
+  { path: '/', labelKey: 'nav.home', icon: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="2" y="2" width="14" height="14" rx="2" />
+      <path d="M5 6h3M10 6h3M5 10h8M5 13h5" />
+    </svg>
+  )},
   { path: '/agent', labelKey: 'nav.ai', hasConvList: true, icon: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <path d="M14 9c0 3.3-2.5 6-5.5 6-.9 0-1.7-.2-2.5-.5L3 16l1-3C3.4 11.7 3 10.4 3 9c0-3.3 2.5-6 5.5-6S14 5.7 14 9z" fill="currentColor" fillOpacity="0.15" />
@@ -19,6 +25,9 @@ const NAV_ITEMS = [
       <circle cx="11.5" cy="8.5" r="0.8" fill="currentColor"/>
     </svg>
   )},
+];
+
+const TOOL_ITEMS = [
   { path: '/tools', labelKey: 'nav.tools', icon: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <rect x="2" y="2" width="14" height="14" rx="2" />
@@ -51,7 +60,10 @@ const NAV_ITEMS = [
       <circle cx="9" cy="9" r="2" />
     </svg>
   )},
-  { path: '/logs', labelKey: 'nav.logs', sectionKey: 'nav.system', icon: (
+];
+
+const SYSTEM_ITEMS = [
+  { path: '/logs', labelKey: 'nav.logs', icon: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <rect x="3" y="2" width="12" height="14" rx="1.5" />
       <path d="M6 5h6M6 8h6M6 11h3" />
@@ -63,6 +75,12 @@ const NAV_ITEMS = [
       <rect x="1" y="1" width="16" height="16" rx="2" />
     </svg>
   )},
+];
+
+const NAV_SECTIONS = [
+  { labelKey: 'nav.workspace', items: WORKSPACE_ITEMS },
+  { labelKey: 'nav.toolsSection', items: TOOL_ITEMS },
+  { labelKey: 'nav.system', items: SYSTEM_ITEMS },
 ];
 
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {
@@ -117,60 +135,50 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
     } catch {}
   }
 
-  // Split nav items into sections
-  const sectionBreakIdx = NAV_ITEMS.findIndex(item => item.sectionKey);
+  function renderNavItem(item: typeof WORKSPACE_ITEMS[number] | typeof TOOL_ITEMS[number] | typeof SYSTEM_ITEMS[number]) {
+    return (
+      <div key={item.path}>
+        <NavLink to={item.path} end={item.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          {item.icon}
+          <span>{t(item.labelKey)}</span>
+          {(item as any).hasConvList && !collapsed && (
+            <button className="nav-new-btn" onClick={e => { e.stopPropagation(); e.preventDefault(); handleNewConv(); }} title={t('nav.newChat')}>
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
+            </button>
+          )}
+        </NavLink>
+        {(item as any).hasConvList && isAgentActive && !collapsed && (
+          <div className="nav-sub-list expanded">
+            {convList.length === 0 && <div style={{ padding: '6px 20px 6px 46px', color: 'var(--ink-muted)', fontSize: 11 }}>{t('nav.noChat')}</div>}
+            {convList.map(c => (
+              <div key={c.id} className={`nav-conv-item${c.id === currentConvId ? ' active' : ''}`} onClick={() => handleSwitchConv(c.id)}>
+                <span className="conv-title">{c.title || t('nav.newChat')}</span>
+                <button className="nav-conv-delete" onClick={e => handleDeleteConv(c.id, e)} title={t('common.delete')}>
+                  <svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h12M5 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6v9a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar-brand" onClick={toggleSidebar} style={{ cursor: 'pointer' }}>
         <div className="brand-shape" />
         <span className="brand-text">OKIT</span>
-        <span className="brand-hand">Agent Toolkit</span>
+        <span className="brand-hand">Access Layer</span>
       </div>
       <div className="sidebar-cut" />
       <div className="nav-scroll">
-        {/* Tools section */}
-        <div className="nav-section">
-          {!collapsed && <div className="nav-section-label">{t('nav.toolsSection')}</div>}
-          {NAV_ITEMS.slice(0, sectionBreakIdx).map(item => (
-            <div key={item.path}>
-              <NavLink to={item.path} end={item.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                {item.icon}
-                <span>{t(item.labelKey)}</span>
-                {(item as any).hasConvList && !collapsed && (
-                  <button className="nav-new-btn" onClick={e => { e.stopPropagation(); e.preventDefault(); handleNewConv(); }} title={t('nav.newChat')}>
-                    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
-                  </button>
-                )}
-              </NavLink>
-              {(item as any).hasConvList && isAgentActive && !collapsed && (
-                <div className="nav-sub-list expanded">
-                  {convList.length === 0 && <div style={{ padding: '6px 20px 6px 46px', color: 'var(--ink-muted)', fontSize: 11 }}>{t('nav.noChat')}</div>}
-                  {convList.map(c => (
-                    <div key={c.id} className={`nav-conv-item${c.id === currentConvId ? ' active' : ''}`} onClick={() => handleSwitchConv(c.id)}>
-                      <span className="conv-title">{c.title || t('nav.newChat')}</span>
-                      <button className="nav-conv-delete" onClick={e => handleDeleteConv(c.id, e)} title={t('common.delete')}>
-                        <svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h12M5 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6v9a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        {/* System section */}
-        <div className="nav-section">
-          {!collapsed && <div className="nav-section-label">{t('nav.system')}</div>}
-          {NAV_ITEMS.slice(sectionBreakIdx).map(item => (
-            <div key={item.path}>
-              <NavLink to={item.path} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                {item.icon}
-                <span>{t(item.labelKey)}</span>
-              </NavLink>
-            </div>
-          ))}
-        </div>
+        {NAV_SECTIONS.map(section => (
+          <div className="nav-section" key={section.labelKey}>
+            {!collapsed && <div className="nav-section-label">{t(section.labelKey)}</div>}
+            {section.items.map(renderNavItem)}
+          </div>
+        ))}
       </div>
       <div className="sidebar-bottom">
         <button className="sidebar-bottom-icon" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t('nav.language')}>

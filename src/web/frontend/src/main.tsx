@@ -5,8 +5,8 @@ import App from './App';
 import { AppProvider } from './components/Layout/AppContext';
 import './styles/index.css';
 
-const isElectron = navigator.userAgent.includes('Electron');
-const Router = isElectron ? HashRouter : BrowserRouter;
+const shouldUseHashRouter = window.location.protocol === 'file:';
+const Router = shouldUseHashRouter ? HashRouter : BrowserRouter;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

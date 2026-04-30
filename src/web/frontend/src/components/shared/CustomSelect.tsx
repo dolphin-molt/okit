@@ -70,7 +70,7 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
         <svg className="custom-select-arrow" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 4l3 3 3-3" /></svg>
       </button>
       {open && (
-        <div className="custom-select-dropdown" style={dropStyle} onMouseDown={e => e.stopPropagation()}>
+        <div className={`custom-select-dropdown${className ? ` ${className}-dropdown` : ''}`} style={dropStyle} onMouseDown={e => e.stopPropagation()}>
           {options.map(opt => (
             <div
               key={opt.value}

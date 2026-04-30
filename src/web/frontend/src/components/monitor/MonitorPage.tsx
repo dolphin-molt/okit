@@ -100,7 +100,20 @@ export default function MonitorPage() {
   const gpuArr = Array.isArray(gpu) ? gpu : gpu ? [gpu] : [];
 
   return (
-    <div>
+    <div className="access-workspace monitor-workspace">
+      <header className="access-hero">
+        <div className="access-hero-copy">
+          <h1>{t('monitor.title')}</h1>
+          <p>{t('monitor.lede')}</p>
+        </div>
+        <div className="access-hero-stats" aria-label="System monitor summary">
+          <div><span>{t('monitor.cpu')}</span><strong>{cpu.usage}%</strong></div>
+          <div><span>{t('monitor.memory')}</span><strong>{memPct}%</strong></div>
+          <div><span>{t('monitor.disk')}</span><strong>{rootDisk?.capacity || '-'}</strong></div>
+          <div><span>{t('monitor.uptime')}</span><strong>{formatUptime(uptime)}</strong></div>
+        </div>
+      </header>
+
       {/* System metrics */}
       <div className="monitor-grid">
         <MetricCard label={t('monitor.cpu')} value={`${cpu.usage}%`} detail={`${cpu.cores} ${t('monitor.cpu').toLowerCase()} · ${cpu.model}`} pct={cpu.usage} color="#3b82f6" />

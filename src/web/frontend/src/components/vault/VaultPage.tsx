@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { listVault, deleteVault, getVaultValue, syncToProject, browseDirs, checkKeyImpact, exportVault, importVault, type VaultSecret } from '../../api/vault';
 import { getSettings } from '../../api/settings';
-import { formatDate, formatBytes } from '../../lib/utils';
+import { formatDate } from '../../lib/utils';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
@@ -10,6 +10,24 @@ import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
 
 type ViewMode = 'keys' | 'projects';
+type IconName = 'plus' | 'download' | 'upload' | 'refresh' | 'cloud' | 'copy' | 'folder' | 'edit' | 'trash' | 'search';
+
+function Icon({ name }: { name: IconName }) {
+  const common = { width: 15, height: 15, viewBox: '0 0 18 18', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const paths: Record<IconName, React.ReactNode> = {
+    plus: <path d="M9 3v12M3 9h12" />,
+    download: <><path d="M9 3v8" /><path d="M5.5 8.5 9 12l3.5-3.5" /><path d="M3 14.5h12" /></>,
+    upload: <><path d="M9 15V7" /><path d="M5.5 9.5 9 6l3.5 3.5" /><path d="M3 3.5h12" /></>,
+    refresh: <><path d="M14.5 9a5.5 5.5 0 1 1-1.6-3.9" /><path d="M14.5 3.5v4h-4" /></>,
+    cloud: <path d="M5.3 14H13a3 3 0 0 0 .5-6A4.8 4.8 0 0 0 4.1 7 3.5 3.5 0 0 0 5.3 14Z" />,
+    copy: <><rect x="6" y="6" width="9" height="9" rx="1.5" /><path d="M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12" /></>,
+    folder: <path d="M2.5 6.5h5l1.5 2h6.5v5A1.5 1.5 0 0 1 14 15H4a1.5 1.5 0 0 1-1.5-1.5Z" />,
+    edit: <><path d="M10.5 4.5 13.5 7.5" /><path d="M4 14l3.2-.8 7-7a2.1 2.1 0 0 0-3-3l-7 7Z" /></>,
+    trash: <><path d="M3 5h12" /><path d="M7 5V3.5h4V5" /><path d="M5 5l.8 10h6.4L13 5" /></>,
+    search: <><circle cx="8" cy="8" r="4.5" /><path d="m11.5 11.5 3 3" /></>,
+  };
+  return <svg {...common}>{paths[name]}</svg>;
+}
 
 export default function VaultPage() {
   const { showToast, confirm, setConnectionStatus } = useApp();
@@ -63,12 +81,34 @@ export default function VaultPage() {
   }, [secrets]);
 
   const filtered = useMemo(() => {
+    const needle = searchTerm.toLowerCase();
     return secrets.filter(s => {
       if (groupFilter !== 'all' && (s.group || '') !== groupFilter) return false;
-      if (searchTerm && !s.key.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      if (needle) {
+        const haystack = [
+          s.key,
+          s.group || '',
+          ...s.aliases.map(a => a.alias),
+          ...(s.projects || []).flatMap(p => [p.name, p.path]),
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
       return true;
     });
   }, [secrets, groupFilter, searchTerm]);
+
+  const vaultStats = useMemo(() => {
+    const projectPaths = new Set<string>();
+    let totalAliases = 0;
+    for (const secret of secrets) {
+      totalAliases += secret.aliases.length;
+      for (const project of secret.projects || []) projectPaths.add(project.path);
+    }
+    return {
+      totalAliases,
+      projects: projectPaths.size,
+    };
+  }, [secrets]);
 
   function openAddForm() {
     setEditKey(null);
@@ -283,32 +323,60 @@ export default function VaultPage() {
       ]} />
 
       {/* Main content */}
-      <div className="page-sidebar-main">
-        {/* Toolbar */}
-        <div className="vault-toolbar">
-          <div className="vault-toolbar-left">
-            <div className="search-paper">
-              <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+      <div className="page-sidebar-main vault-workspace">
+        <header className="vault-hero">
+          <div className="vault-hero-copy">
+            <h1>{t('vault.title')}</h1>
+            <p>{t('vault.lede')}</p>
+          </div>
+          <div className="vault-hero-stats" aria-label="Vault summary">
+            <div>
+              <span>{t('vault.totalKeys')}</span>
+              <strong>{secrets.length}</strong>
             </div>
+            <div>
+              <span>{t('vault.aliases')}</span>
+              <strong>{vaultStats.totalAliases}</strong>
+            </div>
+            <div>
+              <span>{t('vault.projectBindings')}</span>
+              <strong>{vaultStats.projects}</strong>
+            </div>
+            <div>
+              <span>{t('vault.cloudTargets')}</span>
+              <strong>{cloudPlatforms.length}</strong>
+            </div>
+          </div>
+        </header>
+
+        {/* Toolbar */}
+        <div className="vault-command-bar">
+          <div className="vault-search">
+            <Icon name="search" />
+            <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          <div className="vault-view-switch" role="tablist" aria-label="Vault view">
+            <button className={viewMode === 'keys' ? 'active' : ''} onClick={() => setViewMode('keys')}>{t('vault.keysView')}</button>
+            <button className={viewMode === 'projects' ? 'active' : ''} onClick={() => setViewMode('projects')}>{t('vault.projectsView')}</button>
           </div>
           <div className="vault-toolbar-right">
             <button className="vault-toolbar-btn" onClick={openAddForm} title={t('vault.addKey')}>
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
+              <Icon name="plus" />
               <span>{t('vault.add')}</span>
             </button>
             <button className="vault-toolbar-btn" onClick={handleExport} title={t('common.export')}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 10v2h10v-2M7 2v8M4 7l3 3 3-3" /></svg>
+              <Icon name="download" />
             </button>
             <button className="vault-toolbar-btn" onClick={() => importRef.current?.click()} title={t('common.import')}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 4v-2h10v2M7 12V5M4 8l3-3 3 3" /></svg>
+              <Icon name="upload" />
             </button>
             <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
             <button className="vault-toolbar-btn" onClick={() => loadVault()} title={t('common.refresh')}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5" /><path d="M12 2v3h-3" /></svg>
+              <Icon name="refresh" />
             </button>
             {cloudPlatforms.length > 0 && (
               <button className={`vault-toolbar-btn${showCloud ? ' vault-toolbar-btn--active' : ''}`} onClick={() => { setShowCloud(!showCloud); setCloudKeys([]); }} title={t('vault.pushCloud')}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 10.5A3.5 3.5 0 0 1 4.5 4a5 5 0 0 1 9.5 1.5A2.5 2.5 0 0 1 13 11H3.5" /></svg>
+                <Icon name="cloud" />
                 <span>{t('vault.push')}</span>
               </button>
             )}
@@ -319,6 +387,10 @@ export default function VaultPage() {
         {showCloud && viewMode === 'keys' && (
           <div className="cloud-push-bar">
             <div className="cloud-push-bar-left">
+              <div>
+                <strong>{t('vault.cloudPushTitle')}</strong>
+                <span>{t('vault.cloudPushDesc')}</span>
+              </div>
               <span className="cloud-push-count">{t('vault.selected', { n: cloudKeys.length })}</span>
               <button className="cloud-push-link" onClick={selectAllCloud}>{t('common.selectAll')}</button>
               <button className="cloud-push-link" onClick={clearCloudKeys}>{t('common.deselect')}</button>
@@ -340,44 +412,58 @@ export default function VaultPage() {
 
         {/* Keys view */}
         {viewMode === 'keys' && (
-          <div className="vault-list">
-            {filtered.length === 0 && <div className="loading" style={{ padding: 40 }}>{t('vault.noKeys')}</div>}
+          <div className="vault-list vault-secret-list">
+            {filtered.length === 0 && (
+              <div className="vault-empty-state">
+                <strong>{t('vault.emptyTitle')}</strong>
+                <span>{t('vault.emptyDesc')}</span>
+              </div>
+            )}
             {groupedFiltered.map(([group, items]) => {
               const isCollapsed = collapsedGroups.has(group);
               return (
                 <div key={group} className="vault-group">
                   <div className="vault-group-header" onClick={() => toggleGroup(group)}>
-                    <span className={`vault-group-toggle${isCollapsed ? ' collapsed' : ''}`}>▼</span>
+                    <span className={`vault-group-toggle${isCollapsed ? ' collapsed' : ''}`}>⌄</span>
                     <span className="vault-group-name">{group || t('common.ungrouped')}</span>
                     <span className="vault-group-count">{items.length}</span>
                   </div>
                   {!isCollapsed && items.map((secret) => (
-                    <div key={secret.key} className={`vault-card${showCloud && cloudKeys.includes(secret.key) ? ' vault-card--selected' : ''}`}>
-                      <div className="vault-card-body">
-                        <div className="vault-card-row">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {showCloud && (
-                              <input type="checkbox" className="cloud-checkbox" checked={cloudKeys.includes(secret.key)} onChange={() => toggleCloudKey(secret.key)} />
-                            )}
-                            <span className="vault-key">{secret.key}</span>
+                    <article key={secret.key} className={`vault-card vault-secret-row${showCloud && cloudKeys.includes(secret.key) ? ' vault-card--selected' : ''}`}>
+                      <div className="vault-secret-main">
+                        {showCloud && (
+                          <input type="checkbox" className="cloud-checkbox" checked={cloudKeys.includes(secret.key)} onChange={() => toggleCloudKey(secret.key)} aria-label={secret.key} />
+                        )}
+                        <div className="vault-secret-title">
+                          <span className="vault-key">{secret.key}</span>
+                          <div className="vault-secret-tags">
+                            <span>{secret.group || t('common.ungrouped')}</span>
+                            <span>{t('vault.aliasesCount', { n: secret.aliases.length })}</span>
                           </div>
-                          <div className="vault-card-actions">
-                            <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key, secret.aliases[0]?.alias || 'default')}>📋</button>
-                            <button className="btn-icon" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key, secret.aliases[0]?.alias || 'default')}>☁️</button>
-                            <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}>✏️</button>
-                            <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key, secret.aliases[0]?.alias || 'default')}>🗑</button>
-                          </div>
-                        </div>
-                        <div className="vault-aliases">
-                          {secret.aliases.map(a => (
-                            <div key={a.alias} className="vault-alias-row">
-                              <span className="vault-masked">{a.masked}</span>
-                              <span className="vault-date">{formatDate(a.updatedAt)}</span>
-                            </div>
-                          ))}
                         </div>
                       </div>
-                    </div>
+                      <div className="vault-aliases">
+                        {secret.aliases.map(a => (
+                          <div key={a.alias} className="vault-alias-row">
+                            <span className="vault-alias-name">{a.alias}</span>
+                            <span className="vault-masked">{a.masked}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="vault-projects">
+                        {(secret.projects || []).length > 0 ? secret.projects!.slice(0, 3).map(project => (
+                          <span className="vault-project-tag" title={project.path} key={project.path}>{project.name}</span>
+                        )) : <span className="vault-project-empty">{t('vault.localOnly')}</span>}
+                        {(secret.projects || []).length > 3 && <span className="vault-project-tag">+{secret.projects!.length - 3}</span>}
+                      </div>
+                      <time className="vault-date">{formatDate(secret.aliases[0]?.updatedAt)}</time>
+                      <div className="vault-card-actions">
+                        <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="copy" /></button>
+                        <button className="btn-icon btn-icon--sync" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="folder" /></button>
+                        <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}><Icon name="edit" /></button>
+                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="trash" /></button>
+                      </div>
+                    </article>
                   ))}
                 </div>
               );
@@ -387,24 +473,35 @@ export default function VaultPage() {
 
         {/* Projects view */}
         {viewMode === 'projects' && (
-          <div className="vault-list">
+          <div className="vault-list vault-project-list">
+            {projectMap.map.size === 0 && (
+              <div className="vault-empty-state">
+                <strong>{t('vault.noProject')}</strong>
+                <span>{t('vault.emptyDesc')}</span>
+              </div>
+            )}
             {Array.from(projectMap.map.entries())
               .filter(([path]) => !selectedProject || path === selectedProject)
               .map(([path, proj]) => (
-                <div key={path} className="project-card">
+                <article key={path} className="project-card">
                   <div className="project-card-body">
                     <div className="project-card-header">
-                      <span className="project-name">{proj.name}</span>
-                      <span className="project-path">{path}</span>
-                    </div>
-                    {proj.keys.map(s => (
-                      <div key={s.key} className="project-key-item">
-                        <span className="project-key-name">{s.key}</span>
-                        <span className="project-key-masked">{s.aliases[0]?.masked}</span>
+                      <div>
+                        <span className="project-name">{proj.name}</span>
+                        <span className="project-path">{path}</span>
                       </div>
-                    ))}
+                      <span className="project-key-count">{proj.keys.length}</span>
+                    </div>
+                    <div className="project-key-list">
+                      {proj.keys.map(s => (
+                        <div key={s.key} className="project-key-item">
+                          <span className="project-key-name">{s.key}</span>
+                          <span className="project-key-masked">{s.aliases[0]?.masked}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </article>
               ))}
           </div>
         )}

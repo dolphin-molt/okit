@@ -14,6 +14,7 @@ interface ConfirmOptions {
 
 interface AppContextValue {
   theme: string;
+  setThemeMode: (theme: 'dark' | 'light') => void;
   toggleTheme: () => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
@@ -67,6 +68,11 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setThemeMode = useCallback((next: 'dark' | 'light') => {
+    localStorage.setItem('okit-theme', next);
+    setTheme(next);
+  }, []);
+
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed(prev => {
       const next = !prev;
@@ -100,6 +106,7 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         theme,
+        setThemeMode,
         toggleTheme,
         sidebarCollapsed,
         toggleSidebar,

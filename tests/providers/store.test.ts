@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { PRESET_PROVIDERS } from '../../src/providers/presets';
 
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
@@ -49,7 +50,7 @@ describe('loadProviders', () => {
   it('loads providers from valid JSON', async () => {
     mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: [sampleProvider] }));
     const result = await loadProviders();
-    expect(result.length).toBe(1);
+    expect(result.length).toBe(PRESET_PROVIDERS.length + 1);
     expect(result[0].id).toBe('test-provider');
     expect(result[0].models.length).toBe(2);
   });
@@ -69,7 +70,7 @@ describe('loadProviders', () => {
       ],
     }));
     const result = await loadProviders();
-    expect(result.length).toBe(1);
+    expect(result.length).toBe(PRESET_PROVIDERS.length + 1);
     expect(result[0].id).toBe('test-provider');
   });
 
@@ -119,7 +120,7 @@ describe('addProvider', () => {
     mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: [sampleProvider] }));
     await addProvider({ ...sampleProvider, name: 'Updated' });
     const written = JSON.parse(mocks.files.get(PROVIDERS_PATH)!);
-    expect(written.providers.length).toBe(1);
+    expect(written.providers.length).toBe(PRESET_PROVIDERS.length + 1);
     expect(written.providers[0].name).toBe('Updated');
   });
 
@@ -127,7 +128,7 @@ describe('addProvider', () => {
     mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: [sampleProvider] }));
     await addProvider({ id: 'second', name: 'Second', type: 'openai', baseUrl: 'https://second.com', authMode: 'api_key', models: [] });
     const written = JSON.parse(mocks.files.get(PROVIDERS_PATH)!);
-    expect(written.providers.length).toBe(2);
+    expect(written.providers.length).toBe(PRESET_PROVIDERS.length + 2);
   });
 });
 
@@ -137,7 +138,8 @@ describe('deleteProvider', () => {
     const result = await deleteProvider('test-provider');
     expect(result).toBe(true);
     const written = JSON.parse(mocks.files.get(PROVIDERS_PATH)!);
-    expect(written.providers.length).toBe(0);
+    expect(written.providers.length).toBe(PRESET_PROVIDERS.length);
+    expect(written.providers.some((p: any) => p.id === 'test-provider')).toBe(false);
   });
 
   it('returns false for unknown id', async () => {

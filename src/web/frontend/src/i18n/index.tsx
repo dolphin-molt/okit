@@ -3,7 +3,7 @@ import zh from './zh';
 import en from './en';
 
 type Lang = 'zh' | 'en';
-type Translations = typeof zh;
+type Translations = Record<keyof typeof zh, string>;
 
 const translations: Record<Lang, Translations> = { zh, en };
 
@@ -42,7 +42,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
     if (value === undefined) return key;
     if (!params) return value;
-    return value.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
+    return value.replace(/\{(\w+)\}/g, (_: string, k: string) => String(params[k] ?? `{${k}}`));
   }, [lang]);
 
   const providerName = useCallback((id: string, fallback: string): string => {

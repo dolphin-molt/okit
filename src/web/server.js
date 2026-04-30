@@ -8,7 +8,7 @@ const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getC
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
 
 function createServer(port = 3780) {
   const app = express();
@@ -84,6 +84,7 @@ function createServer(port = 3780) {
   app.put('/api/providers/:id', updateProvider);
   app.delete('/api/providers/:id', deleteProvider);
   app.post('/api/providers/switch', switchProvider);
+  app.post('/api/providers/launch', launchAgent);
   app.get('/api/providers/auth', getAuthStatus);
   app.post('/api/providers/auth/login', triggerOAuthLogin);
   app.post('/api/providers/fetch-models', fetchModels);

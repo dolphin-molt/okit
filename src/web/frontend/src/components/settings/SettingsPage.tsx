@@ -9,11 +9,13 @@ import VaultFormModal from '../shared/VaultFormModal';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
 
+const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
+
 export default function SettingsPage() {
-  const { showToast, setConnectionStatus, theme, toggleTheme } = useApp() as any;
+  const { showToast, setConnectionStatus, theme, setThemeMode } = useApp() as any;
   const { t } = useI18n();
   const [autoSync, setAutoSync] = useState(false);
-  const [agent, setAgent] = useState({ provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' });
+  const [agent, setAgent] = useState(DEFAULT_AGENT);
   const [platforms, setPlatforms] = useState<Record<string, any>>({});
   const [vaultKeys, setVaultKeys] = useState<string[]>([]);
   const [modelCustom, setModelCustom] = useState('');
@@ -40,10 +42,11 @@ export default function SettingsPage() {
         setSyncPassword(s.sync.password);
       }
       if (s.agent) {
-        setAgent(s.agent);
-        const preset = PROVIDER_PRESETS[s.agent.provider];
-        if (preset && !preset.models.includes(s.agent.model) && s.agent.model) {
-          setModelCustom(s.agent.model);
+        const normalizedAgent = { ...DEFAULT_AGENT, ...s.agent };
+        setAgent(normalizedAgent);
+        const preset = PROVIDER_PRESETS[normalizedAgent.provider];
+        if (preset && !preset.models.includes(normalizedAgent.model) && normalizedAgent.model) {
+          setModelCustom(normalizedAgent.model);
           setShowModelCustom(true);
         }
       }
@@ -70,7 +73,14 @@ export default function SettingsPage() {
   function onProviderChange(provider: string) {
     const preset = PROVIDER_PRESETS[provider];
     if (!preset) return;
-    const newAgent = { ...agent, provider, baseUrl: preset.baseUrl, apiKeyVaultKey: preset.apiKeyVaultKey, model: preset.models[0] || '' };
+    const newAgent = {
+      ...DEFAULT_AGENT,
+      ...agent,
+      provider,
+      baseUrl: preset.baseUrl || '',
+      apiKeyVaultKey: preset.apiKeyVaultKey || '',
+      model: preset.models[0] || '',
+    };
     setAgent(newAgent);
     setShowModelCustom(false);
     setModelCustom('');
@@ -181,23 +191,51 @@ export default function SettingsPage() {
 
   const currentPreset = PROVIDER_PRESETS[agent.provider];
   const models = currentPreset?.models || [];
+  const platformEntries = Object.entries(PLATFORM_FIELDS);
+  const enabledPlatformCount = Object.values(platforms).filter((p: any) => p?.enabled).length;
+  const syncReady = !!syncStatus?.platformId && !!syncStatus?.hasPassword;
 
   return (
-    <div>
+    <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
+      <header className="access-hero settings-hero">
+        <div className="access-hero-copy">
+          <h1>{t('settings.title')}</h1>
+          <p>{t('settings.lede')}</p>
+        </div>
+        <div className="access-hero-stats" aria-label="Settings summary">
+          <div><span>{t('settings.enabledPlatforms')}</span><strong>{enabledPlatformCount}</strong></div>
+          <div><span>{t('settings.vaultKeys')}</span><strong>{vaultKeys.length}</strong></div>
+          <div><span>{t('settings.agentProvider')}</span><strong>{currentPreset?.name || agent.provider || '-'}</strong></div>
+          <div><span>{t('common.sync')}</span><strong>{syncReady ? t('settings.syncReady') : t('settings.syncOff')}</strong></div>
+        </div>
+      </header>
 
       {/* Appearance */}
-      <div className="settings-section">
+      <div className="settings-section settings-section--top">
+        <div className="settings-section-title">{t('settings.appearance')}</div>
         <div className="settings-card">
           <div className="settings-card-body">
             <div className="settings-row">
               <div className="settings-row-info">
-                <div className="settings-row-title">{t('settings.darkMode')}</div>
+                <div className="settings-row-title">{t('settings.themeMode')}</div>
                 <div className="settings-row-desc">{t('settings.darkModeDesc')}</div>
               </div>
-              <label className="settings-toggle">
-                <input type="checkbox" checked={theme === 'dark'} onChange={toggleTheme} />
-                <span className="settings-toggle-slider" />
-              </label>
+              <div className="settings-theme-switch" role="group" aria-label={t('settings.themeMode')}>
+                <button
+                  type="button"
+                  className={theme === 'dark' ? 'active' : ''}
+                  onClick={() => setThemeMode('dark')}
+                >
+                  {t('settings.themeDark')}
+                </button>
+                <button
+                  type="button"
+                  className={theme === 'light' ? 'active' : ''}
+                  onClick={() => setThemeMode('light')}
+                >
+                  {t('settings.themeLight')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -205,6 +243,7 @@ export default function SettingsPage() {
 
       {/* Auto Sync Toggle */}
       <div className="settings-section">
+        <div className="settings-section-title">{t('settings.access')}</div>
         <div className="settings-card">
           <div className="settings-card-body">
             <div className="settings-row">
@@ -225,7 +264,7 @@ export default function SettingsPage() {
       <div className="settings-section">
         <div className="settings-section-title">{t('settings.aiAssistant')}</div>
         <div className="settings-card">
-          <div className="settings-card-body">
+          <div className="settings-card-body settings-card-body--agent">
             <div className="settings-field">
               <label>{t('settings.provider')}</label>
               <CustomSelect
@@ -280,14 +319,15 @@ export default function SettingsPage() {
       <div className="settings-section">
         <div className="settings-section-title">{t('settings.crossSync')}</div>
         <div className="settings-card">
-          <div className="settings-card-body">
-            <div className="settings-field" style={{ marginBottom: 12 }}>
+          <div className="settings-card-body settings-card-body--sync">
+            <div className="settings-sync-grid">
+            <div className="settings-field settings-field--quiet settings-field--prototype">
               <label>{t('settings.syncPassword')}</label>
               <input type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
                 value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
                 onBlur={() => { if (syncPassword) saveAll(undefined, undefined, undefined, syncPassword); }} />
             </div>
-            <div className="settings-field" style={{ marginBottom: 12 }}>
+            <div className="settings-field settings-field--quiet settings-field--quiet-select">
               <label>{t('settings.syncPlatform')}</label>
               <CustomSelect
                 className="settings-select-wrap"
@@ -297,21 +337,22 @@ export default function SettingsPage() {
                 options={Object.entries(platforms).filter(([, p]: any) => p.enabled).map(([id]: any) => ({ value: id, label: PLATFORM_IDS[id] || id }))}
               />
             </div>
-            <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('settings.machineId')}</div>
-                <div style={{ fontSize: 12, fontFamily: 'Courier New, monospace', color: 'var(--ink-light)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            </div>
+            <div className="settings-sync-meta">
+              <div className="settings-meta-field">
+                <label>{t('settings.machineId')}</label>
+                <div className="settings-meta-value settings-meta-value--mono">
                   <span>{syncStatus?.machineId || t('settings.notGenerated')}</span>
                   {syncStatus?.machineId && (
-                    <button className="settings-vault-new-btn" style={{ width: 24, height: 24 }} onClick={() => { navigator.clipboard.writeText(syncStatus.machineId!); showToast(t('common.copied')); }} title={t('vault.copy')}>
+                    <button className="settings-vault-new-btn settings-meta-copy" onClick={() => { navigator.clipboard.writeText(syncStatus.machineId!); showToast(t('common.copied')); }} title={t('vault.copy')}>
                       <svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="5" width="10" height="10" rx="1.5" /><path d="M3 13V3a1.5 1.5 0 011.5-1.5H13" /></svg>
                     </button>
                   )}
                 </div>
               </div>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('settings.lastSync')}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-light)' }}>
+              <div className="settings-meta-field">
+                <label>{t('settings.lastSync')}</label>
+                <div className="settings-meta-value">
                   {syncStatus?.lastSyncAt ? new Date(syncStatus.lastSyncAt).toLocaleString('zh-CN') : t('settings.neverSynced')}
                 </div>
               </div>
@@ -332,7 +373,7 @@ export default function SettingsPage() {
       <div className="settings-section">
         <div className="settings-section-title">{t('settings.syncPlatformTitle')}</div>
         <div className="settings-platforms">
-          {Object.entries(PLATFORM_FIELDS).map(([platId, fields]) => {
+          {platformEntries.map(([platId, fields]) => {
             const plat = platforms[platId] || {};
             const testing = testingPlatform === platId;
             return (
@@ -351,16 +392,32 @@ export default function SettingsPage() {
                     </div>
                     <div className="settings-plat-status">{plat.enabled ? t('common.enabled') : t('common.notConfigured')}</div>
                   </div>
-                  <label className="settings-toggle">
-                    <input type="checkbox" checked={!!plat.enabled} onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }} />
-                    <span className="settings-toggle-slider" />
-                  </label>
+                  <div className="settings-plat-actions">
+                    <button
+                      type="button"
+                      className={`settings-icon-btn settings-icon-btn--test${testing ? ' is-loading' : ''}`}
+                      onClick={() => handleTestPlatform(platId)}
+                      disabled={testing}
+                      title={testing ? t('common.testing') : t('common.test')}
+                      aria-label={testing ? t('common.testing') : t('common.test')}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5.5 2.5v4M12.5 2.5v4" />
+                        <path d="M4 6.5h10v2.8a5 5 0 0 1-10 0V6.5z" />
+                        <path d="M9 14.3V16" />
+                      </svg>
+                    </button>
+                    <label className="settings-toggle">
+                      <input type="checkbox" checked={!!plat.enabled} onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }} />
+                      <span className="settings-toggle-slider" />
+                    </label>
+                  </div>
                 </div>
                 <div className="settings-plat-body">
                   {fields.map(field => {
                     const isSecret = /ecret|oken|Key|Id$/i.test(field) && !/storeId|databaseId|bucketName|region/i.test(field);
                     return (
-                      <div key={field} className="settings-field">
+                      <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
                         <label>{field}</label>
                         {isSecret ? (
                           <div className="vault-ref-field">
@@ -381,9 +438,6 @@ export default function SettingsPage() {
                       </div>
                     );
                   })}
-                  <button className="settings-test-btn" onClick={() => handleTestPlatform(platId)} disabled={testing}>
-                    {testing ? t('common.testing') : t('common.test')}
-                  </button>
                 </div>
               </div>
             );
@@ -438,7 +492,7 @@ export default function SettingsPage() {
         }
         return (
           <div className="auth-overlay" style={{ display: '' }}>
-            <div className="confirm-panel platdoc-panel" style={{ maxWidth: 520, textAlign: 'left' }}>
+            <div className="confirm-panel platdoc-panel" style={{ maxWidth: 680, textAlign: 'left' }}>
               <div className="progress-header">
                 <span className="progress-title">{t('settings.configGuide', { platform: PLATFORM_IDS[docPlatform] || docPlatform })}</span>
                 <button className="progress-close" onClick={() => setDocPlatform(null)}>&times;</button>

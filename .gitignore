@@ -10,3 +10,4 @@ pnpm-debug.log*
 .env
 .okitenv
 src/web/public/
+*.tsbuildinfo

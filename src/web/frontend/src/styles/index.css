@@ -1,5 +1,6 @@
 @import './base.css';
 @import './components.css';
+@import './home.css';
 @import './tools.css';
 @import './vault.css';
 @import './auth.css';
@@ -10,3 +11,5 @@
 @import './quick-start.css';
 @import './settings.css';
 @import './providers.css';
+@import './landing.css';
+@import './dashboard-command.css';

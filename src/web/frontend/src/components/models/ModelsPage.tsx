@@ -159,6 +159,16 @@ export default function ModelsPage() {
     ? providers.filter(p => p.id === activeProvider)
     : [...providers].sort((a, b) => a.id.localeCompare(b.id));
 
+  const modelStats = useMemo(() => {
+    const endpoints = providers.reduce((sum, p) => sum + (p.endpoints?.length || 1), 0);
+    const models = providers.reduce((sum, p) => sum + (p.models?.length || 0), 0);
+    const authed = providers.filter(p => {
+      const auth = authMap[p.id];
+      return Boolean(p.vaultKey && auth?.hasApiKey) || auth?.oauthLoggedIn === true;
+    }).length;
+    return { endpoints, models, authed };
+  }, [providers, authMap]);
+
   if (loading) return <div className="page-loading">{t('common.loading')}</div>;
 
   return (
@@ -179,9 +189,25 @@ export default function ModelsPage() {
         },
       ]} />
 
-      <div className="page-sidebar-main">
-        <div className="models-toolbar">
-          <h1>{t('models.title')}</h1>
+      <div className="page-sidebar-main access-workspace models-workspace">
+        <header className="access-hero">
+          <div className="access-hero-copy">
+            <h1>{t('models.title')}</h1>
+            <p>{t('models.lede')}</p>
+          </div>
+          <div className="access-hero-stats" aria-label="Model provider summary">
+            <div><span>{t('models.totalPlatforms')}</span><strong>{providers.length}</strong></div>
+            <div><span>{t('models.totalModels')}</span><strong>{modelStats.models}</strong></div>
+            <div><span>{t('models.totalEndpoints')}</span><strong>{modelStats.endpoints}</strong></div>
+            <div><span>{t('models.authReady')}</span><strong>{modelStats.authed}</strong></div>
+          </div>
+        </header>
+
+        <div className="access-command-bar">
+          <div>
+            <span>{activeProvider ? t('models.filteredPlatform') : t('models.allPlatforms')}</span>
+            <strong>{filtered.length}</strong>
+          </div>
           <button className="vault-toolbar-btn" onClick={handleAdd}>{t('models.addPlatform')}</button>
         </div>
 
@@ -197,7 +223,7 @@ export default function ModelsPage() {
             const hasMore = p.models.length > SHOW_MODELS;
 
             return (
-              <div key={p.id} className="provider-card">
+              <article key={p.id} className="provider-card">
                 <div className="provider-card-header">
                   <div className="provider-card-title">
                     <h3>{providerName(p.id, p.name)}</h3>
@@ -310,7 +336,7 @@ export default function ModelsPage() {
                     ))}
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>

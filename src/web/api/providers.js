@@ -387,12 +387,17 @@ async function saveUserConfig(config) {
 }
 
 const ADAPTERS = [
-  { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'] },
-  { id: 'codex', name: 'Codex CLI', supportedTypes: ['openai'] },
-  { id: 'gemini', name: 'Gemini CLI', supportedTypes: ['google'] },
-  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'] },
-  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'] },
+  { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude' },
+  { id: 'codex', name: 'Codex CLI', supportedTypes: ['openai'], command: 'codex' },
+  { id: 'gemini', name: 'Gemini CLI', supportedTypes: ['google'], command: 'gemini' },
+  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'opencode' },
+  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'], command: 'openclaw' },
 ];
+
+function adapterSupportsProvider(adapter, provider) {
+  const providerTypes = provider.endpoints?.map(e => e.type) || [provider.type];
+  return providerTypes.some(type => adapter.supportedTypes.includes(type));
+}
 
 async function listProviders(req, res) {
   try {
@@ -402,11 +407,10 @@ async function listProviders(req, res) {
 
     // Attach current selection info
     const result = providers.map(p => {
-      const providerTypes = p.endpoints?.map(e => e.type) || [p.type];
       return {
         ...p,
         usedBy: ADAPTERS
-          .filter(a => providerTypes.some(t => a.supportedTypes.includes(t)) && providersConfig[a.id]?.providerId === p.id)
+          .filter(a => adapterSupportsProvider(a, p) && providersConfig[a.id]?.providerId === p.id)
           .map(a => ({ id: a.id, name: a.name, modelId: providersConfig[a.id]?.modelId })),
       };
     });
@@ -426,10 +430,12 @@ async function getAdaptersList(req, res) {
     const result = ADAPTERS.map(adapter => {
       const sel = providersConfig[adapter.id];
       const currentProvider = sel?.providerId ? providers.find(p => p.id === sel.providerId) : null;
-      const compatible = providers.filter(p => adapter.supportedTypes.includes(p.type));
+      const compatible = providers.filter(p => adapterSupportsProvider(adapter, p));
 
       return {
         ...adapter,
+        canLaunch: !!adapter.command,
+        installed: adapter.command ? !!findCommand(adapter.command) : false,
         current: sel?.providerId && sel?.modelId
           ? { providerId: sel.providerId, providerName: currentProvider?.name || sel.providerId, modelId: sel.modelId }
           : null,
@@ -446,6 +452,82 @@ async function getAdaptersList(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+}
+
+async function launchAgent(req, res) {
+  const { agentId, cwd } = req.body;
+  if (!agentId) return res.status(400).json({ error: 'agentId required' });
+
+  const adapter = ADAPTERS.find(a => a.id === agentId);
+  if (!adapter) return res.status(404).json({ error: `Agent not found: ${agentId}` });
+  if (!adapter.command) return res.status(400).json({ error: `${adapter.name} 不支持一键打开` });
+
+  const commandPath = findCommand(adapter.command);
+  if (!commandPath) {
+    return res.status(404).json({ error: `${adapter.name} CLI 未安装或不在 PATH 中` });
+  }
+
+  const launchDir = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : process.cwd();
+  const command = `cd ${shellQuote(launchDir)} && ${shellQuote(commandPath)}`;
+
+  try {
+    await openTerminal(command);
+    res.json({ success: true, agentId, command: adapter.command });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+function openTerminal(command) {
+  const { spawn } = require('child_process');
+  const platform = os.platform();
+
+  if (platform === 'darwin') {
+    const script = [
+      'tell application "Terminal"',
+      'activate',
+      `do script ${appleScriptQuote(command)}`,
+      'end tell',
+    ].join('\n');
+    return spawnDetached('osascript', ['-e', script]);
+  }
+
+  if (platform === 'linux') {
+    const terminals = [
+      ['gnome-terminal', ['--', 'bash', '-lc', `${command}; exec bash`]],
+      ['konsole', ['-e', 'bash', '-lc', `${command}; exec bash`]],
+      ['xterm', ['-e', 'bash', '-lc', `${command}; exec bash`]],
+    ];
+    const found = terminals.find(([cmd]) => findCommand(cmd));
+    if (!found) throw new Error('未找到可用终端应用');
+    return spawnDetached(found[0], found[1]);
+  }
+
+  if (platform === 'win32') {
+    return spawnDetached('cmd.exe', ['/c', 'start', 'cmd.exe', '/k', command]);
+  }
+
+  throw new Error(`Unsupported platform: ${platform}`);
+}
+
+function spawnDetached(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = require('child_process').spawn(command, args, {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.on('error', reject);
+    child.unref();
+    resolve();
+  });
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function appleScriptQuote(value) {
+  return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 async function createProvider(req, res) {
@@ -523,7 +605,7 @@ async function switchProvider(req, res) {
     const provider = providers.find(p => p.id === providerId);
     if (!provider) return res.status(404).json({ error: `Provider not found: ${providerId}` });
 
-    if (!adapter.supportedTypes.includes(provider.type)) {
+    if (!adapterSupportsProvider(adapter, provider)) {
       return res.status(400).json({ error: `${adapter.name} does not support ${provider.type} providers` });
     }
 
@@ -615,6 +697,7 @@ async function applyClaudeConfig(provider, modelId, apiKey) {
 async function applyCodexConfig(provider, modelId, apiKey) {
   const codexDir = path.join(os.homedir(), '.codex');
   const configPath = path.join(codexDir, 'config.toml');
+  const envPath = path.join(codexDir, '.env');
 
   await fs.ensureDir(codexDir);
   let toml = '';
@@ -622,15 +705,97 @@ async function applyCodexConfig(provider, modelId, apiKey) {
     toml = await fs.readFile(configPath, 'utf-8');
   }
 
-  const modelRegex = /^model\s*=\s*.*$/m;
-  const modelLine = `model = "${modelId}"`;
-  toml = modelRegex.test(toml) ? toml.replace(modelRegex, modelLine) : toml.trimEnd() + '\n' + modelLine + '\n';
+  const providerId = getCodexProviderId(provider);
+  const openAIEndpoint = getProviderEndpoint(provider, 'openai');
+
+  toml = upsertTopLevelTomlKey(toml, 'model', tomlString(modelId));
+  toml = upsertTopLevelTomlKey(toml, 'model_provider', tomlString(providerId));
+
+  if (providerId !== 'openai') {
+    const envKey = getCodexEnvKey(provider);
+    const providerLines = [
+      `name = ${tomlString(provider.name)}`,
+      `base_url = ${tomlString(openAIEndpoint.baseUrl)}`,
+      `env_key = ${tomlString(envKey)}`,
+      'wire_api = "responses"',
+    ];
+    toml = upsertTomlTable(toml, `model_providers.${providerId}`, providerLines);
+    if (apiKey) await upsertEnvFile(envPath, envKey, apiKey);
+  } else if (apiKey) {
+    await upsertEnvFile(envPath, 'OPENAI_API_KEY', apiKey);
+  }
 
   await fs.writeFile(configPath, toml);
+}
 
-  if (apiKey) {
-    await fs.writeFile(path.join(codexDir, '.env'), `OPENAI_API_KEY=${apiKey}\n`);
+function getProviderEndpoint(provider, type) {
+  const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];
+  const endpoint = endpoints.find(ep => ep.type === type);
+  if (!endpoint?.baseUrl) throw new Error(`${provider.name} 缺少 ${type} endpoint`);
+  return endpoint;
+}
+
+function getCodexProviderId(provider) {
+  return provider.id === 'openai' ? 'openai' : `okit-${sanitizeTomlKey(provider.id)}`;
+}
+
+function getCodexEnvKey(provider) {
+  return `OKIT_CODEX_${provider.id.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_API_KEY`;
+}
+
+function sanitizeTomlKey(value) {
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+function upsertTopLevelTomlKey(toml, key, value) {
+  const lines = toml.split('\n');
+  let tableStart = lines.findIndex(line => line.trim().startsWith('['));
+  if (tableStart === -1) tableStart = lines.length;
+
+  for (let i = 0; i < tableStart; i++) {
+    if (new RegExp(`^\\s*${escapeRegex(key)}\\s*=`).test(lines[i])) {
+      lines[i] = `${key} = ${value}`;
+      return lines.join('\n');
+    }
   }
+
+  lines.splice(tableStart, 0, `${key} = ${value}`);
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+function upsertTomlTable(toml, tableName, lines) {
+  const header = `[${tableName}]`;
+  const tableBlock = `${header}\n${lines.join('\n')}`;
+  const tableRegex = new RegExp(`(^\\[${escapeRegex(tableName)}\\]\\n)([\\s\\S]*?)(?=^\\[|\\s*$)`, 'm');
+
+  if (tableRegex.test(toml)) {
+    return toml.replace(tableRegex, `${tableBlock}\n\n`);
+  }
+
+  return `${toml.trimEnd()}\n\n${tableBlock}\n`;
+}
+
+function tomlString(value) {
+  return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function upsertEnvFile(envPath, key, value) {
+  let content = '';
+  if (await fs.pathExists(envPath)) {
+    content = await fs.readFile(envPath, 'utf-8');
+  }
+
+  const line = `export ${key}=${shellQuote(value)}`;
+  const regex = new RegExp(`^\\s*(?:export\\s+)?${escapeRegex(key)}=.*$`, 'm');
+  content = regex.test(content)
+    ? content.replace(regex, line)
+    : `${content.trimEnd()}\n${line}\n`;
+
+  await fs.writeFile(envPath, content.trimStart());
 }
 
 async function applyGeminiConfig(apiKey) {
@@ -896,6 +1061,7 @@ module.exports = {
   updateProvider,
   deleteProvider: deleteProviderRoute,
   switchProvider,
+  launchAgent,
   getAuthStatus,
   triggerOAuthLogin,
   fetchModels,

@@ -100,19 +100,20 @@ function createServer(port = 3780) {
   return app;
 }
 
-function startServer(port = 3780) {
+function startServer(port = 3780, onStarted) {
   const app = createServer(port);
 
   const server = app.listen(port, '127.0.0.1', () => {
     console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
     console.log(`  Press Ctrl+C to stop\n`);
+    if (onStarted) onStarted(port);
   });
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       const nextPort = port + 1;
       console.log(`  Port ${port} in use, trying ${nextPort}...`);
-      startServer(nextPort);
+      startServer(nextPort, onStarted);
     } else {
       throw err;
     }

@@ -31,6 +31,10 @@ export type UserConfig = {
     url?: string;
     token?: string;
   };
+  providers?: Record<string, {
+    providerId?: string;
+    modelId?: string;
+  }>;
   sync?: {
     autoSync?: boolean;
     platforms?: {
@@ -99,6 +103,7 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     hints: patch.hints ? { ...current.hints, ...patch.hints } : current.hints,
     git: patch.git ? { ...current.git, ...patch.git } : current.git,
     relay: patch.relay ? { ...current.relay, ...patch.relay } : current.relay,
+    providers: patch.providers ? { ...current.providers, ...patch.providers } : current.providers,
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
     sync: patch.sync ? {
       ...current.sync,

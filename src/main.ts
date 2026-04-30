@@ -659,13 +659,12 @@ program
     // @ts-ignore
     const { startServer } = await import("./web/server.js");
 
-    if (options.open) {
-      const { exec } = await import("child_process");
-      exec(`open http://localhost:${port}`);
-    }
-
     // @ts-ignore
-    startServer(port);
+    startServer(port, options.open ? async (actualPort: number) => {
+      const { exec } = await import("child_process");
+      const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
+      exec(`${openCmd} http://localhost:${actualPort}`);
+    } : undefined);
   });
 
 function checkPlatform() {

@@ -24,7 +24,7 @@ const PRESET_PROVIDERS = [
     name: "OpenAI",
     type: "openai",
     baseUrl: "https://api.openai.com/v1",
-    authMode: "both",
+    authMode: "api_key",
     models: [
       { id: "gpt-5.5", name: "GPT-5.5" },
       { id: "gpt-5.4-mini", name: "GPT-5.4 Mini" },

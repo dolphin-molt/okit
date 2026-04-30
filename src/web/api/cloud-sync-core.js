@@ -16,7 +16,7 @@ const PLATFORM_SECRET_FIELDS = {
   'cloudflare-kv': ['apiToken'],
   'cloudflare-r2': ['r2AccessKeyId', 'r2SecretAccessKey'],
   volcengine: ['accessKey', 'secretKey'],
-  supabase: ['projectId', 'apiKey'],
+  supabase: ['projectId', 'apiKey', 'apiToken'],
 };
 
 async function loadConfig() {
@@ -40,6 +40,12 @@ function appendLog(action, name, success, detail) {
   } catch {}
 }
 
+function parseKeyAlias(input) {
+  const slashIdx = input.indexOf('/');
+  if (slashIdx === -1) return { key: input, alias: 'default' };
+  return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
+}
+
 async function resolveVaultRefs(platConfig, platform) {
   const { VaultStore } = require('../../vault/store');
   const store = new VaultStore();
@@ -49,9 +55,13 @@ async function resolveVaultRefs(platConfig, platform) {
     if (allowedFields && !allowedFields.includes(key)) continue;
     if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
       if (!VAULT_KEY_PATTERN.test(value)) continue;
-      const parsed = VaultStore.parseKeyAlias(value);
+      const parsed = parseKeyAlias(value);
       let actual = await store.get(value);
-      if (!actual) actual = await store.resolve(parsed.key, parsed.alias);
+      if (!actual && typeof store.resolve === 'function') actual = await store.resolve(parsed.key, parsed.alias);
+      if (!actual && typeof store.getAliases === 'function') {
+        const aliases = await store.getAliases(parsed.key);
+        if (aliases.length > 0) actual = await store.get(`${parsed.key}/${aliases[0]}`);
+      }
       if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
       resolved[key] = actual;
     }

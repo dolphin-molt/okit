@@ -16,6 +16,22 @@ uninstall:
   linux: "sudo apt-get remove -y nodejs"
 check: command -v node
 versionCmd: node --version
+authCheck: "npm whoami 2>&1"
+authFix: "sh -c 'TOKEN=$(okit vault get NPM_TOKEN 2>/dev/null || okit vault get NPM_ACCESS_TOKEN 2>/dev/null || true); if [ -n \"$TOKEN\" ]; then npm config set //registry.npmjs.org/:_authToken \"$TOKEN\"; else npm login; fi'"
+
+authMethods:
+  - name: Access Token (推荐)
+    description: 从 npm Access Tokens 生成 Automation token，粘贴后写入本机 npm 配置
+    tokenUrl: https://www.npmjs.com/settings/cing-self/tokens
+    tokenHint: 选择 Generate New Token → Automation，复制生成的 token
+    command: "npm config set //registry.npmjs.org/:_authToken '{token}'"
+    recommended: true
+  - name: OKIT Vault
+    description: 使用 OKIT Vault 中的 NPM_TOKEN 或 NPM_ACCESS_TOKEN 自动配置 npm 发布授权
+    command: "sh -c 'TOKEN=$(okit vault get NPM_TOKEN 2>/dev/null || okit vault get NPM_ACCESS_TOKEN 2>/dev/null); npm config set //registry.npmjs.org/:_authToken \"$TOKEN\"'"
+  - name: npm login
+    description: 使用 npm 官方交互式登录流程
+    command: npm login
 
 dependencies:
   - Homebrew
@@ -44,6 +60,8 @@ detail: |
   npm install <package>      # 安装依赖包
   npm run <script>           # 运行 package.json 中的脚本
   npx <command>              # 执行 npm 包中的命令
+  npm whoami                 # 检查 npm Registry 授权
+  npm publish --access public # 发布公开 scoped 包
   ```
 
 detail_en: |
@@ -70,4 +88,6 @@ detail_en: |
   npm install <package>      # Install a dependency
   npm run <script>           # Run a script from package.json
   npx <command>              # Execute a command from an npm package
+  npm whoami                 # Check npm Registry auth
+  npm publish --access public # Publish a public scoped package
   ```

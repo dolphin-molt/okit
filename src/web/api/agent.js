@@ -73,6 +73,41 @@ function buildSkillsPrompt() {
   return prompt;
 }
 
+async function resolveAgentConfigFromProvider(agentCfg) {
+  try {
+    const providersPath = path.join(os.homedir(), '.okit', 'providers.json');
+    if (!fs.existsSync(providersPath)) return agentCfg;
+    const raw = fs.readFileSync(providersPath, 'utf-8');
+    const data = JSON.parse(raw);
+    const providers = Array.isArray(data?.providers) ? data.providers : [];
+    const provider = providers.find(p => p.id === agentCfg.provider);
+    if (!provider) return agentCfg;
+
+    const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];
+    const endpoint = endpoints.find(ep => ep.type === 'openai') || endpoints[0] || {};
+    const models = Array.isArray(provider.models) ? provider.models : [];
+    const modelExists = models.some(m => m.id === agentCfg.model);
+
+    return {
+      ...agentCfg,
+      baseUrl: endpoint.baseUrl || provider.baseUrl || agentCfg.baseUrl,
+      apiKeyVaultKey: provider.vaultKey || agentCfg.apiKeyVaultKey,
+      model: modelExists ? agentCfg.model : (models[0]?.id || agentCfg.model),
+    };
+  } catch {
+    return agentCfg;
+  }
+}
+
+async function resolveVaultValue(store, keyAlias) {
+  if (!keyAlias) return null;
+  let value = await store.get(keyAlias);
+  if (value) return value;
+  const { VaultStore } = require('../../vault/store');
+  const parsed = VaultStore.parseKeyAlias(keyAlias);
+  return await store.resolve(parsed.key, parsed.alias);
+}
+
 async function listToolsImpl(filter) {
   const toolsApi = require('./tools');
   const { loadRegistry, resolveCmd } = require('../../config/registry');
@@ -154,8 +189,9 @@ async function agentChat(req, res) {
       const parsed = JSON.parse(raw);
       if (parsed.agent) agentCfg = { ...agentCfg, ...parsed.agent };
     } catch {}
+    agentCfg = await resolveAgentConfigFromProvider(agentCfg);
 
-    const apiKey = await store.get(agentCfg.apiKeyVaultKey);
+    const apiKey = await resolveVaultValue(store, agentCfg.apiKeyVaultKey);
     if (!apiKey) {
       return res.status(400).json({ error: `请先在密钥管理中添加 ${agentCfg.apiKeyVaultKey}` });
     }

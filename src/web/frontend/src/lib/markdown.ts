@@ -5,6 +5,57 @@ export function mdInline(text: string): string {
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
+function splitTableRow(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map(cell => cell.trim());
+}
+
+function isTableDivider(line: string): boolean {
+  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function renderTables(html: string): string {
+  const lines = html.split('\n');
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const header = lines[i];
+    const divider = lines[i + 1];
+    if (
+      header?.includes('|') &&
+      divider &&
+      isTableDivider(divider)
+    ) {
+      const headers = splitTableRow(header);
+      const rows: string[][] = [];
+      i += 2;
+
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+        rows.push(splitTableRow(lines[i]));
+        i += 1;
+      }
+
+      const thead = headers.map(cell => `<th>${cell}</th>`).join('');
+      const tbody = rows
+        .map(row => `<tr>${headers.map((_, idx) => `<td>${row[idx] || ''}</td>`).join('')}</tr>`)
+        .join('');
+
+      out.push(`\n<div class="ai-table-wrap"><table class="ai-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>\n`);
+      continue;
+    }
+
+    out.push(lines[i]);
+    i += 1;
+  }
+
+  return out.join('\n');
+}
+
 export function renderMd(text: string): string {
   let html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -29,6 +80,9 @@ export function renderMd(text: string): string {
   html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
 
+  // Tables
+  html = renderTables(html);
+
   // Lists
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
@@ -37,8 +91,8 @@ export function renderMd(text: string): string {
   // Paragraphs
   html = html.replace(/\n{2,}/g, '</p><p>');
   html = `<p>${html}</p>`;
-  html = html.replace(/<p>\s*<(h[2-4]|pre|ul)/g, '<$1');
-  html = html.replace(/<\/(h[2-4]|pre|ul)>\s*<\/p>/g, '</$1>');
+  html = html.replace(/<p>\s*<(h[2-4]|pre|ul|div)/g, '<$1');
+  html = html.replace(/<\/(h[2-4]|pre|ul|div)>\s*<\/p>/g, '</$1>');
 
   return html;
 }

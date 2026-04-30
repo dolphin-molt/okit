@@ -419,12 +419,12 @@ function ProviderForm({ provider, onSave, onClose }: {
   return (
     <>
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel modal-panel--wide" onClick={e => e.stopPropagation()}>
+      <div className="modal-panel modal-panel--wide provider-form-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-panel-header">
           <h2>{provider ? t('models.editPlatform') : t('models.newPlatform')}</h2>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="modal-panel-body">
+          <div className="modal-panel-body provider-form-body">
             <div className="form-group">
               <label>{t('common.name')}</label>
               <input className="vault-input" value={name} onChange={e => setName(e.target.value)} required disabled={!!provider} />

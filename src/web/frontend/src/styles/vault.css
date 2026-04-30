@@ -21,13 +21,88 @@
 .vault-form-panel .progress-close:hover { color: var(--ink); }
 
 [data-theme="dark"] .vault-form-panel {
-  border-color: var(--kraft-dark);
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+  background: #f8f3e8;
+  border-color: rgba(20, 18, 16, 0.18);
+  box-shadow: 0 24px 72px rgba(0,0,0,0.45);
+  color: #1c1917;
 }
 
 [data-theme="dark"] .vault-form-panel .progress-header {
-  background: var(--paper);
-  border-bottom-color: var(--kraft-dark);
+  background: #fffaf0;
+  color: #1c1917;
+  border-bottom-color: rgba(28, 25, 23, 0.16);
+}
+
+[data-theme="dark"] .vault-form-panel .vault-form-body,
+[data-theme="dark"] .vault-form-panel .vault-form-actions {
+  background: #fffaf0;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-form-actions {
+  border-top-color: rgba(28, 25, 23, 0.12);
+}
+
+[data-theme="dark"] .vault-form-panel .progress-title,
+[data-theme="dark"] .vault-form-panel .vault-form-field label {
+  color: #57534e;
+}
+
+[data-theme="dark"] .vault-form-panel .progress-close {
+  color: #78716c;
+}
+
+[data-theme="dark"] .vault-form-panel .progress-close:hover,
+[data-theme="dark"] .vault-form-panel .btn-toggle-vis:hover {
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-form-actions {
+  border-top-color: rgba(28, 25, 23, 0.16);
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input,
+[data-theme="dark"] .vault-form-panel .custom-select-trigger {
+  background: #fffaf0;
+  border-color: #d5c4a1;
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input::placeholder {
+  color: #a8a29e;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input:focus,
+[data-theme="dark"] .vault-form-panel .custom-select--open .custom-select-trigger {
+  background: #fffdf7;
+  border-color: #1c1917;
+  box-shadow: 0 0 0 3px rgba(28, 25, 23, 0.08);
+}
+
+[data-theme="dark"] .vault-form-panel .btn-toggle-vis {
+  color: #78716c;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save {
+  background: #1c1917;
+  border-color: #1c1917;
+  color: #fefcf8;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save:hover {
+  background: #57534e;
+  border-color: #57534e;
+  color: #fefcf8;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-cancel {
+  background: transparent;
+  border-color: #d5c4a1;
+  color: #57534e;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-cancel:hover {
+  border-color: #1c1917;
+  color: #1c1917;
 }
 
 .vault-form-body {
@@ -1034,6 +1109,10 @@
   border-top: 0;
 }
 
+.vault-secret-tags:empty {
+  display: none;
+}
+
 .vault-secret-tags span,
 .vault-workspace .vault-project-tag,
 .vault-project-empty {
@@ -1042,6 +1121,12 @@
   padding: 3px 8px;
   background: rgba(245, 243, 235, 0.045);
   white-space: nowrap;
+}
+
+.vault-secret-tags span {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .vault-workspace .vault-aliases {

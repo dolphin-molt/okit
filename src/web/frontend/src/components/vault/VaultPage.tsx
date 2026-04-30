@@ -296,7 +296,7 @@ export default function VaultPage() {
     <div className="page-with-sidebar">
       {/* Sidebar */}
       <PageSidebar sections={[
-        {
+        ...(viewMode === 'keys' ? [{
           title: t('common.group'),
           items: [
             { key: '__all__', label: t('common.all'), count: secrets.length, active: viewMode === 'keys' && groupFilter === 'all', onClick: () => { setViewMode('keys'); setGroupFilter('all'); } },
@@ -309,8 +309,8 @@ export default function VaultPage() {
             })),
             { key: '__none__', label: t('common.ungrouped'), count: secrets.filter(s => !s.group).length, active: viewMode === 'keys' && groupFilter === '', onClick: () => { setViewMode('keys'); setGroupFilter(''); } },
           ],
-        },
-        ...(projectMap.map.size > 0 ? [{
+        }] : []),
+        ...(viewMode === 'projects' && projectMap.map.size > 0 ? [{
           title: t('vault.syncProjects'),
           items: Array.from(projectMap.map.entries()).map(([path, proj]) => ({
             key: `proj-${path}`,
@@ -437,8 +437,9 @@ export default function VaultPage() {
                         <div className="vault-secret-title">
                           <span className="vault-key">{secret.key}</span>
                           <div className="vault-secret-tags">
-                            <span>{secret.group || t('common.ungrouped')}</span>
-                            <span>{t('vault.aliasesCount', { n: secret.aliases.length })}</span>
+                            {secret.aliases.length > 1 && (
+                              <span>{t('vault.aliasesCount', { n: secret.aliases.length })}</span>
+                            )}
                           </div>
                         </div>
                       </div>

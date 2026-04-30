@@ -596,6 +596,69 @@ select:focus {
   box-shadow: var(--shadow-lg);
 }
 
+.toast {
+  min-width: min(520px, calc(100vw - 40px));
+  max-width: min(680px, calc(100vw - 40px));
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+  white-space: normal;
+}
+
+[data-theme="light"] .toast {
+  border-color: rgba(23, 32, 29, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  color: #111816;
+  box-shadow: 0 18px 56px rgba(31, 41, 35, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+[data-theme="light"] .toast.success {
+  border-color: rgba(77, 95, 0, 0.22);
+  background: rgba(244, 255, 147, 0.96);
+  color: #263300;
+}
+
+[data-theme="light"] .toast.error {
+  border-color: rgba(185, 28, 28, 0.2);
+  background: rgba(254, 226, 226, 0.96);
+  color: #7f1d1d;
+}
+
+[data-theme="light"] .toast.info {
+  border-color: rgba(2, 132, 199, 0.22);
+  background: rgba(224, 242, 254, 0.96);
+  color: #075985;
+}
+
+[data-theme="dark"] .toast {
+  border-color: rgba(245, 243, 235, 0.14);
+  background: rgba(25, 33, 30, 0.96);
+  color: #f5f3eb;
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.36);
+}
+
+[data-theme="dark"] .toast.success {
+  border-color: rgba(239, 255, 97, 0.34);
+  background: rgba(43, 55, 20, 0.96);
+  color: #efff61;
+}
+
+[data-theme="dark"] .toast.error {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(69, 20, 20, 0.96);
+  color: #fecaca;
+}
+
+[data-theme="dark"] .toast.info {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: rgba(15, 43, 56, 0.96);
+  color: #bae6fd;
+}
+
 .loading {
   color: rgba(245, 243, 235, 0.5);
   font-family: var(--font);
@@ -1308,11 +1371,71 @@ select:focus {
   box-shadow: 0 16px 44px rgba(31, 41, 35, 0.07);
 }
 
+[data-theme="light"] .vault-project-list .project-card-header {
+  border-bottom-color: rgba(23, 32, 29, 0.12);
+}
+
+[data-theme="light"] .vault-project-list .project-name,
+[data-theme="light"] .vault-project-list .project-key-name {
+  color: #111816;
+}
+
+[data-theme="light"] .vault-project-list .project-path {
+  color: rgba(23, 32, 29, 0.62);
+}
+
+[data-theme="light"] .vault-project-list .project-key-item {
+  border-color: rgba(23, 32, 29, 0.1);
+  background: rgba(246, 248, 244, 0.88);
+}
+
+[data-theme="light"] .vault-project-list .project-key-masked {
+  color: rgba(23, 32, 29, 0.72);
+}
+
+[data-theme="light"] .vault-project-list .project-key-count {
+  border-color: rgba(23, 32, 29, 0.12);
+  background: rgba(234, 255, 111, 0.5);
+  color: #3f6212;
+}
+
 [data-theme="light"] .page-sidebar-section,
 [data-theme="light"] .tools-cat-sidebar {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 247, 240, 0.78)),
     #fbfaf5;
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-section {
+  border-color: rgba(23, 32, 29, 0.08);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-title {
+  border-bottom-color: transparent;
+  color: #0284c7;
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item {
+  border-radius: 8px;
+  color: rgba(23, 32, 29, 0.66);
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item:hover {
+  background: rgba(224, 242, 254, 0.42);
+  color: #0f172a;
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item.active {
+  border-color: transparent;
+  background: rgba(234, 255, 111, 0.42);
+  color: #111816;
+}
+
+[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-count {
+  color: rgba(23, 32, 29, 0.34);
 }
 
 [data-theme="light"] .page-sidebar-title,
@@ -1407,6 +1530,24 @@ select:focus {
   background: rgba(246, 248, 244, 0.84);
 }
 
+[data-theme="light"] .vault-secret-tags span {
+  border-color: rgba(23, 32, 29, 0.16);
+  background: rgba(255, 255, 255, 0.9);
+  color: #3f3f38;
+}
+
+[data-theme="light"] .vault-secret-tags span:first-child {
+  border-color: rgba(2, 132, 199, 0.24);
+  background: rgba(224, 242, 254, 0.86);
+  color: #0369a1;
+}
+
+[data-theme="light"] .vault-secret-tags span:nth-child(2) {
+  border-color: rgba(23, 32, 29, 0.18);
+  background: rgba(245, 235, 224, 0.88);
+  color: #57534e;
+}
+
 [data-theme="light"] .home-actions a:hover {
   border-color: rgba(2, 132, 199, 0.26);
   background: rgba(224, 242, 254, 0.7);
@@ -1449,6 +1590,7 @@ select:focus {
 [data-theme="light"] .btn-icon:hover,
 [data-theme="light"] .provider-card-actions .btn-icon:hover,
 [data-theme="light"] .vault-workspace .btn-icon:hover,
+[data-theme="light"] .vault-workspace .vault-toolbar-btn:hover,
 [data-theme="light"] .agent-card .btn-outline:hover,
 [data-theme="light"] .auth-card .btn-action--auth:hover,
 [data-theme="light"] .auth-card .btn-action--reauth:hover,
@@ -1458,11 +1600,55 @@ select:focus {
   color: #075985;
 }
 
+[data-theme="light"] .btn-action:focus-visible,
+[data-theme="light"] .btn-icon:focus-visible,
+[data-theme="light"] .provider-card-actions .btn-icon:focus-visible,
+[data-theme="light"] .vault-workspace .btn-icon:focus-visible,
+[data-theme="light"] .vault-workspace .vault-toolbar-btn:focus-visible,
+[data-theme="light"] .agent-card .btn-outline:focus-visible,
+[data-theme="light"] .auth-card .btn-action--auth:focus-visible,
+[data-theme="light"] .auth-card .btn-action--reauth:focus-visible,
+[data-theme="light"] .model-select-btn:focus-visible {
+  outline: 2px solid rgba(7, 89, 133, 0.72);
+  outline-offset: 2px;
+  border-color: rgba(7, 89, 133, 0.42);
+  background: rgba(224, 242, 254, 0.62);
+  color: #083344;
+}
+
+[data-theme="light"] .btn-action:active,
+[data-theme="light"] .btn-icon:active,
+[data-theme="light"] .provider-card-actions .btn-icon:active,
+[data-theme="light"] .vault-workspace .btn-icon:active,
+[data-theme="light"] .vault-workspace .vault-toolbar-btn:active,
+[data-theme="light"] .agent-card .btn-outline:active,
+[data-theme="light"] .auth-card .btn-action--auth:active,
+[data-theme="light"] .auth-card .btn-action--reauth:active,
+[data-theme="light"] .model-select-btn:active {
+  border-color: rgba(7, 89, 133, 0.46);
+  background: rgba(186, 230, 253, 0.72);
+  color: #082f49;
+}
+
 [data-theme="light"] .btn-action--install,
 [data-theme="light"] .btn-add,
 [data-theme="light"] .btn-save {
   border-color: rgba(166, 204, 0, 0.32);
   background: #eaff6f;
+  color: #111816;
+}
+
+[data-theme="light"] .btn-action--install:hover,
+[data-theme="light"] .btn-add:hover,
+[data-theme="light"] .btn-save:hover,
+[data-theme="light"] .btn-action--install:focus-visible,
+[data-theme="light"] .btn-add:focus-visible,
+[data-theme="light"] .btn-save:focus-visible,
+[data-theme="light"] .btn-action--install:active,
+[data-theme="light"] .btn-add:active,
+[data-theme="light"] .btn-save:active {
+  border-color: rgba(77, 95, 0, 0.42);
+  background: #d8f04e;
   color: #111816;
 }
 
@@ -1496,6 +1682,106 @@ select:focus {
   color: rgba(23, 32, 29, 0.58);
 }
 
+/* AI Assistant page owns a richer chat surface than the generic dark controls. */
+[data-theme="dark"] .agent-page .agent-suggestion {
+  border-color: rgba(245, 243, 235, 0.1);
+  background: rgba(245, 243, 235, 0.075);
+  color: #f5f3eb;
+}
+
+[data-theme="dark"] .agent-page .agent-suggestion:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(245, 243, 235, 0.12);
+  color: #f5f3eb;
+}
+
+[data-theme="dark"] .agent-page .agent-send-btn {
+  border: 0;
+  background: rgba(245, 243, 235, 0.16);
+  color: rgba(245, 243, 235, 0.86);
+}
+
+[data-theme="dark"] .agent-page .agent-send-btn:disabled {
+  background: rgba(245, 243, 235, 0.16);
+  color: rgba(245, 243, 235, 0.52);
+}
+
+[data-theme="dark"] .agent-page .agent-input {
+  color: #f5f3eb;
+}
+
+.agent-page .agent-input:focus,
+.agent-page .agent-input:focus-visible,
+[data-theme="dark"] .agent-page .agent-input:focus,
+[data-theme="dark"] .agent-page .agent-input:focus-visible {
+  border: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .agent-page .agent-input-wrap {
+  border-color: rgba(245, 243, 235, 0.14);
+  border-bottom-color: rgba(245, 243, 235, 0.22);
+  background:
+    linear-gradient(180deg, rgba(245, 243, 235, 0.1), rgba(245, 243, 235, 0.07));
+  box-shadow:
+    0 1px 0 rgba(245, 243, 235, 0.08) inset,
+    0 18px 60px rgba(0, 0, 0, 0.32);
+}
+
+[data-theme="dark"] .agent-page .agent-input-wrap:focus-within {
+  border-color: rgba(245, 243, 235, 0.2);
+  background: rgba(245, 243, 235, 0.11);
+  box-shadow:
+    0 1px 0 rgba(245, 243, 235, 0.08) inset,
+    0 20px 70px rgba(0, 0, 0, 0.36);
+}
+
+[data-theme="dark"] .agent-page .agent-composer-btn,
+[data-theme="dark"] .agent-page .agent-model-pill {
+  color: rgba(245, 243, 235, 0.7);
+}
+
+[data-theme="dark"] .agent-page .agent-model-switch {
+  border-color: rgba(245, 243, 235, 0.12);
+  background: rgba(245, 243, 235, 0.06);
+}
+
+[data-theme="dark"] .agent-page .agent-model-switch span {
+  color: rgba(245, 243, 235, 0.48);
+}
+
+[data-theme="dark"] .agent-page .agent-model-switch select {
+  color: rgba(245, 243, 235, 0.78);
+}
+
+[data-theme="dark"] .agent-page .agent-msg-body {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.agent-page .agent-msg-body .agent-text,
+[data-theme="dark"] .agent-page .agent-msg-body .agent-text {
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+[data-theme="dark"] .agent-page .ai-table-wrap {
+  border-color: rgba(245, 243, 235, 0.14);
+  background: transparent;
+}
+
+[data-theme="dark"] .agent-page .ai-table th {
+  background: transparent;
+  color: #f5f3eb;
+}
+
 [data-theme="light"] .vault-workspace .vault-hero-stats > div,
 [data-theme="light"] .agent-current-row,
 [data-theme="light"] .models-workspace .model-item {
@@ -1515,4 +1801,309 @@ select:focus {
 
 [data-theme="light"] .vault-workspace .vault-search .search-input::placeholder {
   color: rgba(23, 32, 29, 0.4);
+}
+
+/* Vault form modal uses a light solid surface even in dark mode for readable secret entry. */
+[data-theme="dark"] .vault-form-panel {
+  border-color: rgba(20, 18, 16, 0.18);
+  background: #f8f3e8;
+  color: #1c1917;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .vault-form-panel .progress-header {
+  border-bottom-color: rgba(28, 25, 23, 0.16);
+  background: #fffaf0;
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-form-body,
+[data-theme="dark"] .vault-form-panel .vault-form-actions {
+  background: #fffaf0;
+}
+
+[data-theme="dark"] .vault-form-panel .progress-title,
+[data-theme="dark"] .vault-form-panel .vault-form-field label {
+  color: #57534e;
+}
+
+[data-theme="dark"] .vault-form-panel .progress-close,
+[data-theme="dark"] .vault-form-panel .btn-toggle-vis {
+  color: #78716c;
+}
+
+[data-theme="dark"] .vault-form-panel .progress-close:hover,
+[data-theme="dark"] .vault-form-panel .btn-toggle-vis:hover {
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-form-actions {
+  border-top-color: rgba(28, 25, 23, 0.12);
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input,
+[data-theme="dark"] .vault-form-panel .custom-select-trigger {
+  border-color: #d5c4a1;
+  background: #fffaf0;
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input::placeholder {
+  color: #a8a29e;
+}
+
+[data-theme="dark"] .vault-form-panel .vault-input:focus,
+[data-theme="dark"] .vault-form-panel .custom-select--open .custom-select-trigger {
+  border-color: #1c1917;
+  background: #fffdf7;
+  box-shadow: 0 0 0 3px rgba(28, 25, 23, 0.08);
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-dropdown {
+  border-color: #d5c4a1;
+  background: #fffdf7;
+  color: #1c1917;
+  box-shadow: 0 16px 36px rgba(20, 18, 16, 0.18);
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option {
+  color: #1c1917;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option:hover {
+  background: #f5ebe0;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option.active {
+  background: #1c1917;
+  color: #fefcf8;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save {
+  border-color: #1c1917;
+  background: #1c1917;
+  color: #fefcf8;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save:hover {
+  border-color: #57534e;
+  background: #57534e;
+  color: #fefcf8;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-cancel {
+  border-color: #d5c4a1;
+  background: transparent;
+  color: #57534e;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-cancel:hover {
+  border-color: #1c1917;
+  color: #1c1917;
+}
+
+/* Final modal surface fixes: dashboard-command is loaded last, so keep the
+   concrete editor dialogs here instead of letting generic modal rules darken them. */
+.provider-form-panel.provider-form-panel {
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.06), transparent 34%),
+    rgba(255, 255, 252, 0.98) !important;
+  border-color: rgba(23, 32, 29, 0.14) !important;
+  color: rgba(15, 23, 20, 0.92) !important;
+}
+
+.provider-form-panel .modal-panel-header,
+.provider-form-panel .modal-actions {
+  background: rgba(255, 255, 252, 0.94) !important;
+  border-color: rgba(23, 32, 29, 0.1) !important;
+}
+
+.provider-form-body.provider-form-body {
+  background: rgba(250, 251, 247, 0.96) !important;
+}
+
+.provider-form-body .form-group {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(23, 32, 29, 0.08) !important;
+}
+
+.provider-form-panel .vault-input,
+.provider-form-panel .custom-select-trigger,
+.provider-form-panel .vault-ref-trigger,
+.provider-form-panel .vault-ref-selected,
+.provider-form-panel .endpoint-remove-btn {
+  background: rgba(239, 246, 255, 0.78) !important;
+  border-color: rgba(23, 32, 29, 0.12) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.provider-form-panel .vault-input:focus,
+.provider-form-panel .custom-select--open .custom-select-trigger {
+  background: #fff !important;
+  border-color: rgba(0, 132, 209, 0.45) !important;
+}
+
+.provider-form-panel .custom-select-dropdown {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(23, 32, 29, 0.12) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.vault-form-panel.vault-form-panel {
+  overflow: hidden;
+  background: rgba(255, 255, 252, 0.98) !important;
+  border-color: rgba(23, 32, 29, 0.14) !important;
+  color: rgba(15, 23, 20, 0.92) !important;
+  box-shadow: 0 28px 90px rgba(8, 14, 12, 0.22) !important;
+}
+
+.vault-form-panel .progress-header,
+.vault-form-panel .vault-form-body,
+.vault-form-panel .vault-form-actions {
+  background: rgba(255, 255, 252, 0.96) !important;
+  border-color: rgba(23, 32, 29, 0.1) !important;
+}
+
+.vault-form-panel .progress-title {
+  color: rgba(15, 23, 20, 0.94) !important;
+}
+
+.vault-form-panel .vault-form-field label {
+  color: rgba(0, 105, 168, 0.9) !important;
+}
+
+.vault-form-panel .vault-input,
+.vault-form-panel .custom-select-trigger {
+  background: rgba(239, 246, 255, 0.72) !important;
+  border-color: rgba(23, 32, 29, 0.12) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.vault-form-panel .vault-input::placeholder {
+  color: rgba(15, 23, 20, 0.38) !important;
+}
+
+.vault-form-panel .vault-input:focus,
+.vault-form-panel .custom-select--open .custom-select-trigger {
+  background: #fff !important;
+  border-color: rgba(0, 132, 209, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14) !important;
+}
+
+.vault-form-panel .custom-select-dropdown {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(23, 32, 29, 0.12) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.vault-workspace .cloud-push-bar.cloud-push-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(23, 32, 29, 0.1) !important;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(52, 211, 153, 0.1), transparent 42%),
+    rgba(255, 255, 252, 0.94) !important;
+  box-shadow: 0 16px 42px rgba(13, 20, 17, 0.08) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.vault-workspace .cloud-push-bar-left {
+  min-width: 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vault-workspace .cloud-push-bar-left > div {
+  min-width: 220px;
+}
+
+.vault-workspace .cloud-push-bar-left strong {
+  color: rgba(15, 23, 20, 0.94) !important;
+  font-size: 14px;
+}
+
+.vault-workspace .cloud-push-bar-left span,
+.vault-workspace .cloud-push-count {
+  color: rgba(15, 23, 20, 0.58) !important;
+}
+
+.vault-workspace .cloud-push-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(23, 32, 29, 0.08);
+  border-radius: 999px;
+  background: rgba(23, 32, 29, 0.045);
+  font-weight: 700;
+}
+
+.vault-workspace .cloud-push-link {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent !important;
+  color: rgba(0, 105, 168, 0.92) !important;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.vault-workspace .cloud-push-link:hover {
+  color: rgba(15, 23, 20, 0.92) !important;
+}
+
+.vault-workspace .cloud-push-bar-right {
+  gap: 10px;
+}
+
+.vault-workspace .cloud-push-select.cloud-push-select {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.vault-workspace .cloud-push-select .custom-select-trigger,
+.vault-workspace .cloud-push-select.custom-select .custom-select-trigger {
+  min-width: 160px;
+  min-height: 44px;
+  border: 1px solid rgba(23, 32, 29, 0.12) !important;
+  border-radius: 10px;
+  background: rgba(239, 246, 255, 0.78) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.vault-workspace .cloud-push-bar .btn-save {
+  min-height: 44px;
+  border: 1px solid rgba(94, 122, 57, 0.26) !important;
+  border-radius: 10px;
+  background: rgba(190, 242, 100, 0.68) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+  box-shadow: none !important;
+}
+
+.vault-workspace .cloud-push-bar .btn-save:hover:not(:disabled) {
+  background: rgba(190, 242, 100, 0.86) !important;
+}
+
+.vault-workspace .cloud-push-bar .btn-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .vault-workspace .cloud-push-bar.cloud-push-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .vault-workspace .cloud-push-bar-right {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }

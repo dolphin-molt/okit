@@ -77,6 +77,40 @@ function getDefaultAgentConfig() {
   };
 }
 
+async function resolveAgentConfigFromProvider(agentConfig) {
+  try {
+    const providersPath = path.join(os.homedir(), '.okit', 'providers.json');
+    if (!(await fs.pathExists(providersPath))) return agentConfig;
+    const data = await fs.readJson(providersPath);
+    const providers = Array.isArray(data?.providers) ? data.providers : [];
+    const provider = providers.find(p => p.id === agentConfig.provider);
+    if (!provider) return agentConfig;
+
+    const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];
+    const endpoint = endpoints.find(ep => ep.type === 'openai') || endpoints[0] || {};
+    const models = Array.isArray(provider.models) ? provider.models : [];
+    const modelExists = models.some(m => m.id === agentConfig.model);
+
+    return {
+      ...agentConfig,
+      baseUrl: endpoint.baseUrl || provider.baseUrl || agentConfig.baseUrl,
+      apiKeyVaultKey: provider.vaultKey || agentConfig.apiKeyVaultKey,
+      model: modelExists ? agentConfig.model : (models[0]?.id || agentConfig.model),
+    };
+  } catch {
+    return agentConfig;
+  }
+}
+
+async function resolveVaultValue(store, keyAlias) {
+  if (!keyAlias) return null;
+  let value = await store.get(keyAlias);
+  if (value) return value;
+  const { VaultStore } = require('../../vault/store');
+  const parsed = VaultStore.parseKeyAlias(keyAlias);
+  return await store.resolve(parsed.key, parsed.alias);
+}
+
 async function getSettings(req, res) {
   try {
     const config = await loadConfig();
@@ -242,12 +276,12 @@ async function resetOnboarding(req, res) {
 
 async function testAgentConnection(req, res) {
   const config = await loadConfig();
-  const agentConfig = { ...getDefaultAgentConfig(), ...(config.agent || {}) };
+  const agentConfig = await resolveAgentConfigFromProvider({ ...getDefaultAgentConfig(), ...(config.agent || {}) });
 
   try {
     const { VaultStore } = require('../../vault/store');
     const store = new VaultStore();
-    const apiKey = await store.get(agentConfig.apiKeyVaultKey);
+    const apiKey = await resolveVaultValue(store, agentConfig.apiKeyVaultKey);
     if (!apiKey) {
       return res.json({ success: false, message: `请先在密钥管理中添加 ${agentConfig.apiKeyVaultKey}` });
     }

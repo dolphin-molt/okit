@@ -111,6 +111,11 @@
   flex-shrink: 0;
 }
 
+.page-sidebar-items {
+  display: flex;
+  flex-direction: column;
+}
+
 [data-theme="dark"] .page-sidebar-section {
   border-color: var(--kraft-dark);
   box-shadow: 2px 2px 0 rgba(0,0,0,0.3);

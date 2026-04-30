@@ -902,17 +902,22 @@
 }
 
 .settings-workspace .settings-card-body--agent {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: end;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  align-items: center;
 }
 
 .settings-workspace .settings-card-body--agent > .settings-field {
   margin-top: 0;
 }
 
-.settings-workspace .settings-card-body--agent .settings-field--span,
-.settings-workspace .settings-card-body--agent .settings-test-btn {
+.settings-workspace .settings-card-body--agent .settings-field--span {
   grid-column: 1 / -1;
+}
+
+.settings-workspace .settings-card-body--agent .settings-test-btn {
+  grid-column: auto;
+  min-height: 56px;
+  align-self: stretch;
 }
 
 .settings-workspace .settings-card-body--sync {

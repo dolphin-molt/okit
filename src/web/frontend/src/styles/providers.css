@@ -1399,6 +1399,43 @@
   padding: 16px;
 }
 
+.page-with-sidebar:has(.models-workspace) .page-sidebar {
+  max-height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 56px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-title {
+  flex: 0 0 auto;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-items {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-items::-webkit-scrollbar {
+  width: 4px;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.page-with-sidebar:has(.models-workspace) .page-sidebar-items::-webkit-scrollbar-thumb {
+  background: rgba(119, 130, 118, 0.35);
+  border-radius: 999px;
+}
+
 .models-workspace .provider-card-title h3,
 .agents-workspace .agent-card-title h3,
 .auth-workspace .auth-card-name,
@@ -1433,6 +1470,199 @@
 .models-workspace .provider-meta-url {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Models page light-surface overrides. Keep these after the shared access styles so
+   the model editor does not inherit the older dark modal treatment in light mode. */
+.models-workspace .provider-card {
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.035), transparent 32%),
+    rgba(255, 255, 252, 0.94);
+  border-color: rgba(16, 26, 22, 0.12);
+  box-shadow: 0 14px 36px rgba(13, 20, 17, 0.08);
+}
+
+.models-workspace .provider-card-meta {
+  gap: 10px;
+  background: rgba(255, 255, 252, 0.62);
+}
+
+.models-workspace .provider-meta-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.models-workspace .provider-meta-label {
+  color: rgba(0, 132, 209, 0.88);
+}
+
+.models-workspace .provider-meta-value {
+  color: rgba(15, 23, 20, 0.78);
+  min-width: 0;
+}
+
+.models-workspace .provider-meta-url {
+  color: rgba(15, 23, 20, 0.72);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-all;
+}
+
+.models-workspace .endpoint-type-badge {
+  background: rgba(0, 132, 209, 0.1);
+  color: rgba(0, 105, 168, 0.96);
+  border: 1px solid rgba(0, 132, 209, 0.16);
+}
+
+.models-workspace .auth-indicator--key {
+  color: rgba(0, 105, 168, 0.98);
+}
+
+.provider-form-panel {
+  width: min(760px, calc(100vw - 40px));
+  max-height: min(82vh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.07), transparent 34%),
+    rgba(255, 255, 252, 0.98);
+  border: 1px solid rgba(16, 26, 22, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 28px 90px rgba(8, 14, 12, 0.22);
+}
+
+.provider-form-panel .modal-panel-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(16, 26, 22, 0.08);
+  background: rgba(255, 255, 252, 0.76);
+}
+
+.provider-form-panel .modal-panel-header h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.provider-form-panel form {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.provider-form-body {
+  padding: 18px 22px 20px;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.provider-form-body .form-group {
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(16, 26, 22, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.provider-form-body .form-group label {
+  color: rgba(0, 132, 209, 0.9);
+}
+
+.provider-form-panel .vault-input,
+.provider-form-panel .custom-select-trigger,
+.provider-form-panel .vault-ref-trigger,
+.provider-form-panel .vault-ref-selected {
+  min-height: 42px;
+  border: 1px solid rgba(16, 26, 22, 0.13);
+  border-radius: 10px;
+  background: rgba(246, 248, 244, 0.82);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.provider-form-panel .vault-input:focus,
+.provider-form-panel .custom-select--open .custom-select-trigger,
+.provider-form-panel .vault-ref-trigger:hover,
+.provider-form-panel .vault-ref-selected:hover {
+  border-color: rgba(0, 132, 209, 0.45);
+  background: #fff;
+  outline: none;
+}
+
+.provider-form-panel .endpoint-row,
+.provider-form-panel .model-form-row {
+  gap: 8px;
+}
+
+.provider-form-panel .endpoint-remove-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 26, 22, 0.13);
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(15, 23, 20, 0.62);
+}
+
+.provider-form-panel .endpoint-remove-btn:hover {
+  border-color: rgba(220, 38, 38, 0.38);
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.provider-form-panel .model-add-btn {
+  min-height: 38px;
+  justify-content: center;
+  border: 1px dashed rgba(0, 132, 209, 0.32);
+  border-radius: 10px;
+  color: rgba(0, 105, 168, 0.96);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.provider-form-panel .model-add-btn:hover {
+  border-color: rgba(0, 132, 209, 0.48);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.provider-form-panel .modal-actions {
+  padding: 16px 22px 18px;
+  border-top: 1px solid rgba(16, 26, 22, 0.08);
+  background: rgba(255, 255, 252, 0.82);
+}
+
+[data-theme="dark"] .models-workspace .provider-card,
+[data-theme="dark"] .provider-form-panel {
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.05), transparent 36%),
+    rgba(18, 23, 21, 0.86);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .models-workspace .provider-card-meta,
+[data-theme="dark"] .provider-form-body .form-group,
+[data-theme="dark"] .provider-form-panel .modal-panel-header,
+[data-theme="dark"] .provider-form-panel .modal-actions {
+  background: rgba(245, 243, 235, 0.035);
+  border-color: rgba(245, 243, 235, 0.08);
+}
+
+[data-theme="dark"] .models-workspace .provider-meta-value,
+[data-theme="dark"] .models-workspace .provider-meta-url {
+  color: rgba(245, 243, 235, 0.68);
+}
+
+[data-theme="dark"] .provider-form-panel .vault-input,
+[data-theme="dark"] .provider-form-panel .custom-select-trigger,
+[data-theme="dark"] .provider-form-panel .vault-ref-trigger,
+[data-theme="dark"] .provider-form-panel .vault-ref-selected,
+[data-theme="dark"] .provider-form-panel .endpoint-remove-btn {
+  background: rgba(245, 243, 235, 0.055);
+  border-color: rgba(245, 243, 235, 0.12);
+  color: var(--ink);
 }
 
 .model-item,

@@ -3,8 +3,30 @@ const fetch = require('node-fetch');
 const TABLE_NAME = 'okit_sync';
 
 function getBaseUrl(config) {
-  if (!config.projectId) throw new Error('请配置项目 ID');
-  return `https://${config.projectId}.supabase.co`;
+  const rawProjectId = String(config.projectId || '').replace(/\s+/g, '').trim();
+  if (!rawProjectId) throw new Error('请配置 Supabase 项目 ID');
+
+  if (/^https?:\/\//i.test(rawProjectId)) {
+    try {
+      const url = new URL(rawProjectId);
+      if (!url.hostname.endsWith('.supabase.co')) {
+        throw new Error('请填写 Supabase 项目地址，例如 https://abcdefghijklmnopqrst.supabase.co');
+      }
+      return `${url.protocol}//${url.hostname}`;
+    } catch (error) {
+      throw new Error(error.message || 'Supabase 项目地址格式不正确');
+    }
+  }
+
+  const projectId = rawProjectId.replace(/\.supabase\.co\/?$/i, '').toLowerCase();
+  if (/^(proj-123|project-id|your-project-id|example)$/i.test(projectId)) {
+    throw new Error('当前 Supabase 项目 ID 还是占位值，请填写 Supabase 控制台 Project Settings → API 里的 Project URL/Project ref');
+  }
+  if (!/^[a-z0-9]{15,30}$/.test(projectId)) {
+    throw new Error('Supabase 项目 ID 格式不正确。请填写 Project URL 中 https:// 和 .supabase.co 之间的那段项目 ref');
+  }
+
+  return `https://${projectId}.supabase.co`;
 }
 
 function headers(apiKey) {
@@ -17,7 +39,12 @@ function headers(apiKey) {
 }
 
 async function sbFetch(url, options = {}) {
-  const res = await fetch(url, options);
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (error) {
+    throw new Error(`无法连接 Supabase：${error.message || error}`);
+  }
   if (res.status === 204) return null;
   const text = await res.text();
   if (!res.ok) {

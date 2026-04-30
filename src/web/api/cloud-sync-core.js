@@ -10,6 +10,14 @@ const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
 const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
 const SKIP_FIELDS = /storeId|databaseId|bucketName|region/i;
 const VAULT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
+const PLATFORM_SECRET_FIELDS = {
+  cloudflare: ['apiToken'],
+  'cloudflare-d1': ['apiToken'],
+  'cloudflare-kv': ['apiToken'],
+  'cloudflare-r2': ['r2AccessKeyId', 'r2SecretAccessKey'],
+  volcengine: ['accessKey', 'secretKey'],
+  supabase: ['projectId', 'apiKey'],
+};
 
 async function loadConfig() {
   try {
@@ -32,18 +40,18 @@ function appendLog(action, name, success, detail) {
   } catch {}
 }
 
-async function resolveVaultRefs(platConfig) {
+async function resolveVaultRefs(platConfig, platform) {
   const { VaultStore } = require('../../vault/store');
   const store = new VaultStore();
   const resolved = { ...platConfig };
+  const allowedFields = platform ? PLATFORM_SECRET_FIELDS[platform] : null;
   for (const [key, value] of Object.entries(resolved)) {
+    if (allowedFields && !allowedFields.includes(key)) continue;
     if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
       if (!VAULT_KEY_PATTERN.test(value)) continue;
+      const parsed = VaultStore.parseKeyAlias(value);
       let actual = await store.get(value);
-      if (!actual) {
-        const aliases = await store.getAliases(value);
-        if (aliases.length > 0) actual = await store.get(value + '/' + aliases[0]);
-      }
+      if (!actual) actual = await store.resolve(parsed.key, parsed.alias);
       if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
       resolved[key] = actual;
     }
@@ -56,7 +64,7 @@ async function testConnection(platform) {
   const platConfig = config.sync?.platforms?.[platform];
   if (!platConfig) throw new Error(`平台 ${platform} 未配置`);
 
-  const resolved = await resolveVaultRefs(platConfig);
+  const resolved = await resolveVaultRefs(platConfig, platform);
   const adapter = require(`./platform-adapters/${platform}`);
   const result = await adapter.testConnection(resolved);
   appendLog('platform-test', platform, true, result);
@@ -81,7 +89,7 @@ async function pushSecrets(platform, keys) {
   }
   const secrets = Object.values(grouped);
 
-  const resolved = await resolveVaultRefs(platConfig);
+  const resolved = await resolveVaultRefs(platConfig, platform);
   const adapter = require(`./platform-adapters/${platform}`);
   const results = await adapter.syncSecrets(resolved, secrets);
   appendLog('cloud-push', platform, true, `${secrets.length} secrets`);
@@ -98,7 +106,7 @@ async function syncPush() {
   const entry = target && platforms[target]?.enabled ? { id: target, config: platforms[target] } : null;
   if (!entry) throw new Error('请先启用一个同步平台');
 
-  const resolvedConfig = await resolveVaultRefs(entry.config);
+  const resolvedConfig = await resolveVaultRefs(entry.config, entry.id);
 
   const key = crypto.pbkdf2Sync(password, 'okit-sync-salt', 100000, 32, 'sha256');
   const userId = key.slice(0, 16).toString('hex');
@@ -150,7 +158,7 @@ async function syncPull() {
   const userId = key.slice(0, 16).toString('hex');
   const encryptionKey = key;
 
-  const resolvedConfig = await resolveVaultRefs(entry.config);
+  const resolvedConfig = await resolveVaultRefs(entry.config, entry.id);
   const adapter = require(`./platform-adapters/${entry.id}`);
   const encrypted = await adapter.pullSync(resolvedConfig, userId);
   if (!encrypted) throw new Error('远端没有同步数据');

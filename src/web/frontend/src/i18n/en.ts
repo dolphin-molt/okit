@@ -298,7 +298,14 @@ export default {
   'settings.keyAdded': 'Key added',
 
   // AI Assistant
+  'agent.kicker': 'Local workspace',
+  'agent.title': 'OKIT Assistant',
+  'agent.mode': 'Local link',
+  'agent.welcomeTitle': 'What should we handle?',
+  'agent.timeLegacy': 'History',
   'agent.placeholder': 'Message OKIT Assistant...',
+  'agent.placeholderShort': 'Ask anything',
+  'agent.send': 'Send',
   'agent.sendFail': 'Send failed',
   'agent.welcome': 'Hello! I\'m OKIT Assistant. I can help you manage dev tools, secrets, and system resources.',
   'agent.suggest.tools': 'Check tools',

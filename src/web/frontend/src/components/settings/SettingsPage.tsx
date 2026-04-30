@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { getSettings, updateSettings, testPlatform, testAgent } from '../../api/settings';
 import { listVault } from '../../api/vault';
 import { pushSync, pullSync, getSyncStatus } from '../../api/sync';
-import { PROVIDER_PRESETS, PLATFORM_FIELDS, PLATFORM_IDS, PLATFORM_DOCS } from '../../lib/constants';
+import { listProviders, type Provider } from '../../api/providers';
+import { PLATFORM_FIELDS, PLATFORM_IDS, PLATFORM_DOCS } from '../../lib/constants';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
@@ -17,9 +18,8 @@ export default function SettingsPage() {
   const [autoSync, setAutoSync] = useState(false);
   const [agent, setAgent] = useState(DEFAULT_AGENT);
   const [platforms, setPlatforms] = useState<Record<string, any>>({});
+  const [modelProviders, setModelProviders] = useState<Provider[]>([]);
   const [vaultKeys, setVaultKeys] = useState<string[]>([]);
-  const [modelCustom, setModelCustom] = useState('');
-  const [showModelCustom, setShowModelCustom] = useState(false);
   const [testingPlatform, setTestingPlatform] = useState<string | null>(null);
   const [testingAgent, setTestingAgent] = useState(false);
   const [vaultFormVisible, setVaultFormVisible] = useState(false);
@@ -29,14 +29,15 @@ export default function SettingsPage() {
   const [docPlatform, setDocPlatform] = useState<string | null>(null);
   const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
-  const [vaultPickerMode, setVaultPickerMode] = useState<'agent' | 'platform'>('agent');
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const [settingsData, vaultData, status] = await Promise.all([getSettings(), listVault(), getSyncStatus()]);
+      const [settingsData, vaultData, status, providersData] = await Promise.all([getSettings(), listVault(), getSyncStatus(), listProviders()]);
       const s = settingsData as any;
+      const providers = providersData.providers || [];
+      setModelProviders(providers);
       setAutoSync(!!s.sync?.autoSync);
       if (s.sync?.password && s.sync.password !== '***') {
         setSyncPassword(s.sync.password);
@@ -44,11 +45,6 @@ export default function SettingsPage() {
       if (s.agent) {
         const normalizedAgent = { ...DEFAULT_AGENT, ...s.agent };
         setAgent(normalizedAgent);
-        const preset = PROVIDER_PRESETS[normalizedAgent.provider];
-        if (preset && !preset.models.includes(normalizedAgent.model) && normalizedAgent.model) {
-          setModelCustom(normalizedAgent.model);
-          setShowModelCustom(true);
-        }
       }
       setPlatforms(s.sync?.platforms || {});
       setSyncStatus(status as any);
@@ -71,43 +67,17 @@ export default function SettingsPage() {
 
   // Agent settings handlers
   function onProviderChange(provider: string) {
-    const preset = PROVIDER_PRESETS[provider];
-    if (!preset) return;
+    const selected = modelProviders.find(p => p.id === provider);
+    if (!selected) return;
+    const primaryEndpoint = selected.endpoints?.[0] || { type: selected.type, baseUrl: selected.baseUrl };
     const newAgent = {
       ...DEFAULT_AGENT,
       ...agent,
       provider,
-      baseUrl: preset.baseUrl || '',
-      apiKeyVaultKey: preset.apiKeyVaultKey || '',
-      model: preset.models[0] || '',
+      baseUrl: primaryEndpoint.baseUrl || selected.baseUrl || '',
+      apiKeyVaultKey: selected.vaultKey || '',
+      model: selected.models?.[0]?.id || '',
     };
-    setAgent(newAgent);
-    setShowModelCustom(false);
-    setModelCustom('');
-    saveAll(newAgent);
-  }
-
-  function onModelChange(val: string) {
-    if (val === '__custom__') {
-      setShowModelCustom(true);
-      setModelCustom('');
-    } else {
-      setShowModelCustom(false);
-      const newAgent = { ...agent, model: val };
-      setAgent(newAgent);
-      saveAll(newAgent);
-    }
-  }
-
-  function onBaseUrlChange(baseUrl: string) {
-    const newAgent = { ...agent, baseUrl };
-    setAgent(newAgent);
-  }
-
-  function onBaseUrlBlur() { saveAll(); }
-
-  function onVaultKeyChange(apiKeyVaultKey: string) {
-    const newAgent = { ...agent, apiKeyVaultKey };
     setAgent(newAgent);
     saveAll(newAgent);
   }
@@ -166,10 +136,6 @@ export default function SettingsPage() {
     if (vaultTarget) {
       updatePlatform(vaultTarget.platId, vaultTarget.field, key);
       setVaultTarget(null);
-    } else {
-      const newAgent = { ...agent, apiKeyVaultKey: key };
-      setAgent(newAgent);
-      saveAll(newAgent);
     }
   }
 
@@ -189,8 +155,7 @@ export default function SettingsPage() {
     } catch { showToast(t('settings.testConnFail'), 'error'); } finally { setTestingPlatform(null); }
   }
 
-  const currentPreset = PROVIDER_PRESETS[agent.provider];
-  const models = currentPreset?.models || [];
+  const currentProvider = modelProviders.find(p => p.id === agent.provider);
   const platformEntries = Object.entries(PLATFORM_FIELDS);
   const enabledPlatformCount = Object.values(platforms).filter((p: any) => p?.enabled).length;
   const syncReady = !!syncStatus?.platformId && !!syncStatus?.hasPassword;
@@ -205,7 +170,7 @@ export default function SettingsPage() {
         <div className="access-hero-stats" aria-label="Settings summary">
           <div><span>{t('settings.enabledPlatforms')}</span><strong>{enabledPlatformCount}</strong></div>
           <div><span>{t('settings.vaultKeys')}</span><strong>{vaultKeys.length}</strong></div>
-          <div><span>{t('settings.agentProvider')}</span><strong>{currentPreset?.name || agent.provider || '-'}</strong></div>
+          <div><span>{t('settings.agentProvider')}</span><strong>{currentProvider?.name || agent.provider || '-'}</strong></div>
           <div><span>{t('common.sync')}</span><strong>{syncReady ? t('settings.syncReady') : t('settings.syncOff')}</strong></div>
         </div>
       </header>
@@ -271,42 +236,8 @@ export default function SettingsPage() {
                 className="settings-select-wrap"
                 value={agent.provider}
                 onChange={onProviderChange}
-                options={Object.entries(PROVIDER_PRESETS).map(([key, p]) => ({ value: key, label: p.name }))}
+                options={modelProviders.map(p => ({ value: p.id, label: p.name }))}
               />
-            </div>
-            <div className="settings-field">
-              <label>{t('settings.model')}</label>
-              <CustomSelect
-                className="settings-select-wrap"
-                value={showModelCustom ? '__custom__' : agent.model}
-                onChange={onModelChange}
-                options={[
-                  ...models.map(m => ({ value: m, label: m })),
-                  { value: '__custom__', label: t('settings.manualInput') },
-                ]}
-              />
-              {showModelCustom && (
-                <input type="text" className="settings-input" style={{ marginTop: 4 }} placeholder={t('settings.enterModel')}
-                  value={modelCustom} onChange={e => setModelCustom(e.target.value)} onBlur={() => { const a = { ...agent, model: modelCustom }; setAgent(a); saveAll(a); }} />
-              )}
-            </div>
-            <div className="settings-field">
-              <label>{t('settings.apiAddress')}</label>
-              <input type="text" className="settings-input" placeholder="https://..." value={agent.baseUrl} onChange={e => onBaseUrlChange(e.target.value)} onBlur={onBaseUrlBlur} />
-            </div>
-            <div className="settings-field">
-              <label>{t('settings.keyName')}</label>
-              <div className="vault-ref-field">
-                {agent.apiKeyVaultKey ? (
-                  <div className="vault-ref-selected">
-                    <span className="vault-ref-key">{agent.apiKeyVaultKey}</span>
-                    <button type="button" className="vault-ref-clear" onClick={() => onVaultKeyChange('')}>×</button>
-                    <button type="button" className="vault-ref-change" onClick={() => { setVaultPickerMode('agent'); setShowVaultPicker(true); }}>{t('common.replace')}</button>
-                  </div>
-                ) : (
-                  <button type="button" className="vault-ref-trigger" onClick={() => { setVaultPickerMode('agent'); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
-                )}
-              </div>
             </div>
             <button className="settings-test-btn" onClick={handleTestAgent} disabled={testingAgent}>
               {testingAgent ? t('common.testing') : t('common.test')}
@@ -425,10 +356,10 @@ export default function SettingsPage() {
                               <div className="vault-ref-selected">
                                 <span className="vault-ref-key">{plat[field]}</span>
                                 <button type="button" className="vault-ref-clear" onClick={() => updatePlatform(platId, field, '')}>×</button>
-                                <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setVaultPickerMode('platform'); setShowVaultPicker(true); }}>{t('common.replace')}</button>
+                                <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('common.replace')}</button>
                               </div>
                             ) : (
-                              <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setVaultPickerMode('platform'); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
+                              <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
                             )}
                           </div>
                         ) : (
@@ -457,11 +388,9 @@ export default function SettingsPage() {
       {/* Vault Picker Modal */}
       {showVaultPicker && (
         <VaultPickerModal
-          selected={vaultPickerMode === 'agent' ? agent.apiKeyVaultKey : (vaultTarget ? platforms[vaultTarget.platId]?.[vaultTarget.field] || '' : '')}
+          selected={vaultTarget ? platforms[vaultTarget.platId]?.[vaultTarget.field] || '' : ''}
           onSelect={key => {
-            if (vaultPickerMode === 'agent') {
-              onVaultKeyChange(key);
-            } else if (vaultTarget) {
+            if (vaultTarget) {
               updatePlatform(vaultTarget.platId, vaultTarget.field, key);
             }
             setShowVaultPicker(false);

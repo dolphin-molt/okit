@@ -298,7 +298,14 @@ export default {
   'settings.keyAdded': '密钥已添加',
 
   // AI 助手
+  'agent.kicker': '本机工作台',
+  'agent.title': 'OKIT Assistant',
+  'agent.mode': '本地连接',
+  'agent.welcomeTitle': '需要我处理什么？',
+  'agent.timeLegacy': '历史',
   'agent.placeholder': '给 OKIT 助手发消息...',
+  'agent.placeholderShort': '有问题，尽管问',
+  'agent.send': '发送',
   'agent.sendFail': '发送失败',
   'agent.welcome': '你好！我是 OKIT 智能助手，可以帮你管理开发工具、密钥和系统资源。',
   'agent.suggest.tools': '查看工具状态',

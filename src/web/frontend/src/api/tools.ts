@@ -13,6 +13,18 @@ export interface Tool {
   authStatus?: 'authorized' | 'unauthorized' | 'partial';
   homepage?: string;
   installGuide?: string;
+  authMethods?: AuthMethod[];
+}
+
+export interface AuthMethod {
+  name: string;
+  description?: string;
+  tokenUrl?: string;
+  tokenHint?: string;
+  command?: string;
+  recommended?: boolean;
+  manual?: boolean;
+  interactive?: boolean;
 }
 
 export interface ToolsResponse {
@@ -30,15 +42,18 @@ export async function getTools(refresh = false, lang = 'zh'): Promise<ToolsRespo
 }
 
 export interface ActionEvent {
-  type: 'output' | 'error' | 'complete' | 'auth_url' | 'auth_code_required' | 'success' | 'warning';
+  type: 'output' | 'error' | 'complete' | 'auth_url' | 'auth_code_required' | 'success' | 'warning' | 'result';
   message?: string;
+  text?: string;
+  success?: boolean;
+  output?: string;
   data?: any;
 }
 
 export async function* executeAction(
   toolId: string,
   action: string,
-  options?: Record<string, string>,
+  options?: Record<string, any>,
 ): AsyncGenerator<ActionEvent> {
   const res = await fetch('/api/tools/action', {
     method: 'POST',

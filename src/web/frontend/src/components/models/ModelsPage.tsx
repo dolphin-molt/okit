@@ -455,18 +455,20 @@ function ProviderForm({ provider, onSave, onClose }: {
               </div>
             </div>
 
-            <div className="form-group">
-              <label>API Key</label>
-              <div className="vault-ref-field">
-                {vaultKey ? (
-                  <div className="vault-ref-selected">
-                    <span className="vault-ref-key">{vaultKey}</span>
-                    <button type="button" className="vault-ref-clear" onClick={() => setVaultKey('')}>×</button>
-                    <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>{t('common.replace')}</button>
-                  </div>
-                ) : (
-                  <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>{t('models.selectFromVault')}</button>
-                )}
+            <div className="form-group provider-secret-field settings-workspace settings-workspace--light">
+              <div className="settings-field--secret">
+                <label>API Key</label>
+                <div className="vault-ref-field">
+                  {vaultKey ? (
+                    <div className="vault-ref-selected">
+                      <span className="vault-ref-key">{vaultKey}</span>
+                      <button type="button" className="vault-ref-clear" onClick={() => setVaultKey('')}>×</button>
+                      <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>{t('common.replace')}</button>
+                    </div>
+                  ) : (
+                    <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>{t('models.selectFromVault')}</button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -493,12 +495,14 @@ function ProviderForm({ provider, onSave, onClose }: {
     </div>
 
     {showVaultPicker && (
+      <div className="settings-workspace settings-workspace--light">
       <VaultPickerModal
         selected={vaultKey}
         onSelect={key => { setVaultKey(key); setShowVaultPicker(false); }}
         onClose={() => setShowVaultPicker(false)}
         testEndpoint={endpoints[0]?.baseUrl ? { baseUrl: endpoints[0].baseUrl, type: endpoints[0].type } : undefined}
       />
+      </div>
     )}
     </>
   );

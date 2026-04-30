@@ -106,6 +106,201 @@
 [data-theme="dark"] .auth-badge--muted { background: rgba(217, 119, 6, 0.15); color: #fcd68a; }
 [data-theme="dark"] .auth-card-detail { border-top-color: var(--kraft-dark); }
 
+/* ─── Auth Method Modal ─── */
+.auth-method-panel {
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.auth-method-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+}
+
+.auth-method-kicker,
+.auth-method-label {
+  display: block;
+  margin-bottom: 7px;
+  color: rgba(56, 189, 248, 0.9);
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.auth-method-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.auth-method-close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(245, 243, 235, 0.06);
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.auth-method-close:hover {
+  color: var(--ink);
+  border-color: rgba(239, 255, 97, 0.32);
+}
+
+.auth-method-body {
+  gap: 18px;
+  padding: 20px 24px 22px;
+}
+
+.auth-method-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-method-options {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-method-option {
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(245, 243, 235, 0.045);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.auth-method-option:hover {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.auth-method-option.active {
+  border-color: rgba(239, 255, 97, 0.62);
+  background: rgba(239, 255, 97, 0.12);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.auth-method-option-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.auth-method-option-desc {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auth-method-recommended {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #256f8c;
+  font-size: 11px;
+}
+
+.auth-token-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 8px;
+  color: #256f8c;
+  background: rgba(56, 189, 248, 0.045);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-token-link:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #164e63;
+}
+
+.auth-token-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(245, 243, 235, 0.92);
+  color: #111827;
+  font-size: 14px;
+}
+
+.auth-method-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid rgba(245, 243, 235, 0.08);
+}
+
+.auth-method-secondary,
+.auth-method-primary {
+  min-width: 92px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-method-secondary {
+  border: 1px solid var(--border);
+  background: rgba(245, 243, 235, 0.06);
+  color: var(--ink-muted);
+}
+
+.auth-method-primary {
+  border: 1px solid rgba(239, 255, 97, 0.62);
+  background: var(--accent);
+  color: #0b0d0c;
+}
+
+.auth-method-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+[data-theme="light"] .auth-method-panel {
+  background: #fffdf5;
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+[data-theme="light"] .auth-method-option {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+[data-theme="light"] .auth-token-select {
+  background: #fff;
+}
+
 /* ─── Auth Dialog ─── */
 #authDialog {
   display: flex;
@@ -251,13 +446,13 @@
   font-size: 13px;
   color: var(--ink);
 }
-.auth-token-link {
+.auth-token-section .auth-token-link {
   font-size: 12px;
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
 }
-.auth-token-link:hover {
+.auth-token-section .auth-token-link:hover {
   text-decoration: underline;
 }
 .auth-token-hint {

@@ -948,7 +948,6 @@ select:focus {
 [data-theme="light"] .logs-page-size select,
 [data-theme="light"] .settings-theme-switch,
 [data-theme="light"] .settings-input,
-[data-theme="light"] .vault-ref-selected,
 [data-theme="light"] .search-paper {
   border-color: rgba(23, 32, 29, 0.12);
   background: rgba(255,255,255,0.9);
@@ -992,9 +991,6 @@ select:focus {
 [data-theme="light"] .logs-workspace .log-expand-trigger,
 [data-theme="light"] .settings-test-btn,
 [data-theme="light"] .settings-vault-new-btn,
-[data-theme="light"] .vault-ref-trigger,
-[data-theme="light"] .vault-ref-change,
-[data-theme="light"] .vault-ref-clear,
 [data-theme="light"] .settings-doc-btn {
   border-color: rgba(23, 32, 29, 0.12);
   background: rgba(255,255,255,0.86);
@@ -1030,7 +1026,6 @@ select:focus {
 [data-theme="dark"] .progress-modal,
 [data-theme="dark"] .vault-form-panel,
 [data-theme="dark"] .vault-sync-panel,
-[data-theme="dark"] .vault-picker,
 [data-theme="dark"] .platdoc-panel,
 [data-theme="dark"] .cleanup-summary-card,
 [data-theme="dark"] .cleanup-item,
@@ -1048,7 +1043,6 @@ select:focus {
 [data-theme="dark"] .settings-workspace .settings-card,
 [data-theme="dark"] .settings-workspace .settings-plat-card,
 [data-theme="dark"] .logs-workspace .log-table-wrap,
-[data-theme="dark"] .vault-picker,
 [data-theme="dark"] .platdoc-panel {
   background:
     linear-gradient(135deg, rgba(245, 243, 235, 0.07), rgba(245, 243, 235, 0.03)),
@@ -1125,14 +1119,10 @@ select:focus {
 [data-theme="dark"] .auth-btn-confirm,
 [data-theme="dark"] .auth-btn-cancel,
 [data-theme="dark"] .confirm-btn,
-[data-theme="dark"] .vault-picker-create-btn,
 [data-theme="dark"] .agent-suggestion,
 [data-theme="dark"] .agent-send-btn,
 [data-theme="dark"] .logs-pagination-actions button,
-[data-theme="dark"] .logs-workspace .log-expand-trigger,
-[data-theme="dark"] .vault-ref-trigger,
-[data-theme="dark"] .vault-ref-change,
-[data-theme="dark"] .vault-ref-clear {
+[data-theme="dark"] .logs-workspace .log-expand-trigger {
   border-color: rgba(245, 243, 235, 0.22);
   background:
     linear-gradient(180deg, rgba(245, 243, 235, 0.14), rgba(245, 243, 235, 0.08));
@@ -1160,14 +1150,10 @@ select:focus {
 [data-theme="dark"] .auth-btn-confirm:hover,
 [data-theme="dark"] .auth-btn-cancel:hover,
 [data-theme="dark"] .confirm-btn:hover,
-[data-theme="dark"] .vault-picker-create-btn:hover,
 [data-theme="dark"] .agent-suggestion:hover,
 [data-theme="dark"] .agent-send-btn:hover,
 [data-theme="dark"] .logs-pagination-actions button:hover,
-[data-theme="dark"] .logs-workspace .log-expand-trigger:hover,
-[data-theme="dark"] .vault-ref-trigger:hover,
-[data-theme="dark"] .vault-ref-change:hover,
-[data-theme="dark"] .vault-ref-clear:hover {
+[data-theme="dark"] .logs-workspace .log-expand-trigger:hover {
   border-color: rgba(239, 255, 97, 0.42);
   background: rgba(239, 255, 97, 0.14);
   color: var(--accent);
@@ -1178,7 +1164,7 @@ select:focus {
 [data-theme="dark"] .btn-action--install,
 [data-theme="dark"] .auth-btn-confirm,
 [data-theme="dark"] .confirm-btn--ok,
-[data-theme="dark"] .vault-picker-test-btn {
+[data-theme="dark"] .settings-workspace .vault-picker-test-btn {
   border-color: rgba(239, 255, 97, 0.52);
   background: var(--accent);
   color: #080a09;
@@ -1189,7 +1175,7 @@ select:focus {
 [data-theme="dark"] .btn-action--install:hover,
 [data-theme="dark"] .auth-btn-confirm:hover,
 [data-theme="dark"] .confirm-btn--ok:hover,
-[data-theme="dark"] .vault-picker-test-btn:hover {
+[data-theme="dark"] .settings-workspace .vault-picker-test-btn:hover {
   border-color: var(--accent);
   background: #f4ff93;
   color: #080a09;
@@ -1208,8 +1194,8 @@ select:focus {
 [data-theme="dark"] .settings-theme-switch,
 [data-theme="dark"] .settings-field-shell,
 [data-theme="dark"] .settings-workspace .custom-select-trigger,
-[data-theme="dark"] .vault-ref-selected,
-[data-theme="dark"] .vault-picker-search,
+[data-theme="dark"] .settings-workspace .vault-ref-selected,
+[data-theme="dark"] .settings-workspace .vault-picker-search,
 [data-theme="dark"] .agent-input-wrap {
   border-color: rgba(245, 243, 235, 0.16);
   background: rgba(245, 243, 235, 0.09);
@@ -1265,7 +1251,7 @@ select:focus {
 [data-theme="dark"] .vault-group-header.active,
 [data-theme="dark"] .sync-sidebar-item--active,
 [data-theme="dark"] .picker-provider.active,
-[data-theme="dark"] .vault-picker-group.active,
+[data-theme="dark"] .settings-workspace .vault-picker-group.active,
 [data-theme="dark"] .status-filter.active,
 [data-theme="dark"] .vault-view-btn.active,
 [data-theme="dark"] .disk-tab.active {
@@ -1337,9 +1323,9 @@ select:focus {
 [data-theme="dark"] .settings-plat-header,
 [data-theme="dark"] .provider-card-header,
 [data-theme="dark"] .vault-card-body,
-[data-theme="dark"] .vault-picker-header,
-[data-theme="dark"] .vault-picker-sidebar,
-[data-theme="dark"] .vault-picker-search,
+[data-theme="dark"] .settings-workspace .vault-picker-header,
+[data-theme="dark"] .settings-workspace .vault-picker-sidebar,
+[data-theme="dark"] .settings-workspace .vault-picker-search,
 [data-theme="dark"] .platdoc-panel .progress-header {
   border-color: rgba(245, 243, 235, 0.12);
 }
@@ -1460,7 +1446,7 @@ select:focus {
 [data-theme="light"] .vault-group-header.active,
 [data-theme="light"] .sync-sidebar-item--active,
 [data-theme="light"] .picker-provider.active,
-[data-theme="light"] .vault-picker-group.active {
+[data-theme="light"] .settings-workspace .vault-picker-group.active {
   border-color: rgba(166, 204, 0, 0.28);
   background: rgba(222, 255, 112, 0.34);
   color: #111816;
@@ -1929,8 +1915,6 @@ select:focus {
 
 .provider-form-panel .vault-input,
 .provider-form-panel .custom-select-trigger,
-.provider-form-panel .vault-ref-trigger,
-.provider-form-panel .vault-ref-selected,
 .provider-form-panel .endpoint-remove-btn {
   background: rgba(239, 246, 255, 0.78) !important;
   border-color: rgba(23, 32, 29, 0.12) !important;

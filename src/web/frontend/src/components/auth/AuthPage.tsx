@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getTools, executeAction, type Tool } from '../../api/tools';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
+import VaultPickerModal from '../shared/VaultPickerModal';
 
 export default function AuthPage() {
   const { showToast, setConnectionStatus } = useApp();
@@ -10,6 +11,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(true);
   const [actioningTool, setActioningTool] = useState<string | null>(null);
   const [output, setOutput] = useState('');
+  const [authTool, setAuthTool] = useState<Tool | null>(null);
 
   useEffect(() => { loadAuth(); }, []);
 
@@ -23,16 +25,29 @@ export default function AuthPage() {
     } catch { setConnectionStatus('error'); } finally { setLoading(false); }
   }
 
-  async function handleAction(name: string, action: string) {
+  async function runAction(name: string, action: string, options?: Record<string, any>) {
     setActioningTool(name);
     setOutput('');
     try {
-      for await (const event of executeAction(name, action)) {
-        if (event.type === 'output') setOutput(prev => prev + event.message + '\n');
+      for await (const event of executeAction(name, action, options)) {
+        if (event.type === 'output') setOutput(prev => prev + (event.message || event.text || '') + '\n');
+        if (event.type === 'result') {
+          showToast(event.success ? t('common.success') : (event.output || t('common.failed')), event.success ? 'success' : 'error');
+          if (event.success) loadAuth();
+          break;
+        }
         if (event.type === 'success') { showToast(event.message || t('common.success')); loadAuth(); break; }
         if (event.type === 'error') { showToast(event.message || t('common.failed'), 'error'); break; }
       }
     } catch { showToast(t('common.failed'), 'error'); } finally { setActioningTool(null); }
+  }
+
+  function handleAction(tool: Tool, action: string) {
+    if (action === 'auth' && tool.authMethods && tool.authMethods.length > 1) {
+      setAuthTool(tool);
+      return;
+    }
+    runAction(tool.name, action);
   }
 
   const authorized = tools.filter((t: any) => t.authStatus === 'authorized');
@@ -81,11 +96,11 @@ export default function AuthPage() {
                 {(tool as any).authMessage && <div className="auth-card-message">{(tool as any).authMessage}</div>}
                 <div className="auth-card-actions">
                   {!isAuth && (
-                    <button className="btn-action btn-action--auth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool.name, 'auth')}>
+                    <button className="btn-action btn-action--auth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool, 'auth')}>
                       {actioningTool === tool.name ? t('common.authorizing') : t('common.authorize')}
                     </button>
                   )}
-                  <button className="btn-action btn-action--reauth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool.name, 'auth')}>
+                  <button className="btn-action btn-action--reauth" disabled={actioningTool === tool.name} onClick={() => handleAction(tool, 'auth')}>
                     {t('common.reAuth')}
                   </button>
                 </div>
@@ -97,6 +112,107 @@ export default function AuthPage() {
           );
         })}
       </div>
+      {authTool && (
+        <AuthMethodModal
+          tool={authTool}
+          onClose={() => setAuthTool(null)}
+          onRun={(options) => {
+            setAuthTool(null);
+            runAction(authTool.name, 'auth', options);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AuthMethodModal({ tool, onClose, onRun }: {
+  tool: Tool;
+  onClose: () => void;
+  onRun: (options: Record<string, any>) => void;
+}) {
+  const [methodIndex, setMethodIndex] = useState(() => Math.max(0, tool.authMethods?.findIndex(m => m.recommended) ?? 0));
+  const [vaultKey, setVaultKey] = useState('');
+  const [showVaultPicker, setShowVaultPicker] = useState(false);
+
+  const methods = tool.authMethods || [];
+  const method = methods[methodIndex];
+  const needsToken = Boolean(method?.command?.includes('{token}'));
+
+  function submit() {
+    if (!method) return;
+    if (needsToken && !vaultKey) return;
+    onRun({ authMethod: methodIndex, ...(needsToken ? { vaultKey } : {}) });
+  }
+
+  return (
+    <>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel auth-method-panel" onClick={e => e.stopPropagation()}>
+        <div className="modal-panel-header auth-method-header">
+          <div>
+            <span className="auth-method-kicker">授权</span>
+            <h2>{tool.name} 授权方式</h2>
+          </div>
+          <button className="auth-method-close" onClick={onClose} aria-label="关闭">×</button>
+        </div>
+        <div className="modal-panel-body auth-method-body">
+          <div className="auth-method-section">
+            <div className="auth-method-label">授权方式</div>
+            <div className="auth-method-options">
+              {methods.map((m, idx) => (
+                <button
+                  key={`${m.name}-${idx}`}
+                  type="button"
+                  className={`auth-method-option${methodIndex === idx ? ' active' : ''}`}
+                  onClick={() => { setMethodIndex(idx); setVaultKey(''); }}
+                >
+                  <span className="auth-method-option-title">
+                    {m.name}
+                    {m.recommended && <span className="auth-method-recommended">推荐</span>}
+                  </span>
+                  {m.description && <span className="auth-method-option-desc">{m.description}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          {method?.tokenUrl && (
+            <a className="auth-token-link" href={method.tokenUrl} target="_blank" rel="noreferrer">{method.tokenHint || '打开 Token 页面'}</a>
+          )}
+          {needsToken && (
+            <div className="auth-method-section auth-vault-reference settings-workspace settings-workspace--light">
+              <div className="settings-field--secret">
+                <div className="auth-method-label">选择 Access Token</div>
+                <div className="vault-ref-field auth-vault-ref-field">
+                  {vaultKey ? (
+                    <div className="vault-ref-selected">
+                      <span className="vault-ref-key">{vaultKey}</span>
+                      <button type="button" className="vault-ref-clear" onClick={() => setVaultKey('')}>×</button>
+                      <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>更换</button>
+                    </div>
+                  ) : (
+                    <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>从密钥管理选择</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-panel-footer auth-method-footer">
+          <button className="auth-method-secondary" onClick={onClose}>取消</button>
+          <button className="auth-method-primary" onClick={submit} disabled={needsToken && !vaultKey}>开始授权</button>
+        </div>
+      </div>
+    </div>
+    {showVaultPicker && (
+      <div className="settings-workspace settings-workspace--light">
+      <VaultPickerModal
+        selected={vaultKey}
+        onSelect={key => { setVaultKey(key); setShowVaultPicker(false); }}
+        onClose={() => setShowVaultPicker(false)}
+      />
+      </div>
+    )}
+    </>
   );
 }

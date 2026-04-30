@@ -303,7 +303,8 @@ async function getTools(req, res) {
 }
 
 async function toolAction(req, res) {
-  const { name, action } = req.body;
+  const { action } = req.body;
+  const name = req.body.name || req.body.toolId;
   if (!name || !action) return res.status(400).json({ error: 'name and action are required' });
   if (!['install', 'upgrade', 'uninstall', 'auth'].includes(action)) {
     return res.status(400).json({ error: 'Invalid action' });
@@ -328,10 +329,7 @@ async function toolAction(req, res) {
         isInteractive = true;
         return handleInteractiveAuth(req, res, step, method, name);
       }
-      command = method.command;
-      if (req.body.token && command) {
-        command = command.replace(/\{token\}/g, req.body.token.replace(/'/g, "'\\''"));
-      }
+      command = await buildAuthCommand(method, req.body);
     } else {
       command = resolveCmd(step.authFix);
     }
@@ -401,7 +399,29 @@ async function openApp(req, res) {
   }
 }
 
-module.exports = { getTools, toolAction, submitAuthCode, openApp };
+async function buildAuthCommand(method, body = {}, vaultStore) {
+  let command = method.command;
+  if (!command) return command;
+  if (!command.includes('{token}')) return command;
+
+  let token = body.token;
+  if (!token && body.vaultKey) {
+    const store = vaultStore || new (require('../../vault/store').VaultStore)();
+    const { key, alias } = parseKeyAlias(body.vaultKey);
+    if (typeof store.resolve === 'function') token = await store.resolve(key, alias);
+    else if (typeof store.get === 'function') token = await store.get(body.vaultKey);
+  }
+  if (!token) throw new Error('Token is required for this auth method');
+  return command.replace(/\{token\}/g, String(token).replace(/'/g, "'\\''"));
+}
+
+function parseKeyAlias(input) {
+  const slashIdx = String(input).indexOf('/');
+  if (slashIdx === -1) return { key: input, alias: 'default' };
+  return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
+}
+
+module.exports = { getTools, toolAction, submitAuthCode, openApp, buildAuthCommand };
 
 function handleInteractiveAuth(req, res, step, method, name) {
   const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

@@ -1,32 +1,65 @@
-import { useState } from 'react';
-import { setVault } from '../../api/vault';
+import { useEffect, useState } from 'react';
+import { getVaultValue, setVault, type VaultSecret } from '../../api/vault';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
 
 interface VaultFormModalProps {
   groups: string[];
-  initialKey?: string;
+  initialSecret?: VaultSecret;
+  initialAlias?: string;
+  onBeforeSave?: (next: { key: string; alias: string; group?: string }) => Promise<boolean>;
   onClose: () => void;
   onSaved: (key: string) => void;
 }
 
-export default function VaultFormModal({ groups, initialKey, onClose, onSaved }: VaultFormModalProps) {
+export default function VaultFormModal({ groups, initialSecret, initialAlias, onBeforeSave, onClose, onSaved }: VaultFormModalProps) {
   const { t } = useI18n();
-  const isEdit = !!initialKey;
-  const [formKey, setFormKey] = useState(initialKey || '');
-  const [formAlias, setFormAlias] = useState('default');
+  const isEdit = !!initialSecret;
+  const activeAlias = initialAlias || initialSecret?.aliases[0]?.alias || 'default';
+  const activeAliasMeta = initialSecret?.aliases.find(a => a.alias === activeAlias) || initialSecret?.aliases[0];
+  const initialGroup = activeAliasMeta?.group || initialSecret?.group || '';
+  const [formKey, setFormKey] = useState(initialSecret?.key || '');
+  const [formAlias, setFormAlias] = useState(activeAlias);
   const [formValue, setFormValue] = useState('');
-  const [formGroup, setFormGroup] = useState('');
-  const [formGroupCustom, setFormGroupCustom] = useState('');
+  const [formGroup, setFormGroup] = useState(initialGroup && groups.includes(initialGroup) ? initialGroup : (initialGroup ? '__custom__' : ''));
+  const [formGroupCustom, setFormGroupCustom] = useState(initialGroup && groups.includes(initialGroup) ? '' : initialGroup);
   const [showValue, setShowValue] = useState(false);
+  const [loadingValue, setLoadingValue] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!initialSecret) return;
+
+    setLoadingValue(true);
+    getVaultValue(initialSecret.key, activeAlias)
+      .then(data => {
+        if (!cancelled) setFormValue(data.value);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingValue(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [initialSecret?.key, activeAlias]);
 
   async function handleSave() {
     if (!formKey || !formValue) return;
-    setSaving(true);
     const group = formGroup === '__custom__' ? formGroupCustom : formGroup;
+    const alias = formAlias || 'default';
+    if (onBeforeSave && !(await onBeforeSave({ key: formKey, alias, group: group || undefined }))) return;
+
+    setSaving(true);
     try {
-      await setVault({ key: formKey, alias: formAlias || 'default', value: formValue, group: group || undefined });
+      await setVault({
+        key: formKey,
+        alias,
+        value: formValue,
+        group: group || undefined,
+        originalKey: initialSecret?.key,
+        originalAlias: isEdit ? activeAlias : undefined,
+      });
       onSaved(formKey);
     } catch {
       onSaved('');
@@ -46,12 +79,12 @@ export default function VaultFormModal({ groups, initialKey, onClose, onSaved }:
           <div className="vault-form-field">
             <label>Key</label>
             <input type="text" className="vault-input" placeholder={t('vault.keyExample')} value={formKey}
-              onChange={e => setFormKey(e.target.value)} disabled={isEdit} />
+              onChange={e => setFormKey(e.target.value)} />
           </div>
           <div className="vault-form-row">
             <div className="vault-form-field">
               <label>{t('common.alias')}</label>
-              <input type="text" className="vault-input" value={formAlias} onChange={e => setFormAlias(e.target.value)} disabled={isEdit} />
+              <input type="text" className="vault-input" value={formAlias} onChange={e => setFormAlias(e.target.value)} />
             </div>
             <div className="vault-form-field">
               <label>{t('common.group')}</label>
@@ -71,13 +104,13 @@ export default function VaultFormModal({ groups, initialKey, onClose, onSaved }:
           </div>
           <div className="vault-form-field vault-form-field--value">
             <label>Value</label>
-            <input type={showValue ? 'text' : 'password'} className="vault-input" placeholder={t('vault.keyValue')} value={formValue} onChange={e => setFormValue(e.target.value)} />
+            <input type={showValue ? 'text' : 'password'} className="vault-input" placeholder={loadingValue ? t('common.loading') : t('vault.keyValue')} value={formValue} onChange={e => setFormValue(e.target.value)} disabled={loadingValue} />
             <button type="button" className="btn-toggle-vis" onClick={() => setShowValue(!showValue)}>{showValue ? t('common.hide') : t('common.show')}</button>
           </div>
         </div>
         <div className="vault-form-actions">
           <button className="btn-cancel" onClick={onClose}>{t('common.cancel')}</button>
-          <button className="btn-save" onClick={handleSave} disabled={saving || !formKey || !formValue}>{saving ? t('common.saving') : t('common.save')}</button>
+          <button className="btn-save" onClick={handleSave} disabled={saving || loadingValue || !formKey || !formValue}>{saving ? t('common.saving') : t('common.save')}</button>
         </div>
       </div>
     </div>

@@ -174,12 +174,33 @@ async function listVault(req, res) {
 
 async function setVault(req, res) {
   try {
-    const { key, alias, value, group, expiresAt } = req.body;
+    const { key, alias, value, group, expiresAt, originalKey, originalAlias } = req.body;
     if (!key || !value) {
       return res.status(400).json({ error: 'key and value are required' });
     }
     const keyAlias = alias && alias !== 'default' ? `${key}/${alias}` : key;
+    const oldKeyAlias = originalKey
+      ? (originalAlias && originalAlias !== 'default' ? `${originalKey}/${originalAlias}` : originalKey)
+      : keyAlias;
+    const isEditMove = originalKey && oldKeyAlias !== keyAlias;
+
+    if (isEditMove) {
+      const oldValue = await store.get(oldKeyAlias);
+      if (oldValue === null) {
+        return res.status(404).json({ error: 'Original secret not found' });
+      }
+
+      const existingTarget = await store.get(keyAlias);
+      if (existingTarget !== null) {
+        return res.status(409).json({ error: 'Target secret already exists' });
+      }
+    }
+
     await store.set(keyAlias, value, group, expiresAt);
+    if (isEditMove) {
+      await store.delete(oldKeyAlias);
+      touchOkitEnvFiles(originalKey);
+    }
     touchOkitEnvFiles(key);
     appendVaultLog('vault-set', keyAlias, true);
     res.json({ success: true, key, alias: alias || 'default' });

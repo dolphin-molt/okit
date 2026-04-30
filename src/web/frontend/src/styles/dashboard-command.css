@@ -134,7 +134,6 @@ body {
   background: linear-gradient(90deg, transparent, rgba(239, 255, 97, 0.5), transparent);
 }
 
-.nav-section + .nav-section,
 .sidebar-bottom {
   border-color: rgba(245, 243, 235, 0.08);
 }
@@ -861,7 +860,6 @@ select:focus {
   color: rgba(23, 32, 29, 0.48);
 }
 
-[data-theme="light"] .nav-section + .nav-section,
 [data-theme="light"] .sidebar-bottom {
   border-color: rgba(23, 32, 29, 0.08);
 }
@@ -1980,6 +1978,315 @@ select:focus {
   color: rgba(15, 23, 20, 0.9) !important;
 }
 
+/* Unified dark modal surfaces. Several dialogs are composed from settings,
+   vault and provider primitives, so keep the final dark pass here where it can
+   neutralize older light-only overrides without changing the component markup. */
+[data-theme="dark"] .modal-overlay,
+[data-theme="dark"] .auth-overlay {
+  background: rgba(3, 6, 5, 0.68) !important;
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .modal-panel,
+[data-theme="dark"] .auth-method-panel,
+[data-theme="dark"] .picker-panel,
+[data-theme="dark"] .confirm-panel,
+[data-theme="dark"] .preset-panel,
+[data-theme="dark"] .cf-sync-panel,
+[data-theme="dark"] .sync-panel,
+[data-theme="dark"] .progress-panel,
+[data-theme="dark"] .provider-form-panel.provider-form-panel,
+[data-theme="dark"] .vault-form-panel.vault-form-panel,
+[data-theme="dark"] .settings-workspace .vault-picker,
+[data-theme="dark"] .settings-workspace .platdoc-panel {
+  border-color: rgba(245, 243, 235, 0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(245, 243, 235, 0.07), rgba(245, 243, 235, 0.025)),
+    #19211e !important;
+  color: #f5f3eb !important;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42) !important;
+}
+
+[data-theme="dark"] .modal-panel-header,
+[data-theme="dark"] .modal-actions,
+[data-theme="dark"] .auth-method-header,
+[data-theme="dark"] .auth-method-footer,
+[data-theme="dark"] .picker-header,
+[data-theme="dark"] .picker-content-header,
+[data-theme="dark"] .preset-footer,
+[data-theme="dark"] .sync-footer,
+[data-theme="dark"] .provider-form-panel .modal-panel-header,
+[data-theme="dark"] .provider-form-panel .modal-actions,
+[data-theme="dark"] .vault-form-panel .progress-header,
+[data-theme="dark"] .vault-form-panel .vault-form-actions,
+[data-theme="dark"] .settings-workspace .vault-picker-header,
+[data-theme="dark"] .settings-workspace .platdoc-panel .progress-header,
+[data-theme="dark"] .cf-sync-panel .progress-header {
+  border-color: rgba(245, 243, 235, 0.12) !important;
+  background: rgba(245, 243, 235, 0.045) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .modal-panel-body,
+[data-theme="dark"] .auth-method-body,
+[data-theme="dark"] .picker-body,
+[data-theme="dark"] .preset-body,
+[data-theme="dark"] .sync-body,
+[data-theme="dark"] .provider-form-body.provider-form-body,
+[data-theme="dark"] .vault-form-panel .vault-form-body,
+[data-theme="dark"] .settings-workspace .vault-picker-body,
+[data-theme="dark"] .settings-workspace .vault-picker-main,
+[data-theme="dark"] .settings-workspace .platdoc-body,
+[data-theme="dark"] .cf-sync-step {
+  background: transparent !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .picker-sidebar,
+[data-theme="dark"] .settings-workspace .vault-picker-sidebar {
+  border-color: rgba(245, 243, 235, 0.12) !important;
+  background:
+    linear-gradient(90deg, rgba(239, 255, 97, 0.075), transparent 58%),
+    rgba(245, 243, 235, 0.045) !important;
+}
+
+[data-theme="dark"] .modal-panel-header h2,
+[data-theme="dark"] .auth-method-header h2,
+[data-theme="dark"] .picker-header h2,
+[data-theme="dark"] .confirm-title,
+[data-theme="dark"] .progress-title,
+[data-theme="dark"] .settings-workspace .vault-picker-header h2,
+[data-theme="dark"] .settings-workspace .platdoc-panel .progress-title,
+[data-theme="dark"] .settings-workspace .platdoc-field-label,
+[data-theme="dark"] .provider-form-panel .modal-panel-header h2,
+[data-theme="dark"] .vault-form-panel .progress-title {
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .confirm-message,
+[data-theme="dark"] .auth-method-option-desc,
+[data-theme="dark"] .picker-empty,
+[data-theme="dark"] .settings-workspace .vault-picker-empty,
+[data-theme="dark"] .settings-workspace .vault-picker-item-alias,
+[data-theme="dark"] .settings-workspace .platdoc-body,
+[data-theme="dark"] .settings-workspace .platdoc-steps,
+[data-theme="dark"] .settings-workspace .platdoc-field-hint,
+[data-theme="dark"] .preset-key-hint,
+[data-theme="dark"] .sync-path-bar {
+  color: rgba(215, 211, 201, 0.74) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-group {
+  color: rgba(245, 243, 235, 0.74) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-group-count {
+  color: rgba(215, 211, 201, 0.58) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-group:hover,
+[data-theme="dark"] .picker-provider:hover,
+[data-theme="dark"] .sync-sidebar-item:hover {
+  background: rgba(245, 243, 235, 0.09) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-group.active,
+[data-theme="dark"] .picker-provider.active,
+[data-theme="dark"] .sync-sidebar-item--active {
+  border-color: rgba(239, 255, 97, 0.36) !important;
+  background: rgba(239, 255, 97, 0.14) !important;
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-group.active .vault-picker-group-count,
+[data-theme="dark"] .picker-provider.active .picker-provider-name {
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search-field,
+[data-theme="dark"] .settings-workspace .vault-picker-create-form,
+[data-theme="dark"] .settings-workspace .platdoc-section,
+[data-theme="dark"] .settings-workspace .platdoc-steps li,
+[data-theme="dark"] .settings-workspace .platdoc-field,
+[data-theme="dark"] .provider-form-body .form-group,
+[data-theme="dark"] .sync-path-bar,
+[data-theme="dark"] .sync-dir-list,
+[data-theme="dark"] .cf-sync-keylist {
+  border-color: rgba(245, 243, 235, 0.12) !important;
+  background: rgba(245, 243, 235, 0.07) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search-input,
+[data-theme="dark"] .settings-workspace .vault-picker-item-key,
+[data-theme="dark"] .settings-workspace .vault-picker-item.active .vault-picker-item-key,
+[data-theme="dark"] .settings-workspace .vault-picker-create-input,
+[data-theme="dark"] .settings-workspace .platdoc-code,
+[data-theme="dark"] .vault-form-panel .vault-input,
+[data-theme="dark"] .provider-form-panel .vault-input,
+[data-theme="dark"] .provider-form-panel .custom-select-trigger,
+[data-theme="dark"] .cf-sync-select {
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search-input::placeholder,
+[data-theme="dark"] .settings-workspace .vault-picker-create-input::placeholder,
+[data-theme="dark"] .vault-form-panel .vault-input::placeholder,
+[data-theme="dark"] .provider-form-panel .vault-input::placeholder {
+  color: rgba(215, 211, 201, 0.5) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-item:hover,
+[data-theme="dark"] .settings-workspace .vault-picker-item.active {
+  background: rgba(245, 243, 235, 0.08) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-item-group,
+[data-theme="dark"] .settings-workspace .vault-picker-item.active .vault-picker-item-group,
+[data-theme="dark"] .preset-tool-tag,
+[data-theme="dark"] .settings-workspace .platdoc-steps li::before {
+  background: rgba(239, 255, 97, 0.12) !important;
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-close,
+[data-theme="dark"] .settings-workspace .platdoc-panel .progress-close,
+[data-theme="dark"] .progress-close,
+[data-theme="dark"] .auth-method-close,
+[data-theme="dark"] .settings-workspace .vault-picker-create-vis,
+[data-theme="dark"] .provider-form-panel .endpoint-remove-btn {
+  border-color: rgba(245, 243, 235, 0.14) !important;
+  background: rgba(245, 243, 235, 0.1) !important;
+  color: rgba(245, 243, 235, 0.76) !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-close:hover,
+[data-theme="dark"] .settings-workspace .platdoc-panel .progress-close:hover,
+[data-theme="dark"] .progress-close:hover,
+[data-theme="dark"] .auth-method-close:hover,
+[data-theme="dark"] .settings-workspace .vault-picker-create-vis:hover {
+  border-color: rgba(239, 255, 97, 0.38) !important;
+  background: rgba(239, 255, 97, 0.14) !important;
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-create-btn,
+[data-theme="dark"] .settings-workspace .vault-picker-create-input,
+[data-theme="dark"] .settings-workspace .vault-picker-create-select .custom-select-trigger,
+[data-theme="dark"] .vault-form-panel .vault-input,
+[data-theme="dark"] .vault-form-panel .custom-select-trigger,
+[data-theme="dark"] .provider-form-panel .vault-input,
+[data-theme="dark"] .provider-form-panel .custom-select-trigger,
+[data-theme="dark"] .provider-form-panel .endpoint-remove-btn,
+[data-theme="dark"] .cf-sync-select {
+  border-color: rgba(245, 243, 235, 0.14) !important;
+  background: rgba(245, 243, 235, 0.085) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-create-btn:hover,
+[data-theme="dark"] .provider-form-panel .model-add-btn:hover {
+  border-color: rgba(239, 255, 97, 0.36) !important;
+  background: rgba(239, 255, 97, 0.13) !important;
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .platdoc-inline-link {
+  color: #7dd3fc !important;
+  border-bottom-color: rgba(125, 211, 252, 0.32) !important;
+}
+
+[data-theme="dark"] .settings-workspace .platdoc-code {
+  background: rgba(0, 0, 0, 0.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 243, 235, 0.1) !important;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save {
+  border-color: rgba(239, 255, 97, 0.58) !important;
+  background: var(--accent) !important;
+  color: #080a09 !important;
+  box-shadow: 0 0 0 1px rgba(239, 255, 97, 0.12) !important;
+}
+
+[data-theme="dark"] .vault-form-panel .btn-save:hover {
+  border-color: rgba(239, 255, 97, 0.72) !important;
+  background: #f4ff93 !important;
+  color: #080a09 !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-value {
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-value--placeholder,
+[data-theme="dark"] .vault-form-panel .custom-select-arrow {
+  color: rgba(215, 211, 201, 0.64) !important;
+  opacity: 1 !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-dropdown {
+  border-color: rgba(245, 243, 235, 0.16) !important;
+  background: #222b27 !important;
+  color: #f5f3eb !important;
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.34) !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option {
+  color: rgba(245, 243, 235, 0.82) !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option:hover {
+  background: rgba(245, 243, 235, 0.1) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .vault-form-panel .custom-select-option.active {
+  background: rgba(239, 255, 97, 0.14) !important;
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search-field {
+  border: 0 !important;
+  background: rgba(245, 243, 235, 0.08) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .settings-workspace .vault-picker-search-input,
+[data-theme="dark"] .settings-workspace .vault-picker-search-input:focus {
+  border: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.access-workspace .modal-overlay {
+  left: var(--sidebar-w);
+  width: calc(100vw - var(--sidebar-w));
+}
+
+.access-workspace .picker-panel {
+  width: min(820px, calc(100vw - var(--sidebar-w) - 48px));
+  max-height: calc(100vh - 96px);
+}
+
+@media (max-width: 760px) {
+  .access-workspace .modal-overlay {
+    left: 0;
+    width: 100vw;
+  }
+
+  .access-workspace .picker-panel {
+    width: calc(100vw - 28px);
+    max-height: calc(100vh - 48px);
+  }
+}
+
 .vault-workspace .cloud-push-bar.cloud-push-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2079,6 +2386,67 @@ select:focus {
 .vault-workspace .cloud-push-bar .btn-save:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar.cloud-push-bar {
+  border-color: rgba(245, 243, 235, 0.16) !important;
+  background:
+    linear-gradient(135deg, rgba(239, 255, 97, 0.075), transparent 46%),
+    rgba(25, 33, 30, 0.92) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar-left strong {
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar-left span {
+  color: rgba(215, 211, 201, 0.72) !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-count {
+  border-color: rgba(245, 243, 235, 0.12) !important;
+  background: rgba(245, 243, 235, 0.08) !important;
+  color: rgba(245, 243, 235, 0.82) !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-link {
+  color: #7dd3fc !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-link:hover {
+  color: #efff61 !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-trigger,
+[data-theme="dark"] .vault-workspace .cloud-push-select.custom-select .custom-select-trigger {
+  border-color: rgba(245, 243, 235, 0.16) !important;
+  background: rgba(245, 243, 235, 0.09) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-value,
+[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-arrow {
+  color: #f5f3eb !important;
+  opacity: 1 !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save {
+  border-color: rgba(239, 255, 97, 0.58) !important;
+  background: var(--accent) !important;
+  color: #080a09 !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save:hover:not(:disabled) {
+  background: #f4ff93 !important;
+}
+
+[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save:disabled {
+  border-color: rgba(245, 243, 235, 0.14) !important;
+  background: rgba(245, 243, 235, 0.08) !important;
+  color: rgba(215, 211, 201, 0.56) !important;
+  opacity: 1;
 }
 
 @media (max-width: 900px) {

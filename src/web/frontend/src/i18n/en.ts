@@ -198,6 +198,7 @@ export default {
   'vault.deleteFail': 'Delete failed',
   'vault.confirmDelete': 'Delete <strong>{key}</strong>? This cannot be undone.',
   'vault.keyImpact': '{n} project(s) will lose this key reference:',
+  'vault.editImpact': 'This key is referenced by {n} project(s). Project references may need to be synced after saving:',
   'vault.written': 'Written {n} keys',
   'vault.syncFail': 'Sync failed',
   'vault.pushSuccess': 'Pushed {n} keys to {platform}',

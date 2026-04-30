@@ -252,6 +252,42 @@
   font-size: 14px;
 }
 
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-selected {
+  border: 1px solid rgba(245, 243, 235, 0.14) !important;
+  background: rgba(245, 243, 235, 0.075) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-selected:hover {
+  border-color: rgba(239, 255, 97, 0.36) !important;
+  background: rgba(245, 243, 235, 0.1) !important;
+}
+
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-key {
+  color: #f5f3eb !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-clear,
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-change {
+  border-color: rgba(245, 243, 235, 0.14) !important;
+  background: rgba(245, 243, 235, 0.1) !important;
+  color: #d9e2dc !important;
+}
+
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-clear:hover,
+[data-theme="dark"] .auth-vault-reference.settings-workspace--light .settings-field--secret .vault-ref-change:hover {
+  border-color: rgba(239, 255, 97, 0.44) !important;
+  background: rgba(239, 255, 97, 0.16) !important;
+  color: #efff61 !important;
+}
+
 .auth-method-footer {
   display: flex;
   justify-content: flex-end;

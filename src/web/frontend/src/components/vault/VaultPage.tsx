@@ -41,6 +41,7 @@ export default function VaultPage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
+  const [editSecret, setEditSecret] = useState<VaultSecret | null>(null);
   const [showSync, setShowSync] = useState(false);
   const [syncKey, setSyncKey] = useState('');
   const [syncPath, setSyncPath] = useState('');
@@ -112,11 +113,13 @@ export default function VaultPage() {
 
   function openAddForm() {
     setEditKey(null);
+    setEditSecret(null);
     setShowForm(true);
   }
 
   function openEditForm(secret: VaultSecret) {
     setEditKey(secret.key);
+    setEditSecret(secret);
     setShowForm(true);
   }
 
@@ -124,7 +127,21 @@ export default function VaultPage() {
     if (key) showToast(t(editKey ? 'vault.keyUpdated' : 'vault.keyAdded'));
     else showToast(t('vault.saveFail'), 'error');
     setShowForm(false);
+    setEditSecret(null);
+    setEditKey(null);
     loadVault();
+  }
+
+  async function confirmEditImpact(secret: VaultSecret | null) {
+    if (!secret) return true;
+    let projects = (secret.projects || []).map(p => p.path);
+    try {
+      const impact = await checkKeyImpact(secret.key);
+      if (impact.projects?.length) projects = impact.projects;
+    } catch {}
+    if (projects.length === 0) return true;
+    const impactHtml = `<div style="margin-top:8px">${t('vault.editImpact', { n: projects.length })}<br/>${projects.map(p => `- ${p}`).join('<br/>')}</div>`;
+    return confirm(impactHtml);
   }
 
   async function handleDelete(key: string, alias: string) {
@@ -512,8 +529,9 @@ export default function VaultPage() {
       {showForm && (
         <VaultFormModal
           groups={groups}
-          initialKey={editKey || undefined}
-          onClose={() => setShowForm(false)}
+          initialSecret={editSecret || undefined}
+          onBeforeSave={() => confirmEditImpact(editSecret)}
+          onClose={() => { setShowForm(false); setEditSecret(null); setEditKey(null); }}
           onSaved={handleFormSaved}
         />
       )}

@@ -198,6 +198,7 @@ export default {
   'vault.deleteFail': '删除失败',
   'vault.confirmDelete': '确定删除 <strong>{key}</strong>？此操作不可撤销。',
   'vault.keyImpact': '以下 {n} 个项目将失去该密钥引用：',
+  'vault.editImpact': '该密钥正在被以下 {n} 个项目引用，保存修改后项目引用可能需要同步更新：',
   'vault.written': '已写入 {n} 个密钥',
   'vault.syncFail': '同步失败',
   'vault.pushSuccess': '已推送 {n} 个密钥到 {platform}',

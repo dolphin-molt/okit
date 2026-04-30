@@ -18,7 +18,7 @@ export default function AuthPage() {
   async function loadAuth() {
     setLoading(true);
     try {
-      const data = await getTools();
+      const data = await getTools(true);
       const authTools = (data.tools || []).filter((t: any) => t.hasAuth || t.authStatus === 'unauthorized' || t.authStatus === 'partial');
       setTools(authTools);
       setConnectionStatus('connected');

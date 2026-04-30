@@ -241,6 +241,12 @@ function saveDiskCache(data) {
   } catch {}
 }
 
+function invalidateToolsCache() {
+  toolsCache = null;
+  toolsCacheTime = 0;
+  try { fs.unlinkSync(CACHE_FILE); } catch {}
+}
+
 // Load disk cache on startup
 loadDiskCache();
 
@@ -373,11 +379,11 @@ async function toolAction(req, res) {
     send({ type: 'result', success: true, duration });
     const fullOutput = outputLines.join('\n');
     appendLog(name, action, true, duration, fullOutput || undefined, command);
-    toolsCache = null; toolsCacheTime = 0;
+    invalidateToolsCache();
     res.end();
   }).catch(err => {
     const duration = Date.now() - startTime;
-    toolsCache = null; toolsCacheTime = 0;
+    invalidateToolsCache();
     const output = ((err.stdout || '') + '\n' + (err.stderr || '')).trim();
     send({ type: 'result', success: false, output: output || err.message, duration });
     appendLog(name, action, false, duration, output || err.message, command);

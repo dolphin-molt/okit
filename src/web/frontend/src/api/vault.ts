@@ -2,7 +2,7 @@ import { api, apiRaw } from './client';
 
 export interface VaultSecret {
   key: string;
-  aliases: { alias: string; masked: string; updatedAt: string }[];
+  aliases: { alias: string; masked: string; group?: string; updatedAt: string }[];
   group?: string;
   expiresAt?: string;
   bindings?: { envName: string; key: string; file: string }[];
@@ -22,6 +22,8 @@ export async function setVault(data: {
   alias: string;
   value: string;
   group?: string;
+  originalKey?: string;
+  originalAlias?: string;
 }): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'POST',

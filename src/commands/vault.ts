@@ -89,7 +89,8 @@ export async function vaultSet(keyAlias: string, value: string): Promise<void> {
 
 // okit vault get KEY/alias
 export async function vaultGet(keyAlias: string): Promise<void> {
-  const value = await store.get(keyAlias);
+  const parsed = VaultStore.parseKeyAlias(keyAlias);
+  const value = await store.resolve(parsed.key, parsed.alias);
   if (value === null) {
     console.log(kleur.red(`${t("vaultNotFound")} ${keyAlias}`));
     process.exit(1);

@@ -16,7 +16,6 @@ const VAULT_REF_FIELDS = new Set([
   'storeId',
   'projectId',
   'apiKey',
-  'accountId',
   'r2AccessKeyId',
   'r2SecretAccessKey',
   'accessKey',
@@ -117,7 +116,7 @@ export default function SettingsPage() {
       } else {
         showToast(data.message || t('settings.pushFail'), 'error');
       }
-    } catch { showToast(t('settings.pushFail'), 'error'); } finally { setSyncing(null); }
+    } catch (e: any) { showToast(e.message || t('settings.pushFail'), 'error'); } finally { setSyncing(null); }
   }
 
   async function handlePullSync() {
@@ -131,7 +130,7 @@ export default function SettingsPage() {
       } else {
         showToast(data.message || t('settings.pullFail'), 'error');
       }
-    } catch { showToast(t('settings.pullFail'), 'error'); } finally { setSyncing(null); }
+    } catch (e: any) { showToast(e.message || t('settings.pullFail'), 'error'); } finally { setSyncing(null); }
   }
 
   async function handleExportSyncCode() {

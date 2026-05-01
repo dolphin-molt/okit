@@ -139,7 +139,7 @@ export const PLATFORM_DOCS: Record<string, { fields: Record<string, { label: str
     ],
     code: {
       title: '建表 SQL（在 SQL Editor 中执行）',
-      sql: `CREATE TABLE okit_sync (\n  id BIGSERIAL PRIMARY KEY,\n  key TEXT UNIQUE,\n  value JSONB,\n  updated_at TIMESTAMPTZ DEFAULT now()\n);\n\nALTER TABLE okit_sync ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow service_role" ON okit_sync FOR ALL USING (true) WITH CHECK (true);`,
+      sql: `CREATE TABLE okit_sync (\n  id BIGSERIAL PRIMARY KEY,\n  key TEXT NOT NULL UNIQUE,\n  value JSONB NOT NULL,\n  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()\n);\n\nALTER TABLE okit_sync ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Allow service_role" ON okit_sync FOR ALL USING (true) WITH CHECK (true);`,
     },
   },
   'cloudflare-kv': {

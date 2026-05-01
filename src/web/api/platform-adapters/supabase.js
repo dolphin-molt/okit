@@ -105,9 +105,9 @@ async function pushSync(config, userId, encryptedBlob) {
   const h = headers(config.apiKey);
   const syncKey = `sync-${userId}`;
 
-  // Upsert: try insert first, then update on conflict
+  // Upsert by the table's unique key column, not the generated id primary key.
   try {
-    await sbFetch(`${base}/rest/v1/${TABLE_NAME}`, {
+    await sbFetch(`${base}/rest/v1/${TABLE_NAME}?on_conflict=key`, {
       method: 'POST',
       headers: { ...h, 'Prefer': 'resolution=merge-duplicates' },
       body: JSON.stringify({ key: syncKey, value: encryptedBlob, updated_at: new Date().toISOString() }),

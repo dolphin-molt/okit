@@ -25,6 +25,13 @@ async function listAccounts(token) {
   return data.result || [];
 }
 
+async function getAccountId(token) {
+  const accounts = await listAccounts(token);
+  const accountId = accounts[0]?.id;
+  if (!accountId) throw new Error('未找到 Cloudflare 账户');
+  return accountId;
+}
+
 async function ensureNamespace(token, accountId) {
   const data = await cfFetch(token, `/accounts/${accountId}/storage/kv/namespaces`);
   const namespaces = data.result || [];
@@ -40,17 +47,14 @@ async function ensureNamespace(token, accountId) {
 
 async function testConnection(config) {
   if (!config.apiToken) throw new Error('请配置 API Token');
-  const accounts = await listAccounts(config.apiToken);
-  if (accounts.length === 0) throw new Error('未找到 Cloudflare 账户');
-  const accountId = accounts[0].id;
+  const accountId = await getAccountId(config.apiToken);
   await ensureNamespace(config.apiToken, accountId);
   return `Cloudflare KV 连接成功 (Namespace: ${KV_NAMESPACE_NAME})`;
 }
 
 async function syncSecrets(config, secrets) {
   if (!config.apiToken) throw new Error('请配置 API Token');
-  const accounts = await listAccounts(config.apiToken);
-  const accountId = accounts[0].id;
+  const accountId = await getAccountId(config.apiToken);
   const nsId = await ensureNamespace(config.apiToken, accountId);
   const results = [];
 
@@ -70,8 +74,7 @@ async function syncSecrets(config, secrets) {
 
 async function pushSync(config, userId, encryptedBlob) {
   if (!config.apiToken) throw new Error('请配置 API Token');
-  const accounts = await listAccounts(config.apiToken);
-  const accountId = accounts[0].id;
+  const accountId = await getAccountId(config.apiToken);
   const nsId = await ensureNamespace(config.apiToken, accountId);
   const key = `sync/${userId}`;
 
@@ -82,8 +85,7 @@ async function pushSync(config, userId, encryptedBlob) {
 
 async function pullSync(config, userId) {
   if (!config.apiToken) throw new Error('请配置 API Token');
-  const accounts = await listAccounts(config.apiToken);
-  const accountId = accounts[0].id;
+  const accountId = await getAccountId(config.apiToken);
   const nsId = await ensureNamespace(config.apiToken, accountId);
   const key = `sync/${userId}`;
 

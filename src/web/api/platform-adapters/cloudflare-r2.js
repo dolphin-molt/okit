@@ -2,6 +2,25 @@ const fetch = require('node-fetch');
 const crypto = require('crypto');
 
 const BUCKET_NAME = 'okit-sync';
+const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
+
+function normalizeConfig(config) {
+  const normalized = { ...config };
+  normalized.accountId = String(normalized.accountId || '').trim();
+  normalized.r2AccessKeyId = String(normalized.r2AccessKeyId || '').trim();
+  normalized.r2SecretAccessKey = String(normalized.r2SecretAccessKey || '').trim();
+  return normalized;
+}
+
+function assertConfig(config) {
+  if (!config.accountId) throw new Error('请配置 Account ID');
+  if (!ACCOUNT_ID_RE.test(config.accountId)) {
+    throw new Error('R2 Account ID 格式不正确，请填写 Cloudflare R2 S3 API 页面显示的 32 位 Account ID，不要填写 cf_account_id 或普通 API Token');
+  }
+  if (!config.r2AccessKeyId || !config.r2SecretAccessKey) {
+    throw new Error('请配置 R2 Access Key ID 和 Secret Access Key');
+  }
+}
 
 function signRequest(method, host, path, config, extraHeaders, payloadHash) {
   const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -103,10 +122,8 @@ async function s3GetObject(config, key) {
 }
 
 async function testConnection(config) {
-  if (!config.accountId) throw new Error('请配置 Account ID');
-  if (!config.r2AccessKeyId || !config.r2SecretAccessKey) {
-    throw new Error('请配置 R2 Access Key ID 和 Secret Access Key');
-  }
+  config = normalizeConfig(config);
+  assertConfig(config);
   const buckets = await s3ListBuckets(config);
   const found = buckets.includes(BUCKET_NAME);
   if (!found) await s3CreateBucket(config);
@@ -114,6 +131,8 @@ async function testConnection(config) {
 }
 
 async function syncSecrets(config, secrets) {
+  config = normalizeConfig(config);
+  assertConfig(config);
   const results = [];
   for (const secret of secrets) {
     try {
@@ -128,18 +147,16 @@ async function syncSecrets(config, secrets) {
 }
 
 async function pushSync(config, userId, encryptedBlob) {
-  if (!config.accountId || !config.r2AccessKeyId || !config.r2SecretAccessKey) {
-    throw new Error('请配置 Account ID、R2 Access Key ID 和 Secret Access Key');
-  }
+  config = normalizeConfig(config);
+  assertConfig(config);
   await s3CreateBucket(config);
   const key = `sync/${userId}.json`;
   await s3PutObject(config, key, JSON.stringify(encryptedBlob));
 }
 
 async function pullSync(config, userId) {
-  if (!config.accountId || !config.r2AccessKeyId || !config.r2SecretAccessKey) {
-    throw new Error('请配置 Account ID、R2 Access Key ID 和 Secret Access Key');
-  }
+  config = normalizeConfig(config);
+  assertConfig(config);
   const key = `sync/${userId}.json`;
   return await s3GetObject(config, key);
 }

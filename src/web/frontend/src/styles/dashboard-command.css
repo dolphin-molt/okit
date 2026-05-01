@@ -385,7 +385,8 @@ select:focus {
 .custom-select-dropdown {
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #1b2420;
+  background: var(--paper);
+  color: var(--ink);
   box-shadow: var(--shadow-lg);
 }
 

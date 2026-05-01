@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getSettings, updateSettings, testPlatform, testAgent } from '../../api/settings';
 import { listVault } from '../../api/vault';
-import { pushSync, pullSync, getSyncStatus } from '../../api/sync';
+import { pushSync, pullSync, getSyncStatus, exportSyncCode, importSyncCode } from '../../api/sync';
 import { listProviders, type Provider } from '../../api/providers';
 import { PLATFORM_FIELDS, PLATFORM_IDS, PLATFORM_DOCS } from '../../lib/constants';
 import { useApp } from '../Layout/AppContext';
@@ -11,6 +11,17 @@ import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
 
 const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
+const VAULT_REF_FIELDS = new Set([
+  'apiToken',
+  'storeId',
+  'projectId',
+  'apiKey',
+  'accountId',
+  'r2AccessKeyId',
+  'r2SecretAccessKey',
+  'accessKey',
+  'secretKey',
+]);
 
 export default function SettingsPage() {
   const { showToast, setConnectionStatus, theme, setThemeMode } = useApp() as any;
@@ -24,8 +35,10 @@ export default function SettingsPage() {
   const [testingAgent, setTestingAgent] = useState(false);
   const [vaultFormVisible, setVaultFormVisible] = useState(false);
   const [syncPassword, setSyncPassword] = useState('');
+  const syncFileInputRef = useRef<HTMLInputElement | null>(null);
   const [syncStatus, setSyncStatus] = useState<{ machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean } | null>(null);
   const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
+  const [syncCodeBusy, setSyncCodeBusy] = useState<'export' | 'import' | null>(null);
   const [docPlatform, setDocPlatform] = useState<string | null>(null);
   const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
@@ -93,7 +106,7 @@ export default function SettingsPage() {
 
   // Sync handlers
   async function handlePushSync() {
-    if (!syncPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
+    if (!syncPassword && !syncStatus?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
     setSyncing('push');
     try {
       const data = await pushSync();
@@ -108,18 +121,82 @@ export default function SettingsPage() {
   }
 
   async function handlePullSync() {
-    if (!syncPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
+    if (!syncPassword && !syncStatus?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
     setSyncing('pull');
     try {
       const data = await pullSync();
       if (data.success) {
-        showToast(t('settings.pullSuccess', { added: data.added || 0, updated: data.updated || 0 }));
+        showToast(t('settings.pullSuccess', { added: data.added || 0, updated: data.updated || 0, providers: data.providers || 0 }));
         loadData();
       } else {
         showToast(data.message || t('settings.pullFail'), 'error');
       }
     } catch { showToast(t('settings.pullFail'), 'error'); } finally { setSyncing(null); }
   }
+
+  async function handleExportSyncCode() {
+    if (!syncPassword && !syncStatus?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
+    setSyncCodeBusy('export');
+    try {
+      if (syncPassword) await saveAll(undefined, undefined, undefined, syncPassword);
+      const data = await exportSyncCode(syncPassword || undefined);
+      const payload = {
+        type: 'okit-sync',
+        version: 1,
+        platform: data.platform,
+        secrets: data.secrets || 0,
+        exportedAt: new Date().toISOString(),
+        code: data.code,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `okit-sync-${data.platform}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      showToast(t('settings.syncFileExported', { n: data.secrets || 0 }), 'success');
+    } catch (error: any) {
+      showToast(error?.message || t('settings.syncFileExportFail'), 'error');
+    } finally {
+      setSyncCodeBusy(null);
+    }
+  }
+
+  async function importCodeValue(code: string) {
+    const data = await importSyncCode(code, syncPassword);
+    showToast(t('settings.syncFileImported', { platform: PLATFORM_IDS[data.platform] || data.platform, n: data.secrets || 0 }), 'success');
+    await loadData();
+  }
+
+  async function handleImportSyncFile(file?: File) {
+    if (!file) return;
+    if (!syncPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
+    setSyncCodeBusy('import');
+    try {
+      const code = extractSyncCodeFromFile(await file.text());
+      if (!code) { showToast(t('settings.syncFileRequired'), 'error'); return; }
+      await importCodeValue(code);
+    } catch (error: any) {
+      showToast(error?.message || t('settings.syncFileImportFail'), 'error');
+    } finally {
+      setSyncCodeBusy(null);
+      if (syncFileInputRef.current) syncFileInputRef.current.value = '';
+    }
+  }
+
+  function extractSyncCodeFromFile(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed?.type === 'okit-sync' && typeof parsed.code === 'string') return parsed.code;
+    } catch {}
+    return trimmed;
+  }
+
 
   // Vault form handlers
   const groups = [...new Set(vaultKeys.map(k => k.split('_')[0]).filter(Boolean))].sort();
@@ -254,7 +331,7 @@ export default function SettingsPage() {
             <div className="settings-sync-grid">
             <div className="settings-field settings-field--quiet settings-field--prototype">
               <label>{t('settings.syncPassword')}</label>
-              <input type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
+              <input type="password" className="settings-input" placeholder={syncStatus?.hasPassword ? t('settings.syncPasswordSavedDesc') : t('settings.syncPasswordDesc')}
                 value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
                 onBlur={() => { if (syncPassword) saveAll(undefined, undefined, undefined, syncPassword); }} />
             </div>
@@ -294,6 +371,19 @@ export default function SettingsPage() {
               </button>
               <button className="settings-test-btn" onClick={handlePullSync} disabled={!!syncing} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {syncing === 'pull' ? t('settings.pulling') : t('settings.pullRemote')}
+              </button>
+              <input
+                ref={syncFileInputRef}
+                type="file"
+                accept=".json,.okit-sync,application/json,text/plain"
+                style={{ display: 'none' }}
+                onChange={e => handleImportSyncFile(e.target.files?.[0])}
+              />
+              <button className="settings-test-btn" onClick={() => syncFileInputRef.current?.click()} disabled={!!syncCodeBusy}>
+                {syncCodeBusy === 'import' ? t('settings.importingSyncFile') : t('settings.importSyncFile')}
+              </button>
+              <button className="settings-test-btn" onClick={handleExportSyncCode} disabled={!!syncCodeBusy}>
+                {syncCodeBusy === 'export' ? t('settings.exportingSyncFile') : t('settings.exportSyncFile')}
               </button>
             </div>
           </div>
@@ -346,7 +436,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="settings-plat-body">
                   {fields.map(field => {
-                    const isSecret = /ecret|oken|Key|Id$/i.test(field) && !/storeId|databaseId|bucketName|region/i.test(field);
+                    const isSecret = VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field));
                     return (
                       <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
                         <label>{field}</label>

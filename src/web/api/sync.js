@@ -46,4 +46,27 @@ async function handleStatus(req, res) {
   }
 }
 
-module.exports = { handlePush, handlePull, handleStatus };
+async function handleExportCode(req, res) {
+  try {
+    const result = await core.exportSyncCode(req.body?.password);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Sync code export error:', error);
+    res.status(500).json({ error: error.message || '导出同步码失败' });
+  }
+}
+
+async function handleImportCode(req, res) {
+  try {
+    const { code, password } = req.body || {};
+    if (!code) return res.status(400).json({ error: '同步码不能为空' });
+    const result = await core.importSyncCode(code, password);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Sync code import error:', error);
+    const status = error.message?.includes('同步密码不正确') || error.message?.includes('格式不正确') ? 400 : 500;
+    res.status(status).json({ error: error.message || '导入同步码失败' });
+  }
+}
+
+module.exports = { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode };

@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { OKIT_DIR } from "./registry";
+import { backupImportantData } from "./backup";
 
 type Language = "zh" | "en";
 
@@ -91,6 +92,7 @@ export async function loadUserConfig(): Promise<UserConfig> {
 
 export async function saveUserConfig(config: UserConfig): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
+  await backupImportantData("user");
   await fs.writeFile(USER_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 

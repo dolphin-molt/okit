@@ -1,6 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import { OKIT_DIR } from "../config/registry";
+import { backupImportantData } from "../config/backup";
 import { Provider, ProvidersData } from "./types";
 import { PRESET_PROVIDERS } from "./presets";
 
@@ -40,6 +41,7 @@ export async function loadProviders(): Promise<Provider[]> {
 
 export async function saveProviders(providers: Provider[]): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
+  await backupImportantData("providers");
   const data: ProvidersData = { providers };
   await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
 }

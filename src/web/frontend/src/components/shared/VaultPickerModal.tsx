@@ -106,7 +106,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="vault-picker" onClick={e => e.stopPropagation()}>
+      <div className={`vault-picker${showCreate ? ' vault-picker--creating' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="vault-picker-header">
           <h2>{t('vaultPicker.title')}</h2>
           <button className="vault-picker-close" onClick={onClose}>×</button>
@@ -198,6 +198,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                       value={newGroup}
                       onChange={v => setNewGroup(v)}
                       placeholder={t('common.selectGroup')}
+                      dropdownMode="local"
                       options={[
                         { value: '__custom__', label: t('common.manualInput') },
                         ...groupNames.map(g => ({ value: g, label: g })),

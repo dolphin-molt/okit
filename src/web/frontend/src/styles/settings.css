@@ -1603,6 +1603,16 @@
   flex-direction: column;
 }
 
+.settings-workspace .vault-picker.vault-picker--creating,
+.settings-workspace .vault-picker.vault-picker--creating .vault-picker-body,
+.settings-workspace .vault-picker.vault-picker--creating .vault-picker-main {
+  overflow: visible;
+}
+
+.settings-workspace .vault-picker.vault-picker--creating .vault-picker-list {
+  min-height: 0;
+}
+
 .settings-workspace .vault-picker-header,
 .settings-workspace .platdoc-panel .progress-header {
   display: flex;
@@ -1828,6 +1838,8 @@
 .settings-workspace .vault-picker-create-form {
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 5;
   margin: 0 14px 14px;
   border: 0;
   border-radius: 14px;
@@ -1837,17 +1849,17 @@
 }
 
 .settings-workspace .vault-picker-create-row {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 12px;
+  align-items: start;
 }
 
 .settings-workspace .vault-picker-create-row > :first-child {
-  flex: 0 0 35%;
   min-width: 0;
 }
 
 .settings-workspace .vault-picker-create-row > :last-child {
-  flex: 1;
   min-width: 0;
 }
 
@@ -1870,10 +1882,21 @@
 .settings-workspace .vault-picker-create-input,
 .settings-workspace .vault-picker-create-select .custom-select-trigger {
   min-height: 38px;
+  width: 100%;
+  min-width: 0;
   border: 0 !important;
   border-radius: 10px !important;
   background: rgba(23, 32, 29, 0.055) !important;
   box-shadow: none !important;
+}
+
+.settings-workspace .vault-picker-create-select,
+.settings-workspace .vault-picker-create-select .custom-select-trigger {
+  max-width: 100%;
+}
+
+.settings-workspace .vault-picker-create-select {
+  position: relative;
 }
 
 .settings-workspace .vault-picker-create-input {

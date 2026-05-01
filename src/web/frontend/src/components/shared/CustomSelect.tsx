@@ -6,12 +6,14 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  dropdownMode?: 'fixed' | 'local';
 }
 
-export default function CustomSelect({ value, options, onChange, placeholder, className }: CustomSelectProps) {
+export default function CustomSelect({ value, options, onChange, placeholder, className, dropdownMode = 'fixed' }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const active = options.find(o => o.value === value);
 
   function toggle() {
@@ -19,17 +21,32 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
       setOpen(false);
       return;
     }
+    if (dropdownMode === 'local') {
+      setDropStyle({
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        left: 0,
+        width: '100%',
+        zIndex: 30,
+        maxHeight: Math.min(200, options.length * 34 + 4),
+      });
+      setOpen(true);
+      return;
+    }
+
     // Calculate position before opening
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
+    const target = triggerRef.current || ref.current;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const dropdownHeight = Math.min(200, options.length * 34 + 4);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8));
 
     if (spaceBelow < dropdownHeight && rect.top > spaceBelow) {
       setDropStyle({
         position: 'fixed',
         bottom: window.innerHeight - rect.top + 2,
-        left: rect.left,
+        left,
         width: rect.width,
         zIndex: 9999,
         maxHeight: Math.min(200, rect.top - 8),
@@ -38,7 +55,7 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
       setDropStyle({
         position: 'fixed',
         top: rect.bottom + 2,
-        left: rect.left,
+        left,
         width: rect.width,
         zIndex: 9999,
         maxHeight: Math.min(200, spaceBelow - 8),
@@ -63,7 +80,7 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
 
   return (
     <div ref={ref} className={`custom-select${open ? ' custom-select--open' : ''} ${className || ''}`}>
-      <button type="button" className="custom-select-trigger" onClick={toggle}>
+      <button ref={triggerRef} type="button" className="custom-select-trigger" onClick={toggle}>
         <span className={`custom-select-value${!active ? ' custom-select-value--placeholder' : ''}`}>
           {active?.label || placeholder || ''}
         </span>

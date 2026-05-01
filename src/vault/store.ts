@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import os from "os";
 import { OKIT_DIR } from "../config/registry";
+import { backupImportantData } from "../config/backup";
 
 const VAULT_DIR = path.join(OKIT_DIR, "vault");
 const SECRETS_FILE = path.join(VAULT_DIR, "secrets.enc");
@@ -122,6 +123,8 @@ export class VaultStore {
 
   private async save(): Promise<void> {
     if (!this.data) return;
+
+    await backupImportantData("vault");
 
     // Encrypt secrets
     const secretsJson = JSON.stringify(this.data.secrets);

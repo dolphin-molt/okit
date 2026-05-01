@@ -6,9 +6,11 @@ vi.spyOn(os, 'homedir').mockReturnValue('/tmp/test-okit-cloud-sync');
 
 const mockFs = vi.hoisted(() => ({
   readJson: vi.fn(),
+  readFile: vi.fn(),
   pathExists: vi.fn(),
   ensureDir: vi.fn(),
   writeJson: vi.fn(),
+  writeFile: vi.fn(),
   mkdirSync: vi.fn(),
   appendFileSync: vi.fn(),
 }));
@@ -34,7 +36,7 @@ Module.prototype.require = function (id) {
   return origRequire.apply(this, arguments);
 };
 
-const { syncPush, syncPull } = await import('../src/web/api/cloud-sync-core.js');
+const { syncPush, syncPull, exportSyncCode, importSyncCode } = await import('../src/web/api/cloud-sync-core.js');
 
 const VALID_CONFIG = {
   sync: {
@@ -57,8 +59,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockFs.pathExists.mockResolvedValue(true);
   mockFs.readJson.mockResolvedValue({});
+  mockFs.readFile.mockResolvedValue(JSON.stringify({ providers: [] }));
   mockFs.ensureDir.mockResolvedValue(undefined);
   mockFs.writeJson.mockResolvedValue(undefined);
+  mockFs.writeFile.mockResolvedValue(undefined);
   mockFs.mkdirSync.mockReturnValue(undefined);
   mockFs.appendFileSync.mockReturnValue(undefined);
 });
@@ -191,5 +195,137 @@ describe('syncPull', () => {
 
     const savedConfig = mockFs.writeJson.mock.calls[1][1];
     expect(savedConfig.agent).toBeDefined();
+  });
+
+  it('syncs model provider configuration including vault key bindings', async () => {
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockFs.readFile.mockResolvedValue(JSON.stringify({
+      providers: [
+        {
+          id: 'custom-ai',
+          name: 'Custom AI',
+          type: 'openai',
+          baseUrl: 'https://api.example.com/v1',
+          authMode: 'api_key',
+          vaultKey: 'CUSTOM_AI_KEY',
+          models: [{ id: 'custom-model', name: 'Custom Model' }],
+        },
+      ],
+    }));
+    mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+    mockStore.get.mockResolvedValue('resolved');
+    mockStore.getAliases.mockResolvedValue([]);
+
+    let encryptedBlob;
+    mockSupabaseAdapter.pushSync.mockImplementation(async (cfg, userId, blob) => {
+      encryptedBlob = blob;
+    });
+    await syncPush();
+
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockFs.readFile.mockResolvedValue(JSON.stringify({ providers: [] }));
+    mockStore.exportAll.mockResolvedValue([]);
+    mockSupabaseAdapter.pullSync.mockResolvedValue(encryptedBlob);
+
+    await syncPull();
+
+    const providerWrite = mockFs.writeFile.mock.calls.find(([file]) => String(file).endsWith('providers.json'));
+    expect(providerWrite).toBeTruthy();
+    const written = JSON.parse(providerWrite[1]);
+    expect(written.providers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'custom-ai', vaultKey: 'CUSTOM_AI_KEY' }),
+    ]));
+  });
+});
+
+describe('sync code', () => {
+  it('uses the saved sync password when exporting sync code', async () => {
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockStore.exportAll.mockResolvedValue([
+      { key: 'SUPABASE_API_TOKEN', alias: 'default', value: 'sb-secret', group: 'Supabase', updatedAt: '2026-01-04T00:00:00Z' },
+    ]);
+
+    const result = await exportSyncCode();
+
+    expect(result.code).toMatch(/^okit-sync:/);
+    expect(result.secrets).toBe(1);
+  });
+
+  it('requires a sync password when exporting sync code without a saved password', async () => {
+    const config = JSON.parse(JSON.stringify(VALID_CONFIG));
+    config.sync.password = '';
+    mockFs.readJson.mockResolvedValue(config);
+    await expect(exportSyncCode()).rejects.toThrow('请先设置同步密码');
+  });
+
+  it('exports platform config with referenced vault secrets encrypted by sync password', async () => {
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockStore.exportAll.mockResolvedValue([
+      { key: 'SUPABASE_API_TOKEN', alias: 'default', value: 'sb-secret', group: 'Supabase', updatedAt: '2026-01-04T00:00:00Z' },
+      ...SAMPLE_SECRETS,
+    ]);
+
+    const result = await exportSyncCode('test-password');
+
+    expect(result.code).toMatch(/^okit-sync:/);
+    expect(result.platform).toBe('supabase');
+    expect(result.secrets).toBe(1);
+    expect(result.code).not.toContain('sk-abc123');
+  });
+
+  it('exports referenced vault secret when platform config omits alias but vault uses a custom alias', async () => {
+    const config = JSON.parse(JSON.stringify(VALID_CONFIG));
+    config.sync.platforms.supabase.apiToken = 'SUPABASE_API_TOKEN';
+    mockFs.readJson.mockResolvedValue(config);
+    mockStore.exportAll.mockResolvedValue([
+      { key: 'SUPABASE_API_TOKEN', alias: 'service-role', value: 'sb-secret', group: 'Supabase', updatedAt: '2026-01-04T00:00:00Z' },
+    ]);
+
+    const result = await exportSyncCode('test-password');
+
+    expect(result.secrets).toBe(1);
+  });
+
+  it('throws when platform config references a vault key that does not exist', async () => {
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockStore.exportAll.mockResolvedValue([]);
+
+    await expect(exportSyncCode('test-password')).rejects.toThrow('配置引用的密钥不存在：SUPABASE_API_TOKEN');
+  });
+
+  it('imports sync code by creating referenced vault secrets before saving platform config', async () => {
+    mockFs.readJson.mockResolvedValueOnce(VALID_CONFIG);
+    mockStore.exportAll.mockResolvedValue([
+      { key: 'SUPABASE_API_TOKEN', alias: 'default', value: 'sb-secret', group: 'Supabase', updatedAt: '2026-01-04T00:00:00Z' },
+      ...SAMPLE_SECRETS,
+    ]);
+    const exported = await exportSyncCode('test-password');
+
+    mockFs.readJson.mockResolvedValueOnce({ sync: { platforms: {} } });
+    mockStore.set.mockResolvedValue(undefined);
+
+    const result = await importSyncCode(exported.code, 'test-password');
+
+    expect(result.platform).toBe('supabase');
+    expect(result.secrets).toBe(1);
+    expect(mockStore.set).toHaveBeenCalledWith('SUPABASE_API_TOKEN', 'sb-secret', 'Supabase', undefined);
+
+    const savedConfig = mockFs.writeJson.mock.calls.at(-1)[1];
+    expect(savedConfig.sync.password).toBe('test-password');
+    expect(savedConfig.sync.syncPlatform).toBe('supabase');
+    expect(savedConfig.sync.platforms.supabase.enabled).toBe(true);
+    expect(savedConfig.sync.platforms.supabase.apiToken).toBe('SUPABASE_API_TOKEN');
+  });
+
+  it('rejects sync code import with a wrong password before writing vault or platform config', async () => {
+    mockFs.readJson.mockResolvedValueOnce(VALID_CONFIG);
+    mockStore.exportAll.mockResolvedValue([
+      { key: 'SUPABASE_API_TOKEN', alias: 'default', value: 'sb-secret', group: 'Supabase', updatedAt: '2026-01-04T00:00:00Z' },
+    ]);
+    const exported = await exportSyncCode('test-password');
+
+    await expect(importSyncCode(exported.code, 'wrong-password')).rejects.toThrow('同步密码不正确');
+    expect(mockStore.set).not.toHaveBeenCalled();
+    expect(mockFs.writeJson).not.toHaveBeenCalled();
   });
 });

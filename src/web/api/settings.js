@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
+const { backupImportantData } = require('./backup');
 
 const CONFIG_PATH = path.join(os.homedir(), '.okit', 'user.json');
 const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
@@ -32,6 +33,7 @@ async function loadConfig() {
 
 async function saveConfig(config) {
   await fs.ensureDir(path.dirname(CONFIG_PATH));
+  await backupImportantData('settings');
   await fs.writeJson(CONFIG_PATH, config, { spaces: 2 });
 }
 
@@ -159,7 +161,7 @@ async function updateSettings(req, res) {
 }
 
 const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
-const SKIP_FIELDS = /storeId|databaseId|bucketName|region/i;
+const SKIP_FIELDS = /databaseId|bucketName|region/i;
 
 const VAULT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
 

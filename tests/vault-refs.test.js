@@ -49,13 +49,27 @@ describe('resolveVaultRefs', () => {
     expect(result.apiToken).toBe('alias-value');
   });
 
-  it('skips non-secret fields like storeId and databaseId', async () => {
+  it('resolves Cloudflare Secrets Store storeId from vault', async () => {
+    mockStore.get.mockImplementation(async (key) => {
+      if (key === 'CF_API_TOKEN') return 'real-token';
+      if (key === 'CF_STORE_ID') return 'real-store-id';
+      return null;
+    });
+    mockStore.getAliases.mockResolvedValue([]);
+
     const result = await resolveVaultRefs({
-      storeId: 'MY_STORE_ID',
+      apiToken: 'CF_API_TOKEN',
+      storeId: 'CF_STORE_ID',
+    }, 'cloudflare');
+    expect(result.apiToken).toBe('real-token');
+    expect(result.storeId).toBe('real-store-id');
+  });
+
+  it('skips non-secret fields like databaseId and region', async () => {
+    const result = await resolveVaultRefs({
       databaseId: 'MY_DB_ID',
       region: 'us-east-1',
     });
-    expect(result.storeId).toBe('MY_STORE_ID');
     expect(result.databaseId).toBe('MY_DB_ID');
     expect(result.region).toBe('us-east-1');
   });

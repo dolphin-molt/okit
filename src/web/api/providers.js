@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
+const { backupImportantData } = require('./backup');
 
 const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
@@ -370,6 +371,7 @@ async function loadProviders() {
 
 async function saveProviders(providers) {
   await fs.ensureDir(OKIT_DIR);
+  await backupImportantData('providers');
   await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers }, null, 2));
 }
 
@@ -383,6 +385,7 @@ async function loadUserConfig() {
 
 async function saveUserConfig(config) {
   await fs.ensureDir(OKIT_DIR);
+  await backupImportantData('user');
   await fs.writeFile(USER_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
@@ -988,6 +991,7 @@ async function fetchModels(req, res) {
       // Update provider with fetched models
       p.models = allModels.map(m => ({ id: m.id, name: m.name || m.id }));
       const data = { providers, version: 1 };
+      await backupImportantData('providers');
       await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
     }
 

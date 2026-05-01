@@ -7,7 +7,7 @@ const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = requir
 const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
-const { handlePush, handlePull, handleStatus } = require('./api/sync');
+const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
 
 function createServer(port = 3780) {
@@ -76,6 +76,8 @@ function createServer(port = 3780) {
   app.post('/api/sync/push', handlePush);
   app.post('/api/sync/pull', handlePull);
   app.get('/api/sync/status', handleStatus);
+  app.post('/api/sync/code/export', handleExportCode);
+  app.post('/api/sync/code/import', handleImportCode);
 
   // Provider routes
   app.get('/api/providers', listProviders);

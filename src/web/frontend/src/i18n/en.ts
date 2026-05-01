@@ -309,6 +309,7 @@ export default {
   'settings.importSyncFile': 'Import Sync File',
   'settings.exportingSyncFile': 'Exporting...',
   'settings.importingSyncFile': 'Importing...',
+  'settings.syncFileImporting': 'Importing {filename}. Please wait...',
   'settings.syncCodeExported': 'Sync code generated and copied: {n} config keys included',
   'settings.syncCodeImported': 'Sync code imported: {n} config keys created',
   'settings.syncCodeExportFail': 'Failed to export sync code',

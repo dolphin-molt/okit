@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
+import { getSyncImportStatus, type SyncImportState } from '../../lib/syncImportStatus';
 
 const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
 const VAULT_REF_FIELDS = new Set([
@@ -38,6 +39,7 @@ export default function SettingsPage() {
   const [syncStatus, setSyncStatus] = useState<{ machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean } | null>(null);
   const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
   const [syncCodeBusy, setSyncCodeBusy] = useState<'export' | 'import' | null>(null);
+  const [syncImportState, setSyncImportState] = useState<SyncImportState>({ phase: 'idle' });
   const [docPlatform, setDocPlatform] = useState<string | null>(null);
   const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
@@ -166,20 +168,33 @@ export default function SettingsPage() {
 
   async function importCodeValue(code: string) {
     const data = await importSyncCode(code, syncPassword);
-    showToast(t('settings.syncFileImported', { platform: PLATFORM_IDS[data.platform] || data.platform, n: data.secrets || 0 }), 'success');
+    const platform = PLATFORM_IDS[data.platform] || data.platform;
+    const secrets = data.secrets || 0;
+    const status = getSyncImportStatus({ phase: 'success', platform, secrets }, t);
+    if (status) showToast(status.message, 'success');
     await loadData();
+    return { platform, secrets };
   }
 
   async function handleImportSyncFile(file?: File) {
     if (!file) return;
     if (!syncPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
     setSyncCodeBusy('import');
+    setSyncImportState({ phase: 'importing', filename: file.name });
     try {
       const code = extractSyncCodeFromFile(await file.text());
-      if (!code) { showToast(t('settings.syncFileRequired'), 'error'); return; }
-      await importCodeValue(code);
+      if (!code) {
+        const message = t('settings.syncFileRequired');
+        setSyncImportState({ phase: 'error', error: message });
+        showToast(message, 'error');
+        return;
+      }
+      const result = await importCodeValue(code);
+      setSyncImportState({ phase: 'success', platform: result.platform, secrets: result.secrets });
     } catch (error: any) {
-      showToast(error?.message || t('settings.syncFileImportFail'), 'error');
+      const message = error?.message || t('settings.syncFileImportFail');
+      setSyncImportState({ phase: 'error', error: message });
+      showToast(message, 'error');
     } finally {
       setSyncCodeBusy(null);
       if (syncFileInputRef.current) syncFileInputRef.current.value = '';
@@ -199,6 +214,7 @@ export default function SettingsPage() {
 
   // Vault form handlers
   const groups = [...new Set(vaultKeys.map(k => k.split('_')[0]).filter(Boolean))].sort();
+  const syncImportStatus = getSyncImportStatus(syncImportState, t);
 
   function openVaultAdd() {
     setVaultFormVisible(true);
@@ -364,7 +380,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="settings-sync-actions">
               <button className="settings-test-btn" onClick={handlePushSync} disabled={!!syncing} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {syncing === 'push' ? t('settings.pushing') : t('settings.pushLocal')}
               </button>
@@ -378,13 +394,20 @@ export default function SettingsPage() {
                 style={{ display: 'none' }}
                 onChange={e => handleImportSyncFile(e.target.files?.[0])}
               />
-              <button className="settings-test-btn" onClick={() => syncFileInputRef.current?.click()} disabled={!!syncCodeBusy}>
-                {syncCodeBusy === 'import' ? t('settings.importingSyncFile') : t('settings.importSyncFile')}
+              <button className="settings-test-btn settings-test-btn--with-icon" onClick={() => syncFileInputRef.current?.click()} disabled={!!syncCodeBusy}>
+                {syncCodeBusy === 'import' && <span className="settings-inline-spinner" aria-hidden="true" />}
+                <span>{syncCodeBusy === 'import' ? t('settings.importingSyncFile') : t('settings.importSyncFile')}</span>
               </button>
               <button className="settings-test-btn" onClick={handleExportSyncCode} disabled={!!syncCodeBusy}>
                 {syncCodeBusy === 'export' ? t('settings.exportingSyncFile') : t('settings.exportSyncFile')}
               </button>
             </div>
+            {syncImportStatus && (
+              <div className={`settings-sync-import-status settings-sync-import-status--${syncImportStatus.tone}`} role="status" aria-live="polite">
+                {syncImportStatus.tone === 'loading' && <span className="settings-inline-spinner" aria-hidden="true" />}
+                <span>{syncImportStatus.message}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -309,6 +309,7 @@ export default {
   'settings.importSyncFile': '导入同步文件',
   'settings.exportingSyncFile': '导出中...',
   'settings.importingSyncFile': '导入中...',
+  'settings.syncFileImporting': '正在导入 {filename}，请稍候...',
   'settings.syncCodeExported': '同步码已生成并复制：包含 {n} 个配置密钥',
   'settings.syncCodeImported': '同步码已导入：创建 {n} 个配置密钥',
   'settings.syncCodeExportFail': '导出同步码失败',

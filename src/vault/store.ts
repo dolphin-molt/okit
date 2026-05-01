@@ -87,14 +87,27 @@ function maskValue(value: string): string {
 export class VaultStore {
   private key: Buffer;
   private data: VaultData | null = null;
+  private cacheStamp: string | null = null;
 
   constructor() {
     fs.ensureDirSync(VAULT_DIR);
     this.key = deriveMasterKey();
   }
 
+  private async getCacheStamp(): Promise<string> {
+    const [secretsStat, registryStat] = await Promise.all([
+      fs.stat(SECRETS_FILE).catch(() => null),
+      fs.stat(REGISTRY_FILE).catch(() => null),
+    ]);
+    return [
+      secretsStat ? `${secretsStat.mtimeMs}:${secretsStat.size}` : "missing",
+      registryStat ? `${registryStat.mtimeMs}:${registryStat.size}` : "missing",
+    ].join("|");
+  }
+
   private async load(): Promise<VaultData> {
-    if (this.data) return this.data;
+    const stamp = await this.getCacheStamp();
+    if (this.data && this.cacheStamp === stamp) return this.data;
 
     let secrets: SecretEntry[] = [];
     let bindings: ProjectBinding[] = [];
@@ -112,6 +125,7 @@ export class VaultStore {
     }
 
     this.data = { secrets, bindings };
+    this.cacheStamp = stamp;
 
     return this.data!;
   }
@@ -133,6 +147,7 @@ export class VaultStore {
 
     // Save bindings separately (unencrypted, just paths)
     await fs.writeFile(REGISTRY_FILE, JSON.stringify(this.data.bindings, null, 2));
+    this.cacheStamp = await this.getCacheStamp();
   }
 
   // Parse "KEY/alias" format, default alias is "default"

@@ -1129,6 +1129,65 @@
   font-weight: 800;
 }
 
+.settings-sync-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.settings-test-btn--with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.settings-inline-spinner {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: settings-spin 0.75s linear infinite;
+}
+
+.settings-sync-import-status {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 1.5px dashed var(--kraft-dark);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.36);
+  color: var(--ink-light);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.settings-sync-import-status--loading {
+  color: var(--ink);
+}
+
+.settings-sync-import-status--success {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.settings-sync-import-status--error {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+[data-theme="dark"] .settings-sync-import-status {
+  background: rgba(255,255,255,0.04);
+}
+
 .settings-workspace .settings-plat-body {
   gap: 14px;
   padding: 18px 20px 20px;

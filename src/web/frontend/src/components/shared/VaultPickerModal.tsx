@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import { setVault } from '../../api/vault';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
+import { flattenVaultAliasOptions, formatVaultReference } from '../../lib/vaultRefs';
 
 interface TestEndpoint {
   baseUrl: string;
@@ -58,10 +59,12 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
     const q = search.toLowerCase();
     return source.filter(s =>
       s.key.toLowerCase().includes(q) ||
-      (s.aliases?.[0]?.alias || '').toLowerCase().includes(q) ||
+      (s.aliases || []).some((alias: any) => (alias.alias || '').toLowerCase().includes(q)) ||
       (s.group || '').toLowerCase().includes(q)
     );
   }, [secrets, groups, activeGroup, search]);
+
+  const aliasOptions = useMemo(() => flattenVaultAliasOptions(filtered), [filtered]);
 
   async function handleCreate() {
     if (!newKey.trim() || !newValue.trim()) return;
@@ -71,7 +74,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
       await setVault({ key: newKey.trim(), alias: newAlias.trim() || 'default', value: newValue.trim(), group: group || undefined });
       await new Promise(r => setTimeout(r, 100));
       reload();
-      onSelect(newKey.trim());
+      onSelect(formatVaultReference(newKey.trim(), newAlias.trim() || 'default'));
       resetCreate();
     } catch {}
     setCreating(false);
@@ -153,18 +156,18 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
               {filtered.length === 0 && !showCreate && (
                 <div className="vault-picker-empty">{t('vaultPicker.noMatch')}</div>
               )}
-              {filtered.map(s => (
+              {aliasOptions.map(option => (
                 <div
-                  key={s.key}
-                  className={`vault-picker-item${selected === s.key ? ' active' : ''}`}
-                  onClick={() => onSelect(s.key)}
+                  key={option.reference}
+                  className={`vault-picker-item${selected === option.reference ? ' active' : ''}`}
+                  onClick={() => onSelect(option.reference)}
                 >
                   <div className="vault-picker-item-top">
-                    <span className="vault-picker-item-key">{s.key}</span>
-                    {s.group && <span className="vault-picker-item-group">{s.group}</span>}
+                    <span className="vault-picker-item-key">{option.key}</span>
+                    {option.group && <span className="vault-picker-item-group">{option.group}</span>}
                   </div>
-                  {s.aliases?.[0]?.alias && (
-                    <span className="vault-picker-item-alias">{s.aliases[0].alias}</span>
+                  {option.alias && (
+                    <span className="vault-picker-item-alias">{option.alias}</span>
                   )}
                 </div>
               ))}

@@ -8,6 +8,7 @@ import CustomSelect from '../shared/CustomSelect';
 import VaultFormModal from '../shared/VaultFormModal';
 import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
+import { buildProjectSyncKeys, getProjectSyncFeedback } from '../../lib/vaultProjectSync';
 
 type ViewMode = 'keys' | 'projects';
 type IconName = 'plus' | 'download' | 'upload' | 'refresh' | 'cloud' | 'copy' | 'folder' | 'edit' | 'trash' | 'search';
@@ -44,6 +45,7 @@ export default function VaultPage() {
   const [editSecret, setEditSecret] = useState<VaultSecret | null>(null);
   const [showSync, setShowSync] = useState(false);
   const [syncKey, setSyncKey] = useState('');
+  const [syncAlias, setSyncAlias] = useState('default');
   const [syncPath, setSyncPath] = useState('');
   const [syncDirs, setSyncDirs] = useState<any>(null);
   const [syncSidebar, setSyncSidebar] = useState<{ label: string; path: string; icon: string }[]>([]);
@@ -172,6 +174,7 @@ export default function VaultPage() {
   // Sync project modal
   async function openSyncModal(key: string, alias: string) {
     setSyncKey(key);
+    setSyncAlias(alias || 'default');
     setSyncPath('');
     setShowSync(true);
     try {
@@ -200,9 +203,10 @@ export default function VaultPage() {
   async function confirmSync() {
     if (!syncPath) { showToast(t('vault.selectDir'), 'error'); return; }
     try {
-      const data = await syncToProject([{ key: syncKey, alias: 'default' }], syncPath);
+      const data = await syncToProject(buildProjectSyncKeys(syncKey, syncAlias), syncPath);
       setShowSync(false);
-      showToast(t('vault.written', { n: data.synced }));
+      const feedback = getProjectSyncFeedback(data);
+      showToast(t(feedback.key, feedback.params), feedback.tone);
       loadVault();
     } catch { showToast(t('vault.syncFail'), 'error'); }
   }

@@ -1,22 +1,24 @@
+import { useI18n } from '../../i18n';
+
 const metrics = [
-  ['AES', 'local vault'],
-  ['24', 'model providers'],
-  ['ENV', 'project mapping'],
-  ['CLI', 'access checks'],
+  ['76+', 'landing.metric.tools'],
+  ['AES', 'landing.metric.vault'],
+  ['AI', 'landing.metric.assistant'],
+  ['SYNC', 'landing.metric.sync'],
 ];
 
 const featureRows = [
-  ['Project Secrets', 'Keep model keys, cloud credentials, and service tokens encrypted locally and mapped per project.'],
-  ['Model Providers', 'Manage OpenAI, Anthropic, Gemini, DeepSeek, Qwen, Volcengine, and local providers in one place.'],
-  ['CLI Access', 'Check tool installs, repair missing dependencies, and see which CLIs need authorization.'],
-  ['Sync Boundary', 'Move access configuration across machines without scattering raw credentials everywhere.'],
+  ['landing.feature.ai.title', 'landing.feature.ai.body'],
+  ['landing.feature.vault.title', 'landing.feature.vault.body'],
+  ['landing.feature.models.title', 'landing.feature.models.body'],
+  ['landing.feature.sync.title', 'landing.feature.sync.body'],
 ];
 
 const logLines = [
-  ['check', 'gh, uv, wrangler, docker', 'healthy'],
-  ['vault', 'OPENROUTER_KEY/project', 'sealed'],
-  ['models', 'openai/gpt-5.5 -> web-app', 'active'],
-  ['cloud', 'cloudflare -> project env', 'mapped'],
+  ['auth', 'gh, docker, wrangler', 'ready'],
+  ['vault', 'MINIMAX_READO_KEY/project', 'alias'],
+  ['models', 'openai/gpt-5.5 -> codex', 'active'],
+  ['sync', 'cloudflare -> local vault', 'merged'],
 ];
 
 function StatusDot({ tone = 'green' }: { tone?: 'green' | 'blue' | 'gray' }) {
@@ -24,6 +26,9 @@ function StatusDot({ tone = 'green' }: { tone?: 'green' | 'blue' | 'gray' }) {
 }
 
 export default function LandingPage() {
+  const { t, lang, setLang } = useI18n();
+  const nextLang = lang === 'zh' ? 'en' : 'zh';
+
   return (
     <div className="landing-shell">
       <header className="landing-nav">
@@ -32,12 +37,22 @@ export default function LandingPage() {
           <span>OKIT</span>
         </a>
         <nav className="landing-links" aria-label="Primary">
-          <a href="#product">Product</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#install">Install</a>
-          <a href="https://github.com/dolphin-molt/okit">GitHub</a>
+          <a href="#product">{t('landing.nav.product')}</a>
+          <a href="#workflow">{t('landing.nav.workflow')}</a>
+          <a href="#install">{t('landing.nav.install')}</a>
+          <a href="https://github.com/dolphin-molt/okit">{t('landing.nav.github')}</a>
         </nav>
-        <a className="landing-nav-cta" href="/">Dashboard</a>
+        <div className="landing-nav-actions">
+          <button
+            className="landing-lang-toggle"
+            onClick={() => setLang(nextLang)}
+            title={t('nav.language')}
+            type="button"
+          >
+            {lang === 'zh' ? 'EN' : '中'}
+          </button>
+          <a className="landing-nav-cta" href="/">{t('landing.nav.dashboard')}</a>
+        </div>
       </header>
 
       <main>
@@ -46,17 +61,17 @@ export default function LandingPage() {
             <p className="landing-terminal-line">$ okit access status</p>
             <h1>OKIT</h1>
             <p className="landing-lede">
-              Access layer for local development. Manage project secrets, model providers, cloud credentials, and CLI access from one encrypted workspace.
+              {t('landing.lede')}
             </p>
             <div className="landing-actions">
-              <a className="landing-btn landing-btn--primary" href="#install">Install CLI</a>
-              <a className="landing-btn landing-btn--secondary" href="/">Open Dashboard</a>
+              <a className="landing-btn landing-btn--primary" href="#install">{t('landing.cta.install')}</a>
+              <a className="landing-btn landing-btn--secondary" href="/">{t('landing.cta.dashboard')}</a>
             </div>
             <div className="landing-metrics" aria-label="Product highlights">
-              {metrics.map(([value, label]) => (
-                <div className="landing-metric" key={label}>
+              {metrics.map(([value, labelKey]) => (
+                <div className="landing-metric" key={labelKey}>
                   <strong>{value}</strong>
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                 </div>
               ))}
             </div>
@@ -70,34 +85,34 @@ export default function LandingPage() {
                 <span className="landing-window-dot" />
                 <span className="landing-window-dot" />
               </div>
-              <span>dev-access.local</span>
+              <span>localhost:3780</span>
             </div>
             <div className="landing-console-body">
               <aside className="landing-console-rail">
-                {['Tools', 'Vault', 'Models', 'Relay'].map((item, index) => (
+                {['AI', 'Vault', 'Models', 'Sync'].map((item, index) => (
                   <div className={index === 0 ? 'active' : ''} key={item}>{item}</div>
                 ))}
               </aside>
               <div className="landing-console-main">
                 <div className="landing-console-head">
                   <div>
-                    <span className="landing-label">Command Center</span>
-                    <h2>Project access ready</h2>
+                    <span className="landing-label">{t('landing.console.label')}</span>
+                    <h2>{t('landing.console.title')}</h2>
                   </div>
-                  <span className="landing-live"><StatusDot />Live</span>
+                  <span className="landing-live"><StatusDot />{t('landing.console.live')}</span>
                 </div>
                 <div className="landing-grid-cards">
                   <div>
-                    <span>Tool health</span>
-                    <strong>92%</strong>
+                    <span>{t('landing.console.toolHealth')}</span>
+                    <strong>76+</strong>
                   </div>
                   <div>
-                    <span>Vault keys</span>
-                    <strong>18</strong>
+                    <span>{t('landing.console.vaultAliases')}</span>
+                    <strong>AES</strong>
                   </div>
                   <div>
-                    <span>Providers</span>
-                    <strong>24</strong>
+                    <span>{t('landing.console.cloudSync')}</span>
+                    <strong>KV</strong>
                   </div>
                 </div>
                 <div className="landing-log">
@@ -111,9 +126,9 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <div className="landing-terminal">
-                  <span>$ okit vault inject --project ./web-app</span>
-                  <span>export OPENAI_API_KEY=okit://vault/OPENAI_API_KEY</span>
-                  <span>export CLOUDFLARE_API_TOKEN=okit://vault/CF_API_TOKEN</span>
+                  <span>$ okit vault sync --project ./agent-app</span>
+                  <span>OPENAI_API_KEY: OPENROUTER_KEY/team</span>
+                  <span>MINIMAX_API_KEY: MINIMAX_READO_KEY/project</span>
                 </div>
               </div>
             </div>
@@ -122,14 +137,14 @@ export default function LandingPage() {
 
         <section className="landing-band" id="workflow">
           <div className="landing-section-head">
-            <span>What it controls</span>
-            <h2>One encrypted access layer for the credentials every project depends on.</h2>
+            <span>{t('landing.workflow.kicker')}</span>
+            <h2>{t('landing.workflow.title')}</h2>
           </div>
           <div className="landing-feature-list">
             {featureRows.map(([title, body]) => (
               <article className="landing-feature" key={title}>
-                <h3>{title}</h3>
-                <p>{body}</p>
+                <h3>{t(title)}</h3>
+                <p>{t(body)}</p>
               </article>
             ))}
           </div>
@@ -137,10 +152,10 @@ export default function LandingPage() {
 
         <section className="landing-install" id="install">
           <div>
-            <span>Install</span>
-            <h2>Bring the toolkit into your shell.</h2>
+            <span>{t('landing.install.kicker')}</span>
+            <h2>{t('landing.install.title')}</h2>
           </div>
-          <pre><code>npm install -g okit-cli{'\n'}okit web</code></pre>
+          <pre><code>npm install -g @cing-self/okit-cli{'\n'}okit web</code></pre>
         </section>
       </main>
     </div>

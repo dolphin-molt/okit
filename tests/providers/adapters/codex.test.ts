@@ -28,8 +28,19 @@ vi.mock('../../../src/config/user', () => ({
 }));
 
 vi.mock('../../../src/vault/store', () => ({
-  VaultStore: vi.fn().mockImplementation(function(this: any) {
+  VaultStore: Object.assign(vi.fn().mockImplementation(function(this: any) {
     this.get = vi.fn(async function(key: string) { return key === 'CODEX_API_KEY' ? 'sk-codex-456' : undefined; });
+    this.resolve = vi.fn(async function(key: string, alias?: string) {
+      if (key === 'CODEX_API_KEY' && alias === 'team') return 'sk-codex-team';
+      if (key === 'CODEX_API_KEY') return 'sk-codex-456';
+      return undefined;
+    });
+  }), {
+    parseKeyAlias(input: string) {
+      const slashIdx = input.indexOf('/');
+      if (slashIdx === -1) return { key: input, alias: 'default' };
+      return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
+    },
   }),
 }));
 
@@ -62,6 +73,11 @@ const customProvider = {
   vaultKey: 'CODEX_API_KEY',
   authMode: 'api_key' as const,
   models: [{ id: 'my-model' }],
+};
+
+const customAliasProvider = {
+  ...openaiProvider,
+  vaultKey: 'CODEX_API_KEY/team',
 };
 
 beforeEach(() => {
@@ -97,6 +113,14 @@ describe('CodexAdapter.applyConfig', () => {
 
     const env = mocks.files.get(CODEX_ENV)!;
     expect(env).toContain('OPENAI_API_KEY=sk-codex-456');
+  });
+
+  it('resolves explicit vault aliases when writing .env', async () => {
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(customAliasProvider, 'gpt-5.5');
+
+    const env = mocks.files.get(CODEX_ENV)!;
+    expect(env).toContain('OPENAI_API_KEY=sk-codex-team');
   });
 
   it('writes api_base for non-official OpenAI endpoints', async () => {

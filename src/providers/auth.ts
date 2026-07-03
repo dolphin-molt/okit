@@ -23,7 +23,11 @@ export async function checkVaultKey(vaultKey?: string): Promise<boolean> {
   if (!vaultKey) return false;
   try {
     const store = new VaultStore();
-    const value = await store.get(vaultKey);
+    let value = await store.get(vaultKey);
+    if (!value) {
+      const parsed = VaultStore.parseKeyAlias(vaultKey);
+      value = await store.resolve(parsed.key, parsed.alias);
+    }
     return !!value;
   } catch {
     return false;

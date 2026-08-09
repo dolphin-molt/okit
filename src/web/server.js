@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { getTools, toolAction, submitAuthCode, openApp } = require('./api/tools');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey } = require('./api/vault');
+const { autoCreateKey, cdpStatus } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
@@ -36,6 +37,14 @@ function createServer(port = 3780) {
   app.get('/api/vault/impact', checkKeyImpact);
   app.get('/api/vault/projects', listProjects);
   app.post('/api/vault/test-key', testApiKey);
+  app.post('/api/vault/auto-create', autoCreateKey);
+  app.get('/api/vault/cdp-status', cdpStatus);
+
+  // Lightweight health-check endpoint for the Chrome extension.
+  // The extension probes /ping before each WebSocket attempt so that
+  // ERR_CONNECTION_REFUSED (uncatchable on new WebSocket()) stays out of
+  // the extension console. No auth/header required.
+  app.get('/ping', (_req, res) => res.json({ ok: true }));
 
   // Cloudflare sync routes
   app.get('/api/cloudflare/check', checkWrangler);
@@ -103,9 +112,13 @@ function createServer(port = 3780) {
 }
 
 function startServer(port = 3780, onStarted) {
-  const app = createServer(port);
+  const { setupWebSocket, sendToExtension, isExtensionConnected } = require('./api/ws-extension');
+const app = createServer(port);
 
-  const server = app.listen(port, '127.0.0.1', () => {
+  const server = require('http').createServer(app);
+  setupWebSocket(server);
+
+  server.listen(port, '127.0.0.1', () => {
     console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
     console.log(`  Press Ctrl+C to stop\n`);
     if (onStarted) onStarted(port);

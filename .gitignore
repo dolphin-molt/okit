@@ -1,6 +1,7 @@
 node_modules/
 bin/
 dist/
+release/
 .DS_Store
 *.log
 npm-debug.log*

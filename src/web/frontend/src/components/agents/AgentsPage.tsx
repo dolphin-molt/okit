@@ -4,7 +4,7 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
 export default function AgentsPage() {
-  const { toast } = useApp() as any;
+  const { showToast: toast } = useApp() as any;
   const { t, providerName } = useI18n();
   const [adapters, setAdapters] = useState<AgentInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,9 +144,14 @@ function ModelPicker({ agent, switching, onSwitch, onClose }: {
   onClose: () => void;
 }) {
   const { t, providerName } = useI18n();
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
   const providers = agent.compatibleProviders;
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(() => {
+    if (agent.current?.providerId && providers.some(p => p.id === agent.current?.providerId)) {
+      return agent.current.providerId;
+    }
+    return providers[0]?.id || null;
+  });
   const activeProvider = selectedProvider
     ? providers.find(p => p.id === selectedProvider)
     : null;
@@ -169,9 +174,13 @@ function ModelPicker({ agent, switching, onSwitch, onClose }: {
               <div
                 key={p.id}
                 className={`picker-provider${selectedProvider === p.id ? ' active' : ''}${agent.current?.providerId === p.id ? ' is-current' : ''}`}
+                aria-current={agent.current?.providerId === p.id ? 'true' : undefined}
                 onClick={() => setSelectedProvider(p.id)}
               >
                 <span className="picker-provider-name">{providerName(p.id, p.name)}</span>
+                {agent.current?.providerId === p.id && (
+                  <span className="picker-provider-current">{t('agents.current')}</span>
+                )}
               </div>
             ))}
           </div>
@@ -194,6 +203,7 @@ function ModelPicker({ agent, switching, onSwitch, onClose }: {
                         key={m.id}
                         className={`picker-model-btn${isCurrent ? ' picker-model-btn--active' : ''}`}
                         disabled={switching === agent.id}
+                        aria-current={isCurrent ? 'true' : undefined}
                         onClick={() => onSwitch(agent.id, activeProvider.id, m.id)}
                       >
                         <span className="picker-model-name">{m.name || m.id}</span>

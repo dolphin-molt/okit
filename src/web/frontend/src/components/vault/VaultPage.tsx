@@ -6,8 +6,8 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
 import VaultFormModal from '../shared/VaultFormModal';
+import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
-import { buildProjectSyncKeys, getProjectSyncFeedback } from '../../lib/vaultProjectSync';
 
 type ViewMode = 'keys' | 'projects';
 type IconName = 'plus' | 'download' | 'upload' | 'refresh' | 'cloud' | 'copy' | 'folder' | 'edit' | 'trash' | 'search';
@@ -44,7 +44,6 @@ export default function VaultPage() {
   const [editSecret, setEditSecret] = useState<VaultSecret | null>(null);
   const [showSync, setShowSync] = useState(false);
   const [syncKey, setSyncKey] = useState('');
-  const [syncAlias, setSyncAlias] = useState('default');
   const [syncPath, setSyncPath] = useState('');
   const [syncDirs, setSyncDirs] = useState<any>(null);
   const [syncSidebar, setSyncSidebar] = useState<{ label: string; path: string; icon: string }[]>([]);
@@ -90,7 +89,6 @@ export default function VaultPage() {
         const haystack = [
           s.key,
           s.group || '',
-          ...s.aliases.map(a => a.alias),
           ...(s.projects || []).flatMap(p => [p.name, p.path]),
         ].join(' ').toLowerCase();
         if (!haystack.includes(needle)) return false;
@@ -98,6 +96,17 @@ export default function VaultPage() {
       return true;
     });
   }, [secrets, groupFilter, searchTerm]);
+
+  const vaultStats = useMemo(() => {
+    const projectPaths = new Set<string>();
+    for (const secret of secrets) {
+      for (const project of secret.projects || []) projectPaths.add(project.path);
+    }
+    return {
+      total: secrets.length,
+      projects: projectPaths.size,
+    };
+  }, [secrets]);
 
   function openAddForm() {
     setEditKey(null);
@@ -132,7 +141,7 @@ export default function VaultPage() {
     return confirm(impactHtml);
   }
 
-  async function handleDelete(key: string, alias: string) {
+  async function handleDelete(key: string) {
     let impactHtml = '';
     try {
       const imp = await checkKeyImpact(key);
@@ -143,24 +152,23 @@ export default function VaultPage() {
     const ok = await confirm(t('vault.confirmDelete', { key: `<strong>${key}</strong>` }) + `.${impactHtml}`);
     if (!ok) return;
     try {
-      await deleteVault(key, alias);
+      await deleteVault(key);
       showToast(t('vault.deleted', { key }));
       loadVault();
     } catch { showToast(t('vault.deleteFail'), 'error'); }
   }
 
-  async function handleCopy(key: string, alias: string) {
+  async function handleCopy(key: string) {
     try {
-      const data = await getVaultValue(key, alias);
+      const data = await getVaultValue(key);
       await navigator.clipboard.writeText(data.value);
       showToast(t('vault.copySuccess'));
     } catch { showToast(t('vault.copyFail'), 'error'); }
   }
 
   // Sync project modal
-  async function openSyncModal(key: string, alias: string) {
+  async function openSyncModal(key: string) {
     setSyncKey(key);
-    setSyncAlias(alias || 'default');
     setSyncPath('');
     setShowSync(true);
     try {
@@ -189,10 +197,9 @@ export default function VaultPage() {
   async function confirmSync() {
     if (!syncPath) { showToast(t('vault.selectDir'), 'error'); return; }
     try {
-      const data = await syncToProject(buildProjectSyncKeys(syncKey, syncAlias), syncPath);
+      const data = await syncToProject([{ key: syncKey, alias: 'default' }], syncPath);
       setShowSync(false);
-      const feedback = getProjectSyncFeedback(data);
-      showToast(t(feedback.key, feedback.params), feedback.tone);
+      showToast(t('vault.written', { n: data.synced }));
       loadVault();
     } catch { showToast(t('vault.syncFail'), 'error'); }
   }
@@ -300,39 +307,68 @@ export default function VaultPage() {
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div className="vault-page">
+    <div className="page-with-sidebar">
+      {/* Sidebar */}
+      <PageSidebar sections={[
+        ...(viewMode === 'keys' ? [{
+          title: t('common.group'),
+          items: [
+            { key: '__all__', label: t('common.all'), count: secrets.length, active: viewMode === 'keys' && groupFilter === 'all', onClick: () => { setViewMode('keys'); setGroupFilter('all'); } },
+            ...groups.map(g => ({
+              key: `g-${g}`,
+              label: g,
+              count: secrets.filter(s => s.group === g).length,
+              active: viewMode === 'keys' && groupFilter === g,
+              onClick: () => { setViewMode('keys'); setGroupFilter(g); },
+            })),
+            { key: '__none__', label: t('common.ungrouped'), count: secrets.filter(s => !s.group).length, active: viewMode === 'keys' && groupFilter === '', onClick: () => { setViewMode('keys'); setGroupFilter(''); } },
+          ],
+        }] : []),
+        ...(viewMode === 'projects' && projectMap.map.size > 0 ? [{
+          title: t('vault.syncProjects'),
+          items: Array.from(projectMap.map.entries()).map(([path, proj]) => ({
+            key: `proj-${path}`,
+            label: proj.name,
+            count: proj.keys.length,
+            active: viewMode === 'projects' && selectedProject === path,
+            onClick: () => { setViewMode('projects'); setSelectedProject(path); },
+          })),
+        }] : []),
+      ]} />
+
       {/* Main content */}
-      <div className="vault-workspace">
+      <div className="page-sidebar-main vault-workspace">
+        <header className="vault-hero">
+          <div className="vault-hero-copy">
+            <h1>{t('vault.title')}</h1>
+            <p>{t('vault.lede')}</p>
+          </div>
+          <div className="vault-hero-stats" aria-label="Vault summary">
+            <div>
+              <span>{t('vault.totalKeys')}</span>
+              <strong>{vaultStats.total}</strong>
+            </div>
+            <div>
+              <span>{t('vault.groups')}</span>
+              <strong>{groups.length}</strong>
+            </div>
+            <div>
+              <span>{t('vault.projectBindings')}</span>
+              <strong>{vaultStats.projects}</strong>
+            </div>
+            <div>
+              <span>{t('vault.cloudTargets')}</span>
+              <strong>{cloudPlatforms.length}</strong>
+            </div>
+          </div>
+        </header>
+
         {/* Toolbar */}
         <div className="vault-command-bar">
           <div className="vault-search">
             <Icon name="search" />
             <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
-          {viewMode === 'keys' ? (
-            <CustomSelect
-              className="vault-filter-select"
-              value={groupFilter === 'all' ? '__all__' : groupFilter}
-              onChange={v => setGroupFilter(v === '__all__' ? 'all' : v)}
-              placeholder={t('common.group')}
-              options={[
-                { value: '__all__', label: `${t('common.all')} (${secrets.length})` },
-                ...groups.map(g => ({ value: g, label: `${g} (${secrets.filter(s => s.group === g).length})` })),
-                { value: '', label: `${t('common.ungrouped')} (${secrets.filter(s => !s.group).length})` },
-              ]}
-            />
-          ) : projectMap.map.size > 0 ? (
-            <CustomSelect
-              className="vault-filter-select"
-              value={selectedProject || '__all__'}
-              onChange={v => setSelectedProject(v === '__all__' ? null : v)}
-              placeholder={t('vault.syncProjects')}
-              options={[
-                { value: '__all__', label: `${t('common.all')} (${projectMap.map.size})` },
-                ...Array.from(projectMap.map.entries()).map(([path, proj]) => ({ value: path, label: `${proj.name} (${proj.keys.length})` })),
-              ]}
-            />
-          ) : null}
           <div className="vault-view-switch" role="tablist" aria-label="Vault view">
             <button className={viewMode === 'keys' ? 'active' : ''} onClick={() => setViewMode('keys')}>{t('vault.keysView')}</button>
             <button className={viewMode === 'projects' ? 'active' : ''} onClick={() => setViewMode('projects')}>{t('vault.projectsView')}</button>
@@ -414,20 +450,12 @@ export default function VaultPage() {
                         )}
                         <div className="vault-secret-title">
                           <span className="vault-key">{secret.key}</span>
-                          <div className="vault-secret-tags">
-                            {secret.aliases.length > 1 && (
-                              <span>{t('vault.aliasesCount', { n: secret.aliases.length })}</span>
-                            )}
-                          </div>
                         </div>
                       </div>
                       <div className="vault-aliases">
-                        {secret.aliases.map(a => (
-                          <div key={a.alias} className="vault-alias-row">
-                            <span className="vault-alias-name">{a.alias}</span>
-                            <span className="vault-masked">{a.masked}</span>
-                          </div>
-                        ))}
+                        <div className="vault-alias-row">
+                          <span className="vault-masked">{secret.aliases[0]?.masked || '***'}</span>
+                        </div>
                       </div>
                       <div className="vault-projects">
                         {(secret.projects || []).length > 0 ? secret.projects!.slice(0, 3).map(project => (
@@ -437,10 +465,10 @@ export default function VaultPage() {
                       </div>
                       <time className="vault-date">{formatDate(secret.aliases[0]?.updatedAt)}</time>
                       <div className="vault-card-actions">
-                        <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="copy" /></button>
-                        <button className="btn-icon btn-icon--sync" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="folder" /></button>
+                        <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key)}><Icon name="copy" /></button>
+                        <button className="btn-icon btn-icon--sync" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key)}><Icon name="folder" /></button>
                         <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}><Icon name="edit" /></button>
-                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key, secret.aliases[0]?.alias || 'default')}><Icon name="trash" /></button>
+                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key)}><Icon name="trash" /></button>
                       </div>
                     </article>
                   ))}

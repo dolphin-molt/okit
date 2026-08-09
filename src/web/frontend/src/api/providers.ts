@@ -9,6 +9,7 @@ export interface ProviderModel {
 export interface ProviderEndpoint {
   type: 'anthropic' | 'openai' | 'google';
   baseUrl: string;
+  protocol?: 'chat' | 'responses';
 }
 
 export interface Provider {

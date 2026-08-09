@@ -8,6 +8,7 @@ interface SidebarItem {
   label: string;
   count?: number;
   active?: boolean;
+  indent?: boolean;
   onClick?: () => void;
 }
 
@@ -21,7 +22,7 @@ export default function PageSidebar({ sections }: { sections: SidebarSection[] }
             {sec.items.map(item => (
               <div
                 key={item.key}
-                className={`page-sidebar-item${item.active ? ' active' : ''}`}
+                className={`page-sidebar-item${item.active ? ' active' : ''}${item.indent ? ' page-sidebar-item--indent' : ''}`}
                 onClick={item.onClick}
               >
                 <span>{item.label}</span>

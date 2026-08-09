@@ -1,10 +1,12 @@
 // API protocol compatibility
 export type ProviderType = 'anthropic' | 'openai' | 'google';
+export type OpenAIProtocol = 'chat' | 'responses';
 
 // A provider (platform) that offers AI models
 export interface ProviderEndpoint {
   type: ProviderType;
   baseUrl: string;
+  protocol?: OpenAIProtocol;
 }
 
 export interface Provider {

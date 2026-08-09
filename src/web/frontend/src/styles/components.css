@@ -151,6 +151,18 @@
 .page-sidebar-item.active { background: var(--ink); color: var(--paper); }
 .page-sidebar-item.active .page-sidebar-count { color: rgba(255,255,255,0.6); }
 
+/* 缩进的子项（如分组下的具体平台）更紧凑 */
+.page-sidebar-item--indent {
+  padding: 5px 14px 5px 22px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-light);
+}
+
+.page-sidebar-item--indent .page-sidebar-count { font-size: 10px; }
+.page-sidebar-item--indent.active { background: var(--ink); color: var(--paper); }
+.page-sidebar-item--indent.active .page-sidebar-count { color: rgba(255,255,255,0.6); }
+
 [data-theme="dark"] .page-sidebar-item:hover { background: rgba(255,255,255,0.04); }
 [data-theme="dark"] .page-sidebar-item.active { background: var(--ink); }
 

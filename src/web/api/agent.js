@@ -3,11 +3,152 @@ const fs = require('fs');
 const path = require('path');
 const execa = require('execa');
 const fse = require('fs-extra');
-const { createOpenAI } = require('@ai-sdk/openai');
-const { streamText, stepCountIs } = require('ai');
 const { z } = require('zod');
 
 const agentSessions = new Map();
+
+// ─── Pi Agent Kernel (lazy-loaded ESM from CommonJS) ───
+// Pi (@earendil-works/pi-coding-agent) ships as pure ESM. OKIT's backend is
+// CommonJS, so we load it via dynamic import() and cache the exports.
+
+let _piCache = null;
+async function loadPi() {
+  if (_piCache) return _piCache;
+  _piCache = await import('@earendil-works/pi-coding-agent');
+  return _piCache;
+}
+
+// ─── zod → typebox adapter ───
+// Pi tools use typebox Type.Object for parameter schemas. OKIT's existing tools
+// use zod. This converts the zod shapes we actually use into typebox.
+
+let _typeboxCache = null;
+async function loadTypebox() {
+  if (_typeboxCache) return _typeboxCache;
+  _typeboxCache = (await import('typebox')).Type;
+  return _typeboxCache;
+}
+
+// Convert a zod schema node into a typebox schema node.
+// Covers the types present in the OKIT agent tools:
+// ZodObject / ZodString / ZodNumber / ZodEnum / ZodOptional / ZodRecord / ZodAny.
+// Uses the public surface of zod v4 (node._def.type, node.isOptional(),
+// node.options) instead of the removed v3 _def.typeName.
+function zodToTypeboxNode(zodNode, Type) {
+  const def = zodNode && zodNode._def;
+  const type = def && def.type;
+  const isOptional = typeof zodNode.isOptional === 'function' ? zodNode.isOptional() : false;
+
+  let tb;
+  switch (type) {
+    case 'string':
+      tb = Type.String();
+      break;
+    case 'number':
+      tb = Type.Number();
+      break;
+    case 'boolean':
+      tb = Type.Boolean();
+      break;
+    case 'enum': {
+      const values = (Array.isArray(zodNode.options) ? zodNode.options : []).map(v => Type.Literal(v));
+      tb = values.length ? Type.Union(values) : Type.String();
+      break;
+    }
+    case 'optional':
+      // Unwrap the inner type and re-wrap with Type.Optional.
+      return Type.Optional(zodToTypeboxNode(def.innerType, Type));
+    case 'record':
+      tb = Type.Record(Type.String(), Type.Any());
+      break;
+    case 'any':
+    default:
+      // Fallback: accept any shape so the tool still registers.
+      tb = Type.Any();
+      break;
+  }
+  return isOptional ? Type.Optional(tb) : tb;
+}
+
+// Convert an OKIT tool's z.object(...) parameters into a typebox Type.Object.
+async function zodToTypebox(zodSchema) {
+  const Type = await loadTypebox();
+  const shape = (zodSchema && zodSchema.shape) || {};
+  const props = {};
+  for (const [key, node] of Object.entries(shape)) {
+    props[key] = zodToTypeboxNode(node, Type);
+  }
+  return Type.Object(props);
+}
+
+// ─── OKIT tool → Pi defineTool adapter ───
+// Wraps the existing { description, parameters, execute } tool map as Pi
+// customTools. The execute bodies (including the confirm_required flow) are
+// left untouched — the adapter only translates the schema and return shape.
+
+async function wrapToolsForPi(okitTools, piDefineTool) {
+  const customTools = [];
+  for (const [name, t] of Object.entries(okitTools)) {
+    const parameters = await zodToTypebox(t.parameters);
+    customTools.push(piDefineTool({
+      name,
+      label: name,
+      description: t.description,
+      parameters,
+      execute: async (_toolCallId, params) => {
+        let result;
+        try {
+          result = await t.execute(params || {});
+        } catch (err) {
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }],
+            details: {},
+          };
+        }
+        const text = typeof result === 'string' ? result : JSON.stringify(result);
+        return { content: [{ type: 'text', text }], details: {} };
+      },
+    }));
+  }
+  return customTools;
+}
+
+// ─── Pi ModelRuntime configuration (OpenAI-compatible providers) ───
+// Builds a ModelRuntime, registers the configured provider (e.g. SiliconFlow)
+// with its baseUrl + OpenAI-compatible api, injects the apiKey in memory, and
+// returns the resolved Model for createAgentSession.
+
+async function buildPiModelRuntime(pi, agentCfg, apiKey) {
+  const { ModelRuntime } = pi;
+  const runtime = await ModelRuntime.create({ refreshOnCreate: false });
+
+  // Register the provider if it isn't built-in. We treat it as OpenAI-compatible.
+  const providerId = agentCfg.provider || 'siliconflow';
+  if (!runtime.getRegisteredProviderIds().includes(providerId)) {
+    runtime.registerProvider(providerId, {
+      name: providerId,
+      baseUrl: agentCfg.baseUrl,
+      api: 'openai-completions',
+      models: [
+        {
+          id: agentCfg.model,
+          name: agentCfg.model,
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 1 },
+          contextWindow: 64000,
+          maxTokens: 8192,
+        },
+      ],
+    });
+  }
+
+  // Inject the apiKey in memory (no file written).
+  await runtime.setRuntimeApiKey(providerId, apiKey);
+
+  const model = runtime.getModel(providerId, agentCfg.model);
+  return { runtime, model };
+}
 
 // ─── Helpers ───
 
@@ -208,11 +349,6 @@ async function agentChat(req, res) {
     };
 
     sendEvent('session', { sessionId });
-
-    const aiProvider = createOpenAI({
-      baseURL: agentCfg.baseUrl,
-      apiKey,
-    });
 
     const CONFIG_PATH = path.join(os.homedir(), '.okit', 'user.json');
     const HISTORY_FILE = path.join(os.homedir(), '.okit', 'logs', 'history.jsonl');
@@ -505,32 +641,75 @@ async function agentChat(req, res) {
 - 不要捏造不存在的工具，先 list_tools 查看有哪些${buildSkillsPrompt()}`;
 
     try {
-      const result = streamText({
-        model: aiProvider.chat(agentCfg.model),
-        system: systemPrompt,
-        messages,
-        tools,
-        maxSteps: 20,
-        stopWhen: stepCountIs(20),
+      // ─── Pi Agent Kernel ───
+      // Replace the previous streamText loop with a Pi AgentSession. The OKIT
+      // tools object is wrapped as Pi customTools. We pass an explicit `tools`
+      // allowlist naming only the OKIT tools — this both enables them and keeps
+      // Pi's built-in coding tools (read/bash/edit/write) out, so the agent can
+      // only act through OKIT's capabilities.
+      const pi = await loadPi();
+      const customTools = await wrapToolsForPi(tools, pi.defineTool);
+      const toolNames = customTools.map(t => t.name);
+      const { runtime: piRuntime, model: piModel } = await buildPiModelRuntime(pi, agentCfg, apiKey);
+
+      const { session } = await pi.createAgentSession({
+        model: piModel,
+        modelRuntime: piRuntime,
+        customTools,
+        tools: toolNames,
       });
 
-      for await (const event of result.fullStream) {
+      // Seed the conversation history so multi-turn context survives a page
+      // reload — Pi sessions start empty, so we replay prior user/assistant
+      // turns as a folded transcript summary.
+      const priorTurns = messages.slice(0, -1).filter(m => m.role === 'user' || m.role === 'assistant');
+      const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+      const historyPreamble = priorTurns.length
+        ? priorTurns.map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`).join('\n') + '\n\n(以上是历史对话，请基于此上下文继续。)\n\n'
+        : '';
+
+      // Map Pi events onto the existing SSE contract the frontend expects:
+      //   message_update + text_delta -> 'text'
+      //   tool_execution_start       -> 'tool_call'
+      //   tool_execution_end         -> 'tool_result'
+      //   agent_end                  -> 'done'
+      // (confirm_required is emitted directly inside each tool's execute body.)
+      const unsubscribe = session.subscribe((event) => {
         switch (event.type) {
-          case 'text-delta':
-            sendEvent('text', { content: event.text });
+          case 'message_update': {
+            const sub = event.assistantMessageEvent;
+            if (sub && sub.type === 'text_delta' && typeof sub.delta === 'string') {
+              sendEvent('text', { content: sub.delta });
+            }
             break;
-          case 'tool-call':
-            sendEvent('tool_call', { tool: event.toolName, args: event.input });
+          }
+          case 'tool_execution_start':
+            sendEvent('tool_call', { tool: event.toolName, args: event.args });
             break;
-          case 'tool-result':
-            sendEvent('tool_result', { tool: event.toolName, result: event.output });
+          case 'tool_execution_end': {
+            // Pi wraps results as { content: [{type:'text', text}], details }.
+            // Unwrap back to the original OKIT tool return value so the frontend
+            // receives the same shape it did under the old streamText kernel.
+            const raw = event.result;
+            let payload = raw;
+            const textPart = raw && Array.isArray(raw.content) && raw.content[0] && raw.content[0].text;
+            if (typeof textPart === 'string') {
+              try { payload = JSON.parse(textPart); } catch { payload = textPart; }
+            }
+            sendEvent('tool_result', { tool: event.toolName, result: payload });
             break;
-          case 'finish-step':
-            break;
-          case 'finish':
+          }
+          case 'agent_end':
             sendEvent('done', null);
             break;
         }
+      });
+
+      try {
+        await session.prompt(historyPreamble + (lastUserMsg?.content || ''));
+      } finally {
+        unsubscribe();
+        session.dispose();
       }
     } catch (err) {
       sendEvent('error', { message: err.message });

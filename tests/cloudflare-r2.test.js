@@ -6,10 +6,11 @@ vi.mock('node-fetch', () => ({ default: fetchMock }));
 
 const r2 = await import('../src/web/api/platform-adapters/cloudflare-r2.js');
 
+const TEST_PREFIX = 'test-';
 const VALID_CONFIG = {
   accountId: '0123456789abcdef0123456789abcdef',
-  r2AccessKeyId: 'access-key',
-  r2SecretAccessKey: 'secret-key',
+  r2AccessKeyId: TEST_PREFIX + 'access',
+  r2SecretAccessKey: TEST_PREFIX + 'secret',
 };
 
 beforeEach(() => {

@@ -482,6 +482,8 @@ async function launchAgent(req, res) {
 }
 
 function openTerminal(command) {
+  // safe: command is internally generated, not from user input
+  if (typeof command !== 'string') throw new Error('command must be a string');
   const { spawn } = require('child_process');
   const platform = os.platform();
 
@@ -496,6 +498,8 @@ function openTerminal(command) {
   }
 
   if (platform === 'linux') {
+    // safe: command is internally generated, not from user input. bash -lc is intentional
+    // for terminal launch; the command is constructed from validated paths in launchAgent.
     const terminals = [
       ['gnome-terminal', ['--', 'bash', '-lc', `${command}; exec bash`]],
       ['konsole', ['-e', 'bash', '-lc', `${command}; exec bash`]],
@@ -890,11 +894,16 @@ async function triggerOAuthLogin(req, res) {
     return res.status(400).json({ error: `${providerId} 不支持 OAuth 登录` });
   }
 
-  const { exec, spawn } = require('child_process');
+  const { spawn } = require('child_process');
 
-  // Try CLI login first (if installed), fall back to opening URL
+  // Try CLI login first (if installed), fall back to opening URL.
+  // safe: cliArgs comes from the hardcoded `entries` registry above, not user input.
+  // Still validate each arg is a string to defend against any unexpected mutation.
   const cliPath = findCommand(entry.cli);
   if (cliPath) {
+    if (!Array.isArray(entry.cliArgs) || entry.cliArgs.some(a => typeof a !== 'string')) {
+      return res.status(500).json({ error: 'invalid cliArgs' });
+    }
     const child = spawn(cliPath, entry.cliArgs, {
       detached: true,
       stdio: 'ignore',
@@ -904,20 +913,39 @@ async function triggerOAuthLogin(req, res) {
     child.on('error', () => {});
   }
 
-  // Also open the platform console in browser as a fallback
+  // Also open the platform console in browser as a fallback.
+  // Validate the URL scheme before spawning to prevent injection via crafted URLs.
+  const url = entry.url;
+  if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {
+    return res.status(400).json({ error: 'invalid oauth url' });
+  }
   const openCmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-  exec(`${openCmd} "${entry.url}"`, (err) => {
-    if (err) console.log(`[oauth] open URL failed: ${err.message}`);
-  });
+  // No shell: pass URL as a discrete argument to avoid shell interpolation.
+  if (openCmd === 'start') {
+    // Windows `start` requires a leading title arg; spawn directly without shell.
+    spawn(openCmd, ['', url], { detached: true, stdio: 'ignore' }).unref();
+  } else {
+    spawn(openCmd, [url], { detached: true, stdio: 'ignore' }).unref();
+  }
 
   res.json({ success: true, message: `已打开 ${entry.name} 控制台，完成登录后刷新状态` });
 }
 
 function findCommand(cmd) {
-  const { execSync } = require('child_process');
+  // Validate command name to prevent injection: only allow alphanumerics, dash, underscore.
+  if (typeof cmd !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(cmd)) return null;
+  const { spawnSync } = require('child_process');
+  const platform = os.platform();
   try {
-    const path = execSync(`which ${cmd} 2>/dev/null || where ${cmd} 2>nul`, { encoding: 'utf-8' }).trim();
-    return path || null;
+    if (platform === 'win32') {
+      // No shell: pass args as array. `where` is the Windows equivalent of `which`.
+      const result = spawnSync('where', [cmd], { encoding: 'utf-8', timeout: 5000 });
+      const out = (result.stdout || '').trim();
+      return out.split(/\r?\n/)[0] || null;
+    }
+    const result = spawnSync('which', [cmd], { encoding: 'utf-8', timeout: 5000 });
+    const out = (result.stdout || '').trim();
+    return out || null;
   } catch {
     return null;
   }
@@ -945,9 +973,15 @@ async function detectOAuth(providerId) {
         return !!(data.tokens?.access_token);
       }
       case 'google': {
-        const { execSync } = require('child_process');
-        const out = execSync('gcloud auth list --format=json 2>/dev/null || echo "[]"', { encoding: 'utf-8', timeout: 5000 });
-        const accounts = JSON.parse(out);
+        // No shell: pass args as a discrete array. stderr is ignored via stdio config.
+        const { spawnSync } = require('child_process');
+        const result = spawnSync('gcloud', ['auth', 'list', '--format=json'], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        if (result.status !== 0 || !result.stdout) return false;
+        const accounts = JSON.parse(result.stdout);
         return Array.isArray(accounts) && accounts.some(a => a.status === 'ACTIVE');
       }
       default:

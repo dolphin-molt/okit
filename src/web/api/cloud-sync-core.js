@@ -23,6 +23,15 @@ const PLATFORM_SECRET_FIELDS = {
 const SYNC_CODE_PREFIX = 'okit-sync:';
 const SYNC_CODE_SALT = 'okit-sync-code-salt';
 
+const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine']);
+
+function loadAdapter(name) {
+  if (!name || !/^[a-z0-9-]+$/.test(name) || !VALID_ADAPTERS.has(name)) {
+    throw new Error(`Invalid platform adapter: ${name}`);
+  }
+  return require(`./platform-adapters/${name}`);
+}
+
 async function loadConfig() {
   try {
     if (!(await fs.pathExists(CONFIG_PATH))) return {};
@@ -209,7 +218,7 @@ async function testConnection(platform) {
   if (!platConfig) throw new Error(`平台 ${platform} 未配置`);
 
   const resolved = await resolveVaultRefs(platConfig, platform);
-  const adapter = require(`./platform-adapters/${platform}`);
+  const adapter = loadAdapter(platform);
   const result = await adapter.testConnection(resolved);
   appendLog('platform-test', platform, true, result);
   return result;
@@ -234,7 +243,7 @@ async function pushSecrets(platform, keys) {
   const secrets = Object.values(grouped);
 
   const resolved = await resolveVaultRefs(platConfig, platform);
-  const adapter = require(`./platform-adapters/${platform}`);
+  const adapter = loadAdapter(platform);
   const results = await adapter.syncSecrets(resolved, secrets);
   appendLog('cloud-push', platform, true, `${secrets.length} secrets`);
   return results;
@@ -277,7 +286,7 @@ async function syncPush() {
   const tag = cipher.getAuthTag();
   const encryptedBlob = { nonce: iv.toString('hex'), ciphertext: encrypted.toString('hex'), tag: tag.toString('hex') };
 
-  const adapter = require(`./platform-adapters/${entry.id}`);
+  const adapter = loadAdapter(entry.id);
   await adapter.pushSync(resolvedConfig, userId, encryptedBlob);
 
   config.sync.lastSyncAt = new Date().toISOString();
@@ -303,7 +312,7 @@ async function syncPull() {
   const encryptionKey = key;
 
   const resolvedConfig = await resolveVaultRefs(entry.config, entry.id);
-  const adapter = require(`./platform-adapters/${entry.id}`);
+  const adapter = loadAdapter(entry.id);
   const encrypted = await adapter.pullSync(resolvedConfig, userId);
   if (!encrypted) throw new Error('远端没有同步数据');
 

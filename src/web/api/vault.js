@@ -8,6 +8,27 @@ const store = new VaultStore();
 const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
 const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
 
+/** Safely find files by name using Node.js fs (no shell, no command injection). */
+function safeFindFiles(baseDir, targetNames, maxDepth) {
+  const results = [];
+  const nameSet = new Set(Array.isArray(targetNames) ? targetNames : [targetNames]);
+  function walk(dir, depth) {
+    if (depth > maxDepth) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile() && nameSet.has(entry.name)) {
+        results.push(fullPath);
+      } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        walk(fullPath, depth + 1);
+      }
+    }
+  }
+  walk(baseDir, 0);
+  return results;
+}
+
 function appendVaultLog(action, key, success, detail) {
   try {
     fs.mkdirSync(LOGS_DIR, { recursive: true });
@@ -26,7 +47,6 @@ function appendVaultLog(action, key, success, detail) {
 // Find .okitenv files that reference a given key
 async function findLinkedProjects(key) {
   const home = os.homedir();
-  const { execSync } = require('child_process');
   const projects = [];
 
   try {
@@ -34,13 +54,8 @@ async function findLinkedProjects(key) {
     for (const dir of dirs) {
       const base = path.join(home, dir);
       if (!fs.existsSync(base)) continue;
-      const result = execSync(
-        `find "${base}" -maxdepth 3 -name ".okitenv" -o -name ".okit-env" 2>/dev/null`,
-        { encoding: 'utf-8', timeout: 5000 }
-      ).trim();
-      if (!result) continue;
-      for (const file of result.split('\n')) {
-        if (!file) continue;
+      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
+      for (const file of files) {
         try {
           const content = await fs.readFile(file, 'utf-8');
           const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -62,24 +77,15 @@ async function findLinkedProjects(key) {
 
 // Find all .okitenv files under ~/Desktop and touch them so hooks re-inject
 async function touchOkitEnvFiles(key) {
-  const os = require('os');
   const home = os.homedir();
-  const glob = require('child_process');
 
   try {
-    // Search common project directories for .okitenv files
     const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
     for (const dir of dirs) {
       const base = path.join(home, dir);
       if (!fs.existsSync(base)) continue;
-      // Use find to locate .okitenv files
-      const result = glob.execSync(
-        `find "${base}" -maxdepth 3 -name ".okitenv" -o -name ".okit-env" 2>/dev/null`,
-        { encoding: 'utf-8', timeout: 5000 }
-      ).trim();
-      if (!result) continue;
-      for (const file of result.split('\n')) {
-        if (!file) continue;
+      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
+      for (const file of files) {
         try {
           const content = await fs.readFile(file, 'utf-8');
           const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -106,22 +112,15 @@ async function touchOkitEnvFiles(key) {
 
 // Remove a key reference from all .okitenv files
 async function removeKeyFromOkitEnvFiles(key) {
-  const os = require('os');
   const home = os.homedir();
-  const glob = require('child_process');
 
   try {
     const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
     for (const dir of dirs) {
       const base = path.join(home, dir);
       if (!fs.existsSync(base)) continue;
-      const result = glob.execSync(
-        `find "${base}" -maxdepth 3 -name ".okitenv" -o -name ".okit-env" 2>/dev/null`,
-        { encoding: 'utf-8', timeout: 5000 }
-      ).trim();
-      if (!result) continue;
-      for (const file of result.split('\n')) {
-        if (!file) continue;
+      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
+      for (const file of files) {
         try {
           const content = await fs.readFile(file, 'utf-8');
           const lines = content.split('\n');
@@ -387,7 +386,6 @@ async function browseDirs(req, res) {
 // Scan all .okitenv files and return project → keys mapping
 async function listProjects(req, res) {
   const home = os.homedir();
-  const { execSync } = require('child_process');
   const projects = [];
 
   try {
@@ -395,13 +393,8 @@ async function listProjects(req, res) {
     for (const dir of dirs) {
       const base = path.join(home, dir);
       if (!fs.existsSync(base)) continue;
-      const result = execSync(
-        `find "${base}" -maxdepth 3 -name ".okitenv" -o -name ".okit-env" 2>/dev/null`,
-        { encoding: 'utf-8', timeout: 5000 }
-      ).trim();
-      if (!result) continue;
-      for (const file of result.split('\n')) {
-        if (!file) continue;
+      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
+      for (const file of files) {
         try {
           const content = await fs.readFile(file, 'utf-8');
           const keys = [];
@@ -441,7 +434,6 @@ async function listVaultWithProjects(req, res) {
 
     // Scan .okitenv files to find actual project references
     const home = os.homedir();
-    const { execSync } = require('child_process');
     const keyProjects = {}; // key → [{path, name}]
 
     try {
@@ -449,13 +441,8 @@ async function listVaultWithProjects(req, res) {
       for (const dir of dirs) {
         const base = path.join(home, dir);
         if (!fs.existsSync(base)) continue;
-        const result = execSync(
-          `find "${base}" -maxdepth 3 -name ".okitenv" -o -name ".okit-env" 2>/dev/null`,
-          { encoding: 'utf-8', timeout: 5000 }
-        ).trim();
-        if (!result) continue;
-        for (const file of result.split('\n')) {
-          if (!file) continue;
+        const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
+        for (const file of files) {
           try {
             const content = await fs.readFile(file, 'utf-8');
             const projectPath = path.dirname(file);

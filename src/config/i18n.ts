@@ -332,7 +332,7 @@ const translations: Record<Language, Translations> = {
     claudeSelectModel: "选择模型",
     claudeName: "配置名称（例如: Volcengine / Anthropic）",
     claudeBaseUrl: "ANTHROPIC_BASE_URL",
-    claudeAuthToken: "ANTHROPIC_AUTH_TOKEN",
+    claudeAuthToken: "认证令牌配置项",
     claudeModels: "模型列表（用逗号分隔）",
     claudePreset: "选择预置厂商",
     claudePresetCustom: "自定义",

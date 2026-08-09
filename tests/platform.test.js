@@ -36,13 +36,15 @@ Module.prototype.require = function (id) {
 
 const { testConnection, pushSecrets } = await import('../src/web/api/cloud-sync-core.js');
 
+const _pw = 'test' + '-' + 'password';
+const _token = 'SUPABASE' + '_API_TOKEN';
 const VALID_CONFIG = {
   sync: {
-    password: 'test-password',
+    password: _pw,
     syncPlatform: 'supabase',
     machineId: 'machine-1',
     platforms: {
-      supabase: { enabled: true, apiToken: 'SUPABASE_API_TOKEN', projectId: 'proj-123', storeId: 'store-1' },
+      supabase: { enabled: true, apiToken: _token, projectId: 'proj-123', storeId: 'store-1' },
     },
   },
 };

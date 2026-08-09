@@ -249,8 +249,15 @@ export default function SettingsPage() {
 
   const currentProvider = modelProviders.find(p => p.id === agent.provider);
   const platformEntries = Object.entries(PLATFORM_FIELDS);
-  const enabledPlatformCount = Object.values(platforms).filter((p: any) => p?.enabled).length;
+  const activePlatformEntries = platformEntries.filter(([id]) => platforms[id]?.enabled);
+  const inactivePlatformEntries = platformEntries.filter(([id]) => !platforms[id]?.enabled);
+  const enabledPlatformCount = activePlatformEntries.length;
   const syncReady = !!syncStatus?.platformId && !!syncStatus?.hasPassword;
+
+  function handleAddPlatform(platId: string) {
+    if (!platId) return;
+    updatePlatform(platId, 'enabled', true);
+  }
 
   return (
     <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
@@ -408,11 +415,26 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Platform Sync */}
+      {/* Platform Sync — 只展示已启用的平台卡片，通过「添加平台」下拉新增 */}
       <div className="settings-section">
-        <div className="settings-section-title">{t('settings.syncPlatformTitle')}</div>
+        <div className="settings-section-title settings-section-title--row">
+          <span>{t('settings.syncPlatformTitle')}</span>
+          {inactivePlatformEntries.length > 0 && (
+            <div className="settings-add-platform">
+              <CustomSelect
+                className="settings-select-wrap settings-add-platform-select"
+                value=""
+                onChange={handleAddPlatform}
+                placeholder={t('settings.addPlatform')}
+                options={inactivePlatformEntries.map(([id]: any) => ({ value: id, label: PLATFORM_IDS[id] || id }))}
+              />
+            </div>
+          )}
+        </div>
         <div className="settings-platforms">
-          {platformEntries.map(([platId, fields]) => {
+          {activePlatformEntries.length === 0 ? (
+            <div className="settings-platforms-empty">{t('settings.noActivePlatform')}</div>
+          ) : activePlatformEntries.map(([platId, fields]) => {
             const plat = platforms[platId] || {};
             const testing = testingPlatform === platId;
             return (
@@ -429,7 +451,7 @@ export default function SettingsPage() {
                         </svg>
                       </button>
                     </div>
-                    <div className="settings-plat-status">{plat.enabled ? t('common.enabled') : t('common.notConfigured')}</div>
+                    <div className="settings-plat-status">{t('common.enabled')}</div>
                   </div>
                   <div className="settings-plat-actions">
                     <button

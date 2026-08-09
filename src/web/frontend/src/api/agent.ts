@@ -7,11 +7,26 @@ export interface Conversation {
   updatedAt: number;
 }
 
+export interface AgentImage {
+  data: string;       // 纯 base64，不含 data: 前缀
+  mimeType: string;   // e.g. image/png
+}
+
+export interface AgentConfirm {
+  sessionId: string;
+  action: string;
+  target: string;
+  reason?: string;
+  status: 'pending' | 'confirmed' | 'rejected' | 'expired';
+}
+
 export interface AgentMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp?: number;
   toolCalls?: any[];
+  images?: AgentImage[]; // 仅 user 消息可能携带图片
+  confirm?: AgentConfirm; // assistant 消息可能携带确认请求
 }
 
 export async function listConversations(): Promise<Conversation[]> {
@@ -60,6 +75,6 @@ export async function* agentChat(messages: AgentMessage[]): AsyncGenerator<ChatE
 export async function agentConfirm(confirmId: string, approved: boolean): Promise<any> {
   return api('/api/agent/confirm', {
     method: 'POST',
-    body: JSON.stringify({ id: confirmId, approved }),
+    body: JSON.stringify({ sessionId: confirmId, approved }),
   });
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { listConversations, getConversation, createConversation, updateConversation, deleteConversation, agentChat, agentConfirm, type Conversation, type AgentMessage } from '../../api/agent';
+import { listConversations, getConversation, createConversation, updateConversation, deleteConversation, agentChat, agentConfirm, type Conversation, type AgentMessage, type AgentImage, type AgentConfirm } from '../../api/agent';
 import { getSettings, updateSettings, type AgentConfig } from '../../api/settings';
 import { listProviders, type Provider } from '../../api/providers';
 import { renderMd } from '../../lib/markdown';
@@ -32,6 +32,11 @@ export default function AgentPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const rawTextRef = useRef('');
   const sessionIdRef = useRef<string | null>(null);
+  const waitingConfirmRef = useRef(false);
+  const streamingBodyRef = useRef<React.ReactElement[]>([]);
+  const toolResultRef = useRef(''); // accumulates tool result text after confirmation
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingImages, setPendingImages] = useState<AgentImage[]>([]);
 
   useEffect(() => {
     if (currentConvId) loadConv(currentConvId);
@@ -96,17 +101,22 @@ export default function AgentPage() {
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text || streaming) return;
+    const imgs = pendingImages.length > 0 ? [...pendingImages] : undefined;
+    if ((!text && !imgs) || streaming) return;
 
     const now = Date.now();
-    const userMsg: AgentMessage = { role: 'user', content: text, timestamp: now };
+    const userMsg: AgentMessage = { role: 'user', content: text, timestamp: now, images: imgs };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
+    setPendingImages([]);
     setStreaming(true);
     setStreamingText('');
     setStreamingBody([]);
+    streamingBodyRef.current = [];
+    toolResultRef.current = '';
     setWaitingConfirm(false);
+    waitingConfirmRef.current = false;
     setOrbState('composing');
     rawTextRef.current = '';
 
@@ -144,18 +154,36 @@ export default function AgentPage() {
         }
       }
 
-      if (rawTextRef.current) {
-        const assistantMsg: AgentMessage = { role: 'assistant', content: rawTextRef.current, timestamp: Date.now() };
-        setMessages(prev => [...prev, assistantMsg]);
-        setStreamingText('');
-        setStreamingBody([]);
-        saveConv([...newMessages, assistantMsg]);
+      // Persist the assistant's reply after the stream ends.
+      // Use model text (rawTextRef) if available; otherwise fall back to
+      // accumulated tool result text so the user sees what happened.
+      const replyContent = rawTextRef.current.trim() || toolResultRef.current.trim();
+      if (replyContent) {
+        const assistantMsg: AgentMessage = { role: 'assistant', content: replyContent, timestamp: Date.now() };
+        setMessages(prev => {
+          const next = [...prev, assistantMsg];
+          saveConv(next);
+          return next;
+        });
       }
+      rawTextRef.current = '';
+      toolResultRef.current = '';
+      setStreamingText('');
+      streamingBodyRef.current = [];
+      setStreamingBody([]);
     } catch (e: any) {
       if (e.name !== 'AbortError') showToast(t('agent.sendFail'), 'error');
     } finally {
       setStreaming(false);
     }
+  }
+
+  function pushToStreamingBody(el: React.ReactElement) {
+    setStreamingBody(prev => {
+      const next = [...prev, el];
+      streamingBodyRef.current = next;
+      return next;
+    });
   }
 
   function handleEvent(event: any) {
@@ -183,9 +211,17 @@ export default function AgentPage() {
           argsText = Object.entries(args).map(([k, v]) => `${k}: ${v}`).join(', ');
         } catch { argsText = JSON.stringify(data.args); }
       }
-      setStreamingBody(prev => [...prev, <div key={prev.length} className="agent-tool-call"><span className="agent-tool-name">{label}</span><span className="agent-tool-args">{argsText}</span></div>]);
+      pushToStreamingBody(<div key={streamingBodyRef.current.length} className="agent-tool-call"><span className="agent-tool-name">{label}</span><span className="agent-tool-args">{argsText}</span></div>);
     } else if (type === 'tool_result') {
       setOrbState('solving');
+      // Accumulate tool result text so it can be persisted as a message
+      try {
+        const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+        if (parsed?.message) toolResultRef.current += parsed.message + '\n';
+        else if (parsed?.error) toolResultRef.current += '错误: ' + parsed.error + '\n';
+        else if (parsed?.success && parsed.vaultKey) toolResultRef.current += `操作成功（${parsed.vaultKey}）\n`;
+        else if (parsed?.success) toolResultRef.current += '操作成功\n';
+      } catch {}
       setStreamingBody(prev => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -200,37 +236,66 @@ export default function AgentPage() {
           } catch { resultText = String(data.result).substring(0, 100); }
           next[next.length - 1] = <div key={next.length - 1} className="agent-tool-call agent-tool-done"><span className="agent-tool-name">{(last.props as any).children[0].props.children}</span><span className="agent-tool-args">{(last.props as any).children[1].props.children}</span><div className="agent-tool-result">{resultText}</div></div>;
         }
+        streamingBodyRef.current = next;
         return next;
       });
     } else if (type === 'confirm_required') {
       setWaitingConfirm(true);
+      waitingConfirmRef.current = true;
       setOrbState('listening');
-      setStreamingBody(prev => [...prev,
-        <div key={prev.length} className="agent-confirm">
-          <div className="agent-confirm-msg">{data.action}: <code>{data.target}</code></div>
-          {data.reason && <div className="agent-confirm-reason">{data.reason}</div>}
-          <div className="agent-confirm-actions">
-            <button className="agent-confirm-yes" onClick={() => handleConfirm(true, prev.length)}>{t('common.confirm')}</button>
-            <button className="agent-confirm-no" onClick={() => handleConfirm(false, prev.length)}>{t('common.cancel')}</button>
-          </div>
-        </div>
-      ]);
+      // Persist the confirmation as an assistant message so it survives reloads
+      const confirmMsg: AgentMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        confirm: {
+          sessionId: data.sessionId || sessionIdRef.current || '',
+          action: data.action || '',
+          target: data.target || '',
+          reason: data.reason,
+          status: 'pending',
+        },
+      };
+      setMessages(prev => {
+        const next = [...prev, confirmMsg];
+        saveConv(next);
+        return next;
+      });
     } else if (type === 'error') {
-      setStreamingBody(prev => [...prev, <div key={prev.length} className="ai-error">{data.message || t('agent.error')}</div>]);
+      pushToStreamingBody(<div key={streamingBodyRef.current.length} className="ai-error">{data.message || t('agent.error')}</div>);
     }
   }
 
-  async function handleConfirm(approved: boolean, idx: number) {
+  async function handleConfirm(approved: boolean, msgIdx: number) {
+    const msg = messages[msgIdx];
+    if (!msg?.confirm) return;
     try {
-      await agentConfirm(sessionIdRef.current || '', approved);
+      await agentConfirm(msg.confirm.sessionId, approved);
       setWaitingConfirm(false);
+      waitingConfirmRef.current = false;
       setOrbState('solving');
-      setStreamingBody(prev => {
+      setMessages(prev => {
         const next = [...prev];
-        next[idx] = <div key={idx} className={approved ? 'agent-deleted' : 'agent-confirm-rejected'}>{approved ? t('agent.confirmed') : t('agent.rejected')}</div>;
+        if (next[msgIdx]?.confirm) {
+          next[msgIdx] = { ...next[msgIdx], confirm: { ...next[msgIdx].confirm!, status: approved ? 'confirmed' : 'rejected' } };
+        }
+        saveConv(next);
         return next;
       });
-    } catch {}
+    } catch (e: any) {
+      // Session may have expired (e.g. server timeout). Inform the user.
+      setWaitingConfirm(false);
+      waitingConfirmRef.current = false;
+      showToast(t('agent.confirmExpired'), 'error');
+      setMessages(prev => {
+        const next = [...prev];
+        if (next[msgIdx]?.confirm) {
+          next[msgIdx] = { ...next[msgIdx], confirm: { ...next[msgIdx].confirm!, status: 'expired' } };
+        }
+        saveConv(next);
+        return next;
+      });
+    }
   }
 
   function autoResize() {
@@ -262,15 +327,67 @@ export default function AgentPage() {
     return (
       <div className="agent-msg-meta">
         <span className="agent-msg-time">{formatMessageTime(timestamp)}</span>
-        <button className="agent-copy-btn" onClick={() => copyMessage(content)} title={t('vault.copy')}>
+        <button className="agent-copy-btn" onClick={() => copyMessage(content)} title={t('vault.copy')} aria-label={t('vault.copy')}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="6" y="6" width="9" height="9" rx="1.5" />
             <path d="M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12" />
           </svg>
-          <span>{t('vault.copy')}</span>
         </button>
       </div>
     );
+  }
+
+  // ─── 图片上传支持 ───
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
+  /** 启发式判断模型是否支持视觉输入 */
+  function isVisionModel(modelId: string): boolean {
+    const id = modelId.toLowerCase();
+    // 明确的非视觉模型
+    if (/deepseek-v3(?!.*flash)|deepseek-ai\/deepseek-v3(?!.*flash)/.test(id)) return false;
+    if (/embedding|tts|whisper|speech/.test(id)) return false;
+    // 已知视觉模型关键词
+    return /vision|vl|v4-flash|glm-4v|glm-4\.6|qwen-vl|qwen2-vl|qvq|gpt-4o|gpt-4-turbo|gemini|claude-3|claude-sonnet|claude-opus|claude-haiku|llava|minicpm|internvl|grok-vision/.test(id);
+  }
+
+  function handlePickImages() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const valid: File[] = [];
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith('image/')) { showToast(t('agent.imageTypeInvalid'), 'error'); continue; }
+      if (f.size > MAX_IMAGE_SIZE) { showToast(t('agent.imageTooLarge'), 'error'); continue; }
+      valid.push(f);
+    }
+    if (valid.length === 0) return;
+
+    let readCount = 0;
+    const results: AgentImage[] = [];
+    valid.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const commaIdx = dataUrl.indexOf(',');
+        const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+        results.push({ data: base64, mimeType: file.type });
+        readCount++;
+        if (readCount === valid.length) {
+          setPendingImages(prev => [...prev, ...results]);
+          // 非视觉模型温和提示(不阻止)
+          if (!isVisionModel(agentConfig.model)) {
+            showToast(t('agent.visionModelHint', { model: agentConfig.model }), 'info');
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function removePendingImage(idx: number) {
+    setPendingImages(prev => prev.filter((_, i) => i !== idx));
   }
 
   function pickSuggestion(prompt: string) {
@@ -353,20 +470,49 @@ export default function AgentPage() {
           </div>
         )}
         {messages.map((msg, i) => {
+          // Skip empty assistant messages (no text, no confirm)
+          if (msg.role === 'assistant' && !msg.content?.trim() && !msg.confirm) return null;
           if (msg.role === 'user') {
             return (
               <div key={i} className="agent-msg agent-msg-user">
-                <div className="agent-msg-text">{msg.content}</div>
+                {msg.images && msg.images.length > 0 && (
+                  <div className="agent-msg-images">
+                    {msg.images.map((img, idx) => (
+                      <img key={idx} src={`data:${img.mimeType};base64,${img.data}`} alt="" className="agent-msg-image" />
+                    ))}
+                  </div>
+                )}
+                {msg.content && <div className="agent-msg-text">{msg.content}</div>}
                 {renderMessageMeta(msg.content, msg.timestamp)}
               </div>
             );
           }
           return (
             <div key={i} className="agent-msg agent-msg-assistant">
-              <div className="agent-msg-body">
-                <div className="agent-text" dangerouslySetInnerHTML={{ __html: renderMd(msg.content) }} />
-              </div>
-              {renderMessageMeta(msg.content, msg.timestamp)}
+              {msg.content?.trim() && (
+                <div className="agent-msg-body">
+                  <div className="agent-text" dangerouslySetInnerHTML={{ __html: renderMd(msg.content) }} />
+                </div>
+              )}
+              {msg.confirm && (
+                <div className="agent-confirm">
+                  <div className="agent-confirm-msg">{msg.confirm.action}: <code>{msg.confirm.target}</code></div>
+                  {msg.confirm.reason && <div className="agent-confirm-reason">{msg.confirm.reason}</div>}
+                  {msg.confirm.status === 'pending' ? (
+                    <div className="agent-confirm-actions">
+                      <button className="agent-confirm-yes" onClick={() => handleConfirm(true, i)}>{t('common.confirm')}</button>
+                      <button className="agent-confirm-no" onClick={() => handleConfirm(false, i)}>{t('common.cancel')}</button>
+                    </div>
+                  ) : (
+                    <div className={`agent-confirm-status agent-confirm-status--${msg.confirm.status}`}>
+                      {msg.confirm.status === 'confirmed' && `✓ ${t('agent.confirmed')}`}
+                      {msg.confirm.status === 'rejected' && `✕ ${t('agent.rejected')}`}
+                      {msg.confirm.status === 'expired' && t('agent.confirmExpired')}
+                    </div>
+                  )}
+                </div>
+              )}
+              {msg.content?.trim() && renderMessageMeta(msg.content, msg.timestamp)}
             </div>
           );
         })}
@@ -383,11 +529,10 @@ export default function AgentPage() {
             </div>
           </div>
         )}
-        {streaming && (streamingText || streamingBody.length > 0) && (
+        {streaming && streamingText && (
           <div className="agent-msg agent-msg-assistant">
             <div className="agent-msg-body">
-              {streamingText && <div className="agent-text" dangerouslySetInnerHTML={{ __html: renderMd(streamingText) }} />}
-              {streamingBody}
+              <div className="agent-text" dangerouslySetInnerHTML={{ __html: renderMd(streamingText) }} />
             </div>
             {renderMessageMeta(streamingText, Date.now())}
           </div>
@@ -396,6 +541,16 @@ export default function AgentPage() {
       </div>
       <div className="agent-input-bar">
         <div className="agent-input-wrap">
+          {pendingImages.length > 0 && (
+            <div className="agent-attachment-bar">
+              {pendingImages.map((img, idx) => (
+                <div key={idx} className="agent-attachment-thumb">
+                  <img src={`data:${img.mimeType};base64,${img.data}`} alt="" />
+                  <button type="button" className="agent-attachment-remove" onClick={() => removePendingImage(idx)} aria-label={t('agent.removeImage')}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
           <textarea
             ref={inputRef}
             className="agent-input"
@@ -406,9 +561,17 @@ export default function AgentPage() {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
             disabled={streaming}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => { handleFilesSelected(e.target.files); if (e.target) e.target.value = ''; }}
+          />
           <div className="agent-composer-row">
             <div className="agent-composer-left">
-              <button className="agent-composer-btn" type="button" aria-label="Add">
+              <button className="agent-composer-btn" type="button" aria-label={t('agent.attachImage')} onClick={handlePickImages} title={t('agent.attachImage')}>
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                   <path d="M9 2.5v13M2.5 9h13" />
                 </svg>

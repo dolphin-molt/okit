@@ -265,6 +265,33 @@
   gap: 12px;
 }
 
+.settings-section-title--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-add-platform-select {
+  min-width: 180px;
+}
+
+.settings-add-platform-select .custom-select-trigger {
+  font-family: var(--font-base);
+  font-size: 13px;
+}
+
+.settings-platforms-empty {
+  grid-column: 1 / -1;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 13px;
+  border: 1.5px dashed var(--kraft-dark);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
 .settings-plat-card {
   background: var(--paper);
   border-radius: 8px;

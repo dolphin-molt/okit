@@ -156,7 +156,7 @@ body {
 }
 
 .nav-item:hover {
-  color: var(--ink);
+  color: var(--sidebar-fg);
   background: rgba(245, 243, 235, 0.055);
   border-color: rgba(245, 243, 235, 0.08);
 }
@@ -190,7 +190,7 @@ body {
 .sidebar-bottom-icon:hover,
 .sidebar-bottom-icon.active {
   background: rgba(245, 243, 235, 0.08);
-  color: var(--ink);
+  color: var(--sidebar-fg);
   border-color: rgba(245, 243, 235, 0.16);
 }
 
@@ -201,13 +201,15 @@ body {
 
 .nav-conv-item {
   border-radius: 7px;
-  color: rgba(245, 243, 235, 0.5);
+  color: var(--sidebar-fg);
+  opacity: 0.65;
 }
 
 .nav-conv-item.active,
 .nav-conv-item:hover {
   background: rgba(56, 189, 248, 0.08);
-  color: var(--ink);
+  color: var(--sidebar-fg);
+  opacity: 1;
 }
 
 .main-content {

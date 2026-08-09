@@ -134,7 +134,7 @@ async function buildPiModelRuntime(pi, agentCfg, apiKey) {
           id: agentCfg.model,
           name: agentCfg.model,
           reasoning: false,
-          input: ['text'],
+          input: ['text', 'image'],
           cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 1 },
           contextWindow: 64000,
           maxTokens: 8192,
@@ -492,6 +492,129 @@ async function agentChat(req, res) {
         },
       },
 
+      // ─── API Key 自动创建 ───
+      create_api_key: {
+        description: '自动创建指定平台的 API Key（需要 Chrome 扩展连接，需用户确认）。支持平台：cloudflare / volcengine / zhipu / minimax',
+        parameters: z.object({
+          platform: z.string().describe('平台ID：cloudflare / volcengine / zhipu / minimax'),
+          tokenName: z.string().describe('新密钥的名称'),
+          vaultKey: z.string().optional().describe('存入 Vault 时使用的密钥名（不填则用平台默认名）'),
+        }),
+        execute: async ({ platform, tokenName, vaultKey }) => {
+          const { autoCreateKey } = require('./auto-create');
+          const { isExtensionConnected } = require('./ws-extension');
+          const SUPPORTED = ['cloudflare', 'volcengine', 'zhipu', 'minimax'];
+          if (!SUPPORTED.includes(platform)) {
+            return JSON.stringify({ success: false, error: `不支持的平台 ${platform}，支持：${SUPPORTED.join(', ')}` });
+          }
+          if (!isExtensionConnected()) {
+            return JSON.stringify({ success: false, error: 'Chrome 扩展未连接，无法自动创建。请先安装并连接 OKIT Chrome 扩展。' });
+          }
+          sendEvent('confirm_required', { sessionId, action: '创建 API Key', target: `${platform}/${tokenName}`, reason: `即将通过 Chrome 扩展在 ${platform} 平台创建 API Key「${tokenName}」` });
+          const approved = await new Promise((resolve) => {
+            agentSessions.set(sessionId, { confirmResolve: resolve });
+          });
+          if (!approved) return JSON.stringify({ cancelled: true });
+
+          // Simulate req/res to reuse the existing Express handler
+          const fakeRes = { statusCode: 200, body: null, status(c) { this.statusCode = c; return this; }, json(d) { this.body = d; } };
+          try {
+            await autoCreateKey({ body: { platform, tokenName } }, fakeRes);
+          } catch (err) {
+            return JSON.stringify({ success: false, error: err.message || String(err) });
+          }
+          if (fakeRes.statusCode !== 200 || !fakeRes.body?.success) {
+            const body = fakeRes.body || {};
+            if (body.loginRequired) {
+              return JSON.stringify({ success: false, error: `${platform} 平台需要先登录，请在 Chrome 扩展控制的浏览器中完成登录后重试`, loginRequired: true });
+            }
+            return JSON.stringify({ success: false, error: body.error || body.message || `创建失败 (HTTP ${fakeRes.statusCode})` });
+          }
+
+          // Auto-store the created key into Vault
+          const createdValue = fakeRes.body.value;
+          const storeKey = vaultKey || `${platform.toUpperCase()}_${tokenName.toUpperCase().replace(/\s+/g, '_')}`;
+          try {
+            const { VaultStore } = require('../../vault/store');
+            const store = new VaultStore();
+            await store.set(storeKey, createdValue, platform);
+            return JSON.stringify({ success: true, platform, vaultKey: storeKey, name: fakeRes.body.name, message: `已创建并保存到 Vault（密钥名：${storeKey}）` });
+          } catch (err) {
+            // Key created but failed to save — return value so user can save manually
+            return JSON.stringify({ success: true, platform, name: fakeRes.body.name, value: createdValue, warning: `创建成功但保存到 Vault 失败：${err.message}。请手动保存此密钥值。` });
+          }
+        },
+      },
+
+      // ─── 密钥绑定到项目 ───
+      bind_key_to_project: {
+        description: '将密钥绑定到指定项目（写入项目的 .okitenv 文件，需用户确认）',
+        parameters: z.object({
+          projectPath: z.string().describe('项目根目录的绝对路径'),
+          keys: z.array(z.object({
+            key: z.string().describe('Vault 中的密钥名'),
+            alias: z.string().optional().describe('密钥别名（默认 default）'),
+          })).min(1).describe('要绑定的密钥列表'),
+        }),
+        execute: async ({ projectPath, keys }) => {
+          sendEvent('confirm_required', { sessionId, action: '绑定密钥到项目', target: projectPath, reason: `即将把 ${keys.length} 个密钥写入 ${projectPath}/.okitenv` });
+          const approved = await new Promise((resolve) => {
+            agentSessions.set(sessionId, { confirmResolve: resolve });
+          });
+          if (!approved) return JSON.stringify({ cancelled: true });
+          const { syncVaultToProject } = require('./vault');
+          const fakeRes = { statusCode: 200, body: null, status(c) { this.statusCode = c; return this; }, json(d) { this.body = d; } };
+          try {
+            await syncVaultToProject({ body: { keys, projectPath } }, fakeRes);
+          } catch (err) {
+            return JSON.stringify({ success: false, error: err.message || String(err) });
+          }
+          return JSON.stringify(fakeRes.body || { success: false, error: '未知错误' });
+        },
+      },
+
+      // ─── 云同步 ───
+      sync_push: {
+        description: '推送本地 Vault 密钥到云端同步平台（需用户确认。前提：已设置同步密码并启用同步平台）',
+        parameters: z.object({}),
+        execute: async () => {
+          sendEvent('confirm_required', { sessionId, action: '推送密钥到云端', target: 'sync-push', reason: '即将把本地所有密钥加密推送到云端同步平台' });
+          const approved = await new Promise((resolve) => {
+            agentSessions.set(sessionId, { confirmResolve: resolve });
+          });
+          if (!approved) return JSON.stringify({ cancelled: true });
+          const core = require('./cloud-sync-core');
+          try {
+            const result = await core.syncPush();
+            return JSON.stringify({ success: true, ...result });
+          } catch (err) {
+            return JSON.stringify({ success: false, error: err.message || String(err) });
+          }
+        },
+      },
+      sync_pull: {
+        description: '从云端同步平台拉取密钥到本地（需用户确认。前提：已设置同步密码并启用同步平台）',
+        parameters: z.object({}),
+        execute: async () => {
+          sendEvent('confirm_required', { sessionId, action: '从云端拉取密钥', target: 'sync-pull', reason: '即将从云端同步平台拉取密钥并合并到本地' });
+          const approved = await new Promise((resolve) => {
+            agentSessions.set(sessionId, { confirmResolve: resolve });
+          });
+          if (!approved) return JSON.stringify({ cancelled: true });
+          const core = require('./cloud-sync-core');
+          try {
+            const result = await core.syncPull();
+            return JSON.stringify({ success: true, ...result });
+          } catch (err) {
+            const msg = err.message || String(err);
+            if (/Unsupported state|AUTHENTICATION_FAILED/i.test(msg)) {
+              return JSON.stringify({ success: false, error: '同步密码不正确，无法解密远端数据' });
+            }
+            return JSON.stringify({ success: false, error: msg });
+          }
+        },
+      },
+
       // ─── 系统监控 ───
       get_system_info: {
         description: '获取系统信息：CPU、内存、磁盘、GPU',
@@ -623,18 +746,23 @@ async function agentChat(req, res) {
 你可以使用以下功能：
 - 工具管理：list_tools（查看工具列表）、install_tool（安装）、upgrade_tool（升级）、uninstall_tool（卸载）、open_app（打开应用）
 - 密钥管理：list_vault_keys（列出密钥）、get_vault_value（查看值）、set_vault_key（设置）、delete_vault_key（删除）
+- API Key 自动创建：create_api_key（支持 cloudflare/volcengine/zhipu/minimax，需 Chrome 扩展连接。创建后自动存入 Vault）
+- 密钥绑定项目：bind_key_to_project（将密钥写入项目 .okitenv 文件，实现项目级密钥注入）
+- 云同步：sync_push（推送到云端）、sync_pull（从云端拉取）
 - 系统监控：get_system_info（CPU/内存/磁盘）、get_disk_usage（目录占用）
 - 日志：get_logs（操作历史）
 - 设置：get_settings（查看配置）、update_settings（更新配置）
 
+当用户要求创建 API Key 时，优先使用 create_api_key 工具自动创建（支持智谱、火山引擎、Cloudflare、MiniMax）。如果 Chrome 扩展未连接，再告知用户需要先安装扩展。
+
 工作流程：
 1. 理解用户意图，判断需要执行哪些操作
 2. 先用查询类工具获取当前状态
-3. 然后执行操作，所有破坏性操作（安装/卸载/删除/修改）需要等待用户确认
+3. 然后执行操作，所有破坏性操作（安装/卸载/删除/修改/创建/同步）需要等待用户确认
 4. 汇报操作结果
 
 注意事项：
-- 安装/升级/卸载/删除/修改 操作都需要等待用户确认后才能执行
+- 安装/升级/卸载/删除/修改/创建/同步 操作都需要等待用户确认后才能执行
 - 密钥值在展示时已自动脱敏
 - 用中文回复
 - 回复简洁明了，使用 markdown 格式
@@ -706,12 +834,41 @@ async function agentChat(req, res) {
       });
 
       try {
+        // Extract images from the last user message (if any) and convert to
+        // Pi's ImageContent shape { type:'image', data, mimeType }.
+        const rawImages = Array.isArray(lastUserMsg?.images) ? lastUserMsg.images : [];
+        const piImages = rawImages
+          .filter(img => img && typeof img.data === 'string' && typeof img.mimeType === 'string')
+          .map(img => ({ type: 'image', data: img.data, mimeType: img.mimeType }));
+
         // Guard against Pi hanging (e.g. missing/invalid apiKey leaves the
         // model stream pending forever). Race the prompt against a timeout so
         // the frontend always receives a terminal event and can recover.
-        const promptPromise = session.prompt(historyPreamble + (lastUserMsg?.content || ''));
+        //
+        // The timeout is "soft" — it resets whenever a tool is awaiting user
+        // confirmation, so the user has unlimited time to confirm/reject.
+        const promptText = historyPreamble + (lastUserMsg?.content || '');
+        const promptPromise = piImages.length > 0
+          ? session.prompt(promptText, { images: piImages })
+          : session.prompt(promptText);
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Agent 响应超时(60s),请检查模型配置和 API Key')), 60000);
+          const baseTimeout = 60000;
+          let elapsed = 0;
+          const tick = () => {
+            // If a confirmation is pending, don't count toward timeout.
+            const sessionEntry = agentSessions.get(sessionId);
+            if (sessionEntry && sessionEntry.confirmResolve) {
+              elapsed = 0; // reset — user is deciding
+            } else {
+              elapsed += 5000;
+            }
+            if (elapsed >= baseTimeout) {
+              reject(new Error('Agent 响应超时(60s),请检查模型配置和 API Key'));
+            } else {
+              setTimeout(tick, 5000);
+            }
+          };
+          setTimeout(tick, 5000);
         });
         await Promise.race([promptPromise, timeoutPromise]);
       } catch (promptErr) {

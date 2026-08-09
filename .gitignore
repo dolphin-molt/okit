@@ -12,3 +12,10 @@ pnpm-debug.log*
 .okitenv
 src/web/public/
 *.tsbuildinfo
+
+# Tool / temp directories
+.workbuddy/
+.zcode/
+output/
+nul
+src/public/

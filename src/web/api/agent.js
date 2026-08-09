@@ -706,7 +706,17 @@ async function agentChat(req, res) {
       });
 
       try {
-        await session.prompt(historyPreamble + (lastUserMsg?.content || ''));
+        // Guard against Pi hanging (e.g. missing/invalid apiKey leaves the
+        // model stream pending forever). Race the prompt against a timeout so
+        // the frontend always receives a terminal event and can recover.
+        const promptPromise = session.prompt(historyPreamble + (lastUserMsg?.content || ''));
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Agent 响应超时(60s),请检查模型配置和 API Key')), 60000);
+        });
+        await Promise.race([promptPromise, timeoutPromise]);
+      } catch (promptErr) {
+        sendEvent('error', { message: promptErr.message || 'Agent 执行失败' });
+        sendEvent('done', null);
       } finally {
         unsubscribe();
         session.dispose();

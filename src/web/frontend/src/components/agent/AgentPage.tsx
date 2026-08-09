@@ -5,6 +5,7 @@ import { listProviders, type Provider } from '../../api/providers';
 import { renderMd } from '../../lib/markdown';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
+import { ThinkingOrb } from 'thinking-orbs';
 
 const DEFAULT_AGENT: AgentConfig = {
   provider: 'siliconflow',
@@ -21,6 +22,10 @@ export default function AgentPage() {
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [streamingBody, setStreamingBody] = useState<React.ReactElement[]>([]);
+  const [waitingConfirm, setWaitingConfirm] = useState(false);
+  const [orbState, setOrbState] = useState<'composing' | 'searching' | 'listening' | 'solving'>('composing');
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
   const [agentConfig, setAgentConfig] = useState<AgentConfig>(DEFAULT_AGENT);
   const [modelProviders, setModelProviders] = useState<Provider[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +45,17 @@ export default function AgentPage() {
   useEffect(() => {
     loadAgentConfig();
   }, []);
+
+  useEffect(() => {
+    if (!modelPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setModelPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [modelPickerOpen]);
 
   async function loadAgentConfig() {
     try {
@@ -90,6 +106,8 @@ export default function AgentPage() {
     setStreaming(true);
     setStreamingText('');
     setStreamingBody([]);
+    setWaitingConfirm(false);
+    setOrbState('composing');
     rawTextRef.current = '';
 
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -150,6 +168,7 @@ export default function AgentPage() {
       rawTextRef.current += data.content || '';
       setStreamingText(rawTextRef.current);
     } else if (type === 'tool_call') {
+      setOrbState('searching');
       rawTextRef.current = '';
       const toolLabels: Record<string, string> = {
         list_tools: t('agent.suggest.tools'), install_tool: t('common.install'), upgrade_tool: t('common.upgrade'), uninstall_tool: t('common.uninstall'), open_app: t('common.open'),
@@ -166,6 +185,7 @@ export default function AgentPage() {
       }
       setStreamingBody(prev => [...prev, <div key={prev.length} className="agent-tool-call"><span className="agent-tool-name">{label}</span><span className="agent-tool-args">{argsText}</span></div>]);
     } else if (type === 'tool_result') {
+      setOrbState('solving');
       setStreamingBody(prev => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -183,6 +203,8 @@ export default function AgentPage() {
         return next;
       });
     } else if (type === 'confirm_required') {
+      setWaitingConfirm(true);
+      setOrbState('listening');
       setStreamingBody(prev => [...prev,
         <div key={prev.length} className="agent-confirm">
           <div className="agent-confirm-msg">{data.action}: <code>{data.target}</code></div>
@@ -201,6 +223,8 @@ export default function AgentPage() {
   async function handleConfirm(approved: boolean, idx: number) {
     try {
       await agentConfirm(sessionIdRef.current || '', approved);
+      setWaitingConfirm(false);
+      setOrbState('solving');
       setStreamingBody(prev => {
         const next = [...prev];
         next[idx] = <div key={idx} className={approved ? 'agent-deleted' : 'agent-confirm-rejected'}>{approved ? t('agent.confirmed') : t('agent.rejected')}</div>;
@@ -284,11 +308,11 @@ export default function AgentPage() {
     ? [agentConfig.model, ...modelOptions]
     : modelOptions;
 
-  async function handleComposerModelChange(model: string) {
-    const next = { ...agentConfig, model };
+  async function handleComposerModelChange(model: string, providerId?: string) {
+    const next = { ...agentConfig, ...(providerId ? { provider: providerId } : {}), model };
     setAgentConfig(next);
     try {
-      await updateSettings({ agent: { model } });
+      await updateSettings({ agent: { ...(providerId ? { provider: providerId } : {}), model } });
       showToast(t('common.success'));
     } catch {
       showToast(t('settings.saveFail'), 'error');
@@ -298,10 +322,6 @@ export default function AgentPage() {
   return (
     <div className="agent-page">
       <div className="agent-topbar">
-        <div>
-          <div className="agent-kicker">{t('agent.kicker')}</div>
-          <h1>{t('agent.title')}</h1>
-        </div>
         <div className="agent-live-chip">
           <span />
           {t('agent.mode')}
@@ -350,6 +370,19 @@ export default function AgentPage() {
             </div>
           );
         })}
+        {streaming && !streamingText && streamingBody.length === 0 && (
+          <div className="agent-msg agent-msg-assistant agent-thinking">
+            <div className="agent-msg-body agent-thinking-body">
+              <ThinkingOrb state={orbState} size={20} speed={1.2} />
+              <span className="agent-thinking-label">{
+                orbState === 'listening' ? t('agent.waitingConfirm')
+                : orbState === 'searching' ? t('agent.searching')
+                : orbState === 'solving' ? t('agent.processing')
+                : t('agent.thinking')
+              }</span>
+            </div>
+          </div>
+        )}
         {streaming && (streamingText || streamingBody.length > 0) && (
           <div className="agent-msg agent-msg-assistant">
             <div className="agent-msg-body">
@@ -376,27 +409,51 @@ export default function AgentPage() {
           <div className="agent-composer-row">
             <div className="agent-composer-left">
               <button className="agent-composer-btn" type="button" aria-label="Add">
-                <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                   <path d="M9 2.5v13M2.5 9h13" />
                 </svg>
               </button>
-                <label className="agent-model-switch">
-                  <span>{currentProvider?.name || agentConfig.provider}</span>
-                  <select
-                  value={agentConfig.model || ''}
-                  onChange={e => handleComposerModelChange(e.target.value)}
-                  disabled={composerModels.length === 0}
+              <div className="agent-model-picker" ref={modelPickerRef}>
+                <button
+                  type="button"
+                  className="agent-model-trigger"
+                  onClick={() => setModelPickerOpen(o => !o)}
                 >
-                  {composerModels.length === 0 && <option value="">{agentConfig.model || 'Model'}</option>}
-                  {composerModels.map(model => (
-                    <option key={model} value={model}>{model}</option>
-                  ))}
-                </select>
-              </label>
+                  {agentConfig.model || 'Model'}
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4 }}>
+                    <path d="M3 4.5L6 7.5L9 4.5" />
+                  </svg>
+                </button>
+                {modelPickerOpen && (
+                  <div className="agent-model-popover">
+                    {modelProviders.map(p => {
+                      const models = (p.models || []).map(m => m.id);
+                      if (models.length === 0) return null;
+                      return (
+                        <div key={p.id} className="agent-model-group">
+                          <div className="agent-model-group-title">{p.name || p.id}</div>
+                          <div className="agent-model-items">
+                            {models.map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                className={`agent-model-item ${agentConfig.provider === p.id && agentConfig.model === m ? 'active' : ''}`}
+                                onClick={() => { handleComposerModelChange(m, p.id); setModelPickerOpen(false); }}
+                              >
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="agent-composer-right">
               <button className="agent-send-btn" onClick={sendMessage} disabled={streaming || !input.trim()} aria-label={t('agent.send')}>
-                <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 15V3" />
                   <path d="M4 8l5-5 5 5" />
                 </svg>

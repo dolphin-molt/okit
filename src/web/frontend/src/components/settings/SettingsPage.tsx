@@ -255,10 +255,6 @@ export default function SettingsPage() {
   return (
     <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
       <header className="access-hero settings-hero">
-        <div className="access-hero-copy">
-          <h1>{t('settings.title')}</h1>
-          <p>{t('settings.lede')}</p>
-        </div>
         <div className="access-hero-stats" aria-label="Settings summary">
           <div><span>{t('settings.enabledPlatforms')}</span><strong>{enabledPlatformCount}</strong></div>
           <div><span>{t('settings.vaultKeys')}</span><strong>{vaultKeys.length}</strong></div>

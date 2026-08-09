@@ -677,14 +677,6 @@ select:focus {
   background: var(--accent);
 }
 
-.sidebar--collapsed .sidebar-brand {
-  padding: 16px 10px;
-}
-
-.sidebar--collapsed .brand-shape {
-  position: static;
-}
-
 .cat-group-header,
 .cat-item {
   border-color: rgba(245, 243, 235, 0.08);
@@ -723,18 +715,6 @@ select:focus {
 @media (max-width: 768px) {
   .sidebar {
     border-right-color: rgba(245, 243, 235, 0.08);
-  }
-
-  .brand-shape {
-    display: block;
-    width: 34px;
-    height: 34px;
-  }
-
-  .sidebar-brand {
-    display: flex;
-    justify-content: center;
-    padding: 14px 8px;
   }
 
   .main-content {
@@ -906,7 +886,6 @@ select:focus {
   scrollbar-color: rgba(23, 32, 29, 0.18) transparent;
 }
 
-[data-theme="light"] .access-hero,
 [data-theme="light"] .access-command-bar,
 [data-theme="light"] .tool-card,
 [data-theme="light"] .log-table-wrap,
@@ -933,11 +912,6 @@ select:focus {
   border-color: rgba(23, 32, 29, 0.1);
   background: rgba(255,255,255,0.9);
   box-shadow: 0 14px 42px rgba(31, 41, 35, 0.07);
-}
-
-[data-theme="light"] .access-hero-stats div {
-  border-color: rgba(23, 32, 29, 0.1);
-  background: rgba(255,255,255,0.82);
 }
 
 [data-theme="light"] .access-hero-copy p,
@@ -1039,7 +1013,6 @@ select:focus {
 [data-theme="dark"] .cleanup-item,
 [data-theme="dark"] .duplicate-group,
 [data-theme="dark"] .agent-message,
-[data-theme="dark"] .access-hero,
 [data-theme="dark"] .access-command-bar {
   border-color: rgba(245, 243, 235, 0.18);
   background:
@@ -1400,38 +1373,6 @@ select:focus {
     #fbfaf5;
 }
 
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-section {
-  border-color: rgba(23, 32, 29, 0.08);
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: none;
-  backdrop-filter: blur(10px);
-}
-
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-title {
-  border-bottom-color: transparent;
-  color: #0284c7;
-}
-
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item {
-  border-radius: 8px;
-  color: rgba(23, 32, 29, 0.66);
-}
-
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item:hover {
-  background: rgba(224, 242, 254, 0.42);
-  color: #0f172a;
-}
-
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-item.active {
-  border-color: transparent;
-  background: rgba(234, 255, 111, 0.42);
-  color: #111816;
-}
-
-[data-theme="light"] .page-with-sidebar:has(.vault-workspace) .page-sidebar-count {
-  color: rgba(23, 32, 29, 0.34);
-}
-
 [data-theme="light"] .page-sidebar-title,
 [data-theme="light"] .cat-sidebar-title {
   color: #0284c7;
@@ -1646,7 +1587,6 @@ select:focus {
   color: #111816;
 }
 
-[data-theme="light"] .vault-workspace .vault-hero,
 [data-theme="light"] .vault-workspace .vault-command-bar,
 [data-theme="light"] .vault-workspace .vault-search,
 [data-theme="light"] .vault-workspace .vault-view-switch {
@@ -1658,16 +1598,12 @@ select:focus {
   box-shadow: 0 16px 44px rgba(31, 41, 35, 0.07);
 }
 
-[data-theme="light"] .vault-workspace .vault-hero h1,
-[data-theme="light"] .vault-workspace .vault-hero-stats strong,
 [data-theme="light"] .vault-workspace .vault-group-name,
 [data-theme="light"] .agent-current-active,
 [data-theme="light"] .agent-current-active strong {
   color: #111816;
 }
 
-[data-theme="light"] .vault-workspace .vault-hero p,
-[data-theme="light"] .vault-workspace .vault-hero-stats span,
 [data-theme="light"] .vault-workspace .vault-group-count,
 [data-theme="light"] .agent-current-none,
 [data-theme="light"] .agent-current-sep,
@@ -1776,7 +1712,6 @@ select:focus {
   color: #f5f3eb;
 }
 
-[data-theme="light"] .vault-workspace .vault-hero-stats > div,
 [data-theme="light"] .agent-current-row,
 [data-theme="light"] .models-workspace .model-item {
   border-color: rgba(23, 32, 29, 0.1);

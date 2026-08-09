@@ -58,10 +58,6 @@ export default function AuthPage() {
   return (
     <div className="access-workspace auth-workspace">
       <header className="access-hero">
-        <div className="access-hero-copy">
-          <h1>{t('auth.title')}</h1>
-          <p>{t('auth.lede')}</p>
-        </div>
         <div className="access-hero-stats" aria-label="Authorization summary">
           <div><span>{t('common.authorized')}</span><strong>{authorized.length}</strong></div>
           <div><span>{t('auth.needsAuth')}</span><strong>{unauthorized.length}</strong></div>

@@ -96,10 +96,6 @@ export default function LogsPage() {
   return (
     <div className="access-workspace logs-workspace">
       <header className="access-hero">
-        <div className="access-hero-copy">
-          <h1>{t('logs.title')}</h1>
-          <p>{t('logs.lede')}</p>
-        </div>
         <div className="access-hero-stats" aria-label="Log summary">
           <div><span>{t('common.total')}</span><strong>{logs.length}</strong></div>
           <div><span>{t('logs.failed')}</span><strong>{logStats.failed}</strong></div>

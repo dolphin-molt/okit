@@ -1,196 +1,218 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getTools, Tool } from '../../api/tools';
-import { listVault, VaultSecret } from '../../api/vault';
-import { getAdapters, listProviders, AgentInfo, Provider } from '../../api/providers';
-import { getLogs, LogEntry } from '../../api/logs';
-import { getSyncStatus } from '../../api/sync';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getTools } from '../../api/tools';
+import { listVault } from '../../api/vault';
+import { getAdapters } from '../../api/providers';
+import { getSyncStatus, pushSync, pullSync } from '../../api/sync';
 import { useI18n } from '../../i18n';
+import { useApp } from '../Layout/AppContext';
+import VaultFormModal from '../shared/VaultFormModal';
 
-interface HomeState {
-  tools: Tool[];
+interface QuickState {
+  tools: any[];
   toolSummary: Record<string, number>;
-  secrets: VaultSecret[];
-  providers: Provider[];
-  adapters: AgentInfo[];
-  logs: LogEntry[];
-  sync: { machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean } | null;
+  secrets: any[];
+  adapters: any[];
+  sync: any;
   loading: boolean;
 }
 
-const emptyState: HomeState = {
-  tools: [],
-  toolSummary: {},
-  secrets: [],
-  providers: [],
-  adapters: [],
-  logs: [],
-  sync: null,
-  loading: true,
-};
+const empty: QuickState = { tools: [], toolSummary: {}, secrets: [], adapters: [], sync: null, loading: true };
 
-function formatTime(value?: string | number, lang: 'zh' | 'en' = 'zh') {
+function formatTime(value?: string | number | null, lang: 'zh' | 'en' = 'zh') {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function StatusPill({ tone, children }: { tone: 'good' | 'warn' | 'idle'; children: React.ReactNode }) {
-  return <span className={`home-pill home-pill--${tone}`}>{children}</span>;
-}
-
 export default function HomePage() {
   const { t, lang } = useI18n();
-  const [state, setState] = useState<HomeState>(emptyState);
+  const { showToast } = useApp();
+  const navigate = useNavigate();
+  const [state, setState] = useState<QuickState>(empty);
+  const [showVaultForm, setShowVaultForm] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  async function loadData(refresh = false) {
+  const loadData = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true }));
-    const [toolsResult, vaultResult, providersResult, adaptersResult, logsResult, syncResult] = await Promise.allSettled([
-      getTools(refresh),
-      listVault(),
-      listProviders(),
-      getAdapters(),
-      getLogs(),
-      getSyncStatus(),
-    ]);
+    try {
+      const [toolsR, vaultR, adaptersR, syncR] = await Promise.allSettled([
+        getTools(false, lang),
+        listVault(),
+        getAdapters(),
+        getSyncStatus(),
+      ]);
+      setState({
+        tools: toolsR.status === 'fulfilled' ? toolsR.value.tools : [],
+        toolSummary: toolsR.status === 'fulfilled' ? toolsR.value.summary : {},
+        secrets: vaultR.status === 'fulfilled' ? (vaultR.value as any).secrets || vaultR.value : [],
+        adapters: adaptersR.status === 'fulfilled' ? (adaptersR.value as any).adapters : [],
+        sync: syncR.status === 'fulfilled' ? syncR.value : null,
+        loading: false,
+      });
+    } catch (e) {
+      setState(prev => ({ ...prev, loading: false }));
+    }
+  }, [lang]);
 
-    const toolsPayload = toolsResult.status === 'fulfilled' ? toolsResult.value : { tools: [], summary: {} };
+  useEffect(() => { loadData(); }, [loadData]);
 
-    setState({
-      tools: toolsPayload.tools,
-      toolSummary: toolsPayload.summary,
-      secrets: vaultResult.status === 'fulfilled' ? vaultResult.value.secrets : [],
-      providers: providersResult.status === 'fulfilled' ? providersResult.value.providers : [],
-      adapters: adaptersResult.status === 'fulfilled' ? adaptersResult.value.adapters : [],
-      logs: logsResult.status === 'fulfilled' ? logsResult.value.slice(0, 5) : [],
-      sync: syncResult.status === 'fulfilled' ? syncResult.value : null,
-      loading: false,
-    });
+  const installedCount = state.toolSummary.installed ?? 0;
+  const totalCount = state.tools.length;
+  const needsAuth = state.tools.filter((tool: any) => tool.status === 'installed' && tool.authRequired && tool.authStatus !== 'authorized').slice(0, 5);
+  const recentKeys = state.secrets.slice(0, 3);
+  const configuredAgents = state.adapters.filter((a: any) => a.current);
+
+  async function handlePush() {
+    setSyncing(true);
+    try {
+      const res = await pushSync();
+      showToast(res.success ? (res.message || t('home.syncDone')) : t('home.syncFail'), res.success ? 'success' : 'error');
+      loadData();
+    } catch { showToast(t('home.syncFail'), 'error'); }
+    setSyncing(false);
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  async function handlePull() {
+    setSyncing(true);
+    try {
+      const res = await pullSync();
+      showToast(res.success ? (res.message || t('home.syncDone')) : t('home.syncFail'), res.success ? 'success' : 'error');
+      loadData();
+    } catch { showToast(t('home.syncFail'), 'error'); }
+    setSyncing(false);
+  }
 
-  const computed = useMemo(() => {
-    const installed = state.toolSummary.installed ?? state.tools.filter(tool => tool.status === 'installed').length;
-    const authIssues = state.tools.filter(tool => tool.authRequired && tool.authStatus !== 'authorized').length;
-    const configuredAgents = state.adapters.filter(adapter => adapter.current).length;
+  function handleVaultSaved(key: string) {
+    if (key) { showToast(t('vault.keyAdded')); loadData(); }
+    setShowVaultForm(false);
+  }
 
-    return {
-      installed,
-      authIssues,
-      configuredAgents,
-      totalKeys: state.secrets.length,
-      lastLog: state.logs[0],
-    };
-  }, [state]);
+  if (state.loading) return <div className="quick-start-page"><p style={{ padding: 40 }}>{t('common.loading')}</p></div>;
 
   return (
-    <div className="home-page">
-      <header className="home-hero">
-        <div>
-          <p className="home-kicker">$ okit access status</p>
-          <h1>{t('home.title')}</h1>
-          <p className="home-lede">{t('home.lede')}</p>
-        </div>
-      </header>
+    <div className="quick-start-page">
+      <h2 className="quick-start-title">{t('home.quickStart')}</h2>
 
-      <section className="home-stat-grid" aria-label="Runtime overview">
-        <article className="home-stat-card">
-          <span>{t('home.toolHealth')}</span>
-          <strong>{computed.installed}<small>/{state.tools.length || 0}</small></strong>
-          <p>{computed.authIssues > 0 ? t('home.toolHealth.issues', { n: computed.authIssues }) : t('home.toolHealth.ok')}</p>
-        </article>
-        <article className="home-stat-card">
-          <span>{t('home.vault')}</span>
-          <strong>{state.secrets.length}<small> {t('home.keys')}</small></strong>
-          <p>{t('home.vault.desc', { n: computed.totalKeys })}</p>
-        </article>
-        <article className="home-stat-card">
-          <span>{t('home.modelAccess')}</span>
-          <strong>{state.providers.length}<small> {t('home.providers')}</small></strong>
-          <p>{t('home.modelAccess.desc', { n: computed.configuredAgents })}</p>
-        </article>
-        <article className="home-stat-card">
-          <span>{t('home.cloudSync')}</span>
-          <strong>{state.sync?.platformId || 'off'}</strong>
-          <p>{state.sync?.lastSyncAt ? t('home.cloudSync.last', { time: formatTime(state.sync.lastSyncAt, lang) }) : t('home.cloudSync.desc')}</p>
-        </article>
-      </section>
-
-      <section className="home-grid">
-        <article className="home-panel home-panel--runtime">
-          <div className="home-panel-head">
-            <div>
-              <span>{t('home.accessChecklist')}</span>
-              <h2>{t('home.accessState')}</h2>
-            </div>
-            <button className="btn-refresh" onClick={() => loadData(true)} title={t('common.refresh')}>↻</button>
+      <div className="quick-start-grid">
+        {/* ① 工具健康扫描 */}
+        <article className="qs-card qs-card--tools">
+          <div className="qs-card-head">
+            <span className="qs-card-icon">🔧</span>
+            <h3>{t('home.scanTools')}</h3>
           </div>
-          <div className="home-check-list">
-            <div>
-              <StatusPill tone={state.tools.length ? 'good' : 'idle'}>{state.tools.length ? t('home.ready') : t('home.empty')}</StatusPill>
-              <span>{t('home.check.tools')}</span>
-              <b>{state.tools.length || 0}</b>
+          <div className="qs-stat-row">
+            <div className="qs-stat">
+              <strong>{installedCount}<small>/{totalCount}</small></strong>
+              <span>{t('common.installed')}</span>
             </div>
-            <div>
-              <StatusPill tone={state.secrets.length ? 'good' : 'warn'}>{state.secrets.length ? t('home.sealed') : t('home.missing')}</StatusPill>
-              <span>{t('home.check.vault')}</span>
-              <b>{state.secrets.length}</b>
-            </div>
-            <div>
-              <StatusPill tone={state.providers.length ? 'good' : 'idle'}>{state.providers.length ? t('home.routed') : t('home.empty')}</StatusPill>
-              <span>{t('home.check.models')}</span>
-              <b>{state.providers.length}</b>
-            </div>
-            <div>
-              <StatusPill tone={state.sync?.platformId ? 'good' : 'idle'}>{state.sync?.platformId ? t('home.online') : t('home.local')}</StatusPill>
-              <span>{t('home.check.sync')}</span>
-              <b>{state.sync?.platformId || '-'}</b>
-            </div>
-          </div>
-        </article>
-
-        <article className="home-panel">
-          <div className="home-panel-head">
-            <div>
-              <span>{t('home.quickActions')}</span>
-              <h2>{t('home.quickActions.title')}</h2>
-            </div>
-          </div>
-          <div className="home-actions">
-            <Link to="/tools">{t('home.action.tools')}</Link>
-            <Link to="/vault">{t('home.action.vault')}</Link>
-            <Link to="/models">{t('home.action.models')}</Link>
-            <Link to="/agent">{t('home.action.agent')}</Link>
-          </div>
-        </article>
-
-        <article className="home-panel">
-          <div className="home-panel-head">
-            <div>
-              <span>{t('home.recent')}</span>
-              <h2>{t('home.recent.title')}</h2>
-            </div>
-            <Link to="/logs" className="home-subtle-link">{t('home.viewAll')}</Link>
-          </div>
-          <div className="home-log-list">
-            {state.logs.length === 0 && <div className="home-empty">{t('home.noLogs')}</div>}
-            {state.logs.map((log, index) => (
-              <div className="home-log-row" key={`${log.timestamp}-${index}`}>
-                <i className={log.success ? 'success' : 'failed'} />
-                <div>
-                  <strong>{log.action || log.name}</strong>
-                  <span>{log.name}</span>
-                </div>
-                <time>{formatTime(log.timestamp, lang)}</time>
+            {needsAuth.length > 0 && (
+              <div className="qs-stat qs-stat--warn">
+                <strong>{state.toolSummary.unauthorized ?? needsAuth.length}</strong>
+                <span>{t('home.needsAuth')}</span>
               </div>
-            ))}
+            )}
           </div>
+          {needsAuth.length > 0 && (
+            <div className="qs-list">
+              {needsAuth.map((tool: any) => (
+                <div key={tool.id} className="qs-list-item" onClick={() => navigate('/tools')}>
+                  <span>{tool.name}</span>
+                  <span className="qs-list-tag">{t('home.needsAuth')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/tools" className="qs-link">{t('home.viewAll')} →</Link>
         </article>
-      </section>
+
+        {/* ② 快速添加密钥 */}
+        <article className="qs-card qs-card--vault">
+          <div className="qs-card-head">
+            <span className="qs-card-icon">🔑</span>
+            <h3>{t('home.quickAddKey')}</h3>
+          </div>
+          <button className="qs-btn qs-btn--primary" onClick={() => setShowVaultForm(true)}>
+            + {t('home.addApiKey')}
+          </button>
+          {recentKeys.length > 0 && (
+            <div className="qs-list">
+              {recentKeys.map((s: any) => (
+                <div key={s.key} className="qs-list-item">
+                  <span>{s.key}</span>
+                  {s.group && <span className="qs-list-tag">{s.group}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/vault" className="qs-link">{t('home.manageKeys')} →</Link>
+        </article>
+
+        {/* ③ 云同步 */}
+        <article className="qs-card qs-card--sync">
+          <div className="qs-card-head">
+            <span className="qs-card-icon">☁</span>
+            <h3>{t('home.cloudSync')}</h3>
+          </div>
+          <div className="qs-sync-status">
+            <div className="qs-stat">
+              <strong>{state.sync?.platformId || 'off'}</strong>
+              <span>{t('home.syncPlatform')}</span>
+            </div>
+            <div className="qs-sync-time">
+              {state.sync?.lastSyncAt
+                ? t('home.syncLast', { time: formatTime(state.sync.lastSyncAt, lang) })
+                : t('home.syncNever')}
+            </div>
+          </div>
+          <div className="qs-btn-row">
+            <button className="qs-btn" onClick={handlePush} disabled={syncing || !state.sync?.platformId}>
+              {syncing ? '...' : t('home.syncPush')}
+            </button>
+            <button className="qs-btn" onClick={handlePull} disabled={syncing || !state.sync?.platformId}>
+              {syncing ? '...' : t('home.syncPull')}
+            </button>
+          </div>
+          <Link to="/settings" className="qs-link">{t('home.syncSettings')} →</Link>
+        </article>
+      </div>
+
+      {/* ④ 快速配置 Agent */}
+      <article className="qs-card qs-card--agents">
+        <div className="qs-card-head">
+          <span className="qs-card-icon">🤖</span>
+          <h3>{t('home.quickConfigAgent')}</h3>
+          <span className="qs-agent-summary">
+            {t('home.agentConfigured', { n: configuredAgents.length, total: state.adapters.length })}
+          </span>
+        </div>
+        <div className="qs-agent-grid">
+          {state.adapters.map((agent: any) => (
+            <div key={agent.id} className={`qs-agent-item${!agent.current ? ' qs-agent-item--warn' : ''}`}>
+              <div className="qs-agent-info">
+                <span className="qs-agent-name">{agent.name}</span>
+                <span className="qs-agent-model">
+                  {agent.current
+                    ? `${agent.current.modelId} @ ${agent.current.providerName}`
+                    : t('home.notConfigured')}
+                </span>
+              </div>
+              <Link to="/agents" className={`qs-btn qs-btn--sm${!agent.current ? ' qs-btn--primary' : ''}`}>
+                {agent.current ? t('home.reconfig') : t('home.selectModel')}
+              </Link>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      {showVaultForm && (
+        <VaultFormModal
+          groups={[]}
+          onClose={() => setShowVaultForm(false)}
+          onSaved={handleVaultSaved}
+        />
+      )}
     </div>
   );
 }

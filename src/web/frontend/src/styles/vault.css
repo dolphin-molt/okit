@@ -210,7 +210,7 @@
 .vault-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 /* ─── Vault Groups ─── */
@@ -880,6 +880,152 @@
 
 /* vault-hero removed — vault page no longer uses a hero/sidebar layout */
 
+/* ─── Vault Header（左上视图切换 + 右上统计卡片）─── */
+.vault-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 10px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+}
+.vault-workspace .view-switcher {
+  display: inline-flex;
+  border-radius: 8px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  gap: 2px;
+}
+.vault-workspace .view-switcher-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--ink-light);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.vault-workspace .view-switcher-btn:hover { color: var(--ink); }
+.vault-workspace .view-switcher-btn--active {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .vault-workspace .view-switcher { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .vault-workspace .view-switcher-btn--active { background: var(--paper); color: var(--ink); }
+
+.vault-header-stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.vault-stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--paper);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  min-width: 72px;
+}
+.vault-stat-chip-value {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.vault-stat-chip-label {
+  font-size: 11px;
+  color: var(--ink-light);
+  margin-top: 2px;
+}
+.vault-stat-chip--success .vault-stat-chip-value { color: var(--green); }
+.vault-stat-chip--success { border-color: rgba(22, 163, 74, 0.25); }
+.vault-stat-chip--muted .vault-stat-chip-value { color: var(--ink-light); }
+
+[data-theme="dark"] .vault-stat-chip { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .vault-stat-chip-value { color: var(--ink); }
+
+/* ─── 分组筛选 chip 区（替代原左侧栏分组导航）─── */
+.vault-filter-bar {
+  padding: 4px 0 12px;
+  border-bottom: 0.5px dashed rgba(0, 0, 0, 0.08);
+}
+.vault-filter-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 28px;
+}
+.vault-filter-section-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.vault-filter-section-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.vault-filter-chip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 0.5px solid rgba(0, 0, 0, 0.1);
+  background: transparent;
+  color: var(--ink-light);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vault-filter-chip:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+}
+.vault-filter-chip--active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.vault-chip-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 3px;
+  color: var(--ink-muted);
+  font-weight: normal;
+}
+
+/* 深色模式 */
+[data-theme="dark"] .vault-filter-chip {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--ink-light);
+}
+[data-theme="dark"] .vault-filter-chip--active {
+  background: var(--ink);
+  color: var(--kraft);
+}
+[data-theme="dark"] .vault-chip-count {
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .vault-filter-bar {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
 .vault-secret-tags span,
 .vault-project-empty {
   color: rgba(245, 243, 235, 0.48);
@@ -891,7 +1037,7 @@
 
 .vault-command-bar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  grid-template-columns: minmax(120px, 1fr) auto auto auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border);
@@ -1012,15 +1158,20 @@
 
 .vault-workspace .vault-card.vault-secret-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(104px, 0.56fr) 92px 136px;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(100px, 0.9fr) minmax(80px, 0.56fr) auto auto;
   gap: 12px;
   align-items: center;
   min-height: 86px;
   padding: 16px;
   border-radius: 12px;
+  overflow: hidden;
   background:
     linear-gradient(90deg, rgba(239, 255, 97, 0.045), transparent 30%),
     rgba(18, 23, 21, 0.82);
+}
+
+.vault-workspace .vault-card.vault-secret-row > * {
+  min-width: 0;
 }
 
 .vault-secret-main {
@@ -1256,18 +1407,38 @@
   font-size: 12px;
 }
 
-@media (max-width: 1180px) {
-  .vault-command-bar,
+/* 卡片在中等宽度收缩次要列，避免时间和按钮溢出 */
+@media (max-width: 900px) {
+  .vault-workspace .vault-card.vault-secret-row {
+    grid-template-columns: minmax(80px, 1fr) minmax(60px, 0.8fr) minmax(50px, 0.4fr) auto auto;
+    gap: 8px;
+    padding: 12px;
+  }
+  .vault-workspace .vault-card.vault-secret-row > * {
+    min-width: 0;
+  }
+  .vault-workspace .vault-card.vault-secret-row .vault-key {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 760px) {
+  .vault-command-bar {
+    grid-template-columns: 1fr;
+  }
+
   .vault-workspace .vault-card.vault-secret-row {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
   }
 
   .vault-workspace .vault-card-actions {
     justify-content: flex-start;
   }
-}
 
-@media (max-width: 760px) {
   .vault-project-list {
     grid-template-columns: 1fr;
   }

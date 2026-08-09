@@ -102,10 +102,6 @@ export default function MonitorPage() {
   return (
     <div className="access-workspace monitor-workspace">
       <header className="access-hero">
-        <div className="access-hero-copy">
-          <h1>{t('monitor.title')}</h1>
-          <p>{t('monitor.lede')}</p>
-        </div>
         <div className="access-hero-stats" aria-label="System monitor summary">
           <div><span>{t('monitor.cpu')}</span><strong>{cpu.usage}%</strong></div>
           <div><span>{t('monitor.memory')}</span><strong>{memPct}%</strong></div>

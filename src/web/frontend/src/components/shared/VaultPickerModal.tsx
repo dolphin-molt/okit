@@ -3,11 +3,11 @@ import { api } from '../../api/client';
 import { setVault } from '../../api/vault';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
-import { flattenVaultAliasOptions, formatVaultReference } from '../../lib/vaultRefs';
 
 interface TestEndpoint {
   baseUrl: string;
   type: string;
+  protocol?: string;
 }
 
 interface VaultPickerModalProps {
@@ -24,7 +24,6 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newKey, setNewKey] = useState('');
-  const [newAlias, setNewAlias] = useState('default');
   const [newGroup, setNewGroup] = useState('');
   const [newGroupCustom, setNewGroupCustom] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -59,22 +58,19 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
     const q = search.toLowerCase();
     return source.filter(s =>
       s.key.toLowerCase().includes(q) ||
-      (s.aliases || []).some((alias: any) => (alias.alias || '').toLowerCase().includes(q)) ||
       (s.group || '').toLowerCase().includes(q)
     );
   }, [secrets, groups, activeGroup, search]);
-
-  const aliasOptions = useMemo(() => flattenVaultAliasOptions(filtered), [filtered]);
 
   async function handleCreate() {
     if (!newKey.trim() || !newValue.trim()) return;
     setCreating(true);
     try {
       const group = newGroup === '__custom__' ? newGroupCustom.trim() : newGroup.trim();
-      await setVault({ key: newKey.trim(), alias: newAlias.trim() || 'default', value: newValue.trim(), group: group || undefined });
+      await setVault({ key: newKey.trim(), value: newValue.trim(), group: group || undefined });
       await new Promise(r => setTimeout(r, 100));
       reload();
-      onSelect(formatVaultReference(newKey.trim(), newAlias.trim() || 'default'));
+      onSelect(newKey.trim());
       resetCreate();
     } catch {}
     setCreating(false);
@@ -87,7 +83,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
     try {
       const res = await api('/api/vault/test-key', {
         method: 'POST',
-        body: JSON.stringify({ baseUrl: testEndpoint.baseUrl, type: testEndpoint.type, keyValue: newValue.trim() }),
+        body: JSON.stringify({ baseUrl: testEndpoint.baseUrl, type: testEndpoint.type, protocol: testEndpoint.protocol, keyValue: newValue.trim() }),
       }) as any;
       setTestResult({ success: res.success, message: res.message });
     } catch (err: any) {
@@ -99,7 +95,6 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   function resetCreate() {
     setShowCreate(false);
     setNewKey('');
-    setNewAlias('default');
     setNewGroup('');
     setNewGroupCustom('');
     setNewValue('');
@@ -156,19 +151,16 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
               {filtered.length === 0 && !showCreate && (
                 <div className="vault-picker-empty">{t('vaultPicker.noMatch')}</div>
               )}
-              {aliasOptions.map(option => (
+              {filtered.map(s => (
                 <div
-                  key={option.reference}
-                  className={`vault-picker-item${selected === option.reference ? ' active' : ''}`}
-                  onClick={() => onSelect(option.reference)}
+                  key={s.key}
+                  className={`vault-picker-item${selected === s.key ? ' active' : ''}`}
+                  onClick={() => onSelect(s.key)}
                 >
                   <div className="vault-picker-item-top">
-                    <span className="vault-picker-item-key">{option.key}</span>
-                    {option.group && <span className="vault-picker-item-group">{option.group}</span>}
+                    <span className="vault-picker-item-key">{s.key}</span>
+                    {s.group && <span className="vault-picker-item-group">{s.group}</span>}
                   </div>
-                  {option.alias && (
-                    <span className="vault-picker-item-alias">{option.alias}</span>
-                  )}
                 </div>
               ))}
             </div>
@@ -185,16 +177,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                   />
                 </label>
                 <div className="vault-picker-create-row">
-                  <label className="vault-picker-create-field">
-                    <span className="vault-picker-create-label">{t('common.alias')}</span>
-                    <input
-                      className="vault-input vault-picker-create-input"
-                      placeholder="default"
-                      value={newAlias}
-                      onChange={e => setNewAlias(e.target.value)}
-                    />
-                  </label>
-                  <label className="vault-picker-create-field">
+                  <label className="vault-picker-create-field vault-picker-create-field--span">
                     <span className="vault-picker-create-label">{t('common.selectGroup')}</span>
                     <CustomSelect
                       className="vault-picker-create-select"

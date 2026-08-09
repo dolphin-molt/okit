@@ -13,28 +13,26 @@ export async function listVault(): Promise<{ secrets: VaultSecret[] }> {
   return api('/api/vault');
 }
 
-export async function getVaultValue(key: string, alias = 'default'): Promise<{ value: string }> {
-  return api(`/api/vault/value?key=${encodeURIComponent(key)}&alias=${encodeURIComponent(alias)}`);
+export async function getVaultValue(key: string): Promise<{ value: string }> {
+  return api(`/api/vault/value?key=${encodeURIComponent(key)}&alias=default`);
 }
 
 export async function setVault(data: {
   key: string;
-  alias: string;
   value: string;
   group?: string;
   originalKey?: string;
-  originalAlias?: string;
 }): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, alias: 'default' }),
   });
 }
 
-export async function deleteVault(key: string, alias = 'default'): Promise<{ success: boolean }> {
+export async function deleteVault(key: string): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'DELETE',
-    body: JSON.stringify({ key, alias }),
+    body: JSON.stringify({ key, alias: 'default' }),
   });
 }
 

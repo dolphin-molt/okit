@@ -70,7 +70,7 @@ export default function OnboardingPage() {
     let keysOk = 0;
     for (const k of selectedPreset.requiredKeys) {
       try {
-        const res = await setVault({ key: k.key, alias: 'default', value: keyValues[k.key].trim() });
+        const res = await setVault({ key: k.key, value: keyValues[k.key].trim() });
         if ((res as any).success) keysOk++;
       } catch {}
     }

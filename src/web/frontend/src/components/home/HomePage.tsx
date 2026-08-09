@@ -82,7 +82,7 @@ export default function HomePage() {
       installed,
       authIssues,
       configuredAgents,
-      totalAliases: state.secrets.reduce((sum, secret) => sum + secret.aliases.length, 0),
+      totalKeys: state.secrets.length,
       lastLog: state.logs[0],
     };
   }, [state]);
@@ -106,7 +106,7 @@ export default function HomePage() {
         <article className="home-stat-card">
           <span>{t('home.vault')}</span>
           <strong>{state.secrets.length}<small> {t('home.keys')}</small></strong>
-          <p>{t('home.vault.desc', { n: computed.totalAliases })}</p>
+          <p>{t('home.vault.desc', { n: computed.totalKeys })}</p>
         </article>
         <article className="home-stat-card">
           <span>{t('home.modelAccess')}</span>

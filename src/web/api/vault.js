@@ -522,7 +522,7 @@ async function autoSyncToPlatforms(key, value) {
 }
 
 async function testApiKey(req, res) {
-  const { baseUrl, type, keyValue, vaultKey } = req.body;
+  const { baseUrl, type, protocol, keyValue, vaultKey } = req.body;
   if (!baseUrl) {
     return res.status(400).json({ success: false, message: '缺少 baseUrl' });
   }
@@ -563,17 +563,15 @@ async function testApiKey(req, res) {
       if (result.status === 200) return res.json({ success: true, message: '连接成功，Key 有效' });
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
     } else {
-      // openai compatible — try /models first, fallback to /chat/completions probe
+      // openai compatible — try /models first, fallback to the selected wire API probe
       headers['Authorization'] = `Bearer ${resolvedKey}`;
       headers['content-type'] = 'application/json';
       url = baseUrl.replace(/\/+$/, '') + '/models';
       let result = await httpRequest(url, { method: 'GET', headers, timeout: 10000 });
 
       if (result.error) {
-        // Connection failed entirely, try /chat/completions as fallback
-        url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
-        const probeBody = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
-        result = await httpRequest(url, { method: 'POST', headers, body: probeBody, timeout: 10000 });
+        // Connection failed entirely, try the selected generation endpoint as fallback.
+        result = await probeOpenAIWireApi(baseUrl, headers, protocol);
         if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
         if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
@@ -587,10 +585,8 @@ async function testApiKey(req, res) {
         return res.json({ success: true, message: `连接成功，可用 ${modelCount} 个模型` });
       }
       if (result.status === 404 || result.status === 403 || result.status === 405) {
-        // /models not available, try chat probe
-        url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
-        const probeBody = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
-        const probeResult = await httpRequest(url, { method: 'POST', headers, body: probeBody, timeout: 10000 });
+        // /models not available, try the selected generation endpoint.
+        const probeResult = await probeOpenAIWireApi(baseUrl, headers, protocol);
         if (probeResult.error) return res.json({ success: false, message: `连接失败: ${probeResult.error}` });
         if (probeResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         if (probeResult.status === 200 || probeResult.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
@@ -601,6 +597,18 @@ async function testApiKey(req, res) {
   } catch (err) {
     res.json({ success: false, message: `连接失败: ${err.message}` });
   }
+}
+
+function probeOpenAIWireApi(baseUrl, headers, protocol) {
+  const normalizedProtocol = protocol === 'responses' ? 'responses' : 'chat';
+  if (normalizedProtocol === 'responses') {
+    const url = baseUrl.replace(/\/+$/, '') + '/responses';
+    const body = JSON.stringify({ model: 'gpt-4o-mini', max_output_tokens: 1, input: 'hi' });
+    return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+  }
+  const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const body = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+  return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
 }
 
 function truncateBody(body) {

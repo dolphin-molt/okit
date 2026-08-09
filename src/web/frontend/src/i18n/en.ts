@@ -1,6 +1,6 @@
 export default {
   // Navigation
-  'nav.home': 'Overview',
+  'nav.home': 'Quick Start',
   'nav.workspace': 'Workspace',
   'nav.ai': 'AI Assistant',
   'nav.toolsSection': 'Tools',
@@ -600,6 +600,28 @@ export default {
   'home.recent.title': 'Operation stream',
   'home.viewAll': 'View all',
   'home.noLogs': 'No operations recorded yet',
+
+  // Quick Start
+  'home.quickStart': 'Quick Start',
+  'home.scanTools': 'Tool Health Scan',
+  'home.needsAuth': 'Needs auth',
+  'home.quickAddKey': 'Quick Add Key',
+  'home.addApiKey': 'Add API Key',
+  'home.manageKeys': 'Manage keys',
+  'home.cloudSync': 'Cloud Sync',
+  'home.syncPlatform': 'Sync platform',
+  'home.syncLast': 'Last sync: {time}',
+  'home.syncNever': 'Not synced',
+  'home.syncPush': 'Push now',
+  'home.syncPull': 'Pull now',
+  'home.syncSettings': 'Sync settings',
+  'home.syncDone': 'Sync complete',
+  'home.syncFail': 'Sync failed',
+  'home.quickConfigAgent': 'Quick Configure Agent',
+  'home.agentConfigured': '{n}/{total} configured',
+  'home.notConfigured': 'Not configured',
+  'home.selectModel': 'Select model',
+  'home.reconfig': 'Reconfigure',
 
   // Provider names
   'provider.anthropic': 'Anthropic',

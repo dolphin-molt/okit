@@ -242,10 +242,6 @@ export default function ToolsPage() {
 
       <div className="tools-main access-workspace tools-workspace">
         <header className="access-hero">
-          <div className="access-hero-copy">
-            <h1>{t('tools.title')}</h1>
-            <p>{t('tools.lede')}</p>
-          </div>
           <div className="access-hero-stats" aria-label="Tools summary">
             <div><span>{t('common.installed')}</span><strong>{installedCount}</strong></div>
             <div><span>{t('common.total')}</span><strong>{totalCount}</strong></div>
@@ -253,18 +249,6 @@ export default function ToolsPage() {
             <div><span>{t('tools.desktop')}</span><strong>{appCount}</strong></div>
           </div>
         </header>
-
-        <div className="access-command-bar tools-command-bar">
-          <div>
-            <span>{t('tools.filtered')}</span>
-            <strong>{filtered.length}</strong>
-          </div>
-          <button className="btn-refresh" onClick={() => { setLoading(true); loadTools(); }} title={t('common.refresh')}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 7A5 5 0 1 1 7 2c1.4 0 2.6.6 3.5 1.5" /><path d="M12 2v3h-3" />
-            </svg>
-          </button>
-        </div>
 
         <div className="toolbar">
           <div className="search-paper">

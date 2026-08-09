@@ -917,76 +917,63 @@
 }
 
 .access-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
-  gap: 18px;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 24px;
-  background:
-    linear-gradient(135deg, rgba(239, 255, 97, 0.08), transparent 42%),
-    radial-gradient(circle at 90% 8%, rgba(56, 189, 248, 0.12), transparent 32%),
-    rgba(18, 23, 21, 0.82);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0 10px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+  background: none;
+  border-radius: 0;
+  border: none;
   color: var(--ink);
 }
 
 .access-hero-copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 150px;
-}
-
-.access-hero h1 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(38px, 5.5vw, 72px);
-  line-height: 0.95;
-  letter-spacing: 0;
-}
-
-.access-hero p {
-  max-width: 740px;
-  margin-top: 16px;
-  color: rgba(245, 243, 235, 0.58);
-  font-size: 16px;
-  line-height: 1.5;
+  display: none;
 }
 
 .access-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .access-hero-stats > div {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 86px;
-  border: 1px solid rgba(245, 243, 235, 0.1);
-  border-radius: 10px;
-  padding: 14px;
-  background: rgba(7, 8, 7, 0.34);
+  align-items: center;
+  min-height: auto;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--paper);
+  min-width: 72px;
 }
 
-.access-hero-stats span,
-.access-command-bar span {
-  color: rgba(245, 243, 235, 0.48);
+.access-hero-stats span {
+  color: var(--ink-light);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 2px;
 }
 
-.access-hero-stats strong,
-.access-command-bar strong {
+.access-hero-stats strong {
   color: var(--ink);
-  font-family: "SF Mono", ui-monospace, monospace;
-  font-size: 28px;
-  line-height: 1;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.1;
 }
+
+[data-theme="dark"] .access-hero-stats > div {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .access-hero-stats strong { color: var(--ink); }
+[data-theme="dark"] .access-hero { border-bottom-color: rgba(255, 255, 255, 0.06); }
 
 .access-command-bar {
   display: flex;

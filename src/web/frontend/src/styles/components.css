@@ -422,13 +422,30 @@
     width: 56px;
     min-width: 56px;
     clip-path: none;
+    overflow: hidden;
   }
-  .brand-hand, .nav-item span, .sidebar-bottom .status-text { display: none; }
-  .brand-text { font-size: 14px; letter-spacing: 2px; }
-  .brand-shape { display: none; }
-  .sidebar-brand { padding: 20px 8px 12px; text-align: center; }
-  .nav-item { justify-content: center; padding: 12px 8px; }
-  .nav-item svg { margin: 0; }
+  .brand-text, .brand-hand, .nav-item span, .sidebar-bottom .status-text,
+  .nav-new-btn, .nav-sub-list, .nav-section-label { display: none !important; }
+  .sidebar-brand {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    padding: 14px 0 8px !important;
+  }
+  .brand-shape {
+    position: static !important;
+    width: 26px !important;
+    height: 26px !important;
+    opacity: 0.8;
+    margin: 0 !important;
+    display: block !important;
+    border-radius: 7px !important;
+  }
+  .brand-shape::after { font-size: 8px !important; }
+  .nav-item { justify-content: center; padding: 10px 8px; }
+  .nav-item svg { width: 20px; height: 20px; margin: 0; flex-shrink: 0; }
+  .sidebar-bottom { flex-direction: column; padding: 8px 0 !important; gap: 6px; align-items: center; }
+  .sidebar-bottom-icon { width: 28px; height: 28px; flex-shrink: 0; }
   .main-content { padding: 20px 14px; }
   .page-title { font-size: 22px; }
   .header-paper { padding: 12px 16px; }

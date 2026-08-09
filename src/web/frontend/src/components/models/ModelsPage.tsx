@@ -455,7 +455,6 @@ export default function ModelsPage() {
         <header className="models-header">
           <div className="models-header-title">
             <div className="models-title-row">
-              <h2>{t('models.title')}</h2>
               <div className="view-switcher" role="tablist" aria-label={t('models.viewSwitch')}>
                 {([
                   ['platform', t('models.viewPlatform')],
@@ -473,7 +472,6 @@ export default function ModelsPage() {
                 ))}
               </div>
             </div>
-            <p>{t('models.lede')}</p>
           </div>
           <div className="models-header-stats">
             <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />

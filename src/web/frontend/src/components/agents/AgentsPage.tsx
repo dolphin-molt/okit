@@ -63,10 +63,6 @@ export default function AgentsPage() {
   return (
     <div className="access-workspace agents-workspace">
       <header className="access-hero">
-        <div className="access-hero-copy">
-          <h1>{t('agents.title')}</h1>
-          <p>{t('agents.lede')}</p>
-        </div>
         <div className="access-hero-stats" aria-label="Agent routing summary">
           <div><span>{t('agents.totalAgents')}</span><strong>{adapters.length}</strong></div>
           <div><span>{t('agents.configured')}</span><strong>{stats.configured}</strong></div>

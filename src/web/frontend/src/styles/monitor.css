@@ -802,11 +802,6 @@
   margin-bottom: 0;
 }
 
-.logs-workspace .access-hero-stats strong,
-.monitor-workspace .access-hero-stats strong {
-  font-size: clamp(18px, 2vw, 30px);
-}
-
 .logs-workspace .log-table-wrap {
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;

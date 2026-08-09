@@ -121,9 +121,9 @@
 .status-filter:hover { border-color: var(--ink); color: var(--ink); }
 
 .status-filter.active {
-  background: var(--ink);
-  color: var(--kraft);
-  border-color: var(--ink);
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border-color: var(--ink) !important;
 }
 
 .btn-select-all {

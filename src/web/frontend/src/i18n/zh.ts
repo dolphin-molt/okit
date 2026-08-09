@@ -1,6 +1,6 @@
 export default {
   // 导航
-  'nav.home': '总览',
+  'nav.home': '快速启动',
   'nav.workspace': '工作台',
   'nav.ai': 'AI 助手',
   'nav.toolsSection': '工具',
@@ -600,6 +600,28 @@ export default {
   'home.recent.title': '操作流',
   'home.viewAll': '查看全部',
   'home.noLogs': '暂无操作记录',
+
+  // Quick Start
+  'home.quickStart': '快速启动',
+  'home.scanTools': '工具健康扫描',
+  'home.needsAuth': '待授权',
+  'home.quickAddKey': '快速添加密钥',
+  'home.addApiKey': '添加 API Key',
+  'home.manageKeys': '管理密钥',
+  'home.cloudSync': '云同步',
+  'home.syncPlatform': '同步平台',
+  'home.syncLast': '上次同步：{time}',
+  'home.syncNever': '未同步',
+  'home.syncPush': '立即推送',
+  'home.syncPull': '立即拉取',
+  'home.syncSettings': '同步设置',
+  'home.syncDone': '同步完成',
+  'home.syncFail': '同步失败',
+  'home.quickConfigAgent': '快速配置 Agent',
+  'home.agentConfigured': '已配置 {n}/{total}',
+  'home.notConfigured': '未配置',
+  'home.selectModel': '选择模型',
+  'home.reconfig': '重新配置',
 
   // Provider names
   'provider.anthropic': 'Anthropic',

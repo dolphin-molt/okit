@@ -199,19 +199,32 @@ body {
 }
 
 /* ─── Sidebar Collapsed ─── */
-.sidebar--collapsed { width: 56px; min-width: 56px; clip-path: none; }
-.sidebar--collapsed .brand-hand,
+.sidebar--collapsed { width: 56px; min-width: 56px; clip-path: none; overflow: hidden; }
+.sidebar--collapsed .sidebar-brand { display: flex !important; justify-content: center; align-items: center; padding: 14px 0 8px !important; }
 .sidebar--collapsed .brand-text,
+.sidebar--collapsed .brand-hand { display: none !important; }
+.sidebar--collapsed .brand-shape {
+  position: static !important;
+  width: 26px !important;
+  height: 26px !important;
+  opacity: 0.8;
+  margin: 0 !important;
+  display: block !important;
+  border-radius: 7px !important;
+}
+.sidebar--collapsed .brand-shape::after {
+  font-size: 8px !important;
+}
 .sidebar--collapsed .nav-item span,
 .sidebar--collapsed .status-text,
 .sidebar--collapsed .nav-new-btn,
 .sidebar--collapsed .nav-sub-list,
-.sidebar--collapsed .nav-section-label { display: none; }
-.sidebar--collapsed .brand-shape { position: relative; top: auto; right: auto; opacity: 0.6; margin: 0 auto; display: block; }
-.sidebar--collapsed .sidebar-brand { padding: 16px 8px; text-align: center; display: flex; justify-content: center; }
+.sidebar--collapsed .nav-section-label { display: none !important; }
 .sidebar--collapsed .sidebar-cut { display: none; }
-.sidebar--collapsed .nav-item { justify-content: center; padding: 12px 8px; }
-.sidebar--collapsed .sidebar-bottom { flex-direction: column; padding: 8px; gap: 8px; align-items: center; }
+.sidebar--collapsed .nav-item { justify-content: center; padding: 10px 8px; }
+.sidebar--collapsed .nav-item svg { width: 20px; height: 20px; stroke-width: 1.8; flex-shrink: 0; }
+.sidebar--collapsed .sidebar-bottom { flex-direction: column; padding: 8px 0 !important; gap: 6px; align-items: center; }
+.sidebar--collapsed .sidebar-bottom-icon { width: 28px; height: 28px; flex-shrink: 0; }
 .sidebar--collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 
 /* ─── Sidebar Navigation ─── */

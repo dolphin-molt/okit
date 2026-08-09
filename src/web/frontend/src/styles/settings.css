@@ -661,7 +661,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(18px, 1.8vw, 28px);
 }
 
 .settings-workspace .settings-section {

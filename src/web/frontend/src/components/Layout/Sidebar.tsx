@@ -10,69 +10,75 @@ interface ConvItem {
   updatedAt?: number;
 }
 
+const ic = "1.5";
+const SW = { strokeWidth: ic, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
 const WORKSPACE_ITEMS = [
   { path: '/', labelKey: 'nav.home', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="2" y="2" width="14" height="14" rx="2" />
-      <path d="M5 6h3M10 6h3M5 10h8M5 13h5" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
+      <path d="M9.5 21v-6h5v6" />
     </svg>
   )},
   { path: '/agent', labelKey: 'nav.ai', hasConvList: true, icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <path d="M14 9c0 3.3-2.5 6-5.5 6-.9 0-1.7-.2-2.5-.5L3 16l1-3C3.4 11.7 3 10.4 3 9c0-3.3 2.5-6 5.5-6S14 5.7 14 9z" fill="currentColor" fillOpacity="0.15" />
-      <circle cx="6.5" cy="8.5" r="0.8" fill="currentColor"/>
-      <circle cx="9" cy="8.5" r="0.8" fill="currentColor"/>
-      <circle cx="11.5" cy="8.5" r="0.8" fill="currentColor"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.3-5.4A8.38 8.38 0 0 1 3.5 11.5a8.5 8.5 0 0 1 17 0z" />
+      <circle cx="8.5" cy="11.5" r="0.6" fill="currentColor" />
+      <circle cx="12" cy="11.5" r="0.6" fill="currentColor" />
+      <circle cx="15.5" cy="11.5" r="0.6" fill="currentColor" />
     </svg>
   )},
 ];
 
 const TOOL_ITEMS = [
   { path: '/tools', labelKey: 'nav.tools', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="2" y="2" width="14" height="14" rx="2" />
-      <path d="M6 6h6M6 9h4M6 12h5" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2 2.5-2.5z" />
     </svg>
   )},
   { path: '/vault', labelKey: 'nav.vault', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="3" y="8" width="12" height="8" rx="1.5" />
-      <path d="M6 8V5.5a3 3 0 016 0V8" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
+      <rect x="9.5" y="10.5" width="5" height="5" rx="0.5" />
+      <path d="M11 10.5V9a1 1 0 0 1 2 0v1.5" />
     </svg>
   )},
   { path: '/models', labelKey: 'nav.models', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <path d="M9 2l7 4v6l-7 4-7-4V6z" />
-      <path d="M9 8l7-4M9 8v8M9 8L2 4" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M12 2 3 7v10l9 5 9-5V7l-9-5z" />
+      <path d="M3 7l9 5 9-5" />
+      <path d="M12 12v10" />
     </svg>
   )},
   { path: '/agents', labelKey: 'nav.agents', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="2" y="2" width="6" height="6" rx="1" />
-      <rect x="10" y="2" width="6" height="6" rx="1" />
-      <rect x="2" y="10" width="6" height="6" rx="1" />
-      <rect x="10" y="10" width="6" height="6" rx="1" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <rect x="4" y="8" width="16" height="11" rx="3" />
+      <circle cx="9" cy="13.5" r="1" fill="currentColor" />
+      <circle cx="15" cy="13.5" r="1" fill="currentColor" />
+      <path d="M12 4v4M9 4h6" />
+      <path d="M2 13v3M22 13v3" />
     </svg>
   )},
   { path: '/auth', labelKey: 'nav.auth', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <path d="M9 2v3M9 13v3M3 9h3M12 9h3M4.5 4.5l2 2M11.5 11.5l2 2M13.5 4.5l-2 2M6.5 11.5l-2 2" />
-      <circle cx="9" cy="9" r="2" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <circle cx="8" cy="12" r="4" />
+      <path d="M11 12h10v2.5a2.5 2.5 0 0 1-2.5 2.5H17" />
+      <circle cx="8" cy="12" r="0.6" fill="currentColor" />
     </svg>
   )},
 ];
 
 const SYSTEM_ITEMS = [
   { path: '/logs', labelKey: 'nav.logs', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="3" y="2" width="12" height="14" rx="1.5" />
-      <path d="M6 5h6M6 8h6M6 11h3" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M4 5h16v14H4z" />
+      <path d="M7 9l3 3-3 3M13 15h4" />
     </svg>
   )},
   { path: '/monitor', labelKey: 'nav.monitor', icon: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <path d="M2 12l4-4 3 3 3-5 4 6" />
-      <rect x="1" y="1" width="16" height="16" rx="2" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M3 12h4l2-6 4 12 2-6h6" />
     </svg>
   )},
 ];
@@ -166,16 +172,10 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
 
   return (
     <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar-brand" onClick={toggleSidebar} style={{ cursor: 'pointer' }}>
-        <div className="brand-shape" />
-        <span className="brand-text">OKIT</span>
-        <span className="brand-hand">Access Layer</span>
-      </div>
       <div className="sidebar-cut" />
       <div className="nav-scroll">
         {NAV_SECTIONS.map(section => (
           <div className="nav-section" key={section.labelKey}>
-            {!collapsed && <div className="nav-section-label">{t(section.labelKey)}</div>}
             {section.items.map(renderNavItem)}
           </div>
         ))}
@@ -185,9 +185,11 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
           <span style={{ fontSize: 11, fontWeight: 700 }}>{lang === 'zh' ? '中' : 'EN'}</span>
         </button>
         <NavLink to="/settings" className={({ isActive }) => `sidebar-bottom-icon${isActive ? ' active' : ''}`} title={t('nav.settings')}>
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <circle cx="9" cy="9" r="2.5" />
-            <path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.7 3.7l1.4 1.4M12.9 12.9l1.4 1.4M14.3 3.7l-1.4 1.4M5.1 12.9l-1.4 1.4" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" />
+            <circle cx="16" cy="6" r="2" />
+            <circle cx="8" cy="12" r="2" />
+            <circle cx="13" cy="18" r="2" />
           </svg>
         </NavLink>
       </div>

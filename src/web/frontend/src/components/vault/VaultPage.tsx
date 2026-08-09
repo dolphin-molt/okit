@@ -6,7 +6,6 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
 import VaultFormModal from '../shared/VaultFormModal';
-import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
 
 type ViewMode = 'keys' | 'projects';
@@ -96,17 +95,6 @@ export default function VaultPage() {
       return true;
     });
   }, [secrets, groupFilter, searchTerm]);
-
-  const vaultStats = useMemo(() => {
-    const projectPaths = new Set<string>();
-    for (const secret of secrets) {
-      for (const project of secret.projects || []) projectPaths.add(project.path);
-    }
-    return {
-      total: secrets.length,
-      projects: projectPaths.size,
-    };
-  }, [secrets]);
 
   function openAddForm() {
     setEditKey(null);
@@ -307,71 +295,87 @@ export default function VaultPage() {
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div className="page-with-sidebar">
-      {/* Sidebar */}
-      <PageSidebar sections={[
-        ...(viewMode === 'keys' ? [{
-          title: t('common.group'),
-          items: [
-            { key: '__all__', label: t('common.all'), count: secrets.length, active: viewMode === 'keys' && groupFilter === 'all', onClick: () => { setViewMode('keys'); setGroupFilter('all'); } },
-            ...groups.map(g => ({
-              key: `g-${g}`,
-              label: g,
-              count: secrets.filter(s => s.group === g).length,
-              active: viewMode === 'keys' && groupFilter === g,
-              onClick: () => { setViewMode('keys'); setGroupFilter(g); },
-            })),
-            { key: '__none__', label: t('common.ungrouped'), count: secrets.filter(s => !s.group).length, active: viewMode === 'keys' && groupFilter === '', onClick: () => { setViewMode('keys'); setGroupFilter(''); } },
-          ],
-        }] : []),
-        ...(viewMode === 'projects' && projectMap.map.size > 0 ? [{
-          title: t('vault.syncProjects'),
-          items: Array.from(projectMap.map.entries()).map(([path, proj]) => ({
-            key: `proj-${path}`,
-            label: proj.name,
-            count: proj.keys.length,
-            active: viewMode === 'projects' && selectedProject === path,
-            onClick: () => { setViewMode('projects'); setSelectedProject(path); },
-          })),
-        }] : []),
-      ]} />
-
-      {/* Main content */}
-      <div className="page-sidebar-main vault-workspace">
-        <header className="vault-hero">
-          <div className="vault-hero-copy">
-            <h1>{t('vault.title')}</h1>
-            <p>{t('vault.lede')}</p>
+    <div className="vault-page">
+      <div className="vault-workspace">
+        {/* Header：左上密钥/项目切换 + 右上统计卡片 */}
+        <header className="vault-header">
+          <div className="vault-header-left">
+            <div className="view-switcher" role="tablist" aria-label="Vault view">
+              {([['keys', t('vault.keysView')], ['projects', t('vault.projectsView')]] as [ViewMode, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={viewMode === key}
+                  className={`view-switcher-btn${viewMode === key ? ' view-switcher-btn--active' : ''}`}
+                  onClick={() => setViewMode(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="vault-hero-stats" aria-label="Vault summary">
-            <div>
-              <span>{t('vault.totalKeys')}</span>
-              <strong>{vaultStats.total}</strong>
+          <div className="vault-header-stats">
+            <div className="vault-stat-chip">
+              <span className="vault-stat-chip-value">{secrets.length}</span>
+              <span className="vault-stat-chip-label">{t('vault.totalKeys')}</span>
             </div>
-            <div>
-              <span>{t('vault.groups')}</span>
-              <strong>{groups.length}</strong>
+            <div className="vault-stat-chip vault-stat-chip--muted">
+              <span className="vault-stat-chip-value">{groups.length}</span>
+              <span className="vault-stat-chip-label">{t('vault.groups')}</span>
             </div>
-            <div>
-              <span>{t('vault.projectBindings')}</span>
-              <strong>{vaultStats.projects}</strong>
+            <div className="vault-stat-chip vault-stat-chip--muted">
+              <span className="vault-stat-chip-value">{projectMap.map.size}</span>
+              <span className="vault-stat-chip-label">{t('vault.projectBindings')}</span>
             </div>
-            <div>
-              <span>{t('vault.cloudTargets')}</span>
-              <strong>{cloudPlatforms.length}</strong>
-            </div>
+            {cloudPlatforms.length > 0 && (
+              <div className="vault-stat-chip vault-stat-chip--success">
+                <span className="vault-stat-chip-value">{cloudPlatforms.length}</span>
+                <span className="vault-stat-chip-label">{t('vault.cloudTargets')}</span>
+              </div>
+            )}
           </div>
         </header>
+
+        {/* 分组筛选 chip 区（仅 keys 视图） */}
+        {viewMode === 'keys' && (
+          <div className="vault-filter-bar">
+            <div className="vault-filter-section">
+              <span className="vault-filter-section-label">{t('common.group')}</span>
+              <div className="vault-filter-section-chips">
+                <button
+                  className={`vault-filter-chip${groupFilter === 'all' ? ' vault-filter-chip--active' : ''}`}
+                  onClick={() => setGroupFilter('all')}
+                >
+                  {t('common.all')}
+                  <span className="vault-chip-count">{secrets.length}</span>
+                </button>
+                {groups.map(g => (
+                  <button
+                    key={g}
+                    className={`vault-filter-chip${groupFilter === g ? ' vault-filter-chip--active' : ''}`}
+                    onClick={() => setGroupFilter(g)}
+                  >
+                    {g}
+                    <span className="vault-chip-count">{secrets.filter(s => s.group === g).length}</span>
+                  </button>
+                ))}
+                <button
+                  className={`vault-filter-chip${groupFilter === '' ? ' vault-filter-chip--active' : ''}`}
+                  onClick={() => setGroupFilter('')}
+                >
+                  {t('common.ungrouped')}
+                  <span className="vault-chip-count">{secrets.filter(s => !s.group).length}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="vault-command-bar">
           <div className="vault-search">
             <Icon name="search" />
             <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <div className="vault-view-switch" role="tablist" aria-label="Vault view">
-            <button className={viewMode === 'keys' ? 'active' : ''} onClick={() => setViewMode('keys')}>{t('vault.keysView')}</button>
-            <button className={viewMode === 'projects' ? 'active' : ''} onClick={() => setViewMode('projects')}>{t('vault.projectsView')}</button>
           </div>
           <div className="vault-toolbar-right">
             <button className="vault-toolbar-btn" onClick={openAddForm} title={t('vault.addKey')}>
@@ -458,9 +462,9 @@ export default function VaultPage() {
                         </div>
                       </div>
                       <div className="vault-projects">
-                        {(secret.projects || []).length > 0 ? secret.projects!.slice(0, 3).map(project => (
+                        {(secret.projects || []).length > 0 && secret.projects!.slice(0, 3).map(project => (
                           <span className="vault-project-tag" title={project.path} key={project.path}>{project.name}</span>
-                        )) : <span className="vault-project-empty">{t('vault.localOnly')}</span>}
+                        ))}
                         {(secret.projects || []).length > 3 && <span className="vault-project-tag">+{secret.projects!.length - 3}</span>}
                       </div>
                       <time className="vault-date">{formatDate(secret.aliases[0]?.updatedAt)}</time>

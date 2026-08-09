@@ -871,65 +871,15 @@
 
 /* ─── Vault Access Layer Redesign ─── */
 .vault-workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.vault-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
-  gap: 18px;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 24px;
-  background:
-    linear-gradient(135deg, rgba(239, 255, 97, 0.08), transparent 42%),
-    radial-gradient(circle at 90% 8%, rgba(56, 189, 248, 0.12), transparent 32%),
-    rgba(18, 23, 21, 0.82);
-  color: var(--ink);
-}
+/* vault-hero removed — vault page no longer uses a hero/sidebar layout */
 
-.vault-hero-copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 150px;
-}
-
-.vault-hero h1 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(38px, 5.5vw, 72px);
-  line-height: 0.95;
-  letter-spacing: 0;
-}
-
-.vault-hero p {
-  max-width: 720px;
-  margin-top: 16px;
-  color: rgba(245, 243, 235, 0.58);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.vault-hero-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.vault-hero-stats > div {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 86px;
-  border: 1px solid rgba(245, 243, 235, 0.1);
-  border-radius: 10px;
-  padding: 14px;
-  background: rgba(7, 8, 7, 0.34);
-}
-
-.vault-hero-stats span,
 .vault-secret-tags span,
 .vault-project-empty {
   color: rgba(245, 243, 235, 0.48);
@@ -939,22 +889,19 @@
   text-transform: uppercase;
 }
 
-.vault-hero-stats strong {
-  color: var(--ink);
-  font-family: "SF Mono", ui-monospace, monospace;
-  font-size: 28px;
-  line-height: 1;
-}
-
 .vault-command-bar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px;
   background: rgba(18, 23, 21, 0.82);
+}
+
+.vault-filter-select {
+  min-width: 150px;
 }
 
 .vault-search {
@@ -1310,7 +1257,6 @@
 }
 
 @media (max-width: 1180px) {
-  .vault-hero,
   .vault-command-bar,
   .vault-workspace .vault-card.vault-secret-row {
     grid-template-columns: 1fr;
@@ -1322,11 +1268,6 @@
 }
 
 @media (max-width: 760px) {
-  .vault-hero {
-    padding: 20px;
-  }
-
-  .vault-hero-stats,
   .vault-project-list {
     grid-template-columns: 1fr;
   }

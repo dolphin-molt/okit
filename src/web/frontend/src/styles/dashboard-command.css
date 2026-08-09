@@ -289,6 +289,15 @@ body {
   color: var(--ink);
 }
 
+/* Light mode: confirm-panel must not inherit the dark background from the
+   shared panel selector above. Use !important to beat the grouped selector. */
+[data-theme="light"] .confirm-panel {
+  background: var(--paper) !important;
+  border: 1.5px solid var(--kraft-dark) !important;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.08) !important;
+  color: var(--ink) !important;
+}
+
 .tool-card:hover,
 .vault-card:hover,
 .provider-card:hover,
@@ -1932,6 +1941,27 @@ select:focus {
   color: rgba(15, 23, 20, 0.9) !important;
 }
 
+[data-theme="dark"] .provider-form-panel .custom-select-dropdown {
+  background: #222b27 !important;
+  border-color: rgba(245, 243, 235, 0.16) !important;
+  color: #f5f3eb !important;
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.34) !important;
+}
+
+[data-theme="dark"] .provider-form-panel .custom-select-option {
+  color: rgba(245, 243, 235, 0.82) !important;
+}
+
+[data-theme="dark"] .provider-form-panel .custom-select-option:hover {
+  background: rgba(245, 243, 235, 0.1) !important;
+  color: #f5f3eb !important;
+}
+
+[data-theme="dark"] .provider-form-panel .custom-select-option.active {
+  background: rgba(239, 255, 97, 0.14) !important;
+  color: #efff61 !important;
+}
+
 .vault-form-panel.vault-form-panel {
   overflow: hidden;
   background: rgba(255, 255, 252, 0.98) !important;
@@ -2276,14 +2306,15 @@ select:focus {
   max-height: calc(100vh - 96px);
 }
 
-@media (max-width: 760px) {
+/* 与 components.css 中 .sidebar 在 ≤768px 折叠为 56px 对齐，避免弹框遮罩压住侧边栏 */
+@media (max-width: 768px) {
   .access-workspace .modal-overlay {
-    left: 0;
-    width: 100vw;
+    left: 56px;
+    width: calc(100vw - 56px);
   }
 
   .access-workspace .picker-panel {
-    width: calc(100vw - 28px);
+    width: calc(100vw - 56px - 28px);
     max-height: calc(100vh - 48px);
   }
 }

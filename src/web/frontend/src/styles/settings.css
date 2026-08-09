@@ -83,17 +83,19 @@
 
 [data-theme="dark"] .confirm-panel {
   background: var(--paper);
-  box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+  border-color: var(--kraft-dark);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
 }
 [data-theme="dark"] .confirm-actions { border-top-color: var(--kraft-dark); }
 [data-theme="dark"] .confirm-btn--ok { background: var(--ink); color: var(--paper); }
 
 .confirm-panel {
   background: var(--paper);
-  border-radius: 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--kraft-dark);
   max-width: 480px;
   width: 88vw;
-  box-shadow: 4px 4px 0 rgba(0,0,0,0.12);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.08);
   overflow: hidden;
   text-align: center;
 }
@@ -1398,6 +1400,18 @@
 .settings-workspace--light .settings-field--secret .vault-ref-trigger:hover,
 .settings-workspace--light .settings-field--secret .vault-ref-selected:hover {
   background: rgba(237, 251, 210, 0.88) !important;
+}
+
+/* Light workspace inside dark mode: ensure vault-ref children use dark ink
+   (the background is forced to #fff via the rules above, so the inherited
+   dark-mode text color #F5F3EB would be invisible). */
+.settings-workspace--light .settings-field--secret .vault-ref-key {
+  color: var(--ink, #1a2b26);
+}
+.settings-workspace--light .settings-field--secret .vault-ref-clear,
+.settings-workspace--light .settings-field--secret .vault-ref-change {
+  background: rgba(23, 32, 29, 0.06);
+  color: var(--ink-muted, #6b746f);
 }
 
 .settings-workspace .settings-field--quiet {

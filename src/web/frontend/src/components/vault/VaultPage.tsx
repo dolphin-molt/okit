@@ -6,7 +6,6 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
 import VaultFormModal from '../shared/VaultFormModal';
-import PageSidebar from '../shared/PageSidebar';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
 
 type ViewMode = 'keys' | 'projects';
@@ -97,19 +96,6 @@ export default function VaultPage() {
       return true;
     });
   }, [secrets, groupFilter, searchTerm]);
-
-  const vaultStats = useMemo(() => {
-    const projectPaths = new Set<string>();
-    let totalAliases = 0;
-    for (const secret of secrets) {
-      totalAliases += secret.aliases.length;
-      for (const project of secret.projects || []) projectPaths.add(project.path);
-    }
-    return {
-      totalAliases,
-      projects: projectPaths.size,
-    };
-  }, [secrets]);
 
   function openAddForm() {
     setEditKey(null);
@@ -310,68 +296,39 @@ export default function VaultPage() {
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div className="page-with-sidebar">
-      {/* Sidebar */}
-      <PageSidebar sections={[
-        ...(viewMode === 'keys' ? [{
-          title: t('common.group'),
-          items: [
-            { key: '__all__', label: t('common.all'), count: secrets.length, active: viewMode === 'keys' && groupFilter === 'all', onClick: () => { setViewMode('keys'); setGroupFilter('all'); } },
-            ...groups.map(g => ({
-              key: `g-${g}`,
-              label: g,
-              count: secrets.filter(s => s.group === g).length,
-              active: viewMode === 'keys' && groupFilter === g,
-              onClick: () => { setViewMode('keys'); setGroupFilter(g); },
-            })),
-            { key: '__none__', label: t('common.ungrouped'), count: secrets.filter(s => !s.group).length, active: viewMode === 'keys' && groupFilter === '', onClick: () => { setViewMode('keys'); setGroupFilter(''); } },
-          ],
-        }] : []),
-        ...(viewMode === 'projects' && projectMap.map.size > 0 ? [{
-          title: t('vault.syncProjects'),
-          items: Array.from(projectMap.map.entries()).map(([path, proj]) => ({
-            key: `proj-${path}`,
-            label: proj.name,
-            count: proj.keys.length,
-            active: viewMode === 'projects' && selectedProject === path,
-            onClick: () => { setViewMode('projects'); setSelectedProject(path); },
-          })),
-        }] : []),
-      ]} />
-
+    <div className="vault-page">
       {/* Main content */}
-      <div className="page-sidebar-main vault-workspace">
-        <header className="vault-hero">
-          <div className="vault-hero-copy">
-            <h1>{t('vault.title')}</h1>
-            <p>{t('vault.lede')}</p>
-          </div>
-          <div className="vault-hero-stats" aria-label="Vault summary">
-            <div>
-              <span>{t('vault.totalKeys')}</span>
-              <strong>{secrets.length}</strong>
-            </div>
-            <div>
-              <span>{t('vault.aliases')}</span>
-              <strong>{vaultStats.totalAliases}</strong>
-            </div>
-            <div>
-              <span>{t('vault.projectBindings')}</span>
-              <strong>{vaultStats.projects}</strong>
-            </div>
-            <div>
-              <span>{t('vault.cloudTargets')}</span>
-              <strong>{cloudPlatforms.length}</strong>
-            </div>
-          </div>
-        </header>
-
+      <div className="vault-workspace">
         {/* Toolbar */}
         <div className="vault-command-bar">
           <div className="vault-search">
             <Icon name="search" />
             <input type="text" className="search-input" placeholder={t('vault.searchKey')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
+          {viewMode === 'keys' ? (
+            <CustomSelect
+              className="vault-filter-select"
+              value={groupFilter === 'all' ? '__all__' : groupFilter}
+              onChange={v => setGroupFilter(v === '__all__' ? 'all' : v)}
+              placeholder={t('common.group')}
+              options={[
+                { value: '__all__', label: `${t('common.all')} (${secrets.length})` },
+                ...groups.map(g => ({ value: g, label: `${g} (${secrets.filter(s => s.group === g).length})` })),
+                { value: '', label: `${t('common.ungrouped')} (${secrets.filter(s => !s.group).length})` },
+              ]}
+            />
+          ) : projectMap.map.size > 0 ? (
+            <CustomSelect
+              className="vault-filter-select"
+              value={selectedProject || '__all__'}
+              onChange={v => setSelectedProject(v === '__all__' ? null : v)}
+              placeholder={t('vault.syncProjects')}
+              options={[
+                { value: '__all__', label: `${t('common.all')} (${projectMap.map.size})` },
+                ...Array.from(projectMap.map.entries()).map(([path, proj]) => ({ value: path, label: `${proj.name} (${proj.keys.length})` })),
+              ]}
+            />
+          ) : null}
           <div className="vault-view-switch" role="tablist" aria-label="Vault view">
             <button className={viewMode === 'keys' ? 'active' : ''} onClick={() => setViewMode('keys')}>{t('vault.keysView')}</button>
             <button className={viewMode === 'projects' ? 'active' : ''} onClick={() => setViewMode('projects')}>{t('vault.projectsView')}</button>

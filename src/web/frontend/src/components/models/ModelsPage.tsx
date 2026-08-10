@@ -29,7 +29,28 @@ const AUTH_MODE_OPTIONS: { value: 'api_key' | 'oauth' | 'both' | 'none'; labelKe
 const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = [
   { key: 'official', labelKey: 'models.groupOfficial', ids: ['anthropic', 'openai', 'openai-codex', 'google', 'xai', 'mistral'] },
   { key: 'aggregator', labelKey: 'models.groupAggregator', ids: ['openrouter'] },
-  { key: 'china', labelKey: 'models.groupChina', ids: ['volcengine', 'volcengine-coding', 'zai', 'zai-global', 'glm-coding', 'minimax', 'minimax-global', 'minimax-coding', 'deepseek', 'moonshot', 'kimi-coding', 'kimi-coding-plan', 'qwen', 'qianfan', 'qianfan-coding', 'stepfun', 'xiaomi', 'xiaomi-coding', 'tencent-coding'] },
+  { key: 'china', labelKey: 'models.groupChina', ids: [
+    // 智谱
+    'zai', 'zai-global', 'glm-coding',
+    // MiniMax
+    'minimax', 'minimax-global', 'minimax-coding',
+    // Kimi / Moonshot
+    'moonshot', 'kimi-coding', 'kimi-coding-plan',
+    // 火山引擎
+    'volcengine', 'volcengine-coding',
+    // 百度千帆
+    'qianfan', 'qianfan-coding',
+    // 通义千问
+    'qwen',
+    // DeepSeek
+    'deepseek',
+    // 阶跃星辰
+    'stepfun',
+    // 小米
+    'xiaomi', 'xiaomi-coding',
+    // 腾讯云
+    'tencent-coding',
+  ] },
   { key: 'local', labelKey: 'models.groupLocal', ids: ['ollama', 'litellm'] },
 ];
 
@@ -375,9 +396,28 @@ export default function ModelsPage() {
     });
   }, [providers, authMap, activeProvider, activeGroup, view, activeProtocol, activeMode, activePlanFilter, searchQuery, statusFilter]);
 
+  // Build a global ordering: group priority (official → aggregator → china → local)
+  // then the position within each group's ids array. Providers not in any group
+  // sink to the bottom sorted alphabetically.
+  const providerOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const g of PROVIDER_GROUPS) {
+      for (const id of g.ids) map.set(id, idx++);
+    }
+    return map;
+  }, []);
+
   const sortedProviders = useMemo(
-    () => [...filteredProviders].sort((a, b) => a.id.localeCompare(b.id)),
-    [filteredProviders]
+    () => [...filteredProviders].sort((a, b) => {
+      const oa = providerOrder.get(a.id);
+      const ob = providerOrder.get(b.id);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null) return -1;
+      if (ob != null) return 1;
+      return a.id.localeCompare(b.id);
+    }),
+    [filteredProviders, providerOrder]
   );
 
   // 统计

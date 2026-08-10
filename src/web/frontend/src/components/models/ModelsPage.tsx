@@ -787,7 +787,6 @@ export default function ModelsPage() {
                           onClick={() => setFamilyVariants(prev => ({ ...prev, [fam.family]: mp.id }))}
                         >
                           {variantLabel(mp.id)}
-                          {isAuthed(mp) && <span className="variant-tab-dot" />}
                         </button>
                       ))}
                     </div>

@@ -74,6 +74,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .provider-card-icon {
@@ -1940,7 +1942,6 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .models-workspace .provider-status {
@@ -3135,8 +3136,10 @@
 /* ── Provider family variant tabs ── */
 .provider-variant-tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   flex-wrap: wrap;
+  margin-left: auto;
+  margin-right: 12px;
 }
 .variant-tab {
   display: inline-flex;

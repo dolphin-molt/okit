@@ -778,9 +778,9 @@ export default function ModelsPage() {
                     <h3>{isMulti ? fam.family : providerName(p.id, p.name)}</h3>
                     <span className="provider-card-group">{t(group.labelKey)}</span>
                   </div>
-                  {isMulti && (
-                    <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
-                      {fam.providers.map(mp => (
+                  <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
+                    {isMulti ? (
+                      fam.providers.map(mp => (
                         <button
                           key={mp.id}
                           className={`variant-tab${mp.id === p.id ? ' variant-tab--active' : ''}`}
@@ -788,9 +788,22 @@ export default function ModelsPage() {
                         >
                           {variantLabel(mp.id)}
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      // 独立平台:根据 authMode 生成虚拟 tab(纯展示,不可切换)
+                      <>
+                        {(p.authMode === 'api_key' || p.authMode === 'both') && (
+                          <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
+                        )}
+                        {(p.authMode === 'oauth' || p.authMode === 'both') && (
+                          <span className={`variant-tab${p.authMode === 'oauth' ? ' variant-tab--active' : ''}`}>OAuth</span>
+                        )}
+                        {p.authMode === 'none' && (
+                          <span className="variant-tab variant-tab--active">{t('models.authModeNone')}</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                   <div className="provider-card-status">
                     {testingConn === p.id && (
                       <span className="provider-status provider-status--testing">

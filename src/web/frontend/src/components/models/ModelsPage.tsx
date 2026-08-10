@@ -857,18 +857,14 @@ export default function ModelsPage() {
                   </div>
 
                   <div className="provider-card-auth">
-                    {p.vaultKey && !isMulti && (
+                    {p.vaultKey && (
                       <span className={`auth-indicator${auth?.hasApiKey ? ' auth-indicator--key' : ' auth-indicator--none'}`}>
                         <span className="auth-dot" /> {auth?.hasApiKey ? t('models.apiKeyConfigured') : t('models.apiKeyMissing')}
                       </span>
                     )}
                     {(p.authMode === 'oauth' || p.authMode === 'both') && (
-                      <>
-                        {!isMulti && (
-                          <span className={`auth-indicator${auth?.oauthLoggedIn ? ' auth-indicator--oauth' : ' auth-indicator--none'}`}>
-                            <span className="auth-dot" /> OAuth {auth?.oauthLoggedIn ? t('models.loggedIn') : t('models.notLoggedIn')}
-                          </span>
-                        )}
+                      <span className={`auth-indicator${auth?.oauthLoggedIn ? ' auth-indicator--oauth' : ' auth-indicator--none'}`}>
+                        <span className="auth-dot" /> OAuth {auth?.oauthLoggedIn ? t('models.loggedIn') : t('models.notLoggedIn')}
                         {!auth?.oauthLoggedIn && (
                           <button
                             className="auth-login-btn"
@@ -878,9 +874,9 @@ export default function ModelsPage() {
                             {loggingIn === p.id ? '...' : t('models.login')}
                           </button>
                         )}
-                      </>
+                      </span>
                     )}
-                    {!p.vaultKey && p.authMode !== 'oauth' && p.authMode !== 'both' && !isMulti && (
+                    {!p.vaultKey && p.authMode !== 'oauth' && p.authMode !== 'both' && (
                       <span className="auth-indicator auth-indicator--none">
                         <span className="auth-dot" /> {p.id === 'qianfan-coding' ? t('models.qianfanCodingKeyHint') : t('common.notConfigured')}
                       </span>

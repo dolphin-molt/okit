@@ -214,19 +214,20 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
 }
 
 function UsageBar({ w }: { w: UsageWindow }) {
-  const pct = w.usedPercent;
+  const pct = w.usedPercent;                                  // 已用百分比
+  const remaining = pct != null ? round1(100 - pct) : null;   // 剩余百分比
   const tone = pct == null ? 'unknown' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
   const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
 
   if (w.isPrepaid && w.usedCredits != null) {
-    const remaining = w.remainingCredits != null ? `$${w.remainingCredits.toFixed(2)}` : '?';
+    const rem = w.remainingCredits != null ? `$${w.remainingCredits.toFixed(2)}` : '?';
     const used = `$${w.usedCredits.toFixed(2)}`;
     return (
       <div className={`usage-bar usage-bar--${tone}`}>
         <span className="usage-bar-label">{w.label}</span>
         <div className="usage-bar-info">
           <span className="usage-bar-credits">{t_global('usage.used')}: {used}</span>
-          <span className="usage-bar-remaining">{t_global('usage.remaining')}: {remaining}</span>
+          <span className="usage-bar-remaining">{t_global('usage.remaining')}: {rem}</span>
         </div>
       </div>
     );
@@ -236,15 +237,17 @@ function UsageBar({ w }: { w: UsageWindow }) {
     <div className={`usage-bar usage-bar--${tone}`}>
       <span className="usage-bar-label">{w.label}</span>
       <div className="usage-bar-track">
-        <div className="usage-bar-fill" style={{ width: pct != null ? `${Math.min(pct, 100)}%` : '100%' }} />
+        <div className="usage-bar-fill" style={{ width: remaining != null ? `${Math.min(remaining, 100)}%` : '100%' }} />
       </div>
-      <span className="usage-bar-pct">{pct != null ? `${pct}%` : '?'}</span>
+      <span className="usage-bar-pct">{remaining != null ? `${remaining}%` : '?'}</span>
       {resetText && <span className="usage-bar-reset" title={w.resetAt || ''}>{resetText}</span>}
     </div>
   );
 }
 
 // ── Helpers ──
+
+function round1(n: number): number { return Math.round(n * 10) / 10; }
 
 function formatTimeAgo(ts: number): string {
   const diff = Date.now() - ts;

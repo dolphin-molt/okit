@@ -232,11 +232,11 @@
 [data-theme="dark"] .auth-login-btn { border-color: #93c5fd; color: #93c5fd; }
 [data-theme="dark"] .auth-login-btn:hover { background: #93c5fd; color: #1a1a2e; }
 
-.auth-indicator--key .auth-dot { background: var(--blue); }
+.auth-indicator--key .auth-dot { background: var(--ink); }
 .auth-indicator--oauth .auth-dot { background: var(--green); }
 .auth-indicator--none .auth-dot { background: var(--ink-muted); }
 
-.auth-indicator--key { color: var(--blue); }
+.auth-indicator--key { color: var(--ink); }
 .auth-indicator--oauth { color: var(--green); }
 .auth-indicator--none { color: var(--ink-muted); font-style: italic; }
 
@@ -1324,7 +1324,7 @@
 
 .provider-form-panel .vault-input:focus,
 .provider-form-panel .custom-select--open .custom-select-trigger {
-  border-color: rgba(0, 132, 209, 0.45);
+  border-color: var(--ink);
   background: #fff;
   outline: none;
 }
@@ -2132,9 +2132,10 @@
 .auth-mode-option input { display: none; }
 
 .auth-mode-option--active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
+  border-color: var(--kraft-dark);
+  background: var(--kraft);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .models-workspace .models-pull-btn {
@@ -2153,7 +2154,7 @@
 }
 
 [data-theme="dark"] .auth-mode-option { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.12); color: var(--ink-light); }
-[data-theme="dark"] .auth-mode-option--active { background: var(--ink); color: var(--kraft); }
+[data-theme="dark"] .auth-mode-option--active { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.25); color: var(--ink); }
 [data-theme="dark"] .models-workspace .model-form-empty { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.1); }
 [data-theme="dark"] .models-workspace .provider-card--used { background: rgba(37, 99, 235, 0.04); }
 [data-theme="dark"] .models-workspace .form-section { border-color: rgba(255, 255, 255, 0.08); }
@@ -2704,8 +2705,8 @@
 
 .models-workspace .model-card-ctx {
   font-size: 11px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink-muted);
   padding: 2px 8px;
   border-radius: 4px;
   font-family: var(--font-mono);
@@ -2878,14 +2879,14 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: var(--brand, #2563eb);
+  accent-color: var(--ink);
 }
 .models-workspace .model-card--selected {
-  border-color: var(--brand, #2563eb);
-  box-shadow: 0 0 0 1px var(--brand, #2563eb);
-  background: rgba(37, 99, 235, 0.04);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+  background: rgba(0, 0, 0, 0.03);
 }
-[data-theme="dark"] .models-workspace .model-card--selected { background: rgba(37, 99, 235, 0.12); }
+[data-theme="dark"] .models-workspace .model-card--selected { background: rgba(255, 255, 255, 0.06); }
 
 /* 全选栏 + 批量操作栏 */
 .models-workspace .model-grid-toolbar {
@@ -2902,7 +2903,7 @@
   cursor: pointer;
   user-select: none;
 }
-.models-workspace .model-select-all input { width: 15px; height: 15px; accent-color: var(--brand, #2563eb); }
+.models-workspace .model-select-all input { width: 15px; height: 15px; accent-color: var(--ink); }
 .models-workspace .model-bulk-bar {
   position: sticky;
   bottom: 0;
@@ -2924,8 +2925,8 @@
   padding: 7px 14px;
   border: 0;
   border-radius: 8px;
-  background: var(--brand, #2563eb);
-  color: #fff;
+  background: var(--ink);
+  color: var(--paper);
   font-size: 13px;
   cursor: pointer;
 }

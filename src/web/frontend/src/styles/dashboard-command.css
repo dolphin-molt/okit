@@ -1872,7 +1872,7 @@ select:focus {
 .provider-form-panel .vault-input:focus,
 .provider-form-panel .custom-select--open .custom-select-trigger {
   background: #fff !important;
-  border-color: rgba(0, 132, 209, 0.45) !important;
+  border-color: var(--ink) !important;
 }
 
 .provider-form-panel .custom-select-dropdown {

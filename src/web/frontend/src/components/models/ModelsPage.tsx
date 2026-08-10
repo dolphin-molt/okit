@@ -913,11 +913,6 @@ export default function ModelsPage() {
                     <span className={`provider-status provider-status--${familyAuthed ? 'authed' : 'unauthed'}`}>
                       {familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
                     </span>
-                    {familyUsed && (
-                      <span className="provider-status provider-status--used">
-                        {t('models.inUseBy', { n: fam.providers.reduce((sum, mp) => sum + (mp.usedBy?.length || 0), 0) })}
-                      </span>
-                    )}
                   </div>
                   <div className="provider-card-actions">
                     <button

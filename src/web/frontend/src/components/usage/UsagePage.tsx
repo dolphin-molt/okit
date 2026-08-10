@@ -262,11 +262,15 @@ function formatResetTime(iso: string): string {
     const now = new Date();
     const diffMs = d.getTime() - now.getTime();
     if (diffMs <= 0) return '';
-    const diffH = Math.floor(diffMs / 3600000);
-    const diffM = Math.floor((diffMs % 3600000) / 60000);
-    if (diffH > 24) return `${Math.floor(diffH / 24)}d`;
-    if (diffH > 0) return `${diffH}h${diffM}m`;
-    return `${diffM}m`;
+    // 展示重置时间点,如 "18:26" / "明天 08:00" / "8/16 08:00"
+    const sameDay = d.toDateString() === now.toDateString();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = d.toDateString() === tomorrow.toDateString();
+    const hhmm = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (sameDay) return hhmm;
+    if (isTomorrow) return `明天 ${hhmm}`;
+    return `${d.getMonth() + 1}/${d.getDate()} ${hhmm}`;
   } catch {
     return '';
   }

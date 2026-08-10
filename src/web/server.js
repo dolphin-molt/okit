@@ -10,6 +10,7 @@ const { agentChat, agentConfirm, listConversations, getConversation, createConve
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { getUsage, getSupportedUsageProviders } = require('./api/usage');
 
 function createServer(port = 3780) {
   const app = express();
@@ -109,6 +110,10 @@ function createServer(port = 3780) {
   app.get('/api/providers/auth', getAuthStatus);
   app.post('/api/providers/auth/login', triggerOAuthLogin);
   app.post('/api/providers/fetch-models', fetchModels);
+
+  // Usage / quota routes
+  app.get('/api/usage/supported', getSupportedUsageProviders);
+  app.get('/api/usage/:providerId', getUsage);
 
   // SPA fallback
   app.use((req, res) => {

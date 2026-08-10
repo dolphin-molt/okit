@@ -94,3 +94,29 @@ export async function fetchModels(providerId?: string, config?: { endpoints?: Pr
     body: JSON.stringify({ providerId, ...config }),
   });
 }
+
+export interface UsageWindow {
+  label: string;
+  usedPercent: number | null;
+  resetAt: string | null;
+  usedCredits?: number;
+  limitCredits?: number | null;
+  remainingCredits?: number | null;
+  isPrepaid?: boolean;
+}
+
+export interface UsageResult {
+  providerId?: string;
+  supported: boolean;
+  windows?: UsageWindow[];
+  error?: string;
+  raw?: any;
+}
+
+export async function getSupportedUsageProviders(): Promise<{ providers: string[] }> {
+  return api('/api/usage/supported');
+}
+
+export async function getUsage(providerId: string): Promise<UsageResult> {
+  return api(`/api/usage/${encodeURIComponent(providerId)}`);
+}

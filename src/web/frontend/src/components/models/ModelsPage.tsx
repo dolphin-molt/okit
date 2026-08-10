@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, triggerOAuthLogin, fetchModels, Provider, ProviderModel, ProviderEndpoint } from '../../api/providers';
+import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, triggerOAuthLogin, fetchModels, getUsage, getSupportedUsageProviders, Provider, ProviderModel, ProviderEndpoint, UsageResult, UsageWindow } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
@@ -147,6 +147,7 @@ function providerPlans(p: Provider): PlanFilter[] {
 export default function ModelsPage() {
   const { showToast: toast, confirm } = useApp() as any;
   const { t, providerName } = useI18n();
+  _t = t; // expose t to UsageBar which renders outside the component scope
   const [providers, setProviders] = useState<Provider[]>([]);
   const [authMap, setAuthMap] = useState<Record<string, AuthState>>({});
   const [loading, setLoading] = useState(true);
@@ -172,6 +173,9 @@ export default function ModelsPage() {
   const [endpointResults, setEndpointResults] = useState<Record<string, { success: boolean; message: string }[]>>({});
   const [syncingModels, setSyncingModels] = useState<string | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [usageSupported, setUsageSupported] = useState<Set<string>>(new Set());
+  const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
+  const [fetchingUsage, setFetchingUsage] = useState<string | null>(null);
   // 模型视角：选中的模型（纳入管理），前端 state
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const toggleModelSelected = useCallback((k: string) => {
@@ -204,6 +208,12 @@ export default function ModelsPage() {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getSupportedUsageProviders()
+      .then(r => setUsageSupported(new Set(r.providers || [])))
+      .catch(() => {});
+  }, []);
 
   async function handleDelete(p: Provider) {
     setActionMenuId(null);
@@ -288,6 +298,29 @@ export default function ModelsPage() {
       toast(err.message || t('models.syncFailed'), 'error');
     } finally {
       setSyncingModels(null);
+    }
+  }
+
+  async function handleFetchUsage(p: Provider) {
+    setActionMenuId(null);
+    setFetchingUsage(p.id);
+    try {
+      const res = await getUsage(p.id);
+      setUsageMap(prev => ({ ...prev, [p.id]: res }));
+      if (!res.supported) {
+        toast(t('models.usageUnsupported'), 'info');
+      } else if (res.error) {
+        toast(res.error, 'error');
+      } else if (res.windows?.length) {
+        const w = res.windows[0];
+        toast(t('models.usageFetched', { pct: w.usedPercent ?? '?' }), 'success');
+      } else {
+        toast(t('models.usageEmpty'), 'info');
+      }
+    } catch (err: any) {
+      toast(err.message || t('models.usageFailed'), 'error');
+    } finally {
+      setFetchingUsage(null);
     }
   }
 
@@ -690,6 +723,7 @@ export default function ModelsPage() {
                         actions={[
                           { label: t('models.menuTest'), onClick: () => handleTestConnection(p), disabled: testingConn === p.id },
                           { label: t('models.menuSync'), onClick: () => handleSyncModels(p), disabled: syncingModels === p.id },
+                          ...(usageSupported.has(p.id) ? [{ label: t('models.menuUsage'), onClick: () => handleFetchUsage(p), disabled: fetchingUsage === p.id }] : []),
                           { label: t('models.menuEdit'), onClick: () => handleEdit(p) },
                           { label: t('models.menuDelete'), onClick: () => handleDelete(p), danger: true },
                         ]}
@@ -748,6 +782,23 @@ export default function ModelsPage() {
                       </span>
                     )}
                   </div>
+
+                  {fetchingUsage === p.id && (
+                    <div className="provider-usage provider-usage--loading">
+                      <span className="provider-status-spinner" aria-hidden="true" />
+                      {t('models.usageLoading')}
+                    </div>
+                  )}
+                  {usageMap[p.id]?.supported && usageMap[p.id]?.windows?.length! > 0 && fetchingUsage !== p.id && (
+                    <div className="provider-usage">
+                      {usageMap[p.id]!.windows!.map((w, i) => (
+                        <UsageBar key={i} window={w} />
+                      ))}
+                    </div>
+                  )}
+                  {usageMap[p.id]?.supported && usageMap[p.id]?.error && fetchingUsage !== p.id && (
+                    <div className="provider-usage provider-usage--error">{usageMap[p.id]!.error}</div>
+                  )}
                 </div>
 
                 {p.models.length > 0 && (
@@ -812,6 +863,54 @@ export default function ModelsPage() {
     </>
   );
 }
+function UsageBar({ window: w }: { window: UsageWindow }) {
+  const pct = w.usedPercent;
+  const tone = pct == null ? 'unknown' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
+  // OpenRouter prepaid: show credits instead of percent
+  if (w.isPrepaid && w.usedCredits != null) {
+    const remaining = w.remainingCredits != null ? `$${w.remainingCredits.toFixed(2)}` : '?';
+    return (
+      <div className={`usage-bar usage-bar--${tone}`}>
+        <span className="usage-bar-label">credits</span>
+        <span className="usage-bar-text">{t_global('models.usageRemaining', { n: remaining })}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`usage-bar usage-bar--${tone}`}>
+      <span className="usage-bar-label">{w.label}</span>
+      <div className="usage-bar-track">
+        <div className="usage-bar-fill" style={{ width: pct != null ? `${Math.min(pct, 100)}%` : '100%' }} />
+      </div>
+      <span className="usage-bar-text">
+        {pct != null ? `${pct}%` : '?'}
+        {resetText && <span className="usage-bar-reset">{resetText}</span>}
+      </span>
+    </div>
+  );
+}
+
+function formatResetTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = d.getTime() - now.getTime();
+    if (diffMs <= 0) return '';
+    const diffH = Math.floor(diffMs / 3600000);
+    const diffM = Math.floor((diffMs % 3600000) / 60000);
+    if (diffH > 24) return ` (${Math.floor(diffH / 24)}d)`;
+    if (diffH > 0) return ` (${diffH}h${diffM}m)`;
+    return ` (${diffM}m)`;
+  } catch {
+    return '';
+  }
+}
+
+// I18n accessor that works outside the component tree (for UsageBar).
+let _t: (k: string, ...args: any[]) => string = (k: string) => k;
+function t_global(k: string, ...args: any[]): string { return _t(k, ...args); }
+
 function StatChip({ label, value, tone }: { label: string; value: number | string; tone?: 'muted' | 'success' | 'warn' }) {
   return (
     <div className={`stat-chip stat-chip--${tone || 'default'}`}>

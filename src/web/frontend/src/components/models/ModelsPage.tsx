@@ -7,6 +7,14 @@ import CustomSelect from '../shared/CustomSelect';
 import crossDataRaw from '../../data/cross_platform_models.json';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const crossData: Record<string, any[]> = crossDataRaw as any;
+// Provider metadata (groups, families) — generated from src/providers/metadata.ts by scripts/gen-presets.js
+import providersGenerated from '../../data/providers-generated.json';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = (providersGenerated as any).groups;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type VariantOption = { label: string; providerId: string };
+type ProviderFamily = { family: string; plans?: VariantOption[]; ids: string[] };
+const PROVIDER_FAMILIES: ProviderFamily[] = (providersGenerated as any).families;
 
 const SHOW_MODELS = 4;
 const TYPE_OPTIONS = [
@@ -25,34 +33,7 @@ const AUTH_MODE_OPTIONS: { value: 'api_key' | 'oauth' | 'both' | 'none'; labelKe
   { value: 'none', labelKey: 'models.authModeNone' },
 ];
 
-// 平台分组：用于左侧分组导航
-const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = [
-  { key: 'official', labelKey: 'models.groupOfficial', ids: ['anthropic', 'openai', 'openai-codex', 'google', 'xai', 'mistral'] },
-  { key: 'aggregator', labelKey: 'models.groupAggregator', ids: ['openrouter'] },
-  { key: 'china', labelKey: 'models.groupChina', ids: [
-    // 智谱
-    'zai', 'zai-global', 'glm-coding',
-    // MiniMax
-    'minimax', 'minimax-global', 'minimax-coding',
-    // Kimi / Moonshot
-    'moonshot', 'kimi-coding', 'kimi-coding-plan',
-    // 火山引擎
-    'volcengine', 'volcengine-coding',
-    // 百度千帆
-    'qianfan', 'qianfan-coding',
-    // 通义千问
-    'qwen',
-    // DeepSeek
-    'deepseek',
-    // 阶跃星辰
-    'stepfun',
-    // 小米
-    'xiaomi', 'xiaomi-coding',
-    // 腾讯云
-    'tencent-coding',
-  ] },
-  { key: 'local', labelKey: 'models.groupLocal', ids: ['ollama', 'litellm'] },
-];
+// 平台分组由 providers-generated.json 提供（见文件头部 import）
 
 // 协议视角：支持的协议类型
 const PROTOCOLS: { key: string; labelKey: string }[] = [
@@ -104,81 +85,10 @@ function providerModes(p: Provider): string[] {
 
 type ViewKey = 'platform' | 'model';
 
-// ── Provider families: group same-site variants into one card ──
-// 国内站和国际站是不同的服务端点 + 不同的 key,不合并。
-// 只有同一站点内的不同套餐(API 平台 / Coding Plan / Token Plan)才合并。
-// OpenAI 的 API Key vs OAuth 也合并(同一站点不同认证方式)。
-type VariantOption = { label: string; providerId: string };
-type ProviderFamily = {
-  family: string;
-  plans?: VariantOption[];     // e.g. [{label:'API 平台', providerId:'zai'}, {label:'Coding Plan', providerId:'glm-coding'}]
-  ids: string[];               // all provider ids in this family (for filtering)
-};
-
-const PROVIDER_FAMILIES: ProviderFamily[] = [
-  {
-    family: 'OpenAI',
-    plans: [
-      { label: 'API Key', providerId: 'openai' },
-      { label: 'OAuth', providerId: 'openai-codex' },
-    ],
-    ids: ['openai', 'openai-codex'],
-  },
-  {
-    family: '智谱AI（国内）',
-    plans: [
-      { label: 'API 平台', providerId: 'zai' },
-      { label: 'Coding Plan', providerId: 'glm-coding' },
-    ],
-    ids: ['zai', 'glm-coding'],
-  },
-  {
-    family: 'MiniMax（国内）',
-    plans: [
-      { label: 'API 平台', providerId: 'minimax' },
-      { label: 'Token Plan', providerId: 'minimax-coding' },
-    ],
-    ids: ['minimax', 'minimax-coding'],
-  },
-  {
-    family: 'Kimi（国内）',
-    plans: [
-      { label: 'API 平台', providerId: 'kimi-coding' },
-      { label: 'Coding Plan', providerId: 'kimi-coding-plan' },
-    ],
-    ids: ['kimi-coding', 'kimi-coding-plan'],
-  },
-  {
-    family: '火山引擎',
-    plans: [
-      { label: 'API 平台', providerId: 'volcengine' },
-      { label: 'Coding Plan', providerId: 'volcengine-coding' },
-    ],
-    ids: ['volcengine', 'volcengine-coding'],
-  },
-  {
-    family: '百度千帆',
-    plans: [
-      { label: 'API 平台', providerId: 'qianfan' },
-      { label: 'Coding Plan', providerId: 'qianfan-coding' },
-    ],
-    ids: ['qianfan', 'qianfan-coding'],
-  },
-  {
-    family: '小米 MiMo',
-    plans: [
-      { label: 'API 平台', providerId: 'xiaomi' },
-      { label: 'Token Plan', providerId: 'xiaomi-coding' },
-    ],
-    ids: ['xiaomi', 'xiaomi-coding'],
-  },
-];
-
-// Reverse map: providerId → family name
+// Provider families 由 providers-generated.json 提供数据（见文件头部 import）。
 const PROVIDER_FAMILY_MAP = new Map<string, string>();
 for (const f of PROVIDER_FAMILIES) for (const id of f.ids) PROVIDER_FAMILY_MAP.set(id, f.family);
 
-// Given a family and selected plan label, find the matching provider id.
 function resolveFamilyProvider(fam: ProviderFamily, _region?: string, planLabel?: string): string | null {
   if (planLabel && fam.plans) {
     const plan = fam.plans.find(p => p.label === planLabel);

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { listVault, deleteVault, getVaultValue, syncToProject, browseDirs, checkKeyImpact, exportVault, importVault, type VaultSecret } from '../../api/vault';
+import { listVault, deleteVault, getVaultValue, syncToProject, browseDirs, checkKeyImpact, exportVault, importVault, migrateGroups, type VaultSecret } from '../../api/vault';
 import { getSettings } from '../../api/settings';
 import { formatDate } from '../../lib/utils';
 import { useApp } from '../Layout/AppContext';
@@ -9,7 +9,7 @@ import VaultFormModal from '../shared/VaultFormModal';
 import { PLATFORM_IDS, PLATFORM_FIELDS } from '../../lib/constants';
 
 type ViewMode = 'keys' | 'projects';
-type IconName = 'plus' | 'download' | 'upload' | 'refresh' | 'cloud' | 'copy' | 'folder' | 'edit' | 'trash' | 'search';
+type IconName = 'plus' | 'download' | 'upload' | 'refresh' | 'cloud' | 'copy' | 'folder' | 'edit' | 'trash' | 'search' | 'layers';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 15, height: 15, viewBox: '0 0 18 18', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -24,6 +24,7 @@ function Icon({ name }: { name: IconName }) {
     edit: <><path d="M10.5 4.5 13.5 7.5" /><path d="M4 14l3.2-.8 7-7a2.1 2.1 0 0 0-3-3l-7 7Z" /></>,
     trash: <><path d="M3 5h12" /><path d="M7 5V3.5h4V5" /><path d="M5 5l.8 10h6.4L13 5" /></>,
     search: <><circle cx="8" cy="8" r="4.5" /><path d="m11.5 11.5 3 3" /></>,
+    layers: <><path d="M9 2.5 2.5 6l6.5 3.5L15.5 6 9 2.5Z" /><path d="M2.5 9.5l6.5 3.5 6.5-3.5" /></>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }
@@ -214,6 +215,18 @@ export default function VaultPage() {
     } catch { showToast(t('vault.importFail'), 'error'); }
   }
 
+  async function handleMigrateGroups() {
+    try {
+      const result = await migrateGroups();
+      if (result.migrated > 0) {
+        showToast(t('vault.migrated', { n: result.migrated }), 'success');
+      } else {
+        showToast(t('vault.migrateNoChange'), 'info');
+      }
+      loadVault();
+    } catch { showToast(t('vault.migrateFail'), 'error'); }
+  }
+
   // Project view
   const projectMap = useMemo(() => {
     const map = new Map<string, { name: string; path: string; keys: VaultSecret[] }>();
@@ -391,6 +404,10 @@ export default function VaultPage() {
             <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleImport(e.target.files[0]); e.target.value = ''; }} />
             <button className="vault-toolbar-btn" onClick={() => loadVault()} title={t('common.refresh')}>
               <Icon name="refresh" />
+            </button>
+            <button className="vault-toolbar-btn" onClick={handleMigrateGroups} title={t('vault.migrateGroups')}>
+              <Icon name="layers" />
+              <span>{t('vault.migrateGroups')}</span>
             </button>
             {cloudPlatforms.length > 0 && (
               <button className={`vault-toolbar-btn${showCloud ? ' vault-toolbar-btn--active' : ''}`} onClick={() => { setShowCloud(!showCloud); setCloudKeys([]); }} title={t('vault.pushCloud')}>

@@ -3,6 +3,7 @@ import { getVaultValue, listAutoCreatePlatforms, setVault, type AutoCreatePlatfo
 import { apiRaw } from '../../api/client';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
+import { PREDEFINED_GROUPS } from '../../data/vault-groups';
 
 interface VaultFormModalProps {
   groups: string[];
@@ -255,7 +256,8 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
               onChange={v => setFormGroup(v)}
               placeholder={t('common.selectGroup')}
               options={[
-                ...groups.map(g => ({ value: g, label: g })),
+                ...PREDEFINED_GROUPS.map(g => ({ value: g, label: g })),
+                ...groups.filter(g => !PREDEFINED_GROUPS.includes(g)).map(g => ({ value: g, label: g })),
                 { value: '__custom__', label: t('common.manualInput') },
               ]}
             />

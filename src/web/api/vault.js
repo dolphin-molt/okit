@@ -778,4 +778,82 @@ function httpRequest(url, options) {
   });
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey };
+// ── Vault group migration ────────────────────────────────────
+// Remaps freeform group names to canonical "{平台} · {地域}" format.
+// Matching is based on key name prefix + alias hints for 国内/国际 split.
+
+function resolveCanonicalGroup(key, alias) {
+  const k = String(key || '').toUpperCase();
+  const a = String(alias || '');
+  const aLower = a.toLowerCase();
+  const aHasGlobal = /国际|global|overseas|international/i.test(a);
+
+  // ── 国际大厂 ──
+  if (k.startsWith('OPENAI_API_KEY') || k === 'OPENAI_API_KEY') return 'OpenAI';
+  if (k.startsWith('ANTHROPIC')) return 'Anthropic';
+  if (k.startsWith('GOOGLE') || k.startsWith('GEMINI')) return 'Google Gemini';
+  if (k.startsWith('XAI_')) return 'xAI';
+  if (k.startsWith('MISTRAL_')) return 'Mistral';
+
+  // ── 智谱/Z.AI (国内国际分站,key 不通用) ──
+  if (k.startsWith('ZAI_API_KEY') || k.startsWith('ZAI_')) return '智谱AI · 国际';
+  if (k.startsWith('ZHIPU_') || k.startsWith('OKIT-ZHIPU') || k.startsWith('BIGMODEL_')) return '智谱AI · 国内';
+
+  // ── MiniMax (国内国际分站) ──
+  if (k.startsWith('MINIMAX_GLOBAL') || k.startsWith('OKIT-MINIMAX-GLOBAL')) return 'MiniMax · 国际';
+  if (k.startsWith('MINIMAX_') || k.startsWith('OKIT-MINIMAX')) return 'MiniMax · 国内';
+
+  // ── Kimi / Moonshot (国内国际分站) ──
+  if (k.startsWith('MOONSHOT_')) return aHasGlobal ? 'Kimi · 国际' : 'Kimi · 国内';
+  if (k.startsWith('KIMI_')) return 'Kimi · 国内';
+
+  // ── 仅国内 ──
+  if (k.startsWith('DEEPSEEK_') || k === 'OKIT-DEEPSEEK' || k.startsWith('DEEPSEEK')) return 'DeepSeek';
+  if (k.startsWith('DASHSCOPE_')) return '通义千问';
+  if (k.startsWith('QIANFAN_') || k.startsWith('QIANFAN')) return '百度千帆';
+  if (k.startsWith('VOLCENGINE_') || k === 'OKIT-VOLCENGINE' || k.startsWith('VOLC_')) return '火山引擎';
+  if (k.startsWith('TENCENT_') || k.startsWith('TECENT_') || k.startsWith('TENCENT')) return '腾讯云';
+  if (k.startsWith('STEPFUN_')) return '阶跃星辰';
+  if (k.startsWith('XIAOMI_MIMO') || k.startsWith('XIAOMI_')) return '小米 MiMo';
+
+  // ── 聚合/代理 ──
+  if (k.startsWith('OPENROUTER_')) return 'OpenRouter';
+  if (k.startsWith('SILICONFLOW_')) return '硅基流动';
+
+  // ── 基础设施 ──
+  if (k.startsWith('CF_') || k.startsWith('CLOUDFLARE')) return 'Cloudflare';
+
+  // ── 无法归类 ──
+  return null;
+}
+
+async function migrateGroups(req, res) {
+  try {
+    await store.reload();
+    const data = await store.load();
+    const changes = [];
+    let migrated = 0;
+
+    for (const s of data.secrets) {
+      const canonical = resolveCanonicalGroup(s.key, s.alias);
+      if (canonical && canonical !== s.group) {
+        const from = s.group || '(ungrouped)';
+        s.group = canonical;
+        changes.push({ key: s.key + (s.alias !== 'default' ? '/' + s.alias : ''), from, to: canonical });
+        migrated++;
+      }
+    }
+
+    if (migrated > 0) {
+      await store.save();
+      appendVaultLog('migrate-groups', '', true, `${migrated} keys regrouped`);
+    }
+
+    res.json({ success: true, migrated, changes });
+  } catch (error) {
+    appendVaultLog('migrate-groups', '', false, error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups };

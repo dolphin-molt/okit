@@ -78,3 +78,7 @@ export async function browseDirs(dirPath: string): Promise<{
 export async function checkKeyImpact(key: string): Promise<{ projects: string[] }> {
   return api(`/api/vault/impact?key=${encodeURIComponent(key)}`);
 }
+
+export async function migrateGroups(): Promise<{ success: boolean; migrated: number; changes: { key: string; from: string; to: string }[] }> {
+  return api('/api/vault/migrate-groups', { method: 'POST' });
+}

@@ -898,8 +898,8 @@ export default function ModelsPage() {
             const authed = isAuthed(p);
             const needsVerification = Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
             const used = isUsedBy(p);
-            // For multi-provider families, status reflects the union of all variants.
-            const familyAuthed = isMulti ? fam.providers.some(mp => isAuthed(mp)) : authed;
+            // 状态反映当前选中的变体(不是整个家族的并集)
+            const familyAuthed = authed;
 
             return (
               <article

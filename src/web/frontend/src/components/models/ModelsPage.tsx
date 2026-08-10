@@ -290,6 +290,65 @@ export default function ModelsPage() {
     }
   }
 
+  async function handleConnect(p: Provider) {
+    setActionMenuId(null);
+    const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
+    setTestingConn(p.id);
+    setEndpointResults(prev => {
+      const next = { ...prev };
+      delete next[p.id];
+      return next;
+    });
+    const results: { success: boolean; message: string }[] = [];
+    const { api } = await import('../../api/client');
+    for (const ep of eps) {
+      try {
+        const res = await api('/api/vault/test-key', {
+          method: 'POST',
+          body: JSON.stringify({ baseUrl: ep.baseUrl, type: ep.type, protocol: ep.protocol, vaultKey: p.vaultKey }),
+        }) as any;
+        results.push({ success: res.success, message: res.message });
+      } catch (err: any) {
+        results.push({ success: false, message: err.message || t('models.testFailed') });
+      }
+      setEndpointResults(prev => ({ ...prev, [p.id]: [...results] }));
+    }
+    const allOk = results.every(r => r.success);
+    try {
+      await updateProvider(p.id, { authVerified: allOk });
+    } catch { /* server unavailable, result still shown locally */ }
+    setAuthMap(prev => ({
+      ...prev,
+      [p.id]: { ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), oauthLoggedIn: null, authMode: p.authMode }), authVerified: allOk },
+    }));
+
+    if (!allOk) {
+      toast(t('models.endpointsFailed', { n: results.filter(r => !r.success).length }), 'error');
+      setTestingConn(null);
+      return;
+    }
+
+    // 连接成功后自动拉取最新模型列表
+    setSyncingModels(p.id);
+    setTestingConn(null);
+    try {
+      const res = await fetchModels(p.id);
+      if (res.success) {
+        toast(t('models.connected', { n: res.models.length }), 'success');
+        load();
+      } else if (res.kept) {
+        toast(t('models.connectKept', { n: res.kept.length }), 'success');
+        load();
+      } else {
+        toast(t('models.allEndpointsOk'), 'success');
+      }
+    } catch {
+      toast(t('models.allEndpointsOk'), 'success');
+    } finally {
+      setSyncingModels(null);
+    }
+  }
+
   async function handleTestConnection(p: Provider) {
     setActionMenuId(null);
     const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
@@ -798,9 +857,6 @@ export default function ModelsPage() {
                         {(p.authMode === 'oauth' || p.authMode === 'both') && (
                           <span className={`variant-tab${p.authMode === 'oauth' ? ' variant-tab--active' : ''}`}>OAuth</span>
                         )}
-                        {p.authMode === 'none' && (
-                          <span className="variant-tab variant-tab--active">{t('models.authModeNone')}</span>
-                        )}
                       </>
                     )}
                   </div>
@@ -834,8 +890,7 @@ export default function ModelsPage() {
                       <ActionMenu
                         onClose={() => setActionMenuId(null)}
                         actions={[
-                          { label: t('models.menuTest'), onClick: () => handleTestConnection(p), disabled: testingConn === p.id },
-                          { label: t('models.menuSync'), onClick: () => handleSyncModels(p), disabled: syncingModels === p.id },
+                          { label: t('models.menuConnect'), onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id },
                           { label: t('models.menuEdit'), onClick: () => handleEdit(p) },
                           { label: t('models.menuDelete'), onClick: () => handleDelete(p), danger: true },
                         ]}

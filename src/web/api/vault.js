@@ -7,6 +7,7 @@ const {
   qianfanCodingErrorCode,
   qianfanCodingErrorMessage,
 } = require('./qianfan-coding');
+const { pickProbeModel } = require('./endpoint-profiles');
 
 const store = new VaultStore();
 
@@ -542,6 +543,12 @@ async function testApiKey(req, res) {
     }
   }
   if (!resolvedKey) {
+    // ChatGPT/Codex OAuth endpoints don't use an API key — the access token
+    // lives in ~/.codex/auth.json. Probe that path before giving up so the
+    // UI can show a meaningful status for the openai-codex provider.
+    if (isCodexOAuthEndpoint(baseUrl)) {
+      return probeCodexOAuth(res);
+    }
     return res.json({ success: false, message: '无可用密钥，请先绑定 API Key' });
   }
 
@@ -667,6 +674,51 @@ function isZaiAnthropicEndpoint(baseUrl) {
   return /^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim());
 }
 
+function isCodexOAuthEndpoint(baseUrl) {
+  return /^https?:\/\/chatgpt\.com\/backend-api\/codex\/?/i.test(String(baseUrl || '').trim());
+}
+
+// Probe the ChatGPT/Codex OAuth token stored at ~/.codex/auth.json. The token
+// is validated against the Codex backend models endpoint. Returns a meaningful
+// message for each outcome (logged in, token expired, not logged in).
+async function probeCodexOAuth(res) {
+  const authPath = path.join(os.homedir(), '.codex', 'auth.json');
+  try {
+    await fs.ensureDir(path.dirname(authPath));
+    if (!await fs.pathExists(authPath)) {
+      return res.json({ success: false, message: '尚未登录 ChatGPT，请先点击 OAuth 登录' });
+    }
+    const content = await fs.readFile(authPath, 'utf-8');
+    const data = JSON.parse(content);
+    if (data.auth_mode !== 'chatgpt' || !data.tokens?.access_token) {
+      return res.json({ success: false, message: '尚未登录 ChatGPT，请先点击 OAuth 登录' });
+    }
+    const accessToken = data.tokens.access_token;
+    const result = await httpRequest('https://chatgpt.com/backend-api/codex/models', {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'ChatGPT-Account-Id': data.account_id || '' },
+      timeout: 10000,
+    });
+    if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
+    if (result.status === 401 || result.status === 403) {
+      return res.json({ success: false, message: 'OAuth Token 已过期，请重新登录 ChatGPT' });
+    }
+    if (result.status === 200) {
+      let modelCount = 0;
+      try { modelCount = JSON.parse(result.body).data?.length || 0; } catch {}
+      return res.json({ success: true, message: `ChatGPT OAuth 连接成功，可用 ${modelCount} 个模型` });
+    }
+    // Some Codex backends respond 404 to /models; treat reachability + valid
+    // token as success if the endpoint at least does not reject auth.
+    if (result.status === 404 || result.status === 405) {
+      return res.json({ success: true, message: 'ChatGPT OAuth 连接成功，Token 有效' });
+    }
+    return res.json({ success: false, message: `HTTP ${result.status}` });
+  } catch (err) {
+    return res.json({ success: false, message: `连接失败: ${err.message}` });
+  }
+}
+
 function zaiErrorCode(body) {
   try {
     const parsed = JSON.parse(body || '{}');
@@ -677,15 +729,18 @@ function zaiErrorCode(body) {
   }
 }
 
-function probeOpenAIWireApi(baseUrl, headers, protocol) {
+function probeOpenAIWireApi(baseUrl, headers, protocol, probeModel) {
+  // Coding Plan endpoints reject the generic gpt-4o-mini model; the caller
+  // passes the plan-specific model via pickProbeModel so the probe is valid.
+  const model = probeModel || pickProbeModel(baseUrl);
   const normalizedProtocol = protocol === 'responses' ? 'responses' : 'chat';
   if (normalizedProtocol === 'responses') {
     const url = baseUrl.replace(/\/+$/, '') + '/responses';
-    const body = JSON.stringify({ model: 'gpt-4o-mini', max_output_tokens: 1, input: 'hi' });
+    const body = JSON.stringify({ model, max_output_tokens: 1, input: 'hi' });
     return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
   }
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
-  const body = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+  const body = JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
   return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
 }
 

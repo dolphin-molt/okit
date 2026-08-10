@@ -8,6 +8,7 @@ const {
   qianfanCodingErrorMessage,
   qianfanCodingModels,
 } = require('./qianfan-coding');
+const { pickProbeModel, getFallbackModels } = require('./endpoint-profiles');
 
 const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
@@ -855,6 +856,9 @@ async function applyAgentConfig(adapter, provider, modelId) {
     case 'kimi-code':
       await applyKimiCodeConfig(provider, modelId, apiKey);
       break;
+    case 'opencode':
+      await applyOpenCodeConfig(provider, modelId, apiKey);
+      break;
     default:
       break;
   }
@@ -1150,6 +1154,27 @@ async function applyKimiCodeConfig(provider, modelId, apiKey) {
   await fs.writeFile(configPath, toml);
 }
 
+// OpenCode uses a flat config.json: { provider, model, apiKey, baseUrl }.
+// Mirrors the TS adapter at src/providers/adapters/opencode.ts.
+async function applyOpenCodeConfig(provider, modelId, apiKey) {
+  const openCodeDir = path.join(os.homedir(), '.opencode');
+  const configPath = path.join(openCodeDir, 'config.json');
+  await fs.ensureDir(openCodeDir);
+
+  let data = {};
+  if (await fs.pathExists(configPath)) {
+    const content = await fs.readFile(configPath, 'utf-8');
+    data = content.trim() ? JSON.parse(content) : {};
+  }
+
+  data.provider = provider.type;
+  data.model = modelId;
+  if (apiKey) data.apiKey = apiKey;
+  if (provider.baseUrl) data.baseUrl = provider.baseUrl;
+
+  await fs.writeFile(configPath, JSON.stringify(data, null, 2));
+}
+
 function upsertKimiTomlKey(toml, key, value) {
   const lines = toml.split('\n');
   let tableStart = lines.findIndex(l => l.trim().startsWith('['));
@@ -1420,9 +1445,36 @@ async function fetchOpenAIModels(baseUrl, apiKey) {
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
   const result = await httpReq(url, { method: 'GET', headers, timeout: 10000 });
   if (result.error) throw new Error(result.error);
+  if (result.status === 200) {
+    const d = JSON.parse(result.body);
+    const models = (d.data || []).map(m => ({ id: m.id, name: m.id }));
+    if (models.length) return models;
+  }
+  // Some deployments return 200 with an empty list, or 404/403/405 when the
+  // /models endpoint is not exposed. For Coding Plan providers we probe the
+  // chat endpoint with a plan-specific model and return the known fallback
+  // list on success so the UI shows usable models instead of "sync failed".
+  const fallback = getFallbackModels(baseUrl);
+  if (fallback && (result.status === 200 || result.status === 404 || result.status === 403 || result.status === 405)) {
+    const probeModel = pickProbeModel(baseUrl);
+    const probeBody = JSON.stringify({
+      model: probeModel,
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: false,
+    });
+    const probeResult = await httpReq(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST', headers, body: probeBody, timeout: 10000,
+    });
+    if (probeResult.error) throw new Error(probeResult.error);
+    // 200 or 400 (bad request for max_tokens=1 etc.) both mean the key is
+    // valid and the endpoint is reachable — return the known model list.
+    if (probeResult.status === 200 || probeResult.status === 400) return fallback;
+    if (probeResult.status === 401) throw new Error('API Key 无效');
+    throw new Error(`HTTP ${probeResult.status}`);
+  }
   if (result.status !== 200) throw new Error(`HTTP ${result.status}`);
-  const d = JSON.parse(result.body);
-  return (d.data || []).map(m => ({ id: m.id, name: m.id }));
+  return [];
 }
 
 async function fetchQianfanCodingModels(baseUrl, apiKey) {

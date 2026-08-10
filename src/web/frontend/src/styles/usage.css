@@ -1,0 +1,182 @@
+/* ── Usage page ── */
+.usage-workspace { padding: 0; }
+
+.usage-hero-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+.usage-hero-stats {
+  display: flex;
+  gap: 24px;
+}
+.usage-hero-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.usage-hero-stats span {
+  font-size: 11px;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.usage-hero-stats strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.usage-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Grid of provider usage cards */
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.usage-card {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 14px 16px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
+  transition: border-color 0.2s;
+}
+.usage-card--ok { border-color: var(--border); }
+.usage-card--warn { border-color: #f59e0b; }
+.usage-card--danger { border-color: #ef4444; }
+
+.usage-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.usage-card-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.usage-card-type {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+.usage-card-refresh {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.usage-card-refresh:hover { opacity: 1; }
+.usage-card-refresh:disabled { opacity: 1; }
+
+.usage-card-body {
+  min-height: 40px;
+}
+
+.usage-card-loading,
+.usage-card-empty,
+.usage-card-error {
+  font-size: 13px;
+  padding: 8px 0;
+}
+.usage-card-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+}
+.usage-card-empty {
+  color: var(--ink-muted);
+}
+.usage-card-error {
+  color: var(--danger, #dc2626);
+  word-break: break-word;
+}
+
+.usage-card-windows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Usage bar (one window) ── */
+.usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.usage-bar-label {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-muted);
+  min-width: 48px;
+  text-transform: capitalize;
+}
+.usage-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--kraft, #e8e0d0);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 80px;
+}
+[data-theme="dark"] .usage-bar-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.usage-bar--ok .usage-bar-fill { background: #22c55e; }
+.usage-bar--warn .usage-bar-fill { background: #f59e0b; }
+.usage-bar--danger .usage-bar-fill { background: #ef4444; }
+.usage-bar--unknown .usage-bar-fill { background: var(--ink-muted); opacity: 0.4; }
+
+.usage-bar-pct {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  min-width: 38px;
+  text-align: right;
+}
+.usage-bar-reset {
+  font-size: 11px;
+  color: var(--ink-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* OpenRouter prepaid credits display */
+.usage-bar-info {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+.usage-bar-credits,
+.usage-bar-remaining {
+  font-variant-numeric: tabular-nums;
+}
+.usage-bar-remaining {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] .usage-card {
+  background: rgba(255, 255, 255, 0.04);
+}

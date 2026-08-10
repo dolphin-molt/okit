@@ -7,6 +7,7 @@ export default {
   'nav.tools': '工具管理',
   'nav.vault': '密钥管理',
   'nav.models': '模型管控',
+  'nav.usage': '用量统计',
   'nav.agents': 'Agent 配置',
   'nav.auth': '授权管理',
   'nav.system': '系统',
@@ -696,4 +697,17 @@ export default {
   'provider.xiaomi-coding': '小米 MiMo Token Plan',
   'provider.xai': 'xAI',
   'provider.mistral': 'Mistral',
+
+  // 用量统计
+  'usage.supported': '支持查询',
+  'usage.queried': '已查询',
+  'usage.lastRefresh': '上次刷新',
+  'usage.refreshAll': '全部刷新',
+  'usage.refreshing': '刷新中…',
+  'usage.refresh': '刷新',
+  'usage.loading': '查询中…',
+  'usage.empty': '暂无数据',
+  'usage.noProviders': '暂无支持用量查询的 Provider',
+  'usage.used': '已用',
+  'usage.remaining': '余额',
 } as const;

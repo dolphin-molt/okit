@@ -51,6 +51,11 @@ const TOOL_ITEMS = [
       <path d="M12 12v10" />
     </svg>
   )},
+  { path: '/usage', labelKey: 'nav.usage', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
+      <path d="M5 20V10M12 20V4M19 20v-7" />
+    </svg>
+  )},
   { path: '/auth', labelKey: 'nav.auth', icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
       <circle cx="8" cy="12" r="4" />

@@ -7,6 +7,7 @@ export default {
   'nav.tools': 'Tools',
   'nav.vault': 'Vault',
   'nav.models': 'Models',
+  'nav.usage': 'Usage',
   'nav.agents': 'Agent Config',
   'nav.auth': 'Authorization',
   'nav.system': 'System',
@@ -696,4 +697,17 @@ export default {
   'provider.xiaomi-coding': 'Xiaomi MiMo Token Plan',
   'provider.xai': 'xAI',
   'provider.mistral': 'Mistral',
+
+  // Usage
+  'usage.supported': 'Supported',
+  'usage.queried': 'Queried',
+  'usage.lastRefresh': 'Last refresh',
+  'usage.refreshAll': 'Refresh all',
+  'usage.refreshing': 'Refreshing…',
+  'usage.refresh': 'Refresh',
+  'usage.loading': 'Loading…',
+  'usage.empty': 'No data',
+  'usage.noProviders': 'No providers support usage query',
+  'usage.used': 'Used',
+  'usage.remaining': 'Remaining',
 } as const;

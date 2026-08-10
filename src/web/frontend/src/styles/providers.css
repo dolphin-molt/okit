@@ -3129,3 +3129,45 @@
   margin-left: 2px;
 }
 
+
+/* ── Provider family variant tabs ── */
+.provider-variant-tabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.variant-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+.variant-tab:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+}
+.variant-tab--active {
+  background: var(--paper);
+  border-color: var(--kraft-dark);
+  color: var(--ink);
+  font-weight: 600;
+}
+.variant-tab-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .variant-tab { color: var(--ink-light); }
+[data-theme="dark"] .variant-tab:hover { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .variant-tab--active { background: rgba(255, 255, 255, 0.06); border-color: var(--kraft-dark); }

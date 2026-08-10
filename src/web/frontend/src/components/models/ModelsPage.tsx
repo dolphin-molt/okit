@@ -104,6 +104,45 @@ function providerModes(p: Provider): string[] {
 
 type ViewKey = 'platform' | 'model';
 
+// ── Provider families: group same-company variants into one card ──
+// Each family renders as a single card with variant tabs (e.g. "API Key" / "OAuth").
+const PROVIDER_FAMILIES: { family: string; ids: string[] }[] = [
+  { family: 'OpenAI', ids: ['openai', 'openai-codex'] },
+  { family: '智谱AI', ids: ['zai', 'zai-global', 'glm-coding'] },
+  { family: 'MiniMax', ids: ['minimax', 'minimax-global', 'minimax-coding'] },
+  { family: 'Kimi', ids: ['moonshot', 'kimi-coding', 'kimi-coding-plan'] },
+  { family: '火山引擎', ids: ['volcengine', 'volcengine-coding'] },
+  { family: '百度千帆', ids: ['qianfan', 'qianfan-coding'] },
+  { family: '小米 MiMo', ids: ['xiaomi', 'xiaomi-coding'] },
+];
+
+// Reverse map: providerId → family name (for quick lookup)
+const PROVIDER_FAMILY_MAP = new Map<string, string>();
+for (const f of PROVIDER_FAMILIES) for (const id of f.ids) PROVIDER_FAMILY_MAP.set(id, f.family);
+
+function variantLabel(providerId: string): string {
+  const map: Record<string, string> = {
+    'openai': 'API Key',
+    'openai-codex': 'OAuth (ChatGPT)',
+    'zai': '国内',
+    'zai-global': '国际',
+    'glm-coding': 'Coding Plan',
+    'minimax': '国内',
+    'minimax-global': '国际',
+    'minimax-coding': 'Token Plan',
+    'moonshot': '国内',
+    'kimi-coding': '国内',
+    'kimi-coding-plan': 'Coding Plan',
+    'volcengine': '开放平台',
+    'volcengine-coding': 'Coding Plan',
+    'qianfan': '开放平台',
+    'qianfan-coding': 'Coding Plan',
+    'xiaomi': '开放平台',
+    'xiaomi-coding': 'Token Plan',
+  };
+  return map[providerId] || providerId;
+}
+
 function groupOf(providerId: string): { key: string; labelKey: string } {
   for (const g of PROVIDER_GROUPS) {
     if (g.ids.includes(providerId)) return { key: g.key, labelKey: g.labelKey };
@@ -420,7 +459,43 @@ export default function ModelsPage() {
     [filteredProviders, providerOrder]
   );
 
-  // 统计
+  // Group sorted providers into families for the platform view.
+  // Single-provider families render as before; multi-provider families
+  // render as one merged card with variant tabs.
+  const sortedFamilies = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { family: string; providers: Provider[] }[] = [];
+    for (const p of sortedProviders) {
+      const fam = PROVIDER_FAMILY_MAP.get(p.id);
+      if (fam) {
+        // Find or create the family bucket, preserving first-occurrence order
+        let bucket = result.find(r => r.family === fam);
+        if (!bucket) {
+          bucket = { family: fam, providers: [] };
+          result.push(bucket);
+        }
+        bucket.providers.push(p);
+        seen.add(p.id);
+      } else {
+        // Standalone provider — its own family
+        result.push({ family: p.name || p.id, providers: [p] });
+        seen.add(p.id);
+      }
+    }
+    return result;
+  }, [sortedProviders]);
+
+  // Per-family active variant tab state (only for multi-provider families)
+  const [familyVariants, setFamilyVariants] = useState<Record<string, string>>({});
+  function getActiveVariant(family: string, members: Provider[]): Provider {
+    const stored = familyVariants[family];
+    if (stored) {
+      const found = members.find(p => p.id === stored);
+      if (found) return found;
+    }
+    // Default: first authed variant, else first member
+    return members.find(p => isAuthed(p)) || members[0];
+  }
   const modelStats = useMemo(() => {
     const endpoints = providers.reduce((sum, p) => sum + (p.endpoints?.length || 1), 0);
     const models = providers.reduce((sum, p) => sum + (p.models?.length || 0), 0);
@@ -675,7 +750,9 @@ export default function ModelsPage() {
             )}
 
             <div className="provider-list">
-          {sortedProviders.map(p => {
+          {sortedFamilies.map(fam => {
+            const isMulti = fam.providers.length > 1;
+            const p = isMulti ? getActiveVariant(fam.family, fam.providers) : fam.providers[0];
             const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
             const showAll = expandedModels.has(p.id);
             const visibleModels = showAll ? p.models : p.models.slice(0, SHOW_MODELS);
@@ -685,19 +762,36 @@ export default function ModelsPage() {
             const needsVerification = Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
             const used = isUsedBy(p);
             const group = groupOf(p.id);
+            // For multi-provider families, status reflects the union of all variants.
+            const familyAuthed = isMulti ? fam.providers.some(mp => isAuthed(mp)) : authed;
+            const familyUsed = isMulti ? fam.providers.some(mp => isUsedBy(mp)) : used;
 
             return (
               <article
-                key={p.id}
-                className={`provider-card provider-card--clickable${authed ? ' provider-card--authed' : ''}${used ? ' provider-card--used' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
+                key={fam.family}
+                className={`provider-card provider-card--clickable${familyAuthed ? ' provider-card--authed' : ''}${familyUsed ? ' provider-card--used' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
                 onClick={() => setActivePlatform(p.id)}
                 aria-busy={testingConn === p.id}
               >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
-                    <h3>{providerName(p.id, p.name)}</h3>
+                    <h3>{isMulti ? fam.family : providerName(p.id, p.name)}</h3>
                     <span className="provider-card-group">{t(group.labelKey)}</span>
                   </div>
+                  {isMulti && (
+                    <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
+                      {fam.providers.map(mp => (
+                        <button
+                          key={mp.id}
+                          className={`variant-tab${mp.id === p.id ? ' variant-tab--active' : ''}`}
+                          onClick={() => setFamilyVariants(prev => ({ ...prev, [fam.family]: mp.id }))}
+                        >
+                          {variantLabel(mp.id)}
+                          {isAuthed(mp) && <span className="variant-tab-dot" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="provider-card-status">
                     {testingConn === p.id && (
                       <span className="provider-status provider-status--testing">
@@ -705,12 +799,12 @@ export default function ModelsPage() {
                         {t('models.testingConn')}
                       </span>
                     )}
-                    <span className={`provider-status provider-status--${authed ? 'authed' : 'unauthed'}`}>
-                      {authed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
+                    <span className={`provider-status provider-status--${familyAuthed ? 'authed' : 'unauthed'}`}>
+                      {familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
                     </span>
-                    {used && (
+                    {familyUsed && (
                       <span className="provider-status provider-status--used">
-                        {t('models.inUseBy', { n: p.usedBy?.length || 0 })}
+                        {t('models.inUseBy', { n: fam.providers.reduce((sum, mp) => sum + (mp.usedBy?.length || 0), 0) })}
                       </span>
                     )}
                   </div>

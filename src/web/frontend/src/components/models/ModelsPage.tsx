@@ -123,7 +123,7 @@ for (const f of PROVIDER_FAMILIES) for (const id of f.ids) PROVIDER_FAMILY_MAP.s
 function variantLabel(providerId: string): string {
   const map: Record<string, string> = {
     'openai': 'API Key',
-    'openai-codex': 'OAuth (ChatGPT)',
+    'openai-codex': 'OAuth',
     'zai': '国内',
     'zai-global': '国际',
     'glm-coding': 'Coding Plan',

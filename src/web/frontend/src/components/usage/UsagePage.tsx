@@ -96,11 +96,17 @@ export default function UsagePage() {
               <div><span>{t('usage.lastRefresh')}</span><strong>{formatTimeAgo(lastRefresh)}</strong></div>
             )}
           </div>
-          <button className="btn btn-primary usage-refresh-btn" onClick={fetchAll} disabled={fetchingIds.size > 0}>
+          <button className="usage-refresh-btn" onClick={fetchAll} disabled={fetchingIds.size > 0}>
             {fetchingIds.size > 0 ? (
               <><span className="provider-status-spinner" aria-hidden="true" /> {t('usage.refreshing')}</>
             ) : (
-              <>{t('usage.refreshAll')}</>
+              <>
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 9a5.5 5.5 0 1 1-1.6-3.9" />
+                  <path d="M14.5 3.5v4h-4" />
+                </svg>
+                {t('usage.refreshAll')}
+              </>
             )}
           </button>
         </div>

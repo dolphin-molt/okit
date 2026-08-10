@@ -33,8 +33,38 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--font);
   font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1.5px solid var(--kraft-dark);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
+}
+.usage-refresh-btn:hover:not(:disabled) {
+  background: var(--kraft);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.08);
+}
+.usage-refresh-btn:active:not(:disabled) {
+  transform: translate(0, 0);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.06);
+}
+.usage-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .usage-refresh-btn {
+  border-color: var(--kraft-dark);
+  color: var(--ink-light);
+}
+[data-theme="dark"] .usage-refresh-btn:hover:not(:disabled) {
+  background: var(--kraft-dark);
 }
 
 /* Grid of provider usage cards */

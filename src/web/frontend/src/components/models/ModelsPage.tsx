@@ -869,7 +869,6 @@ export default function ModelsPage() {
                 <div className="provider-card-header">
                   <div className="provider-card-title">
                     <h3>{isMulti ? fam.family : providerName(p.id, p.name)}</h3>
-                    <span className="provider-card-group">{t(group.labelKey)}</span>
                   </div>
                   <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
                     {isMulti ? (

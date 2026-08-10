@@ -19,8 +19,20 @@ export async function loadProviders(): Promise<Provider[]> {
     const providers = data.providers.filter(isValidProvider);
 
     // Merge new presets: add missing ones, update name changes for existing presets
+    // Also clean up presets that have been removed from the codebase
     const existingIds = new Set(providers.map(p => p.id));
+    const presetIds = new Set(PRESET_PROVIDERS.map(p => p.id));
+    const REMOVED_PRESETS = new Set(['groq', 'fireworks', 'together']); // presets removed from codebase
     let changed = false;
+
+    // Remove providers that were presets but have been explicitly removed
+    for (let i = providers.length - 1; i >= 0; i--) {
+      if (REMOVED_PRESETS.has(providers[i].id)) {
+        providers.splice(i, 1);
+        changed = true;
+      }
+    }
+
     for (const preset of PRESET_PROVIDERS as Provider[]) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {

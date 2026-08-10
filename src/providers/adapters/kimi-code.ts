@@ -5,24 +5,22 @@ import { execFile } from "child_process";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
-import { checkCodexOAuth } from "../auth";
 
-const CODEX_DIR = path.join(os.homedir(), ".codex");
-const CODEX_CONFIG_PATH = path.join(CODEX_DIR, "config.toml");
+const KIMI_CODE_DIR = path.join(os.homedir(), ".kimi-code");
+const KIMI_CODE_CONFIG_PATH = path.join(KIMI_CODE_DIR, "config.toml");
 
-export class CodexAdapter extends BaseAdapter {
-  readonly id = "codex";
-  readonly name = "Codex";
+export class KimiCodeAdapter extends BaseAdapter {
+  readonly id = "kimi-code";
+  readonly name = "Kimi Code";
   readonly supportedTypes: ProviderType[] = ["openai"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {
-    const oauthLoggedIn = await checkCodexOAuth();
-    return { mode: "both", hasApiKey: false, oauthLoggedIn };
+    return { mode: "api_key", hasApiKey: false };
   }
 
   async getCurrentConfig(): Promise<AgentSelection | null> {
     const config = await loadUserConfig();
-    const sel = (config as any).providers?.codex;
+    const sel = (config as any).providers?.["kimi-code"];
     if (sel?.providerId && sel?.modelId) return sel;
     return null;
   }
@@ -30,21 +28,20 @@ export class CodexAdapter extends BaseAdapter {
   async applyConfig(provider: Provider, modelId: string): Promise<void> {
     const apiKey = await this.resolveApiKey(provider);
 
-    await fs.ensureDir(CODEX_DIR);
+    await fs.ensureDir(KIMI_CODE_DIR);
     let toml = "";
-    if (await fs.pathExists(CODEX_CONFIG_PATH)) {
-      toml = await fs.readFile(CODEX_CONFIG_PATH, "utf-8");
+    if (await fs.pathExists(KIMI_CODE_CONFIG_PATH)) {
+      toml = await fs.readFile(KIMI_CODE_CONFIG_PATH, "utf-8");
     }
 
-    const providerId = getCodexProviderId(provider);
+    const providerId = getKimiCodeProviderId(provider);
     const openAIEndpoint = getProviderEndpoint(provider, "openai");
 
     toml = upsertTopLevelTomlKey(toml, "model", tomlString(modelId));
     toml = upsertTopLevelTomlKey(toml, "model_provider", tomlString(providerId));
-    toml = removeTopLevelTomlKey(toml, "api_base");
 
-    if (providerId !== "openai") {
-      const envKey = getCodexEnvKey(provider);
+    if (providerId !== "kimi") {
+      const envKey = getKimiCodeEnvKey(provider);
       const wireApi = openAIEndpoint.protocol === "responses" ? "responses" : "chat";
       toml = upsertTomlTable(toml, `model_providers.${providerId}`, [
         `name = ${tomlString(provider.name)}`,
@@ -52,14 +49,14 @@ export class CodexAdapter extends BaseAdapter {
         `env_key = ${tomlString(envKey)}`,
         `wire_api = ${tomlString(wireApi)}`,
       ]);
-      if (apiKey) await upsertEnvFile(path.join(CODEX_DIR, ".env"), envKey, apiKey);
+      if (apiKey) await upsertEnvFile(path.join(KIMI_CODE_DIR, ".env"), envKey, apiKey);
     } else if (apiKey) {
-      await upsertEnvFile(path.join(CODEX_DIR, ".env"), "OPENAI_API_KEY", apiKey);
+      await upsertEnvFile(path.join(KIMI_CODE_DIR, ".env"), "MOONSHOT_API_KEY", apiKey);
     }
-    await fs.writeFile(CODEX_CONFIG_PATH, toml);
+    await fs.writeFile(KIMI_CODE_CONFIG_PATH, toml);
 
     await updateUserConfig({
-      providers: { codex: { providerId: provider.id, modelId } },
+      providers: { "kimi-code": { providerId: provider.id, modelId } },
     } as any);
   }
 }
@@ -71,12 +68,13 @@ function getProviderEndpoint(provider: Provider, type: ProviderType) {
   return endpoint;
 }
 
-function getCodexProviderId(provider: Provider): string {
-  return provider.id === "openai" ? "openai" : `okit-${sanitizeTomlKey(provider.id)}`;
+function getKimiCodeProviderId(provider: Provider): string {
+  if (provider.id === "kimi-coding" || provider.id === "moonshot") return "kimi";
+  return `okit-${sanitizeTomlKey(provider.id)}`;
 }
 
-function getCodexEnvKey(provider: Provider): string {
-  return `OKIT_CODEX_${provider.id.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_API_KEY`;
+function getKimiCodeEnvKey(provider: Provider): string {
+  return `OKIT_KIMI_CODE_${provider.id.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_API_KEY`;
 }
 
 function sanitizeTomlKey(value: string): string {
@@ -97,16 +95,6 @@ function upsertTopLevelTomlKey(toml: string, key: string, value: string): string
 
   lines.splice(tableStart, 0, `${key} = ${value}`);
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
-}
-
-function removeTopLevelTomlKey(toml: string, key: string): string {
-  const lines = toml.split("\n");
-  let tableStart = lines.findIndex(line => line.trim().startsWith("["));
-  if (tableStart === -1) tableStart = lines.length;
-  return [
-    ...lines.slice(0, tableStart).filter(line => !new RegExp(`^\\s*${escapeRegex(key)}\\s*=`).test(line)),
-    ...lines.slice(tableStart),
-  ].join("\n");
 }
 
 function upsertTomlTable(toml: string, tableName: string, lines: string[]): string {
@@ -171,7 +159,7 @@ async function syncMacGuiEnv(key: string, value: string): Promise<void> {
 
   await new Promise<void>((resolve) => {
     execFile("/bin/launchctl", ["setenv", key, value], (err) => {
-      if (err) console.warn(`[codex] launchctl setenv ${key} failed: ${err.message}`);
+      if (err) console.warn(`[kimi-code] launchctl setenv ${key} failed: ${err.message}`);
       resolve();
     });
   });

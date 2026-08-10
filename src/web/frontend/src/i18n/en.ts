@@ -270,6 +270,7 @@ export default {
   'agents.selectLeft': '← Select a platform',
   'agents.platformsAvailable': '{n} platforms available',
   'agents.launchTerminal': 'Open Terminal',
+  'agents.launchApp': 'Open App',
   'agents.launchSuccess': 'Terminal opened',
   'agents.launchNotInstalled': 'CLI is not installed or not in PATH',
 
@@ -612,12 +613,12 @@ export default {
 
   // Quick Start
   'home.quickStart': 'Quick Start',
+  'home.agentConfig': 'Agent Config',
   'home.scanTools': 'Tool Health Scan',
   'home.needsAuth': 'Needs auth',
   'home.quickAddKey': 'Quick Add Key',
   'home.addApiKey': 'Add API Key',
   'home.manageKeys': 'Manage keys',
-  'home.cloudSync': 'Cloud Sync',
   'home.syncPlatform': 'Sync platform',
   'home.syncLast': 'Last sync: {time}',
   'home.syncNever': 'Not synced',
@@ -645,9 +646,6 @@ export default {
   'provider.qianfan': 'Baidu Qianfan',
   'provider.moonshot': 'Moonshot',
   'provider.siliconflow': 'SiliconFlow',
-  'provider.together': 'Together AI',
-  'provider.fireworks': 'Fireworks AI',
-  'provider.groq': 'Groq',
   'provider.xiaomi': 'Xiaomi MiMo',
   'provider.openrouter': 'OpenRouter',
   'provider.azure': 'Azure OpenAI',

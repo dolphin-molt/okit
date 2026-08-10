@@ -89,7 +89,7 @@ describe('CodexAdapter', () => {
   it('has correct id and name', () => {
     const adapter = new CodexAdapter();
     expect(adapter.id).toBe('codex');
-    expect(adapter.name).toBe('Codex CLI');
+    expect(adapter.name).toBe('Codex');
   });
 
   it('supports openai type only', () => {

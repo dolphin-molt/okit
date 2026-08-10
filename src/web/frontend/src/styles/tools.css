@@ -321,9 +321,35 @@
 .main-content > #tab-tools { max-width: none; align-self: stretch; }
 
 .tools-layout {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
+  display: block;
+}
+
+/* ─── Category filter bar ─── */
+.tools-cat-bar {
+  margin-bottom: 10px;
+}
+
+.cat-select {
+  padding: 5px 10px;
+  border: 1.5px solid var(--kraft-dark);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+  transition: box-shadow 0.15s;
+}
+
+.cat-select:hover {
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+}
+
+.cat-select:focus {
+  border-color: var(--ink);
 }
 
 .tab-content:has(.tools-layout) {

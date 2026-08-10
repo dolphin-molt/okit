@@ -6,11 +6,11 @@ describe('PRESET_PROVIDERS alignment', () => {
     'anthropic', 'openai', 'openai-codex', 'google', 'volcengine',
     'zai', 'zai-global', 'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
     'qwen', 'qianfan', 'xai', 'mistral', 'stepfun', 'xiaomi',
-    'openrouter', 'groq', 'fireworks', 'together', 'ollama', 'litellm',
+    'openrouter', 'ollama', 'litellm',
   ];
 
-  it('has exactly 24 presets', () => {
-    expect(PRESET_PROVIDERS.length).toBe(24);
+  it('has exactly 21 presets', () => {
+    expect(PRESET_PROVIDERS.length).toBe(21);
   });
 
   it('contains all expected provider IDs', () => {

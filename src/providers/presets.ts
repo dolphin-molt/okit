@@ -29,7 +29,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "openai-codex",
-    name: "OpenAI Codex",
+    name: "ChatGPT",
     type: "openai",
     baseUrl: "https://chatgpt.com/backend-api/codex",
     authMode: "oauth",
@@ -277,43 +277,6 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
       { id: "openai/gpt-5.5", name: "GPT-5.5" },
       { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
       { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-    ],
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    type: "openai",
-    baseUrl: "https://api.groq.com/openai/v1",
-    authMode: "api_key",
-    models: [
-      { id: "gpt-oss", name: "GPT OSS" },
-      { id: "kimi-k2", name: "Kimi K2" },
-      { id: "qwen3-32b", name: "Qwen3 32B" },
-      { id: "llama-3-groq-70b-tool-use", name: "Llama 3 70B Tool Use" },
-    ],
-  },
-  {
-    id: "fireworks",
-    name: "Fireworks",
-    type: "openai",
-    baseUrl: "https://api.fireworks.ai/inference/v1",
-    authMode: "api_key",
-    models: [
-      { id: "accounts/fireworks/models/qwen3-235b", name: "Qwen3 235B" },
-      { id: "accounts/fireworks/models/llama4-maverick", name: "Llama 4 Maverick" },
-      { id: "accounts/fireworks/models/deepseek-r1", name: "DeepSeek R1" },
-    ],
-  },
-  {
-    id: "together",
-    name: "Together AI",
-    type: "openai",
-    baseUrl: "https://api.together.xyz/v1",
-    authMode: "api_key",
-    models: [
-      { id: "meta-llama/Llama-4-Maverick-17B-128E-Instruct", name: "Llama 4 Maverick" },
-      { id: "deepseek-ai/DeepSeek-V4", name: "DeepSeek V4" },
-      { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3 235B" },
     ],
   },
   {

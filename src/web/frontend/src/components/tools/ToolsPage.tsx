@@ -200,46 +200,6 @@ export default function ToolsPage() {
   // ─── List view ───
   return (
     <div className="tools-layout">
-      <nav className="page-sidebar">
-        <div className="page-sidebar-section">
-          <div className="page-sidebar-title">{t('common.category')}</div>
-          <div className="cat-sidebar-body">
-            <div className={`page-sidebar-item${typeFilter === 'all' && categoryFilter === 'all' ? ' active' : ''}`}
-              onClick={() => sidebarFilter('all', 'all')}>
-              <span>{t('tools.allTools')}</span>
-              <span className="page-sidebar-count">{tools.length}</span>
-            </div>
-            {Object.entries(typeGroups).map(([type, categories]) => {
-              const cats = Object.entries(categories).sort((a, b) => a[0].localeCompare(b[0]));
-              const typeCount = cats.reduce((sum, [, c]) => sum + c, 0);
-              if (typeCount === 0) return null;
-              const isActive = typeFilter === type.toLowerCase() && categoryFilter === 'all';
-              const isExpanded = expandedGroups.has(type);
-              return (
-                <div key={type} className="cat-group">
-                  <div className={`cat-group-header${isActive ? ' active' : ''}`} onClick={() => sidebarFilter(type, 'all')}>
-                    <span className={`cat-group-arrow${isExpanded ? ' expanded' : ''}`}
-                      onClick={e => { e.stopPropagation(); toggleCatGroup(type); }}>&#9656;</span>
-                    <span className="cat-group-label">{typeLabels[type.toLowerCase()] || type}</span>
-                    <span className="cat-group-count">{typeCount}</span>
-                  </div>
-                  <div className={`cat-group-items${isExpanded ? '' : ' collapsed'}`}>
-                    {cats.map(([cat, count]) => (
-                      <div key={cat}
-                        className={`cat-item${typeFilter === type.toLowerCase() && categoryFilter === cat ? ' active' : ''}`}
-                        onClick={() => sidebarFilter(type, cat)}>
-                        <span className="cat-item-label">{cat}</span>
-                        <span className="cat-item-count">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-
       <div className="tools-main access-workspace tools-workspace">
         <header className="access-hero">
           <div className="access-hero-stats" aria-label="Tools summary">
@@ -249,6 +209,33 @@ export default function ToolsPage() {
             <div><span>{t('tools.desktop')}</span><strong>{appCount}</strong></div>
           </div>
         </header>
+
+        <div className="tools-cat-bar">
+          <select
+            className="cat-select"
+            value={`${typeFilter}:${categoryFilter}`}
+            onChange={e => {
+              const [type, cat] = e.target.value.split(':');
+              setTypeFilter(type);
+              setCategoryFilter(cat);
+            }}
+          >
+            <option value="all:all">{t('tools.allTools')} ({tools.length})</option>
+            {Object.entries(typeGroups).map(([type, categories]) => {
+              const cats = Object.entries(categories).sort((a, b) => a[0].localeCompare(b[0]));
+              const typeCount = cats.reduce((sum, [, c]) => sum + c, 0);
+              if (typeCount === 0) return null;
+              return (
+                <optgroup key={type} label={`${typeLabels[type.toLowerCase()] || type} (${typeCount})`}>
+                  <option value={`${type.toLowerCase()}:all`}>{t('common.all')}</option>
+                  {cats.map(([cat, count]) => (
+                    <option key={cat} value={`${type.toLowerCase()}:${cat}`}>{cat} ({count})</option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+        </div>
 
         <div className="toolbar">
           <div className="search-paper">

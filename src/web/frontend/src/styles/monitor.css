@@ -14,6 +14,9 @@
   padding: 16px 18px;
   position: relative;
   transition: box-shadow 0.15s;
+  min-height: 134px;
+  display: flex;
+  flex-direction: column;
 }
 
 .monitor-card:hover {

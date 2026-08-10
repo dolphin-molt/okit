@@ -134,26 +134,14 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
 }
 
-.type-badge--anthropic {
-  background: rgba(124, 58, 237, 0.1);
-  color: #7c3aed;
+[data-theme="dark"] .type-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e5e5e5;
 }
-
-.type-badge--openai {
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--blue);
-}
-
-.type-badge--google {
-  background: rgba(22, 163, 74, 0.1);
-  color: var(--green);
-}
-
-[data-theme="dark"] .type-badge--anthropic { background: rgba(124, 58, 237, 0.15); color: #c4b5fd; }
-[data-theme="dark"] .type-badge--openai { background: rgba(37, 99, 235, 0.15); color: #93c5fd; }
-[data-theme="dark"] .type-badge--google { background: rgba(22, 163, 74, 0.15); color: #6ee7a0; }
 
 /* ─── Card meta (key-value rows) ─── */
 .provider-card-meta {
@@ -1378,9 +1366,60 @@
 .agents-workspace .agent-card-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.agent-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.agent-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+}
+
+.agent-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.agent-icon-btn--secondary {
+  color: var(--ink-muted);
+}
+
+.agent-icon-btn--secondary:hover {
+  color: var(--ink);
+}
+
+.agent-icon-loading {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--ink-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: agent-spin 0.6s linear infinite;
+}
+
+@keyframes agent-spin {
+  to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .agent-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 243, 235, 0.95);
 }
 
 .agents-workspace .agent-card-title {

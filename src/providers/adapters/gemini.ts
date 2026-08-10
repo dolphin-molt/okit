@@ -9,7 +9,7 @@ const GEMINI_DIR = path.join(os.homedir(), ".gemini");
 
 export class GeminiAdapter extends BaseAdapter {
   readonly id = "gemini";
-  readonly name = "Gemini CLI";
+  readonly name = "Gemini";
   readonly supportedTypes: ProviderType[] = ["google"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {

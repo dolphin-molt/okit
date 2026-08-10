@@ -1,217 +1,169 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getTools } from '../../api/tools';
-import { listVault } from '../../api/vault';
-import { getAdapters } from '../../api/providers';
-import { getSyncStatus, pushSync, pullSync } from '../../api/sync';
+import { getAdapters, launchAgent, switchProvider, AgentInfo } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
-import VaultFormModal from '../shared/VaultFormModal';
-
-interface QuickState {
-  tools: any[];
-  toolSummary: Record<string, number>;
-  secrets: any[];
-  adapters: any[];
-  sync: any;
-  loading: boolean;
-}
-
-const empty: QuickState = { tools: [], toolSummary: {}, secrets: [], adapters: [], sync: null, loading: true };
-
-function formatTime(value?: string | number | null, lang: 'zh' | 'en' = 'zh') {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { getAgentIcon } from '../../assets/agents';
 
 export default function HomePage() {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const { showToast } = useApp();
-  const navigate = useNavigate();
-  const [state, setState] = useState<QuickState>(empty);
-  const [showVaultForm, setShowVaultForm] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [adapters, setAdapters] = useState<AgentInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<string | null>(null);
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true }));
+  const load = useCallback(async () => {
     try {
-      const [toolsR, vaultR, adaptersR, syncR] = await Promise.allSettled([
-        getTools(false, lang),
-        listVault(),
-        getAdapters(),
-        getSyncStatus(),
-      ]);
-      setState({
-        tools: toolsR.status === 'fulfilled' ? toolsR.value.tools : [],
-        toolSummary: toolsR.status === 'fulfilled' ? toolsR.value.summary : {},
-        secrets: vaultR.status === 'fulfilled' ? (vaultR.value as any).secrets || vaultR.value : [],
-        adapters: adaptersR.status === 'fulfilled' ? (adaptersR.value as any).adapters : [],
-        sync: syncR.status === 'fulfilled' ? syncR.value : null,
-        loading: false,
-      });
-    } catch (e) {
-      setState(prev => ({ ...prev, loading: false }));
+      const data = await getAdapters();
+      const list = data.adapters || [];
+      setAdapters(list);
+      if (!activeAgentId && list.length > 0) {
+        setActiveAgentId(list[0].id);
+      }
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
     }
-  }, [lang]);
+  }, [showToast]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { load(); }, [load]);
 
-  const installedCount = state.toolSummary.installed ?? 0;
-  const totalCount = state.tools.length;
-  const needsAuth = state.tools.filter((tool: any) => tool.status === 'installed' && tool.authRequired && tool.authStatus !== 'authorized').slice(0, 5);
-  const recentKeys = state.secrets.slice(0, 3);
-  const configuredAgents = state.adapters.filter((a: any) => a.current);
+  const activeAgent = adapters.find(a => a.id === activeAgentId) || null;
 
-  async function handlePush() {
-    setSyncing(true);
+  async function handleSwitch(agentId: string, providerId: string, modelId: string) {
+    setSwitching(`${agentId}:${modelId}`);
     try {
-      const res = await pushSync();
-      showToast(res.success ? (res.message || t('home.syncDone')) : t('home.syncFail'), res.success ? 'success' : 'error');
-      loadData();
-    } catch { showToast(t('home.syncFail'), 'error'); }
-    setSyncing(false);
+      await switchProvider(agentId, providerId, modelId);
+      showToast(t('agents.switchSuccess'), 'success');
+      load();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setSwitching(null);
+    }
   }
 
-  async function handlePull() {
-    setSyncing(true);
+  async function handleLaunch(agent: AgentInfo) {
+    setLaunching(agent.id);
     try {
-      const res = await pullSync();
-      showToast(res.success ? (res.message || t('home.syncDone')) : t('home.syncFail'), res.success ? 'success' : 'error');
-      loadData();
-    } catch { showToast(t('home.syncFail'), 'error'); }
-    setSyncing(false);
+      await launchAgent(agent.id);
+      showToast(t('agents.launchSuccess'), 'success');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setLaunching(null);
+    }
   }
 
-  function handleVaultSaved(key: string) {
-    if (key) { showToast(t('vault.keyAdded')); loadData(); }
-    setShowVaultForm(false);
-  }
-
-  if (state.loading) return <div className="quick-start-page"><p style={{ padding: 40 }}>{t('common.loading')}</p></div>;
+  if (loading) return <div className="quick-start-page"><p style={{ padding: 40 }}>{t('common.loading')}</p></div>;
 
   return (
     <div className="quick-start-page">
-      <h2 className="quick-start-title">{t('home.quickStart')}</h2>
-
-      <div className="quick-start-grid">
-        {/* ① 工具健康扫描 */}
-        <article className="qs-card qs-card--tools">
-          <div className="qs-card-head">
-            <span className="qs-card-icon">🔧</span>
-            <h3>{t('home.scanTools')}</h3>
-          </div>
-          <div className="qs-stat-row">
-            <div className="qs-stat">
-              <strong>{installedCount}<small>/{totalCount}</small></strong>
-              <span>{t('common.installed')}</span>
-            </div>
-            {needsAuth.length > 0 && (
-              <div className="qs-stat qs-stat--warn">
-                <strong>{state.toolSummary.unauthorized ?? needsAuth.length}</strong>
-                <span>{t('home.needsAuth')}</span>
-              </div>
-            )}
-          </div>
-          {needsAuth.length > 0 && (
-            <div className="qs-list">
-              {needsAuth.map((tool: any) => (
-                <div key={tool.id} className="qs-list-item" onClick={() => navigate('/tools')}>
-                  <span>{tool.name}</span>
-                  <span className="qs-list-tag">{t('home.needsAuth')}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <Link to="/tools" className="qs-link">{t('home.viewAll')} →</Link>
-        </article>
-
-        {/* ② 快速添加密钥 */}
-        <article className="qs-card qs-card--vault">
-          <div className="qs-card-head">
-            <span className="qs-card-icon">🔑</span>
-            <h3>{t('home.quickAddKey')}</h3>
-          </div>
-          <button className="qs-btn qs-btn--primary" onClick={() => setShowVaultForm(true)}>
-            + {t('home.addApiKey')}
-          </button>
-          {recentKeys.length > 0 && (
-            <div className="qs-list">
-              {recentKeys.map((s: any) => (
-                <div key={s.key} className="qs-list-item">
-                  <span>{s.key}</span>
-                  {s.group && <span className="qs-list-tag">{s.group}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-          <Link to="/vault" className="qs-link">{t('home.manageKeys')} →</Link>
-        </article>
-
-        {/* ③ 云同步 */}
-        <article className="qs-card qs-card--sync">
-          <div className="qs-card-head">
-            <span className="qs-card-icon">☁</span>
-            <h3>{t('home.cloudSync')}</h3>
-          </div>
-          <div className="qs-sync-status">
-            <div className="qs-stat">
-              <strong>{state.sync?.platformId || 'off'}</strong>
-              <span>{t('home.syncPlatform')}</span>
-            </div>
-            <div className="qs-sync-time">
-              {state.sync?.lastSyncAt
-                ? t('home.syncLast', { time: formatTime(state.sync.lastSyncAt, lang) })
-                : t('home.syncNever')}
-            </div>
-          </div>
-          <div className="qs-btn-row">
-            <button className="qs-btn" onClick={handlePush} disabled={syncing || !state.sync?.platformId}>
-              {syncing ? '...' : t('home.syncPush')}
+      {/* Agent Tabs */}
+      <div className="agent-tabs">
+        {adapters.map(agent => {
+          const icon = getAgentIcon(agent.id);
+          return (
+            <button
+              key={agent.id}
+              className={`agent-tab${activeAgentId === agent.id ? ' active' : ''}`}
+              onClick={() => { setActiveAgentId(agent.id); setExpandedProvider(null); }}
+              title={agent.name}
+            >
+              {icon && <img src={icon} alt="" className="agent-tab-icon" />}
+              {agent.current && <span className="agent-tab-dot" />}
             </button>
-            <button className="qs-btn" onClick={handlePull} disabled={syncing || !state.sync?.platformId}>
-              {syncing ? '...' : t('home.syncPull')}
-            </button>
-          </div>
-          <Link to="/settings" className="qs-link">{t('home.syncSettings')} →</Link>
-        </article>
+          );
+        })}
       </div>
 
-      {/* ④ 快速配置 Agent */}
-      <article className="qs-card qs-card--agents">
-        <div className="qs-card-head">
-          <span className="qs-card-icon">🤖</span>
-          <h3>{t('home.quickConfigAgent')}</h3>
-          <span className="qs-agent-summary">
-            {t('home.agentConfigured', { n: configuredAgents.length, total: state.adapters.length })}
-          </span>
-        </div>
-        <div className="qs-agent-grid">
-          {state.adapters.map((agent: any) => (
-            <div key={agent.id} className={`qs-agent-item${!agent.current ? ' qs-agent-item--warn' : ''}`}>
-              <div className="qs-agent-info">
-                <span className="qs-agent-name">{agent.name}</span>
-                <span className="qs-agent-model">
-                  {agent.current
-                    ? `${agent.current.modelId} @ ${agent.current.providerName}`
-                    : t('home.notConfigured')}
-                </span>
+      {/* Agent header + launch button */}
+      {activeAgent && (
+        <div className="agent-detail-header">
+          <div className="agent-detail-title">
+            {getAgentIcon(activeAgent.id) && (
+              <img src={getAgentIcon(activeAgent.id)} alt="" className="agent-detail-icon" />
+            )}
+            <div>
+                <h2>{activeAgent.name}</h2>
               </div>
-              <Link to="/agents" className={`qs-btn qs-btn--sm${!agent.current ? ' qs-btn--primary' : ''}`}>
-                {agent.current ? t('home.reconfig') : t('home.selectModel')}
-              </Link>
-            </div>
-          ))}
+          </div>
+          <div className="agent-detail-actions">
+            {activeAgent.canLaunch && (
+              <button
+                className="agent-detail-btn agent-detail-btn--secondary"
+                title={activeAgent.launchType === 'app' ? t('agents.launchApp') : t('agents.launchTerminal')}
+                disabled={launching === activeAgent.id || activeAgent.installed === false}
+                onClick={() => handleLaunch(activeAgent)}
+              >
+                {launching === activeAgent.id ? <span className="agent-icon-loading" /> : (
+                  activeAgent.launchType === 'app' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="4 17 10 11 4 5" />
+                      <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                  )
+                )}
+              </button>
+            )}
+          </div>
         </div>
-      </article>
+      )}
 
-      {showVaultForm && (
-        <VaultFormModal
-          groups={[]}
-          onClose={() => setShowVaultForm(false)}
-          onSaved={handleVaultSaved}
-        />
+      {/* Provider cards */}
+      {activeAgent && (
+        <div className="agent-provider-rows">
+          {activeAgent.compatibleProviders.map(p => {
+            const isCurrent = activeAgent.current?.providerId === p.id;
+            const isExpanded = expandedProvider === p.id;
+            return (
+              <div key={p.id} className={`provider-card provider-card--clickable${isCurrent ? ' provider-card--current' : ''}${isExpanded ? ' expanded' : ''}`}>
+                <div
+                  className="provider-card-header"
+                  onClick={() => setExpandedProvider(isExpanded ? null : p.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="provider-card-title">
+                    <h3>{p.name}</h3>
+                    {isCurrent && (
+                      <span className="provider-card-current-tag">{t('agents.current')}</span>
+                    )}
+                  </div>
+                  <span className="provider-card-model-count">{p.models.length}</span>
+                </div>
+                {isExpanded && p.models.length > 0 && (
+                  <div className="provider-card-models-list">
+                    {p.models.map(m => {
+                      const isThisModel = isCurrent && activeAgent.current?.modelId === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          className={`agent-model-btn${isThisModel ? ' active' : ''}`}
+                          disabled={switching === `${activeAgent.id}:${m.id}`}
+                          onClick={() => handleSwitch(activeAgent.id, p.id, m.id)}
+                        >
+                          <span className="agent-model-name">{m.name || m.id}</span>
+                          {m.id !== (m.name || m.id) && (
+                            <span className="agent-model-id">{m.id}</span>
+                          )}
+                          {isThisModel && <span className="agent-model-check">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -51,15 +51,6 @@ const TOOL_ITEMS = [
       <path d="M12 12v10" />
     </svg>
   )},
-  { path: '/agents', labelKey: 'nav.agents', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
-      <rect x="4" y="8" width="16" height="11" rx="3" />
-      <circle cx="9" cy="13.5" r="1" fill="currentColor" />
-      <circle cx="15" cy="13.5" r="1" fill="currentColor" />
-      <path d="M12 4v4M9 4h6" />
-      <path d="M2 13v3M22 13v3" />
-    </svg>
-  )},
   { path: '/auth', labelKey: 'nav.auth', icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
       <circle cx="8" cy="12" r="4" />
@@ -173,6 +164,10 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   return (
     <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar-cut" />
+      <div className="sidebar-brand">
+        <div className="sidebar-brand-logo">O</div>
+        <span className="sidebar-brand-name">OKIT</span>
+      </div>
       <div className="nav-scroll">
         {NAV_SECTIONS.map(section => (
           <div className="nav-section" key={section.labelKey}>

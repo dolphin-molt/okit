@@ -28,6 +28,7 @@ export interface AgentInfo {
   id: string;
   name: string;
   supportedTypes: string[];
+  launchType?: 'cli' | 'app';
   canLaunch?: boolean;
   installed?: boolean;
   current: { providerId: string; providerName: string; modelId: string } | null;

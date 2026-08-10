@@ -3175,6 +3175,11 @@
   color: var(--ink);
   font-weight: 600;
 }
+/* span variant-tab: 纯展示(认证方式标签),默认 active 外观,不可交互 */
+span.variant-tab {
+  cursor: default;
+}
+span.variant-tab:hover { background: var(--paper); }
 .variant-tab-dot {
   width: 5px;
   height: 5px;

@@ -929,6 +929,15 @@ export default function ModelsPage() {
                             ))}
                           </div>
                         )}
+                        {/* 认证方式标签(纯展示当前变体的认证类型) */}
+                        <div className="variant-tab-group">
+                          {(p.authMode === 'api_key' || p.authMode === 'both') && (
+                            <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
+                          )}
+                          {(p.authMode === 'oauth' || p.authMode === 'both') && (
+                            <span className={`variant-tab variant-tab--active`}>OAuth</span>
+                          )}
+                        </div>
                       </>
                     ) : (
                       // 独立平台:互斥切换 API Key / OAuth

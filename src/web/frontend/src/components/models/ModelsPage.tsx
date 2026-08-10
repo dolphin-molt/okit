@@ -104,16 +104,13 @@ function providerModes(p: Provider): string[] {
 
 type ViewKey = 'platform' | 'model';
 
-// ── Provider families: group same-company variants into one card ──
-// Each family has two independent dimensions:
-//   - region: 国内/国际 (only shown if >1 option)
-//   - plan: API 平台/Coding Plan/Token Plan (only shown if >1 option)
-// The selected region+plan combination maps to a concrete provider id.
-// For OpenAI the "plan" dimension doubles as auth method (API Key vs OAuth).
+// ── Provider families: group same-site variants into one card ──
+// 国内站和国际站是不同的服务端点 + 不同的 key,不合并。
+// 只有同一站点内的不同套餐(API 平台 / Coding Plan / Token Plan)才合并。
+// OpenAI 的 API Key vs OAuth 也合并(同一站点不同认证方式)。
 type VariantOption = { label: string; providerId: string };
 type ProviderFamily = {
   family: string;
-  regions?: VariantOption[];   // e.g. [{label:'国内', providerId:'zai'}, {label:'国际', providerId:'zai-global'}]
   plans?: VariantOption[];     // e.g. [{label:'API 平台', providerId:'zai'}, {label:'Coding Plan', providerId:'glm-coding'}]
   ids: string[];               // all provider ids in this family (for filtering)
 };
@@ -128,42 +125,28 @@ const PROVIDER_FAMILIES: ProviderFamily[] = [
     ids: ['openai', 'openai-codex'],
   },
   {
-    family: '智谱AI',
-    regions: [
-      { label: '国内', providerId: 'zai' },
-      { label: '国际', providerId: 'zai-global' },
-    ],
+    family: '智谱AI（国内）',
     plans: [
       { label: 'API 平台', providerId: 'zai' },
       { label: 'Coding Plan', providerId: 'glm-coding' },
     ],
-    // Note: region × plan doesn't fully cross (glm-coding is 国内-only, zai-global has no coding plan).
-    // The lookup function handles missing combinations gracefully.
-    ids: ['zai', 'zai-global', 'glm-coding'],
+    ids: ['zai', 'glm-coding'],
   },
   {
-    family: 'MiniMax',
-    regions: [
-      { label: '国内', providerId: 'minimax' },
-      { label: '国际', providerId: 'minimax-global' },
-    ],
+    family: 'MiniMax（国内）',
     plans: [
       { label: 'API 平台', providerId: 'minimax' },
       { label: 'Token Plan', providerId: 'minimax-coding' },
     ],
-    ids: ['minimax', 'minimax-global', 'minimax-coding'],
+    ids: ['minimax', 'minimax-coding'],
   },
   {
-    family: 'Kimi',
-    regions: [
-      { label: '国内', providerId: 'kimi-coding' },
-      { label: '国际', providerId: 'moonshot' },
-    ],
+    family: 'Kimi（国内）',
     plans: [
       { label: 'API 平台', providerId: 'kimi-coding' },
       { label: 'Coding Plan', providerId: 'kimi-coding-plan' },
     ],
-    ids: ['moonshot', 'kimi-coding', 'kimi-coding-plan'],
+    ids: ['kimi-coding', 'kimi-coding-plan'],
   },
   {
     family: '火山引擎',
@@ -195,33 +178,13 @@ const PROVIDER_FAMILIES: ProviderFamily[] = [
 const PROVIDER_FAMILY_MAP = new Map<string, string>();
 for (const f of PROVIDER_FAMILIES) for (const id of f.ids) PROVIDER_FAMILY_MAP.set(id, f.family);
 
-// Given a family and selected region/plan labels, find the matching provider id.
-// Falls back gracefully if the exact combination doesn't exist.
-function resolveFamilyProvider(fam: ProviderFamily, regionLabel?: string, planLabel?: string): string | null {
-  // If both dimensions exist, try to find a provider that matches both.
-  if (fam.regions && fam.plans) {
-    // The plan's providerId may itself encode region (e.g. glm-coding is 国内).
-    // Strategy: prefer the plan selection (it's more specific), then check region.
-    if (planLabel) {
-      const plan = fam.plans.find(p => p.label === planLabel);
-      if (plan) return plan.providerId;
-    }
-    if (regionLabel) {
-      const region = fam.regions.find(r => r.label === regionLabel);
-      if (region) return region.providerId;
-    }
-  }
-  // Only plans dimension (or only regions)
+// Given a family and selected plan label, find the matching provider id.
+function resolveFamilyProvider(fam: ProviderFamily, _region?: string, planLabel?: string): string | null {
   if (planLabel && fam.plans) {
     const plan = fam.plans.find(p => p.label === planLabel);
     if (plan) return plan.providerId;
   }
-  if (regionLabel && fam.regions) {
-    const region = fam.regions.find(r => r.label === regionLabel);
-    if (region) return region.providerId;
-  }
-  // Default: first option
-  return (fam.plans?.[0] || fam.regions?.[0])?.providerId || null;
+  return fam.plans?.[0]?.providerId || null;
 }
 
 function groupOf(providerId: string): { key: string; labelKey: string } {
@@ -656,14 +619,12 @@ export default function ModelsPage() {
     return result;
   }, [sortedProviders]);
 
-  // Per-family region/plan selection state
-  const [familyRegion, setFamilyRegion] = useState<Record<string, string>>({});
+  // Per-family plan selection state
   const [familyPlan, setFamilyPlan] = useState<Record<string, string>>({});
 
   function getActiveFamilyProvider(famDef: ProviderFamily, members: Provider[]): Provider {
-    const regionLabel = familyRegion[famDef.family];
     const planLabel = familyPlan[famDef.family];
-    const pid = resolveFamilyProvider(famDef, regionLabel, planLabel);
+    const pid = resolveFamilyProvider(famDef, undefined, planLabel);
     if (pid) {
       const found = members.find(p => p.id === pid);
       if (found) return found;
@@ -954,20 +915,6 @@ export default function ModelsPage() {
                   <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
                     {isMulti && famDef ? (
                       <>
-                        {/* 地域维度:仅 >1 选项时显示 */}
-                        {famDef.regions && famDef.regions.length > 1 && (
-                          <div className="variant-tab-group">
-                            {famDef.regions.map(r => (
-                              <button
-                                key={r.providerId}
-                                className={`variant-tab${(familyRegion[famDef.family] || famDef.regions![0].label) === r.label ? ' variant-tab--active' : ''}`}
-                                onClick={() => setFamilyRegion(prev => ({ ...prev, [famDef.family]: r.label }))}
-                              >
-                                {r.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                         {/* 套餐维度 */}
                         {famDef.plans && famDef.plans.length > 1 && (
                           <div className="variant-tab-group">

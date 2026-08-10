@@ -216,7 +216,8 @@ async function queryGlmCodingUsage(apiKey) {
   const d = JSON.parse(result.body);
   const limits = d.data?.limits || [];
   const windows = limits.map(l => ({
-    label: l.unit === 3 ? '5h' : l.unit === 6 ? 'weekly' : 'limit',
+    // 智谱 unit 值: 3=5小时窗口, 5=月度, 6=周
+    label: l.unit === 3 ? '5h' : l.unit === 6 ? 'weekly' : l.unit === 5 ? 'monthly' : 'limit',
     usedPercent: round1(l.percentage),
     resetAt: l.nextResetTime ? epochToISO(l.nextResetTime) : null,
   }));

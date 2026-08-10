@@ -105,42 +105,123 @@ function providerModes(p: Provider): string[] {
 type ViewKey = 'platform' | 'model';
 
 // ── Provider families: group same-company variants into one card ──
-// Each family renders as a single card with variant tabs (e.g. "API Key" / "OAuth").
-const PROVIDER_FAMILIES: { family: string; ids: string[] }[] = [
-  { family: 'OpenAI', ids: ['openai', 'openai-codex'] },
-  { family: '智谱AI', ids: ['zai', 'zai-global', 'glm-coding'] },
-  { family: 'MiniMax', ids: ['minimax', 'minimax-global', 'minimax-coding'] },
-  { family: 'Kimi', ids: ['moonshot', 'kimi-coding', 'kimi-coding-plan'] },
-  { family: '火山引擎', ids: ['volcengine', 'volcengine-coding'] },
-  { family: '百度千帆', ids: ['qianfan', 'qianfan-coding'] },
-  { family: '小米 MiMo', ids: ['xiaomi', 'xiaomi-coding'] },
+// Each family has two independent dimensions:
+//   - region: 国内/国际 (only shown if >1 option)
+//   - plan: API 平台/Coding Plan/Token Plan (only shown if >1 option)
+// The selected region+plan combination maps to a concrete provider id.
+// For OpenAI the "plan" dimension doubles as auth method (API Key vs OAuth).
+type VariantOption = { label: string; providerId: string };
+type ProviderFamily = {
+  family: string;
+  regions?: VariantOption[];   // e.g. [{label:'国内', providerId:'zai'}, {label:'国际', providerId:'zai-global'}]
+  plans?: VariantOption[];     // e.g. [{label:'API 平台', providerId:'zai'}, {label:'Coding Plan', providerId:'glm-coding'}]
+  ids: string[];               // all provider ids in this family (for filtering)
+};
+
+const PROVIDER_FAMILIES: ProviderFamily[] = [
+  {
+    family: 'OpenAI',
+    plans: [
+      { label: 'API Key', providerId: 'openai' },
+      { label: 'OAuth', providerId: 'openai-codex' },
+    ],
+    ids: ['openai', 'openai-codex'],
+  },
+  {
+    family: '智谱AI',
+    regions: [
+      { label: '国内', providerId: 'zai' },
+      { label: '国际', providerId: 'zai-global' },
+    ],
+    plans: [
+      { label: 'API 平台', providerId: 'zai' },
+      { label: 'Coding Plan', providerId: 'glm-coding' },
+    ],
+    // Note: region × plan doesn't fully cross (glm-coding is 国内-only, zai-global has no coding plan).
+    // The lookup function handles missing combinations gracefully.
+    ids: ['zai', 'zai-global', 'glm-coding'],
+  },
+  {
+    family: 'MiniMax',
+    regions: [
+      { label: '国内', providerId: 'minimax' },
+      { label: '国际', providerId: 'minimax-global' },
+    ],
+    plans: [
+      { label: 'API 平台', providerId: 'minimax' },
+      { label: 'Token Plan', providerId: 'minimax-coding' },
+    ],
+    ids: ['minimax', 'minimax-global', 'minimax-coding'],
+  },
+  {
+    family: 'Kimi',
+    regions: [
+      { label: '国内', providerId: 'kimi-coding' },
+      { label: '国际', providerId: 'moonshot' },
+    ],
+    plans: [
+      { label: 'API 平台', providerId: 'kimi-coding' },
+      { label: 'Coding Plan', providerId: 'kimi-coding-plan' },
+    ],
+    ids: ['moonshot', 'kimi-coding', 'kimi-coding-plan'],
+  },
+  {
+    family: '火山引擎',
+    plans: [
+      { label: 'API 平台', providerId: 'volcengine' },
+      { label: 'Coding Plan', providerId: 'volcengine-coding' },
+    ],
+    ids: ['volcengine', 'volcengine-coding'],
+  },
+  {
+    family: '百度千帆',
+    plans: [
+      { label: 'API 平台', providerId: 'qianfan' },
+      { label: 'Coding Plan', providerId: 'qianfan-coding' },
+    ],
+    ids: ['qianfan', 'qianfan-coding'],
+  },
+  {
+    family: '小米 MiMo',
+    plans: [
+      { label: 'API 平台', providerId: 'xiaomi' },
+      { label: 'Token Plan', providerId: 'xiaomi-coding' },
+    ],
+    ids: ['xiaomi', 'xiaomi-coding'],
+  },
 ];
 
-// Reverse map: providerId → family name (for quick lookup)
+// Reverse map: providerId → family name
 const PROVIDER_FAMILY_MAP = new Map<string, string>();
 for (const f of PROVIDER_FAMILIES) for (const id of f.ids) PROVIDER_FAMILY_MAP.set(id, f.family);
 
-function variantLabel(providerId: string): string {
-  const map: Record<string, string> = {
-    'openai': 'API Key',
-    'openai-codex': 'OAuth',
-    'zai': '国内',
-    'zai-global': '国际',
-    'glm-coding': 'Coding Plan',
-    'minimax': '国内',
-    'minimax-global': '国际',
-    'minimax-coding': 'Token Plan',
-    'moonshot': '国内',
-    'kimi-coding': '国内',
-    'kimi-coding-plan': 'Coding Plan',
-    'volcengine': '开放平台',
-    'volcengine-coding': 'Coding Plan',
-    'qianfan': '开放平台',
-    'qianfan-coding': 'Coding Plan',
-    'xiaomi': '开放平台',
-    'xiaomi-coding': 'Token Plan',
-  };
-  return map[providerId] || providerId;
+// Given a family and selected region/plan labels, find the matching provider id.
+// Falls back gracefully if the exact combination doesn't exist.
+function resolveFamilyProvider(fam: ProviderFamily, regionLabel?: string, planLabel?: string): string | null {
+  // If both dimensions exist, try to find a provider that matches both.
+  if (fam.regions && fam.plans) {
+    // The plan's providerId may itself encode region (e.g. glm-coding is 国内).
+    // Strategy: prefer the plan selection (it's more specific), then check region.
+    if (planLabel) {
+      const plan = fam.plans.find(p => p.label === planLabel);
+      if (plan) return plan.providerId;
+    }
+    if (regionLabel) {
+      const region = fam.regions.find(r => r.label === regionLabel);
+      if (region) return region.providerId;
+    }
+  }
+  // Only plans dimension (or only regions)
+  if (planLabel && fam.plans) {
+    const plan = fam.plans.find(p => p.label === planLabel);
+    if (plan) return plan.providerId;
+  }
+  if (regionLabel && fam.regions) {
+    const region = fam.regions.find(r => r.label === regionLabel);
+    if (region) return region.providerId;
+  }
+  // Default: first option
+  return (fam.plans?.[0] || fam.regions?.[0])?.providerId || null;
 }
 
 function groupOf(providerId: string): { key: string; labelKey: string } {
@@ -553,40 +634,41 @@ export default function ModelsPage() {
   );
 
   // Group sorted providers into families for the platform view.
-  // Single-provider families render as before; multi-provider families
-  // render as one merged card with variant tabs.
   const sortedFamilies = useMemo(() => {
+    const result: { familyDef: ProviderFamily | null; providers: Provider[]; isMulti: boolean }[] = [];
     const seen = new Set<string>();
-    const result: { family: string; providers: Provider[] }[] = [];
     for (const p of sortedProviders) {
-      const fam = PROVIDER_FAMILY_MAP.get(p.id);
-      if (fam) {
-        // Find or create the family bucket, preserving first-occurrence order
-        let bucket = result.find(r => r.family === fam);
+      const famName = PROVIDER_FAMILY_MAP.get(p.id);
+      if (famName) {
+        const famDef = PROVIDER_FAMILIES.find(f => f.family === famName)!;
+        let bucket = result.find(r => r.familyDef?.family === famName);
         if (!bucket) {
-          bucket = { family: fam, providers: [] };
+          bucket = { familyDef: famDef, providers: [], isMulti: famDef.ids.length > 1 };
           result.push(bucket);
         }
         bucket.providers.push(p);
         seen.add(p.id);
       } else {
-        // Standalone provider — its own family
-        result.push({ family: p.name || p.id, providers: [p] });
+        result.push({ familyDef: null, providers: [p], isMulti: false });
         seen.add(p.id);
       }
     }
     return result;
   }, [sortedProviders]);
 
-  // Per-family active variant tab state (only for multi-provider families)
-  const [familyVariants, setFamilyVariants] = useState<Record<string, string>>({});
-  function getActiveVariant(family: string, members: Provider[]): Provider {
-    const stored = familyVariants[family];
-    if (stored) {
-      const found = members.find(p => p.id === stored);
+  // Per-family region/plan selection state
+  const [familyRegion, setFamilyRegion] = useState<Record<string, string>>({});
+  const [familyPlan, setFamilyPlan] = useState<Record<string, string>>({});
+
+  function getActiveFamilyProvider(famDef: ProviderFamily, members: Provider[]): Provider {
+    const regionLabel = familyRegion[famDef.family];
+    const planLabel = familyPlan[famDef.family];
+    const pid = resolveFamilyProvider(famDef, regionLabel, planLabel);
+    if (pid) {
+      const found = members.find(p => p.id === pid);
       if (found) return found;
     }
-    // Default: first authed variant, else first member
+    // Default: first authed member, else first
     return members.find(p => isAuthed(p)) || members[0];
   }
   const modelStats = useMemo(() => {
@@ -844,8 +926,9 @@ export default function ModelsPage() {
 
             <div className="provider-list">
           {sortedFamilies.map(fam => {
-            const isMulti = fam.providers.length > 1;
-            const p = isMulti ? getActiveVariant(fam.family, fam.providers) : fam.providers[0];
+            const isMulti = fam.isMulti;
+            const famDef = fam.familyDef;
+            const p = isMulti && famDef ? getActiveFamilyProvider(famDef, fam.providers) : fam.providers[0];
             const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
             const showAll = expandedModels.has(p.id);
             const visibleModels = showAll ? p.models : p.models.slice(0, SHOW_MODELS);
@@ -854,33 +937,52 @@ export default function ModelsPage() {
             const authed = isAuthed(p);
             const needsVerification = Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
             const used = isUsedBy(p);
-            const group = groupOf(p.id);
             // For multi-provider families, status reflects the union of all variants.
             const familyAuthed = isMulti ? fam.providers.some(mp => isAuthed(mp)) : authed;
-            const familyUsed = isMulti ? fam.providers.some(mp => isUsedBy(mp)) : used;
 
             return (
               <article
-                key={fam.family}
-                className={`provider-card provider-card--clickable${familyAuthed ? ' provider-card--authed' : ''}${familyUsed ? ' provider-card--used' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
+                key={famDef?.family || p.id}
+                className={`provider-card provider-card--clickable${familyAuthed ? ' provider-card--authed' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
                 onClick={() => setActivePlatform(p.id)}
                 aria-busy={testingConn === p.id}
               >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
-                    <h3>{isMulti ? fam.family : providerName(p.id, p.name)}</h3>
+                    <h3>{isMulti && famDef ? famDef.family : providerName(p.id, p.name)}</h3>
                   </div>
                   <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
-                    {isMulti ? (
-                      fam.providers.map(mp => (
-                        <button
-                          key={mp.id}
-                          className={`variant-tab${mp.id === p.id ? ' variant-tab--active' : ''}`}
-                          onClick={() => setFamilyVariants(prev => ({ ...prev, [fam.family]: mp.id }))}
-                        >
-                          {variantLabel(mp.id)}
-                        </button>
-                      ))
+                    {isMulti && famDef ? (
+                      <>
+                        {/* 地域维度:仅 >1 选项时显示 */}
+                        {famDef.regions && famDef.regions.length > 1 && (
+                          <div className="variant-tab-group">
+                            {famDef.regions.map(r => (
+                              <button
+                                key={r.providerId}
+                                className={`variant-tab${(familyRegion[famDef.family] || famDef.regions![0].label) === r.label ? ' variant-tab--active' : ''}`}
+                                onClick={() => setFamilyRegion(prev => ({ ...prev, [famDef.family]: r.label }))}
+                              >
+                                {r.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {/* 套餐维度 */}
+                        {famDef.plans && famDef.plans.length > 1 && (
+                          <div className="variant-tab-group">
+                            {famDef.plans.map(pl => (
+                              <button
+                                key={pl.providerId}
+                                className={`variant-tab${(familyPlan[famDef.family] || famDef.plans![0].label) === pl.label ? ' variant-tab--active' : ''}`}
+                                onClick={() => setFamilyPlan(prev => ({ ...prev, [famDef.family]: pl.label }))}
+                              >
+                                {pl.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       // 独立平台:互斥切换 API Key / OAuth
                       <>

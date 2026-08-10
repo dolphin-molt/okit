@@ -3141,6 +3141,13 @@
   flex-wrap: wrap;
   margin-left: auto;
 }
+.variant-tab-group {
+  display: flex;
+  gap: 4px;
+}
+.variant-tab-group + .variant-tab-group {
+  margin-left: 8px;
+}
 .variant-tab {
   display: inline-flex;
   align-items: center;

@@ -11,6 +11,7 @@ const PROVIDER_META: Record<string, { name: string; type: string }> = {
   'kimi-coding-plan': { name: 'Kimi Coding Plan', type: '订阅制' },
   'minimax-coding': { name: 'MiniMax Token Plan', type: '订阅制' },
   'openrouter': { name: 'OpenRouter', type: '充值制' },
+  'volcengine-coding': { name: '火山引擎 Coding Plan', type: '订阅制 (AK/SK)' },
 };
 
 export default function UsagePage() {

@@ -705,6 +705,8 @@ export default {
   // Usage
   'usage.supported': 'Supported',
   'usage.queried': 'Queried',
+  'usage.normal': 'OK',
+  'usage.errors': 'Errors',
   'usage.lastRefresh': 'Last refresh',
   'usage.refreshAll': 'Refresh all',
   'usage.refreshing': 'Refreshing…',

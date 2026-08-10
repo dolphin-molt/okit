@@ -85,15 +85,34 @@ export default function UsagePage() {
     return score(a) - score(b);
   });
 
+  const queriedCount = Object.keys(usageMap).length;
+  const okCount = allCards.filter(c => (c.usage?.windows?.length || 0) > 0).length;
+  const errCount = allCards.filter(c => c.usage?.error).length;
+
   return (
     <div className="access-workspace usage-workspace">
       <header className="access-hero">
         <div className="usage-hero-bar">
           <div className="usage-hero-stats">
-            <div><span>{t('usage.supported')}</span><strong>{supportedIds.length}</strong></div>
-            <div><span>{t('usage.queried')}</span><strong>{Object.keys(usageMap).length}</strong></div>
+            <div className="stat-chip">
+              <span className="stat-chip-value">{supportedIds.length}</span>
+              <span className="stat-chip-label">{t('usage.supported')}</span>
+            </div>
+            <div className={`stat-chip${okCount > 0 ? ' stat-chip--success' : ''}`}>
+              <span className="stat-chip-value">{okCount}</span>
+              <span className="stat-chip-label">{t('usage.normal')}</span>
+            </div>
+            {errCount > 0 && (
+              <div className="stat-chip stat-chip--warn">
+                <span className="stat-chip-value">{errCount}</span>
+                <span className="stat-chip-label">{t('usage.errors')}</span>
+              </div>
+            )}
             {lastRefresh > 0 && (
-              <div><span>{t('usage.lastRefresh')}</span><strong>{formatTimeAgo(lastRefresh)}</strong></div>
+              <div className="stat-chip stat-chip--muted">
+                <span className="stat-chip-value">{formatTimeAgo(lastRefresh)}</span>
+                <span className="stat-chip-label">{t('usage.lastRefresh')}</span>
+              </div>
             )}
           </div>
           <button className="usage-refresh-btn" onClick={fetchAll} disabled={fetchingIds.size > 0}>

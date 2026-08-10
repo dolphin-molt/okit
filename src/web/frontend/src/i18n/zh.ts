@@ -705,6 +705,8 @@ export default {
   // 用量统计
   'usage.supported': '支持查询',
   'usage.queried': '已查询',
+  'usage.normal': '正常',
+  'usage.errors': '异常',
   'usage.lastRefresh': '上次刷新',
   'usage.refreshAll': '全部刷新',
   'usage.refreshing': '刷新中…',

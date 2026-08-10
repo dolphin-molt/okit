@@ -585,17 +585,20 @@ select:focus {
 .vault-tag,
 .tool-cat-badge,
 .model-chip {
-  border: 1px solid rgba(245, 243, 235, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 6px;
-  background: rgba(245, 243, 235, 0.055);
-  color: rgba(245, 243, 235, 0.72);
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
 }
 
-.type-badge--openai,
-.type-badge--google,
-.type-badge--anthropic {
-  color: #72e6ff;
-  background: rgba(56, 189, 248, 0.08);
+[data-theme="dark"] .type-badge,
+[data-theme="dark"] .auth-badge,
+[data-theme="dark"] .vault-tag,
+[data-theme="dark"] .tool-cat-badge,
+[data-theme="dark"] .model-chip {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 243, 235, 0.72);
 }
 
 .batch-bar-inner,

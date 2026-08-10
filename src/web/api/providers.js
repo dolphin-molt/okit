@@ -54,7 +54,7 @@ const PRESET_PROVIDERS = [
   },
   {
     id: "openai-codex",
-    name: "OpenAI Codex",
+    name: "ChatGPT",
     type: "openai",
     baseUrl: "https://chatgpt.com/backend-api/codex",
     authMode: "oauth",
@@ -557,11 +557,15 @@ async function saveUserConfig(config) {
 }
 
 const ADAPTERS = [
-  { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude' },
-  { id: 'codex', name: 'Codex CLI', supportedTypes: ['openai'], command: 'codex' },
-  { id: 'gemini', name: 'Gemini CLI', supportedTypes: ['google'], command: 'gemini' },
-  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'opencode' },
-  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'], command: 'openclaw' },
+  { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude', launchType: 'cli' },
+  { id: 'codex', name: 'Codex', supportedTypes: ['openai'], command: 'codex', launchType: 'cli' },
+  { id: 'gemini', name: 'Gemini', supportedTypes: ['google'], command: 'gemini', launchType: 'cli' },
+  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'opencode', launchType: 'cli' },
+  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'], command: 'openclaw', launchType: 'cli' },
+  { id: 'workbuddy', name: 'WorkBuddy', supportedTypes: ['anthropic', 'openai', 'google'], command: 'workbuddy', launchType: 'app', appName: 'WorkBuddy' },
+  { id: 'zcode', name: 'ZCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'zcode', launchType: 'app', appName: 'ZCode' },
+  { id: 'hermes', name: 'Hermes', supportedTypes: ['anthropic', 'openai', 'google'], command: 'hermes', launchType: 'cli' },
+  { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
 ];
 
 function adapterSupportsProvider(adapter, provider) {
@@ -604,8 +608,9 @@ async function getAdaptersList(req, res) {
 
       return {
         ...adapter,
+        launchType: adapter.launchType || 'cli',
         canLaunch: !!adapter.command,
-        installed: adapter.command ? !!findCommand(adapter.command) : false,
+        installed: adapter.launchType === 'app' ? true : (adapter.command ? !!findCommand(adapter.command) : false),
         current: sel?.providerId && sel?.modelId
           ? { providerId: sel.providerId, providerName: currentProvider?.name || sel.providerId, modelId: sel.modelId }
           : null,
@@ -632,15 +637,29 @@ async function launchAgent(req, res) {
   if (!adapter) return res.status(404).json({ error: `Agent not found: ${agentId}` });
   if (!adapter.command) return res.status(400).json({ error: `${adapter.name} 不支持一键打开` });
 
-  const commandPath = findCommand(adapter.command);
-  if (!commandPath) {
-    return res.status(404).json({ error: `${adapter.name} CLI 未安装或不在 PATH 中` });
-  }
-
-  const launchDir = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : process.cwd();
-  const command = `cd ${shellQuote(launchDir)} && ${shellQuote(commandPath)}`;
-
   try {
+    if (adapter.launchType === 'app') {
+      const appName = adapter.appName || adapter.name;
+      const { spawn } = require('child_process');
+      if (os.platform() === 'darwin') {
+        spawn('open', ['-a', appName], { detached: true, stdio: 'ignore' }).unref();
+      } else if (os.platform() === 'win32') {
+        spawn('cmd', ['/c', 'start', '', appName], { detached: true, stdio: 'ignore', shell: true }).unref();
+      } else {
+        spawn(adapter.command, [], { detached: true, stdio: 'ignore' }).unref();
+      }
+      res.json({ success: true, agentId, launched: 'app', appName });
+      return;
+    }
+
+    const commandPath = findCommand(adapter.command);
+    if (!commandPath) {
+      return res.status(404).json({ error: `${adapter.name} CLI 未安装或不在 PATH 中` });
+    }
+
+    const launchDir = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : process.cwd();
+    const command = `cd ${shellQuote(launchDir)} && ${shellQuote(commandPath)}`;
+
     await openTerminal(command);
     res.json({ success: true, agentId, command: adapter.command });
   } catch (err) {
@@ -823,6 +842,18 @@ async function applyAgentConfig(adapter, provider, modelId) {
       break;
     case 'openclaw':
       await applyOpenClawConfig(provider, modelId, apiKey);
+      break;
+    case 'workbuddy':
+      await applyWorkBuddyConfig(provider, modelId, apiKey);
+      break;
+    case 'zcode':
+      await applyJsonAgentConfig(provider, modelId, apiKey, path.join(os.homedir(), '.zcode', 'config.json'));
+      break;
+    case 'hermes':
+      await applyJsonAgentConfig(provider, modelId, apiKey, path.join(os.homedir(), '.hermes', 'config.json'));
+      break;
+    case 'kimi-code':
+      await applyKimiCodeConfig(provider, modelId, apiKey);
       break;
     default:
       break;
@@ -1014,6 +1045,159 @@ async function applyOpenClawConfig(provider, modelId, apiKey) {
   await fs.writeFile(configPath, JSON.stringify(data, null, 2));
 }
 
+async function applyJsonAgentConfig(provider, modelId, apiKey, configPath) {
+  await fs.ensureDir(path.dirname(configPath));
+
+  let data = {};
+  if (await fs.pathExists(configPath)) {
+    const content = await fs.readFile(configPath, 'utf-8');
+    data = content.trim() ? JSON.parse(content) : {};
+  }
+
+  if (!data.models) data.models = {};
+  if (!data.models.providers) data.models.providers = [];
+
+  const providers = data.models.providers;
+  let found = providers.find(p => p.id === provider.id);
+  if (!found) {
+    found = { id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl };
+    providers.push(found);
+  }
+  if (apiKey) found.apiKey = apiKey;
+  found.models = (provider.models || []).map(m => ({
+    id: m.id,
+    name: m.name || m.id,
+    capabilities: m.capabilities || [],
+  }));
+
+  if (!data.agents) data.agents = {};
+  if (!data.agents.default) data.agents.default = {};
+  data.agents.default.model = modelId;
+  data.agents.default.provider = provider.id;
+
+  await fs.writeFile(configPath, JSON.stringify(data, null, 2));
+}
+
+async function applyWorkBuddyConfig(provider, modelId, apiKey) {
+  const configPath = path.join(os.homedir(), '.workbuddy', 'models.json');
+  await fs.ensureDir(path.dirname(configPath));
+
+  let data = {};
+  if (await fs.pathExists(configPath)) {
+    const content = await fs.readFile(configPath, 'utf-8');
+    data = content.trim() ? JSON.parse(content) : {};
+  }
+
+  if (!Array.isArray(data.models)) data.models = [];
+
+  const baseUrl = (provider.baseUrl || '').replace(/\/$/, '');
+  const chatUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+  const model = (provider.models || []).find(m => m.id === modelId);
+
+  let entry = data.models.find(m => m.id === modelId);
+  if (!entry) {
+    entry = { id: modelId, name: (model && model.name) || modelId, vendor: provider.name, url: chatUrl };
+    data.models.push(entry);
+  } else {
+    entry.name = (model && model.name) || entry.name;
+    entry.vendor = provider.name;
+    entry.url = chatUrl;
+  }
+  if (apiKey) entry.apiKey = apiKey;
+
+  if (!Array.isArray(data.availableModels)) data.availableModels = [];
+  if (!data.availableModels.includes(modelId)) {
+    data.availableModels.push(modelId);
+  }
+
+  await fs.writeFile(configPath, JSON.stringify(data, null, 2));
+}
+
+async function applyKimiCodeConfig(provider, modelId, apiKey) {
+  const kimiDir = path.join(os.homedir(), '.kimi-code');
+  const configPath = path.join(kimiDir, 'config.toml');
+  await fs.ensureDir(kimiDir);
+
+  let toml = '';
+  if (await fs.pathExists(configPath)) {
+    toml = await fs.readFile(configPath, 'utf-8');
+  }
+
+  const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];
+  const openaiEp = endpoints.find(ep => ep.type === 'openai');
+  const baseUrl = openaiEp ? openaiEp.baseUrl : provider.baseUrl;
+  const wireApi = openaiEp && openaiEp.protocol === 'responses' ? 'responses' : 'chat';
+
+  const providerId = (provider.id === 'kimi-coding' || provider.id === 'moonshot') ? 'kimi' : `okit-${provider.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+
+  // Upsert top-level keys
+  toml = upsertKimiTomlKey(toml, 'model', `"${modelId}"`);
+  toml = upsertKimiTomlKey(toml, 'model_provider', `"${providerId}"`);
+
+  if (providerId !== 'kimi') {
+    const envKey = `OKIT_KIMI_CODE_${provider.id.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_API_KEY`;
+    toml = upsertKimiTomlTable(toml, `model_providers.${providerId}`, [
+      `name = "${provider.name}"`,
+      `base_url = "${baseUrl}"`,
+      `env_key = "${envKey}"`,
+      `wire_api = "${wireApi}"`,
+    ]);
+    if (apiKey) await upsertKimiEnvFile(path.join(kimiDir, '.env'), envKey, apiKey);
+  } else if (apiKey) {
+    await upsertKimiEnvFile(path.join(kimiDir, '.env'), 'MOONSHOT_API_KEY', apiKey);
+  }
+
+  await fs.writeFile(configPath, toml);
+}
+
+function upsertKimiTomlKey(toml, key, value) {
+  const lines = toml.split('\n');
+  let tableStart = lines.findIndex(l => l.trim().startsWith('['));
+  if (tableStart === -1) tableStart = lines.length;
+
+  for (let i = 0; i < tableStart; i++) {
+    if (new RegExp(`^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`).test(lines[i])) {
+      lines[i] = `${key} = ${value}`;
+      return lines.join('\n');
+    }
+  }
+  lines.splice(tableStart, 0, `${key} = ${value}`);
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+function upsertKimiTomlTable(toml, tableName, entries) {
+  const header = `[${tableName}]`;
+  const headerRe = new RegExp(`^\\s*\\[${tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\s*(?:#.*)?$`);
+  const lines = toml.split('\n');
+  const start = lines.findIndex(l => headerRe.test(l));
+
+  if (start >= 0) {
+    let end = start + 1;
+    while (end < lines.length && !/^\s*\[/.test(lines[end])) end++;
+    const before = lines.slice(0, start);
+    const after = lines.slice(end);
+    while (before.length && before[before.length - 1].trim() === '') before.pop();
+    while (after.length && after[0].trim() === '') after.shift();
+    return [...before, ...(before.length ? [''] : []), header, ...entries, ...(after.length ? ['', ...after] : [''])].join('\n');
+  }
+  return `${toml.trimEnd()}\n\n${[header, ...entries].join('\n')}\n`;
+}
+
+async function upsertKimiEnvFile(envPath, key, value) {
+  let content = '';
+  if (await fs.pathExists(envPath)) content = await fs.readFile(envPath, 'utf-8');
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const line = `export ${key}='${value.replace(/'/g, "'\\''")}'`;
+  const re = new RegExp(`^\\s*(?:export\\s+)?${escapedKey}=.*$`, 'm');
+  content = re.test(content) ? content.replace(re, line) : `${content.trimEnd()}\n${line}\n`;
+  await fs.writeFile(envPath, content.trimStart());
+
+  if (os.platform() === 'darwin') {
+    const { execFile } = require('child_process');
+    execFile('/bin/launchctl', ['setenv', key, value], () => {});
+  }
+}
+
 async function getAuthStatus(req, res) {
   try {
     const providers = await loadProviders();
@@ -1065,7 +1249,7 @@ async function triggerOAuthLogin(req, res) {
   // Platform-specific OAuth URLs and CLI commands
   const entries = {
     anthropic: { name: 'Claude Code', url: 'https://console.anthropic.com/', cli: 'claude', cliArgs: ['login'] },
-    'openai-codex': { name: 'Codex CLI', url: 'https://chatgpt.com/', cli: 'codex', cliArgs: ['auth', 'login'] },
+    'openai-codex': { name: 'ChatGPT', url: 'https://chatgpt.com/', cli: 'codex', cliArgs: ['auth', 'login'] },
   };
 
   const entry = entries[providerId];

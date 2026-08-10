@@ -290,6 +290,7 @@ export default {
   'agents.selectLeft': '← 选择左侧平台',
   'agents.platformsAvailable': '{n} 个平台可选',
   'agents.launchTerminal': '打开终端',
+  'agents.launchApp': '打开应用',
   'agents.launchSuccess': '已打开终端',
   'agents.launchNotInstalled': 'CLI 未安装或不在 PATH 中',
 
@@ -636,6 +637,7 @@ export default {
 
   // Quick Start
   'home.quickStart': '快速启动',
+  'home.agentConfig': 'Agent 配置',
   'home.scanTools': '工具健康扫描',
   'home.needsAuth': '待授权',
   'home.quickAddKey': '快速添加密钥',
@@ -669,9 +671,6 @@ export default {
   'provider.qianfan-coding': '百度千帆 Coding Plan',
   'provider.moonshot': 'Moonshot（Kimi 国际站）',
   'provider.siliconflow': 'SiliconFlow',
-  'provider.together': 'Together AI',
-  'provider.fireworks': 'Fireworks AI',
-  'provider.groq': 'Groq',
   'provider.xiaomi': '小米 MiMo',
   'provider.openrouter': 'OpenRouter',
   'provider.azure': 'Azure OpenAI',

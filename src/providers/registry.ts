@@ -4,6 +4,10 @@ import { CodexAdapter } from "./adapters/codex";
 import { GeminiAdapter } from "./adapters/gemini";
 import { OpenCodeAdapter } from "./adapters/opencode";
 import { OpenClawAdapter } from "./adapters/openclaw";
+import { WorkBuddyAdapter } from "./adapters/workbuddy";
+import { ZCodeAdapter } from "./adapters/zcode";
+import { HermesAdapter } from "./adapters/hermes";
+import { KimiCodeAdapter } from "./adapters/kimi-code";
 
 const adapters: AgentAdapter[] = [
   new ClaudeAdapter(),
@@ -11,6 +15,10 @@ const adapters: AgentAdapter[] = [
   new GeminiAdapter(),
   new OpenCodeAdapter(),
   new OpenClawAdapter(),
+  new WorkBuddyAdapter(),
+  new ZCodeAdapter(),
+  new HermesAdapter(),
+  new KimiCodeAdapter(),
 ];
 
 export function getAdapters(): AgentAdapter[] {

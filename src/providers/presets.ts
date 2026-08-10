@@ -29,7 +29,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "openai-codex",
-    name: "OpenAI Codex",
+    name: "ChatGPT",
     type: "openai",
     baseUrl: "https://chatgpt.com/backend-api/codex",
     authMode: "oauth",

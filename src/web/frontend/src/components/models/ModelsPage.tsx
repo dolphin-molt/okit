@@ -1029,15 +1029,27 @@ export default function ModelsPage() {
                       )}
                     </div>
                   )}
-                  {isMulti && (p.authMode === 'oauth' || p.authMode === 'both') && !auth?.oauthLoggedIn && (
+                  {isMulti && (
                     <div className="provider-card-auth">
-                      <button
-                        className="auth-login-btn"
-                        disabled={loggingIn === p.id}
-                        onClick={e => { e.stopPropagation(); handleOAuthLogin(p.id); }}
-                      >
-                        {loggingIn === p.id ? '...' : t('models.login')}
-                      </button>
+                      {/* API Key 且未绑定:显示设置密钥 */}
+                      {(p.authMode === 'api_key' || p.authMode === 'both') && !p.vaultKey && (
+                        <button
+                          className="auth-login-btn"
+                          onClick={e => { e.stopPropagation(); setVaultPickerFor(p.id); }}
+                        >
+                          {t('models.setKey')}
+                        </button>
+                      )}
+                      {/* OAuth 且未登录:显示登录 */}
+                      {(p.authMode === 'oauth' || p.authMode === 'both') && !auth?.oauthLoggedIn && (
+                        <button
+                          className="auth-login-btn"
+                          disabled={loggingIn === p.id}
+                          onClick={e => { e.stopPropagation(); handleOAuthLogin(p.id); }}
+                        >
+                          {loggingIn === p.id ? '...' : t('models.login')}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

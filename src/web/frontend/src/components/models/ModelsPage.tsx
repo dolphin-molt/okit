@@ -944,9 +944,6 @@ export default function ModelsPage() {
                       return (
                         <div key={i} className="provider-endpoint-row">
                           <span className={`type-badge type-badge--${ep.type}`}>{ep.type}</span>
-                          {endpointProtocol(ep) && <span className="endpoint-protocol-badge">{endpointProtocol(ep)}</span>}
-                          {endpointPlan(ep) === 'coding' && <span className="endpoint-plan-badge">{t('models.endpointPlanCoding')}</span>}
-                          {endpointPlan(ep) === 'token' && <span className="endpoint-plan-badge endpoint-plan-badge--token">{t('models.endpointPlanToken')}</span>}
                           <span className="provider-endpoint-url">{ep.baseUrl}</span>
                           {testingConn === p.id && !epResult && i === (endpointResults[p.id]?.length || 0) && (
                             <span className="ep-test-spinner">...</span>

@@ -164,6 +164,8 @@ export default {
   'models.syncFailed': 'Sync failed',
   'models.connected': 'Connected, synced {n} models',
   'models.connectKept': 'Connected, kept {n} preset models',
+  'models.setKey': 'Set key',
+  'models.keyBound': 'Key bound, connecting…',
   'models.usageFetched': 'Usage updated ({pct}%)',
   'models.usageFailed': 'Failed to fetch usage',
   'models.usageUnsupported': 'Usage query not supported for this provider, please check the console',

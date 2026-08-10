@@ -164,6 +164,8 @@ export default {
   'models.syncFailed': '同步失败',
   'models.connected': '连接成功，已同步 {n} 个模型',
   'models.connectKept': '连接成功，保留 {n} 个预设模型',
+  'models.setKey': '设置密钥',
+  'models.keyBound': '密钥已绑定，正在连接…',
   'models.usageFetched': '用量已更新 ({pct}%)',
   'models.usageFailed': '查询用量失败',
   'models.usageUnsupported': '该平台暂不支持用量查询，请前往控制台查看',

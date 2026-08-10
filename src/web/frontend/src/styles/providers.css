@@ -3162,15 +3162,6 @@
   color: var(--ink);
   font-weight: 600;
 }
-/* span variant-tab: 纯展示(独立平台),默认 active 外观,不可交互 */
-span.variant-tab {
-  cursor: default;
-  background: var(--paper);
-  border-color: var(--kraft-dark);
-  color: var(--ink);
-  font-weight: 600;
-}
-span.variant-tab:hover { background: var(--paper); }
 .variant-tab-dot {
   width: 5px;
   height: 5px;

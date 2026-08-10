@@ -232,6 +232,8 @@ export default function ModelsPage() {
   const [endpointResults, setEndpointResults] = useState<Record<string, { success: boolean; message: string }[]>>({});
   const [syncingModels, setSyncingModels] = useState<string | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [cardAuthMethod, setCardAuthMethod] = useState<Record<string, 'api_key' | 'oauth'>>({});
+  const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
   // 模型视角：选中的模型（纳入管理），前端 state
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const toggleModelSelected = useCallback((k: string) => {
@@ -346,6 +348,38 @@ export default function ModelsPage() {
       toast(t('models.allEndpointsOk'), 'success');
     } finally {
       setSyncingModels(null);
+    }
+  }
+
+  // 获取卡片当前选中的认证方式,默认: 有 vaultKey 选 api_key,否则 oauth
+  function getCardAuthMethod(p: Provider): 'api_key' | 'oauth' {
+    const stored = cardAuthMethod[p.id];
+    if (stored) return stored;
+    // 根据 provider 支持的方式决定默认值
+    if (p.authMode === 'oauth') return 'oauth';
+    if (p.vaultKey) return 'api_key';
+    if (p.authMode === 'both') return 'api_key';
+    return 'api_key';
+  }
+
+  // provider 是否支持某种认证方式
+  function supportsMethod(p: Provider, method: 'api_key' | 'oauth'): boolean {
+    if (method === 'api_key') return p.authMode === 'api_key' || p.authMode === 'both';
+    return p.authMode === 'oauth' || p.authMode === 'both';
+  }
+
+  // 设置密钥后自动连接
+  async function handleKeyPicked(providerId: string, vaultKey: string) {
+    setVaultPickerFor(null);
+    try {
+      await updateProvider(providerId, { vaultKey });
+      toast(t('models.keyBound'), 'success');
+      load();
+      // 自动连接(测试+刷新模型)
+      const updated = providers.find(pp => pp.id === providerId);
+      if (updated) handleConnect({ ...updated, vaultKey });
+    } catch (err: any) {
+      toast(err.message, 'error');
     }
   }
 
@@ -849,13 +883,23 @@ export default function ModelsPage() {
                         </button>
                       ))
                     ) : (
-                      // 独立平台:根据 authMode 生成虚拟 tab(纯展示,不可切换)
+                      // 独立平台:互斥切换 API Key / OAuth
                       <>
-                        {(p.authMode === 'api_key' || p.authMode === 'both') && (
-                          <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
+                        {supportsMethod(p, 'api_key') && (
+                          <button
+                            className={`variant-tab${getCardAuthMethod(p) === 'api_key' ? ' variant-tab--active' : ''}`}
+                            onClick={() => setCardAuthMethod(prev => ({ ...prev, [p.id]: 'api_key' }))}
+                          >
+                            {t('models.authModeApiKey')}
+                          </button>
                         )}
-                        {(p.authMode === 'oauth' || p.authMode === 'both') && (
-                          <span className={`variant-tab${p.authMode === 'oauth' ? ' variant-tab--active' : ''}`}>OAuth</span>
+                        {supportsMethod(p, 'oauth') && (
+                          <button
+                            className={`variant-tab${getCardAuthMethod(p) === 'oauth' ? ' variant-tab--active' : ''}`}
+                            onClick={() => setCardAuthMethod(prev => ({ ...prev, [p.id]: 'oauth' }))}
+                          >
+                            OAuth
+                          </button>
                         )}
                       </>
                     )}
@@ -923,7 +967,29 @@ export default function ModelsPage() {
                     })}
                   </div>
 
-                  {(p.authMode === 'oauth' || p.authMode === 'both') && !auth?.oauthLoggedIn && (
+                  {/* 认证操作区:根据选中的认证方式显示不同操作按钮 */}
+                  {!isMulti && (
+                    <div className="provider-card-auth">
+                      {getCardAuthMethod(p) === 'api_key' && !p.vaultKey && (
+                        <button
+                          className="auth-login-btn"
+                          onClick={e => { e.stopPropagation(); setVaultPickerFor(p.id); }}
+                        >
+                          {t('models.setKey')}
+                        </button>
+                      )}
+                      {getCardAuthMethod(p) === 'oauth' && !auth?.oauthLoggedIn && (
+                        <button
+                          className="auth-login-btn"
+                          disabled={loggingIn === p.id}
+                          onClick={e => { e.stopPropagation(); handleOAuthLogin(p.id); }}
+                        >
+                          {loggingIn === p.id ? '...' : t('models.login')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {isMulti && (p.authMode === 'oauth' || p.authMode === 'both') && !auth?.oauthLoggedIn && (
                     <div className="provider-card-auth">
                       <button
                         className="auth-login-btn"
@@ -992,6 +1058,13 @@ export default function ModelsPage() {
           provider={editProvider}
           onSave={handleFormSave}
           onClose={() => { setShowForm(false); setEditProvider(null); }}
+        />
+      )}
+      {vaultPickerFor && (
+        <VaultPickerModal
+          selected={providers.find(pp => pp.id === vaultPickerFor)?.vaultKey || ''}
+          onSelect={key => handleKeyPicked(vaultPickerFor, key)}
+          onClose={() => setVaultPickerFor(null)}
         />
       )}
       </div>

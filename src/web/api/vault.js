@@ -2,6 +2,11 @@ const { VaultStore } = require('../../vault/store');
 const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
+const {
+  isQianfanCodingEndpoint,
+  qianfanCodingErrorCode,
+  qianfanCodingErrorMessage,
+} = require('./qianfan-coding');
 
 const store = new VaultStore();
 
@@ -546,14 +551,58 @@ async function testApiKey(req, res) {
 
     if (type === 'anthropic') {
       url = `${baseUrl}/v1/messages`;
-      headers['x-api-key'] = resolvedKey;
+      const isZaiAnthropic = isZaiAnthropicEndpoint(baseUrl);
+      if (isZaiAnthropic) {
+        // Z.AI's Anthropic-compatible coding endpoint expects a GLM model
+        // and the platform's standard Bearer authentication. The generic
+        // Claude probe (claude-haiku + x-api-key) is not a valid Z.AI probe.
+        headers['Authorization'] = `Bearer ${resolvedKey}`;
+        headers['accept-language'] = 'en-US,en';
+      } else {
+        headers['x-api-key'] = resolvedKey;
+      }
       headers['anthropic-version'] = '2023-06-01';
       headers['content-type'] = 'application/json';
-      const body = JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+
+      // Z.AI exposes a read-only model-list endpoint for its Anthropic
+      // compatibility layer. Use it as the connection probe first so a
+      // valid key is not reported as disconnected merely because the account
+      // has no inference balance (business error 1113).
+      if (isZaiAnthropic) {
+        const modelsResult = await httpRequest(`${baseUrl.replace(/\/+$/, '')}/v1/models`, {
+          method: 'GET',
+          headers,
+          timeout: 10000,
+        });
+        if (modelsResult.error) return res.json({ success: false, message: `连接失败: ${modelsResult.error}` });
+        if (modelsResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        if (modelsResult.status === 200) {
+          let modelCount = 0;
+          try { modelCount = JSON.parse(modelsResult.body).data?.length || 0; } catch {}
+          return res.json({
+            success: true,
+            message: `端点连接成功，Key 有效，可读取 ${modelCount} 个模型；实际对话调用仍需 Z.AI 账户资源包`,
+          });
+        }
+        if (modelsResult.status === 429 && zaiErrorCode(modelsResult.body) === '1113') {
+          return res.json({ success: false, message: '端点可达，但 Z.AI 账户余额或资源包不足（1113），请充值或开通对应资源包后重试' });
+        }
+        // If a deployment does not expose /v1/models, continue with the
+        // protocol-compatible one-token message probe below.
+      }
+
+      const body = JSON.stringify({
+        model: isZaiAnthropic ? 'glm-4.7' : 'claude-haiku-4-5',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
       const result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
       if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
       if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
       if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+      if (isZaiAnthropic && (result.status === 429 || zaiErrorCode(result.body) === '1113')) {
+        return res.json({ success: false, message: '端点可达，但 Z.AI 账户余额或资源包不足（1113），请充值或开通对应资源包后重试' });
+      }
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
     } else if (type === 'google') {
       url = `${baseUrl}/v1beta/models?key=${resolvedKey}`;
@@ -563,9 +612,24 @@ async function testApiKey(req, res) {
       if (result.status === 200) return res.json({ success: true, message: '连接成功，Key 有效' });
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
     } else {
-      // openai compatible — try /models first, fallback to the selected wire API probe
+      // Qianfan Coding Plan has its own credential scope and does not accept
+      // the regular V2 API key. Probe its documented chat endpoint directly so
+      // the UI can distinguish a key-scope error from a generic 401 failure.
       headers['Authorization'] = `Bearer ${resolvedKey}`;
       headers['content-type'] = 'application/json';
+      if (isQianfanCodingEndpoint(baseUrl)) {
+        const codingResult = await probeQianfanCodingApi(baseUrl, headers);
+        if (codingResult.error) return res.json({ success: false, message: `连接失败: ${codingResult.error}` });
+        const codingCode = qianfanCodingErrorCode(codingResult.body);
+        const codingMessage = qianfanCodingErrorMessage(codingCode);
+        if (codingMessage) return res.json({ success: false, message: codingMessage });
+        if (codingResult.status === 401) return res.json({ success: false, message: '百度千帆 Coding Plan API Key 无效' });
+        if (codingResult.status === 200) return res.json({ success: true, message: '百度千帆 Coding Plan 连接成功，Key 有效' });
+        if (codingResult.status === 400) return res.json({ success: true, message: '百度千帆 Coding Plan 端点可达，Key 已通过鉴权' });
+        return res.json({ success: false, message: `HTTP ${codingResult.status}: ${truncateBody(codingResult.body)}` });
+      }
+
+      // openai compatible — try /models first, fallback to the selected wire API probe
       url = baseUrl.replace(/\/+$/, '') + '/models';
       let result = await httpRequest(url, { method: 'GET', headers, timeout: 10000 });
 
@@ -599,6 +663,20 @@ async function testApiKey(req, res) {
   }
 }
 
+function isZaiAnthropicEndpoint(baseUrl) {
+  return /^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim());
+}
+
+function zaiErrorCode(body) {
+  try {
+    const parsed = JSON.parse(body || '{}');
+    const code = parsed?.error?.code ?? parsed?.code;
+    return code === undefined || code === null ? '' : String(code);
+  } catch {
+    return '';
+  }
+}
+
 function probeOpenAIWireApi(baseUrl, headers, protocol) {
   const normalizedProtocol = protocol === 'responses' ? 'responses' : 'chat';
   if (normalizedProtocol === 'responses') {
@@ -608,6 +686,17 @@ function probeOpenAIWireApi(baseUrl, headers, protocol) {
   }
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const body = JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+  return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+}
+
+function probeQianfanCodingApi(baseUrl, headers) {
+  const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const body = JSON.stringify({
+    model: 'qianfan-code-latest',
+    max_tokens: 1,
+    messages: [{ role: 'user', content: 'hi' }],
+    stream: false,
+  });
   return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
 }
 

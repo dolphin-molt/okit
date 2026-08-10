@@ -4,13 +4,15 @@ import { PRESET_PROVIDERS } from '../../src/providers/presets';
 describe('PRESET_PROVIDERS alignment', () => {
   const EXPECTED_IDS = [
     'anthropic', 'openai', 'openai-codex', 'google', 'volcengine',
-    'zai', 'zai-global', 'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
-    'qwen', 'qianfan', 'xai', 'mistral', 'stepfun', 'xiaomi',
-    'openrouter', 'groq', 'fireworks', 'together', 'ollama', 'litellm',
+    'zai', 'zai-global', 'glm-coding', 'minimax', 'minimax-global', 'minimax-coding',
+    'deepseek', 'moonshot', 'kimi-coding', 'kimi-coding-plan', 'qwen', 'qianfan',
+    'qianfan-coding', 'volcengine-coding', 'tencent-coding', 'xai', 'mistral', 'stepfun',
+    'xiaomi', 'xiaomi-coding',
+    'openrouter', 'ollama', 'litellm',
   ];
 
-  it('has exactly 24 presets', () => {
-    expect(PRESET_PROVIDERS.length).toBe(24);
+  it('has exactly 28 presets', () => {
+    expect(PRESET_PROVIDERS.length).toBe(28);
   });
 
   it('contains all expected provider IDs', () => {
@@ -20,13 +22,34 @@ describe('PRESET_PROVIDERS alignment', () => {
     }
   });
 
+  it('keeps OpenRouter as the only bundled aggregator', () => {
+    const ids = PRESET_PROVIDERS.map(p => p.id);
+    expect(ids).toContain('openrouter');
+    expect(ids).not.toContain('groq');
+    expect(ids).not.toContain('fireworks');
+    expect(ids).not.toContain('together');
+  });
+
   it('has no duplicate IDs', () => {
     const ids = PRESET_PROVIDERS.map(p => p.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('keeps the legacy Kimi Coding ID while using the Kimi product name', () => {
+    const kimi = PRESET_PROVIDERS.find(provider => provider.id === 'kimi-coding');
+    expect(kimi?.name).toBe('Kimi');
+    expect(kimi?.baseUrl).toBe('https://api.moonshot.cn/v1');
+    const moonshot = PRESET_PROVIDERS.find(provider => provider.id === 'moonshot');
+    expect(moonshot?.name).toBe('Moonshot (Kimi Global)');
+    expect(moonshot?.baseUrl).toBe('https://api.moonshot.ai/v1');
+  });
+
   it('multi-endpoint providers have endpoints array', () => {
-    const multiEndpoint = ['google', 'zai', 'deepseek', 'qianfan', 'xiaomi'];
+    const multiEndpoint = [
+      'google', 'zai', 'deepseek', 'xiaomi',
+      'kimi-coding-plan', 'glm-coding', 'minimax-coding',
+      'volcengine-coding', 'tencent-coding', 'xiaomi-coding',
+    ];
     for (const id of multiEndpoint) {
       const p = PRESET_PROVIDERS.find(p => p.id === id);
       expect(p, `${id} should have endpoints`).toBeDefined();
@@ -68,6 +91,31 @@ describe('PRESET_PROVIDERS alignment', () => {
     const p = PRESET_PROVIDERS.find(p => p.id === 'google')!;
     const hasOpenai = p.endpoints?.some(ep => ep.type === 'openai');
     expect(hasOpenai).toBe(true);
+  });
+
+  it('marks Coding and Token Plan endpoints explicitly', () => {
+    const codingIds = ['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'tencent-coding'];
+    for (const id of codingIds) {
+      const provider = PRESET_PROVIDERS.find(p => p.id === id)!;
+      expect(provider.endpoints?.every(endpoint => endpoint.plan === 'coding'), id).toBe(true);
+    }
+    for (const id of ['minimax-coding', 'xiaomi-coding']) {
+      const provider = PRESET_PROVIDERS.find(p => p.id === id)!;
+      expect(provider.endpoints?.every(endpoint => endpoint.plan === 'token'), id).toBe(true);
+    }
+  });
+
+  it('matches the signed-in MiMo Token Plan Base URLs and model list', () => {
+    const provider = PRESET_PROVIDERS.find(p => p.id === 'xiaomi-coding')!;
+    expect(provider.baseUrl).toBe('https://token-plan-sgp.xiaomimimo.com/v1');
+    expect(provider.endpoints).toEqual([
+      { type: 'openai', protocol: 'chat', baseUrl: 'https://token-plan-sgp.xiaomimimo.com/v1', plan: 'token' },
+      { type: 'anthropic', baseUrl: 'https://token-plan-sgp.xiaomimimo.com/anthropic', plan: 'token' },
+    ]);
+    expect(provider.models.map(model => model.id)).toEqual([
+      'mimo-v2.5', 'mimo-v2.5-pro', 'mimo-v2.5-asr', 'mimo-v2.5-tts',
+      'mimo-v2.5-tts-voiceclone', 'mimo-v2.5-tts-voicedesign',
+    ]);
   });
 
   it('authMode is valid for all providers', () => {

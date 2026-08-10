@@ -1,12 +1,15 @@
 // API protocol compatibility
 export type ProviderType = 'anthropic' | 'openai' | 'google';
 export type OpenAIProtocol = 'chat' | 'responses';
+export type ProviderEndpointPlan = 'coding' | 'token';
 
 // A provider (platform) that offers AI models
 export interface ProviderEndpoint {
   type: ProviderType;
   baseUrl: string;
   protocol?: OpenAIProtocol;
+  /** Optional product plan for this endpoint; omitted means a standard API. */
+  plan?: ProviderEndpointPlan;
 }
 
 export interface Provider {
@@ -16,6 +19,8 @@ export interface Provider {
   baseUrl: string;         // primary API endpoint
   endpoints?: ProviderEndpoint[]; // multi-protocol endpoints
   vaultKey?: string;       // reference to Vault key for API key
+  /** Whether the current endpoint/key combination passed an explicit test. */
+  authVerified?: boolean;
   authMode: 'api_key' | 'oauth' | 'both';
   models: ProviderModel[];
 }

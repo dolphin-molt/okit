@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { getTools, toolAction, submitAuthCode, openApp } = require('./api/tools');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey } = require('./api/vault');
-const { autoCreateKey, cdpStatus } = require('./api/auto-create');
+const { autoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
@@ -38,6 +38,16 @@ function createServer(port = 3780) {
   app.get('/api/vault/projects', listProjects);
   app.post('/api/vault/test-key', testApiKey);
   app.post('/api/vault/auto-create', autoCreateKey);
+  app.post('/api/vault/auto-create/recover-zai-latest', async (_req, res) => {
+    try {
+      const result = await recoverLatestZaiGlobalKey();
+      res.json({ success: true, platform: 'zai-global', name: result.name, valueLength: result.valueLength });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+  app.get('/api/vault/auto-create/platforms', listAutoCreatePlatforms);
+  app.post('/api/vault/auto-create/open-login-tabs', openVerificationLoginTabs);
   app.get('/api/vault/cdp-status', cdpStatus);
 
   // Lightweight health-check endpoint for the Chrome extension.

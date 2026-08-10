@@ -342,9 +342,25 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// ─── Popup status API (for optional extension popup) ─────────────────
+// ─── Extension-page messages ──────────────────────────────────────────
+
+type ClipboardReadPending = {
+  resolve: (text: string) => void;
+  reject: (error: Error) => void;
+};
+
+const clipboardReadPending = new Map<string, ClipboardReadPending>();
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === 'okit-clipboard-read-result' && typeof msg.requestId === 'string') {
+    const pending = clipboardReadPending.get(msg.requestId);
+    if (!pending) return false;
+    clipboardReadPending.delete(msg.requestId);
+    if (typeof msg.error === 'string') pending.reject(new Error(`Clipboard read failed: ${msg.error}`));
+    else if (typeof msg.text === 'string') pending.resolve(msg.text);
+    else pending.reject(new Error('Clipboard read returned no text'));
+    return false;
+  }
   if (msg?.type === 'getStatus') {
     sendResponse({
       connected: ws?.readyState === WebSocket.OPEN,
@@ -372,6 +388,8 @@ async function handleCommand(cmd: Command): Promise<Result> {
         return await handleCookies(cmd);
       case 'screenshot':
         return await handleScreenshot(cmd);
+      case 'focus-window':
+        return await handleFocusWindow(cmd);
       case 'close-window':
         return await handleCloseWindow(cmd);
       case 'cdp':
@@ -384,6 +402,8 @@ async function handleCommand(cmd: Command): Promise<Result> {
         return await handleNetworkCaptureStart(cmd);
       case 'network-capture-read':
         return await handleNetworkCaptureRead(cmd);
+      case 'clipboard-read':
+        return await handleClipboardRead(cmd);
       default:
         return { id: cmd.id, ok: false, error: `Unknown action: ${cmd.action}` };
     }
@@ -549,6 +569,35 @@ async function handleScreenshot(cmd: Command): Promise<Result> {
   }
 }
 
+/** Bring the dedicated automation window forward when a human needs to log in.
+ *  Chrome does not expose a persistent "always on top" setting, but focusing the
+ *  window and activating its tab makes the handoff immediately visible. */
+async function handleFocusWindow(cmd: Command): Promise<Result> {
+  if (automationWindowId === null) {
+    return { id: cmd.id, ok: false, error: 'No automation window' };
+  }
+  try {
+    const win = await chrome.windows.update(automationWindowId, { focused: true, drawAttention: true });
+    if (automationTabId !== null) {
+      await chrome.tabs.update(automationTabId, { active: true });
+    }
+    if (cmd.hold) {
+      // A person may need more than the normal 30-second cleanup window to
+      // finish MFA or an account login. They can close the window themselves.
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+    } else {
+      resetIdleTimer();
+    }
+    return {
+      id: cmd.id,
+      ok: true,
+      data: { windowId: win.id, tabId: automationTabId, focused: true },
+    };
+  } catch (err) {
+    return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** CDP methods permitted via the 'cdp' passthrough action. */
 const CDP_ALLOWLIST = new Set([
   'Accessibility.getFullAXTree',
@@ -640,6 +689,74 @@ async function handleNetworkCaptureRead(cmd: Command): Promise<Result> {
     return { id: cmd.id, ok: true, data };
   } catch (err) {
     return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Read a just-copied provider key only when it completely matches the
+ * server-supplied platform pattern. This is deliberately not a general
+ * clipboard-inspection endpoint: unmatched content never leaves the extension.
+ */
+async function handleClipboardRead(cmd: Command): Promise<Result> {
+  if (!cmd.clipboardPattern) {
+    return { id: cmd.id, ok: false, error: 'Clipboard pattern required' };
+  }
+  try {
+    const text = (await readClipboardText()).trim();
+    if (!text || text.length > 4096) {
+      return { id: cmd.id, ok: true, data: { matched: false, length: text.length } };
+    }
+    let matcher: RegExp;
+    try { matcher = new RegExp(cmd.clipboardPattern); } catch {
+      return { id: cmd.id, ok: false, error: 'Invalid clipboard pattern' };
+    }
+    const match = text.match(matcher);
+    if (!match || (!cmd.clipboardAllowSurrounding && match[0] !== text)) {
+      return { id: cmd.id, ok: true, data: { matched: false, length: text.length } };
+    }
+    const value = match[0];
+    return { id: cmd.id, ok: true, data: { matched: true, value, length: value.length } };
+  } catch (err) {
+    return { id: cmd.id, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Chrome requires the document that calls navigator.clipboard.readText() to be
+ * focused. MV3 offscreen documents are explicitly unfocusable, so we open a
+ * tiny, focused extension-only popup for this one read, then close it.
+ */
+async function readClipboardText(): Promise<string> {
+  const requestId = crypto.randomUUID();
+  let popupWindowId: number | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = new Promise<string>((resolve, reject) => {
+      clipboardReadPending.set(requestId, { resolve, reject });
+      timeout = setTimeout(() => {
+        clipboardReadPending.delete(requestId);
+        reject(new Error('Timed out waiting for the focused clipboard reader'));
+      }, 5000);
+    });
+    try {
+      const popup = await chrome.windows.create({
+        url: chrome.runtime.getURL(`clipboard.html?requestId=${encodeURIComponent(requestId)}`),
+        type: 'popup',
+        width: 260,
+        height: 96,
+        focused: true,
+      });
+      popupWindowId = popup.id;
+    } catch (error) {
+      const pending = clipboardReadPending.get(requestId);
+      clipboardReadPending.delete(requestId);
+      pending?.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+    return await result;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    clipboardReadPending.delete(requestId);
+    if (popupWindowId !== undefined) await chrome.windows.remove(popupWindowId).catch(() => {});
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getVaultValue, setVault, type VaultSecret } from '../../api/vault';
-import { api } from '../../api/client';
+import { getVaultValue, listAutoCreatePlatforms, setVault, type AutoCreatePlatform, type VaultSecret } from '../../api/vault';
+import { apiRaw } from '../../api/client';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
 
@@ -12,13 +12,6 @@ interface VaultFormModalProps {
   onClose: () => void;
   onSaved: (key: string) => void;
 }
-
-const AUTO_PLATFORMS = [
-  { value: 'cloudflare', label: 'Cloudflare', keyHint: 'CLOUDFLARE_TOKEN', groupHint: 'Cloudflare', mode: 'api' as const },
-  { value: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_KEY', groupHint: '火山引擎', mode: 'browser' as const },
-  { value: 'zhipu', label: '智谱AI', keyHint: 'ZHIPU_KEY', groupHint: '智谱AI', mode: 'browser' as const },
-  { value: 'minimax', label: 'MiniMax', keyHint: 'MINIMAX_KEY', groupHint: 'MiniMax', mode: 'browser' as const },
-];
 
 export default function VaultFormModal({ groups, initialSecret, initialAlias, onBeforeSave, onClose, onSaved }: VaultFormModalProps) {
   const { t } = useI18n();
@@ -39,7 +32,11 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
   const [autoPlatform, setAutoPlatform] = useState('');
   const [autoCreating, setAutoCreating] = useState(false);
   const [autoError, setAutoError] = useState('');
+  const [autoNotice, setAutoNotice] = useState('');
+  const [loginHandoff, setLoginHandoff] = useState<{ platformLabel: string; browserFocused: boolean; loginUrl?: string } | null>(null);
   const [parentToken, setParentToken] = useState('');
+  const [autoPlatforms, setAutoPlatforms] = useState<AutoCreatePlatform[]>([]);
+  const [loadingPlatforms, setLoadingPlatforms] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +54,17 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
 
     return () => { cancelled = true; };
   }, [initialSecret?.key, activeAlias]);
+
+  useEffect(() => {
+    if (!showAutoCreate || isEdit || autoPlatforms.length) return;
+    let cancelled = false;
+    setLoadingPlatforms(true);
+    listAutoCreatePlatforms()
+      .then(({ platforms }) => { if (!cancelled) setAutoPlatforms(platforms); })
+      .catch((err: Error) => { if (!cancelled) setAutoError(err.message || t('vault.autoCreateFailed')); })
+      .finally(() => { if (!cancelled) setLoadingPlatforms(false); });
+    return () => { cancelled = true; };
+  }, [showAutoCreate, isEdit, autoPlatforms.length, t]);
 
   async function handleSave() {
     if (!formKey || !formValue) return;
@@ -83,8 +91,10 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
     if (!autoPlatform) return;
     setAutoCreating(true);
     setAutoError('');
+    setAutoNotice('');
+    setLoginHandoff(null);
     try {
-      const platform = AUTO_PLATFORMS.find(p => p.value === autoPlatform)!;
+      const platform = autoPlatforms.find(p => p.id === autoPlatform)!;
       const tokenName = formKey || platform.keyHint;
 
       const body: any = { platform: autoPlatform, tokenName };
@@ -97,10 +107,12 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
         body.parentToken = parentToken.trim();
       }
 
-      const result = await api('/api/vault/auto-create', {
+      const response = await apiRaw('/api/vault/auto-create', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }) as any;
+      });
+      const result = await response.json() as any;
 
       if (result.success) {
         // Auto-fill the form — use the name from the API response (may include
@@ -119,6 +131,15 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
         setShowAutoCreate(false);
         setAutoPlatform('');
         setParentToken('');
+        if (Number(result.readyAfterMs) > 0) {
+          setAutoNotice(`密钥已创建。该平台正在生效，请等待约 ${Math.ceil(Number(result.readyAfterMs) / 1000)} 秒后再测试连接。`);
+        }
+      } else if (result.loginRequired) {
+        setLoginHandoff({
+          platformLabel: platform.label,
+          browserFocused: Boolean(result.browserFocused),
+          loginUrl: result.loginUrl,
+        });
       } else {
         setAutoError(result.error || t('vault.autoCreateFailed'));
       }
@@ -129,7 +150,7 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
     }
   }
 
-  const selectedPlatform = AUTO_PLATFORMS.find(p => p.value === autoPlatform);
+  const selectedPlatform = autoPlatforms.find(p => p.id === autoPlatform);
 
   return (
     <div className="auth-overlay" style={{ display: '' }}>
@@ -154,16 +175,16 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
                 <div className="vault-auto-create-panel">
                   <div className="vault-auto-create-header">
                     <span>{t('vault.autoCreateTitle') || '自动创建密钥'}</span>
-                    <button className="vault-auto-create-close" onClick={() => { setShowAutoCreate(false); setAutoError(''); }} type="button">&times;</button>
+                    <button className="vault-auto-create-close" onClick={() => { setShowAutoCreate(false); setAutoError(''); setLoginHandoff(null); }} type="button">&times;</button>
                   </div>
                   <div className="vault-form-field">
                     <label>{t('vault.autoCreatePlatform') || '选择平台'}</label>
                     <CustomSelect
                       value={autoPlatform}
-                      onChange={v => { setAutoPlatform(v); setAutoError(''); }}
+                      onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); }}
                       placeholder={t('vault.autoCreateSelectPlatform') || '选择平台...'}
-                      options={AUTO_PLATFORMS.map(p => ({
-                        value: p.value,
+                      options={autoPlatforms.map(p => ({
+                        value: p.id,
                         label: `${p.label}${p.mode === 'api' ? ' (API)' : ' (浏览器)'}`,
                       }))}
                     />
@@ -188,15 +209,29 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
                       {t('vault.autoCreateBrowserHint') || '将打开浏览器窗口自动创建密钥。请确保你已在对应平台登录。'}
                     </p>
                   )}
+                  {loginHandoff && (
+                    <div className="vault-auto-create-login" role="alert">
+                      <strong>{t('vault.autoCreateLoginRequired') || '需要登录此平台'}: {loginHandoff.platformLabel}</strong>
+                      <p>
+                        {loginHandoff.browserFocused
+                          ? (t('vault.autoCreateLoginFocused') || '已将自动化浏览器窗口置前。请完成登录后回到这里重试。')
+                          : (t('vault.autoCreateLoginOpenBrowser') || '请切换到 Chrome 的 OKIT 自动化窗口完成登录，然后回到这里重试。')}
+                      </p>
+                      {loginHandoff.loginUrl && <span className="vault-auto-create-login-url">{loginHandoff.loginUrl}</span>}
+                      <button className="btn-save" onClick={handleAutoCreate} disabled={autoCreating} type="button">
+                        {t('vault.autoCreateRetry') || '登录完成，重试创建'}
+                      </button>
+                    </div>
+                  )}
                   {autoError && <p className="vault-auto-create-error">{autoError}</p>}
                   <div className="vault-auto-create-actions">
-                    <button className="btn-cancel" onClick={() => { setShowAutoCreate(false); setAutoError(''); }} type="button">
+                    <button className="btn-cancel" onClick={() => { setShowAutoCreate(false); setAutoError(''); setLoginHandoff(null); }} type="button">
                       {t('common.cancel')}
                     </button>
                     <button
                       className="btn-save"
                       onClick={handleAutoCreate}
-                      disabled={autoCreating || !autoPlatform}
+                      disabled={autoCreating || loadingPlatforms || !autoPlatform}
                       type="button"
                     >
                       {autoCreating ? t('vault.autoCreating') || '创建中...' : t('vault.autoCreateStart') || '开始创建'}
@@ -206,6 +241,7 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
               )}
             </div>
           )}
+          {autoNotice && <p className="vault-auto-create-notice" role="status">{autoNotice}</p>}
 
           <div className="vault-form-field">
             <label>Key</label>

@@ -218,13 +218,14 @@ function UsageBar({ w }: { w: UsageWindow }) {
   const remaining = pct != null ? round1(100 - pct) : null;   // 剩余百分比
   const tone = pct == null ? 'unknown' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
   const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
+  const label = windowLabel(w.label);
 
   if (w.isPrepaid && w.usedCredits != null) {
     const rem = w.remainingCredits != null ? `$${w.remainingCredits.toFixed(2)}` : '?';
     const used = `$${w.usedCredits.toFixed(2)}`;
     return (
       <div className={`usage-bar usage-bar--${tone}`}>
-        <span className="usage-bar-label">{w.label}</span>
+        <span className="usage-bar-label">{label}</span>
         <div className="usage-bar-info">
           <span className="usage-bar-credits">{t_global('usage.used')}: {used}</span>
           <span className="usage-bar-remaining">{t_global('usage.remaining')}: {rem}</span>
@@ -235,7 +236,7 @@ function UsageBar({ w }: { w: UsageWindow }) {
 
   return (
     <div className={`usage-bar usage-bar--${tone}`}>
-      <span className="usage-bar-label">{w.label}</span>
+      <span className="usage-bar-label">{label}</span>
       <div className="usage-bar-track">
         <div className="usage-bar-fill" style={{ width: remaining != null ? `${Math.min(remaining, 100)}%` : '100%' }} />
       </div>
@@ -248,6 +249,19 @@ function UsageBar({ w }: { w: UsageWindow }) {
 // ── Helpers ──
 
 function round1(n: number): number { return Math.round(n * 10) / 10; }
+
+// 后端返回的窗口标签统一为英文短码,这里映射成中文展示。
+function windowLabel(label: string): string {
+  const map: Record<string, string> = {
+    '5h': '5小时',
+    'session': '5小时',
+    'weekly': '本周',
+    'monthly': '本月',
+    'limit': '额度',
+    'credits': '余额',
+  };
+  return map[label] || label;
+}
 
 function formatTimeAgo(ts: number): string {
   const diff = Date.now() - ts;

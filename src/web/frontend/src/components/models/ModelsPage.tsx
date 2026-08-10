@@ -623,14 +623,16 @@ export default function ModelsPage() {
   const [familyPlan, setFamilyPlan] = useState<Record<string, string>>({});
 
   function getActiveFamilyProvider(famDef: ProviderFamily, members: Provider[]): Provider {
-    const planLabel = familyPlan[famDef.family];
-    const pid = resolveFamilyProvider(famDef, undefined, planLabel);
-    if (pid) {
-      const found = members.find(p => p.id === pid);
-      if (found) return found;
+    const planLabel = familyPlan[famDef.family] || famDef.plans?.[0]?.label;
+    if (planLabel && famDef.plans) {
+      const plan = famDef.plans.find(p => p.label === planLabel);
+      if (plan) {
+        const found = members.find(p => p.id === plan.providerId);
+        if (found) return found;
+      }
     }
-    // Default: first authed member, else first
-    return members.find(p => isAuthed(p)) || members[0];
+    // Fallback: first member (sorted order = plans[0])
+    return members[0];
   }
   const modelStats = useMemo(() => {
     const endpoints = providers.reduce((sum, p) => sum + (p.endpoints?.length || 1), 0);

@@ -18,7 +18,9 @@ function createServer(port = 3780) {
   // Middleware
   app.use(express.json());
   const publicDir = path.join(__dirname, 'public');
-  app.use(express.static(publicDir, { maxAge: 0, etag: false }));
+  app.use(express.static(publicDir, { maxAge: 0, etag: false, lastModified: false, setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  } }));
 
   // API Routes
   app.get('/api/tools', getTools);

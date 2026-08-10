@@ -801,7 +801,15 @@ export default function ModelsPage() {
           {sortedFamilies.map(fam => {
             const isMulti = fam.isMulti;
             const famDef = fam.familyDef;
-            const p = isMulti && famDef ? getActiveFamilyProvider(famDef, fam.providers) : fam.providers[0];
+            // 内联计算当前选中的 provider,不依赖外部函数
+            let p: Provider;
+            if (isMulti && famDef && famDef.plans) {
+              const selectedLabel = familyPlan[famDef.family] || famDef.plans[0]?.label;
+              const selectedPlan = famDef.plans.find(pl => pl.label === selectedLabel) || famDef.plans[0];
+              p = fam.providers.find(mp => mp.id === selectedPlan.providerId) || fam.providers[0];
+            } else {
+              p = fam.providers[0];
+            }
             const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
             const showAll = expandedModels.has(p.id);
             const visibleModels = showAll ? p.models : p.models.slice(0, SHOW_MODELS);

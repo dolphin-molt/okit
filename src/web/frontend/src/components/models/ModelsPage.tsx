@@ -28,8 +28,8 @@ const AUTH_MODE_OPTIONS: { value: 'api_key' | 'oauth' | 'both' | 'none'; labelKe
 // 平台分组：用于左侧分组导航
 const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = [
   { key: 'official', labelKey: 'models.groupOfficial', ids: ['anthropic', 'openai', 'openai-codex', 'google', 'xai', 'mistral'] },
-  { key: 'aggregator', labelKey: 'models.groupAggregator', ids: ['openrouter', 'groq', 'fireworks', 'together'] },
-  { key: 'china', labelKey: 'models.groupChina', ids: ['volcengine', 'zai', 'zai-global', 'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding', 'qwen', 'qianfan', 'stepfun', 'xiaomi'] },
+  { key: 'aggregator', labelKey: 'models.groupAggregator', ids: ['openrouter'] },
+  { key: 'china', labelKey: 'models.groupChina', ids: ['volcengine', 'volcengine-coding', 'zai', 'zai-global', 'glm-coding', 'minimax', 'minimax-global', 'minimax-coding', 'deepseek', 'moonshot', 'kimi-coding', 'kimi-coding-plan', 'qwen', 'qianfan', 'qianfan-coding', 'stepfun', 'xiaomi', 'xiaomi-coding', 'tencent-coding'] },
   { key: 'local', labelKey: 'models.groupLocal', ids: ['ollama', 'litellm'] },
 ];
 
@@ -94,6 +94,12 @@ function endpointProtocol(ep: ProviderEndpoint) {
   return ep.type === 'openai' ? (ep.protocol || 'chat') : undefined;
 }
 
+function endpointPlan(ep: ProviderEndpoint) {
+  if (ep.plan === 'coding') return 'coding';
+  if (ep.plan === 'token') return 'token';
+  return undefined;
+}
+
 function normalizeEndpoint(ep: ProviderEndpoint): ProviderEndpoint {
   if (ep.type === 'openai') return { ...ep, protocol: ep.protocol || 'chat' };
   const { protocol, ...rest } = ep;
@@ -106,11 +112,37 @@ function createOpenAIEndpoint(): ProviderEndpoint {
 
 interface AuthState {
   hasApiKey: boolean;
+  authVerified: boolean;
   oauthLoggedIn: boolean | null;
   authMode: string;
 }
 
 type StatusFilter = 'all' | 'authed' | 'unauthed' | 'used';
+type PlanFilter = 'coding' | 'token' | 'agent' | 'api-only';
+
+const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
+  { key: 'coding', labelKey: 'models.planCoding' },
+  { key: 'token', labelKey: 'models.planToken' },
+  { key: 'agent', labelKey: 'models.planAgent' },
+  { key: 'api-only', labelKey: 'models.planApiOnly' },
+];
+
+/**
+ * Plan metadata is not persisted on older provider records yet. Keep the
+ * filter useful for those records by deriving the small set of product
+ * categories from stable provider ids and auth modes.
+ */
+function providerPlans(p: Provider): PlanFilter[] {
+  const plans: PlanFilter[] = [];
+  const codingPlanIds = new Set(['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'tencent-coding', 'qianfan-coding']);
+  const tokenPlanIds = new Set(['minimax-coding', 'xiaomi-coding', 'qianfan-coding']);
+  const endpointPlans = new Set((p.endpoints || []).map(endpoint => endpoint.plan).filter(Boolean));
+  if (codingPlanIds.has(p.id) || endpointPlans.has('coding')) plans.push('coding');
+  if (tokenPlanIds.has(p.id) || endpointPlans.has('token')) plans.push('token');
+  if (p.authMode === 'oauth' || p.authMode === 'both') plans.push('agent');
+  if (plans.length === 0) plans.push('api-only');
+  return plans;
+}
 
 export default function ModelsPage() {
   const { showToast: toast, confirm } = useApp() as any;
@@ -125,6 +157,7 @@ export default function ModelsPage() {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeProtocol, setActiveProtocol] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<string | null>(null);
+  const [activePlanFilter, setActivePlanFilter] = useState<PlanFilter | null>(null);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [activeModelProvider, setActiveModelProvider] = useState<string | null>(null);
   const [activeModality, setActiveModality] = useState<string | null>(null);
@@ -155,7 +188,12 @@ export default function ModelsPage() {
       setProviders(data.providers || []);
       const map: Record<string, AuthState> = {};
       for (const s of authData.statuses || []) {
-        map[s.id] = { hasApiKey: s.hasApiKey, oauthLoggedIn: s.oauthLoggedIn, authMode: s.authMode };
+        map[s.id] = {
+          hasApiKey: s.hasApiKey,
+          authVerified: s.authVerified === true,
+          oauthLoggedIn: s.oauthLoggedIn,
+          authMode: s.authMode,
+        };
       }
       setAuthMap(map);
     } catch (err: any) {
@@ -216,6 +254,16 @@ export default function ModelsPage() {
       setEndpointResults(prev => ({ ...prev, [p.id]: [...results] }));
     }
     const allOk = results.every(r => r.success);
+    try {
+      await updateProvider(p.id, { authVerified: allOk });
+    } catch {
+      // The connection result is still shown locally; saving the provider
+      // metadata can be retried from the editor if the server is unavailable.
+    }
+    setAuthMap(prev => ({
+      ...prev,
+      [p.id]: { ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), oauthLoggedIn: null, authMode: p.authMode }), authVerified: allOk },
+    }));
     toast(
       allOk ? t('models.allEndpointsOk') : t('models.endpointsFailed', { n: results.filter(r => !r.success).length }),
       allOk ? 'success' : 'error'
@@ -260,6 +308,7 @@ export default function ModelsPage() {
     setActiveGroup(null);
     setActiveProtocol(null);
     setActiveMode(null);
+    setActivePlanFilter(null);
     setActivePlatform(null);
   }
 
@@ -295,7 +344,7 @@ export default function ModelsPage() {
 
   function isAuthed(p: Provider): boolean {
     const auth = authMap[p.id];
-    return Boolean((p.vaultKey && auth?.hasApiKey) || auth?.oauthLoggedIn === true);
+    return Boolean((p.vaultKey && auth?.hasApiKey && auth.authVerified !== false) || auth?.oauthLoggedIn === true);
   }
 
   function matchesQuery(p: Provider): boolean {
@@ -317,13 +366,14 @@ export default function ModelsPage() {
       if (activeProtocol && !providerProtocols(p).includes(activeProtocol)) return false;
       // 模态筛选：平台模型必须支持该能力
       if (activeMode && !providerModes(p).includes(activeMode)) return false;
+      if (activePlanFilter && !providerPlans(p).includes(activePlanFilter)) return false;
       if (!matchesQuery(p)) return false;
       if (statusFilter === 'authed' && !isAuthed(p)) return false;
       if (statusFilter === 'unauthed' && isAuthed(p)) return false;
       if (statusFilter === 'used' && !isUsedBy(p)) return false;
       return true;
     });
-  }, [providers, authMap, activeProvider, activeGroup, view, activeProtocol, activeMode, searchQuery, statusFilter]);
+  }, [providers, authMap, activeProvider, activeGroup, view, activeProtocol, activeMode, activePlanFilter, searchQuery, statusFilter]);
 
   const sortedProviders = useMemo(
     () => [...filteredProviders].sort((a, b) => a.id.localeCompare(b.id)),
@@ -412,15 +462,6 @@ export default function ModelsPage() {
     }
 
     // 平台视角：分组 + 协议 + 模态 + 状态（4 行）
-    const groupChipsArr = [
-      { key: '__all__', label: t('models.filterAll'), active: !activeGroup && !activeProvider, onClick: () => { setActiveGroup(null); setActiveProvider(null); } },
-      ...PROVIDER_GROUPS.filter(g => providers.some(p => g.ids.includes(p.id))).map(g => ({
-        key: g.key,
-        label: t(g.labelKey),
-        active: activeGroup === g.key && !activeProvider,
-        onClick: () => { setActiveGroup(activeGroup === g.key ? null : g.key); setActiveProvider(null); },
-      })),
-    ];
     const protocolChipsArr = [
       { key: '__all_proto__', label: t('models.filterAll'), active: !activeProtocol, onClick: () => setActiveProtocol(null) },
       ...PROTOCOLS.filter(pc => providers.some(p => providerProtocols(p).includes(pc.key))).map(pc => ({
@@ -439,13 +480,23 @@ export default function ModelsPage() {
         onClick: () => setActiveMode(activeMode === md.key ? null : md.key),
       })),
     ];
+    const planChipsArr = [
+      { key: '__all_plan__', label: t('models.filterAll'), active: !activePlanFilter, onClick: () => setActivePlanFilter(null) },
+      ...PLAN_FILTERS.map(plan => ({
+        key: plan.key,
+        label: t(plan.labelKey),
+        extra: `${providers.filter(p => providerPlans(p).includes(plan.key)).length}`,
+        active: activePlanFilter === plan.key,
+        onClick: () => setActivePlanFilter(activePlanFilter === plan.key ? null : plan.key),
+      })),
+    ];
 
     return [
-      { label: t('models.dimPlatform'), chips: groupChipsArr },
+      { label: t('models.dimPlan'), chips: planChipsArr },
       { label: t('models.dimProtocol'), chips: protocolChipsArr },
       { label: t('models.dimMode'), chips: modeChipsArr },
     ];
-  }, [view, providers, activeProtocol, activeMode, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
+  }, [view, providers, activeProtocol, activeMode, activePlanFilter, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
 
   if (loading) return <div className="page-loading">{t('common.loading')}</div>;
 
@@ -473,25 +524,16 @@ export default function ModelsPage() {
               </div>
             </div>
           </div>
-          <div className="models-header-stats">
+          <div className="models-header-actions">
+            <div className="models-header-stats">
             <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />
             <StatChip label={t('models.totalModels')} value={modelStats.models} tone="muted" />
             <StatChip label={t('models.totalEndpoints')} value={modelStats.endpoints} tone="muted" />
             <StatChip label={t('models.authReady')} value={`${modelStats.authed} / ${modelStats.total}`} tone={modelStats.authed === modelStats.total ? 'success' : 'warn'} />
+            </div>
+            <button className="vault-toolbar-btn models-add-platform-btn" onClick={handleAdd}>{t('models.addPlatform')}</button>
           </div>
         </header>
-
-        {/* 搜索栏（独立行） + 添加按钮（右上） */}
-        <div className="models-search-row">
-          <input
-            className="vault-input models-search"
-            type="search"
-            placeholder={t('models.searchPlaceholder')}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          <button className="vault-toolbar-btn" onClick={handleAdd}>{t('models.addPlatform')}</button>
-        </div>
 
         {/* chips 工具栏（按行：每个筛选维度独立一行） */}
         <div className="models-toolbar">
@@ -600,20 +642,31 @@ export default function ModelsPage() {
             const hasMore = p.models.length > SHOW_MODELS;
             const auth = authMap[p.id];
             const authed = isAuthed(p);
+            const needsVerification = Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
             const used = isUsedBy(p);
             const group = groupOf(p.id);
 
             return (
-              <article key={p.id} className={`provider-card provider-card--clickable${authed ? ' provider-card--authed' : ''}${used ? ' provider-card--used' : ''}`} onClick={() => setActivePlatform(p.id)}>
+              <article
+                key={p.id}
+                className={`provider-card provider-card--clickable${authed ? ' provider-card--authed' : ''}${used ? ' provider-card--used' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
+                onClick={() => setActivePlatform(p.id)}
+                aria-busy={testingConn === p.id}
+              >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
-                    <span className={`type-badge type-badge--${p.type}`}>{p.type}</span>
                     <h3>{providerName(p.id, p.name)}</h3>
                     <span className="provider-card-group">{t(group.labelKey)}</span>
                   </div>
                   <div className="provider-card-status">
+                    {testingConn === p.id && (
+                      <span className="provider-status provider-status--testing">
+                        <span className="provider-status-spinner" aria-hidden="true" />
+                        {t('models.testingConn')}
+                      </span>
+                    )}
                     <span className={`provider-status provider-status--${authed ? 'authed' : 'unauthed'}`}>
-                      {authed ? t('models.statusAuthed') : t('models.statusUnauthed')}
+                      {authed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
                     </span>
                     {used && (
                       <span className="provider-status provider-status--used">
@@ -653,6 +706,8 @@ export default function ModelsPage() {
                         <div key={i} className="provider-endpoint-row">
                           <span className={`type-badge type-badge--${ep.type}`}>{ep.type}</span>
                           {endpointProtocol(ep) && <span className="endpoint-protocol-badge">{endpointProtocol(ep)}</span>}
+                          {endpointPlan(ep) === 'coding' && <span className="endpoint-plan-badge">{t('models.endpointPlanCoding')}</span>}
+                          {endpointPlan(ep) === 'token' && <span className="endpoint-plan-badge endpoint-plan-badge--token">{t('models.endpointPlanToken')}</span>}
                           <span className="provider-endpoint-url">{ep.baseUrl}</span>
                           {testingConn === p.id && !epResult && i === (endpointResults[p.id]?.length || 0) && (
                             <span className="ep-test-spinner">...</span>
@@ -670,7 +725,7 @@ export default function ModelsPage() {
                   <div className="provider-card-auth">
                     {p.vaultKey && (
                       <span className={`auth-indicator${auth?.hasApiKey ? ' auth-indicator--key' : ' auth-indicator--none'}`}>
-                        <span className="auth-dot" /> {p.vaultKey}
+                        <span className="auth-dot" /> {auth?.hasApiKey ? t('models.apiKeyConfigured') : t('models.apiKeyMissing')}
                       </span>
                     )}
                     {(p.authMode === 'oauth' || p.authMode === 'both') && (
@@ -689,7 +744,7 @@ export default function ModelsPage() {
                     )}
                     {!p.vaultKey && p.authMode !== 'oauth' && p.authMode !== 'both' && (
                       <span className="auth-indicator auth-indicator--none">
-                        <span className="auth-dot" /> {t('common.notConfigured')}
+                        <span className="auth-dot" /> {p.id === 'qianfan-coding' ? t('models.qianfanCodingKeyHint') : t('common.notConfigured')}
                       </span>
                     )}
                   </div>
@@ -1347,7 +1402,6 @@ function ProviderForm({ provider, onSave, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const { showToast: toast } = useApp() as any;
   const [name, setName] = useState(provider?.name || '');
   const [endpoints, setEndpoints] = useState<ProviderEndpoint[]>(
     (provider?.endpoints || (provider ? [{ type: provider.type, baseUrl: provider.baseUrl }] : [createOpenAIEndpoint()])).map(normalizeEndpoint)
@@ -1360,7 +1414,25 @@ function ProviderForm({ provider, onSave, onClose }: {
     (provider?.authMode as any) || 'api_key'
   );
   const [showVaultPicker, setShowVaultPicker] = useState(false);
-  const [pulling, setPulling] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionResults, setConnectionResults] = useState<{ success: boolean; message: string }[] | null>(null);
+  type ConnectionState = 'idle' | 'testing' | 'success' | 'failure';
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    provider?.authVerified === true ? 'success' : provider?.authVerified === false ? 'failure' : 'idle'
+  );
+  const [pulledModelCount, setPulledModelCount] = useState(0);
+  const [authVerified, setAuthVerified] = useState<boolean | undefined>(provider?.authVerified);
+  // A new provider must be explicitly tested. Existing providers keep their
+  // historical status until the key or endpoint configuration is changed.
+  const [connectionDirty, setConnectionDirty] = useState(!provider);
+
+  function markConnectionDirty() {
+    setConnectionDirty(true);
+    setAuthVerified(false);
+    setConnectionState('idle');
+    setConnectionResults(null);
+    setPulledModelCount(0);
+  }
 
   function addEndpoint() {
     setEndpoints([...endpoints, createOpenAIEndpoint()]);
@@ -1380,6 +1452,7 @@ function ProviderForm({ provider, onSave, onClose }: {
     }
     next[i] = normalizeEndpoint(updated as ProviderEndpoint);
     setEndpoints(next);
+    markConnectionDirty();
   }
 
   function addModel() {
@@ -1396,46 +1469,69 @@ function ProviderForm({ provider, onSave, onClose }: {
     setModels(next);
   }
 
-  async function handlePullModels() {
+  async function handleTestConnection() {
     const validEndpoints = endpoints.map(normalizeEndpoint).filter(ep => ep.baseUrl.trim());
-    if (validEndpoints.length === 0 || (authMode !== 'oauth' && !vaultKey)) {
-      toast(t('models.fetchFirst'), 'error');
+    if (validEndpoints.length === 0 || !vaultKey.trim()) {
+      setConnectionState('failure');
+      setConnectionResults([{ success: false, message: t('models.testConnRequired') }]);
       return;
     }
-    setPulling(true);
+
+    setTestingConnection(true);
+    setConnectionState('testing');
+    setConnectionResults([]);
+    const results: { success: boolean; message: string }[] = [];
     try {
-      // 先临时保存（如果是新平台）以获取 ID 用于 fetchModels
-      let targetId = provider?.id;
-      if (!targetId) {
-        targetId = name.toLowerCase().replace(/\s+/g, '-');
-        await createProvider({
-          id: targetId,
-          name: name || targetId,
-          type: validEndpoints[0].type,
-          baseUrl: validEndpoints[0].baseUrl,
-          endpoints: validEndpoints,
-          vaultKey: vaultKey || undefined,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          authMode: authMode as any,
-          models: [],
-        });
+      const { api } = await import('../../api/client');
+      for (const ep of validEndpoints) {
+        try {
+          const result = await api('/api/vault/test-key', {
+            method: 'POST',
+            body: JSON.stringify({
+              baseUrl: ep.baseUrl,
+              type: ep.type,
+              protocol: ep.protocol,
+              vaultKey: vaultKey.trim(),
+            }),
+          }) as { success: boolean; message: string };
+          results.push({ success: Boolean(result.success), message: result.message });
+        } catch (err: any) {
+          results.push({ success: false, message: err.message || t('models.testFailed') });
+        }
+        setConnectionResults([...results]);
       }
-      const res = await fetchModels(targetId);
-      if (res.success && res.models) {
-        setModels(res.models.map(m => ({ id: m.id, name: m.name || m.id })));
-        toast(t('models.synced', { n: res.models.length }), 'success');
-      } else if (res.kept) {
-        setModels(res.kept.map(m => ({ id: m.id, name: m.name || m.id })));
-        toast(t('models.syncKept', { n: res.kept.length }), 'info');
-      } else {
-        toast(t('models.syncFailed'), 'error');
+
+      const allOk = results.length === validEndpoints.length && results.every(result => result.success);
+      let pulledCount = 0;
+      if (allOk) {
+        try {
+          const modelResult = await fetchModels(provider?.id, {
+            endpoints: validEndpoints,
+            vaultKey: vaultKey.trim(),
+          });
+          if (modelResult.success && modelResult.models?.length) {
+            pulledCount = modelResult.models.length;
+            setModels(modelResult.models.map(m => ({ id: m.id, name: m.name || m.id })));
+          }
+        } catch {
+          // Connection state remains green; model discovery is best effort.
+        }
       }
-    } catch (err: any) {
-      toast(err.message || t('models.syncFailed'), 'error');
+      setPulledModelCount(pulledCount);
+      setConnectionState(allOk ? 'success' : 'failure');
+      setAuthVerified(allOk);
     } finally {
-      setPulling(false);
+      setTestingConnection(false);
     }
   }
+
+  const connectionTitle = connectionState === 'testing'
+    ? t('models.connectionTesting')
+    : connectionState === 'success'
+      ? (pulledModelCount > 0 ? t('models.connectionModelsPulled', { n: pulledModelCount }) : t('models.connectionSuccess'))
+      : connectionState === 'failure'
+        ? `${t('models.connectionFailure')}: ${connectionResults?.find(result => !result.success)?.message || t('models.testFailed')}`
+        : t('models.connectionIdle');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1452,6 +1548,10 @@ function ProviderForm({ provider, onSave, onClose }: {
       models: validModels,
       vaultKey: vaultKey.trim() || undefined,
       authMode,
+      // Only the current key/endpoint combination may be marked verified.
+      // Leaving an existing untouched provider unchanged preserves legacy
+      // installations that predate this field.
+      ...(connectionDirty ? { authVerified: authVerified === true } : {}),
     });
   }
 
@@ -1508,6 +1608,25 @@ function ProviderForm({ provider, onSave, onClose }: {
                         options={OPENAI_PROTOCOL_OPTIONS}
                       />
                     )}
+                    <CustomSelect
+                      className="endpoint-plan-select"
+                      value={ep.plan || 'api'}
+                      onChange={v => {
+                        const next = [...endpoints];
+                        if (v === 'coding' || v === 'token') next[i] = { ...next[i], plan: v };
+                        else {
+                          const { plan: _plan, ...withoutPlan } = next[i];
+                          next[i] = withoutPlan;
+                        }
+                        setEndpoints(next.map(normalizeEndpoint));
+                        markConnectionDirty();
+                      }}
+                      options={[
+                        { value: 'api', label: t('models.endpointPlanApi') },
+                        { value: 'coding', label: t('models.endpointPlanCoding') },
+                        { value: 'token', label: t('models.endpointPlanToken') },
+                      ]}
+                    />
                     <input className="vault-input endpoint-url-input" value={ep.baseUrl} onChange={e => updateEndpoint(i, 'baseUrl', e.target.value)} placeholder="https://api.example.com" required />
                     {endpoints.length > 1 && (
                       <button type="button" className="endpoint-remove-btn" onClick={() => removeEndpoint(i)}>×</button>
@@ -1528,23 +1647,40 @@ function ProviderForm({ provider, onSave, onClose }: {
                       {vaultKey ? (
                         <div className="vault-ref-selected">
                           <span className="vault-ref-key">{vaultKey}</span>
-                          <button type="button" className="vault-ref-clear" onClick={() => setVaultKey('')}>×</button>
+                          <button type="button" className="vault-ref-clear" onClick={() => { setVaultKey(''); markConnectionDirty(); }}>×</button>
                           <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>{t('common.replace')}</button>
+                          <button
+                            type="button"
+                            className={`provider-auth-connection-btn provider-auth-connection-btn--${connectionState}`}
+                            onClick={handleTestConnection}
+                            disabled={testingConnection || !endpoints.some(ep => ep.baseUrl.trim())}
+                            title={connectionTitle}
+                            aria-label={connectionTitle}
+                          >
+                            {testingConnection ? (
+                              <span className="provider-auth-connection-spinner" aria-hidden="true">↻</span>
+                            ) : (
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.14 1.14" />
+                                <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.14-1.14" />
+                              </svg>
+                            )}
+                          </button>
                         </div>
                       ) : (
                         <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>{t('models.selectFromVault')}</button>
                       )}
                     </div>
                   </div>
+                  {provider?.id === 'qianfan-coding' && (
+                    <p className="provider-auth-hint">{t('models.qianfanCodingKeyHint')}</p>
+                  )}
                 </div>
               </section>
             )}
 
             <section className="form-section">
               <h4>{t('models.modelsSection')}</h4>
-              <button type="button" className="vault-toolbar-btn models-pull-btn" onClick={handlePullModels} disabled={pulling}>
-                {pulling ? t('models.pulling') : t('models.pullAndFill')}
-              </button>
               <div className="model-form-list">
                 {models.length === 0 ? (
                   <div className="model-form-empty">{t('common.notConfigured')}</div>
@@ -1573,7 +1709,7 @@ function ProviderForm({ provider, onSave, onClose }: {
       <div className="settings-workspace settings-workspace--light">
       <VaultPickerModal
         selected={vaultKey}
-        onSelect={key => { setVaultKey(key); setShowVaultPicker(false); }}
+        onSelect={key => { setVaultKey(key); markConnectionDirty(); setShowVaultPicker(false); }}
         onClose={() => setShowVaultPicker(false)}
         testEndpoint={endpoints[0]?.baseUrl ? { baseUrl: endpoints[0].baseUrl, type: endpoints[0].type, protocol: endpointProtocol(endpoints[0]) } : undefined}
       />

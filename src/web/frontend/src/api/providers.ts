@@ -10,6 +10,7 @@ export interface ProviderEndpoint {
   type: 'anthropic' | 'openai' | 'google';
   baseUrl: string;
   protocol?: 'chat' | 'responses';
+  plan?: 'coding' | 'token';
 }
 
 export interface Provider {
@@ -19,6 +20,7 @@ export interface Provider {
   baseUrl: string;
   endpoints?: ProviderEndpoint[];
   vaultKey?: string;
+  authVerified?: boolean;
   authMode: 'api_key' | 'oauth' | 'both';
   models: ProviderModel[];
   usedBy?: { id: string; name: string; modelId: string }[];
@@ -74,7 +76,7 @@ export async function launchAgent(agentId: string): Promise<{ success: boolean; 
   });
 }
 
-export async function getAuthStatus(): Promise<{ statuses: { id: string; name: string; hasApiKey: boolean; oauthLoggedIn: boolean | null; authMode: string }[] }> {
+export async function getAuthStatus(): Promise<{ statuses: { id: string; name: string; hasApiKey: boolean; authVerified: boolean; oauthLoggedIn: boolean | null; authMode: string }[] }> {
   return api('/api/providers/auth');
 }
 
@@ -85,9 +87,9 @@ export async function triggerOAuthLogin(providerId: string): Promise<{ success: 
   });
 }
 
-export async function fetchModels(providerId: string): Promise<{ success: boolean; models: ProviderModel[]; errors?: { endpoint: string; error: string }[]; kept?: ProviderModel[] }> {
+export async function fetchModels(providerId?: string, config?: { endpoints?: ProviderEndpoint[]; vaultKey?: string }): Promise<{ success: boolean; models: ProviderModel[]; errors?: { endpoint: string; error: string }[]; kept?: ProviderModel[] }> {
   return api('/api/providers/fetch-models', {
     method: 'POST',
-    body: JSON.stringify({ providerId }),
+    body: JSON.stringify({ providerId, ...config }),
   });
 }

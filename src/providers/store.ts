@@ -6,6 +6,20 @@ import { Provider, ProvidersData } from "./types";
 import { PRESET_PROVIDERS } from "./presets";
 
 const PROVIDERS_PATH = path.join(OKIT_DIR, "providers.json");
+// These used to be bundled presets. Retire them on load as well as removing
+// them from the source list so existing OKIT installations match the UI.
+const RETIRED_PRESET_PROVIDER_IDS = new Set(["groq", "fireworks", "together"]);
+// Apply only this exact built-in endpoint correction. User-customized URLs are
+// intentionally left untouched when presets are refreshed.
+const PRESET_BASE_URL_MIGRATIONS = new Map([
+  ["kimi-coding", { from: "https://api.kimi.com", to: "https://api.moonshot.cn/v1" }],
+  ["qianfan-coding", { from: "https://qianfan.baidubce.com/v2/coding", to: "https://qianfan.baidubce.com/v2/tokenplan/personal" }],
+  ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/v1", to: "https://token-plan-sgp.xiaomimimo.com/v1" }],
+]);
+const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map([
+  ["kimi-coding-plan", { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" }],
+  ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" }],
+]);
 
 export async function loadProviders(): Promise<Provider[]> {
   if (!(await fs.pathExists(PROVIDERS_PATH))) {
@@ -16,18 +30,90 @@ export async function loadProviders(): Promise<Provider[]> {
     const content = await fs.readFile(PROVIDERS_PATH, "utf-8");
     const data: ProvidersData = JSON.parse(content);
     if (!Array.isArray(data.providers)) return [];
-    const providers = data.providers.filter(isValidProvider);
+    const providers = data.providers
+      .filter(isValidProvider)
+      .filter(provider => !RETIRED_PRESET_PROVIDER_IDS.has(provider.id));
 
-    // Merge new presets: add missing ones, update name changes for existing presets
+    // Merge new presets: add missing ones, update name changes, and apply
+    // narrowly-scoped endpoint migrations for known broken built-in defaults.
     const existingIds = new Set(providers.map(p => p.id));
-    let changed = false;
+    let changed = providers.length !== data.providers.length;
     for (const preset of PRESET_PROVIDERS as Provider[]) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
         providers.push(preset);
         changed = true;
-      } else if (existing.name !== preset.name) {
-        existing.name = preset.name;
+      } else {
+        const migration = PRESET_BASE_URL_MIGRATIONS.get(preset.id);
+        if (migration) {
+          if (existing.baseUrl === migration.from) {
+            existing.baseUrl = migration.to;
+            changed = true;
+          }
+          // Model Management reads `endpoints` when it is present. Migrate the
+          // same known stale URL there too; otherwise the card looks updated
+          // while its connection test still calls the old endpoint.
+          if (Array.isArray(existing.endpoints)) {
+            let endpointChanged = false;
+            existing.endpoints = existing.endpoints.map(endpoint => {
+              if (endpoint && endpoint.baseUrl === migration.from) {
+                endpointChanged = true;
+                return { ...endpoint, baseUrl: migration.to };
+              }
+              return endpoint;
+            });
+            if (endpointChanged) changed = true;
+          }
+        }
+        const endpointMigration = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
+        if (endpointMigration && Array.isArray(existing.endpoints)) {
+          let endpointChanged = false;
+          existing.endpoints = existing.endpoints.map(endpoint => {
+            if (endpoint && endpoint.baseUrl === endpointMigration.from) {
+              endpointChanged = true;
+              return { ...endpoint, baseUrl: endpointMigration.to };
+            }
+            return endpoint;
+          });
+          if (endpointChanged) changed = true;
+        }
+        if (existing.name !== preset.name) {
+          existing.name = preset.name;
+          changed = true;
+        }
+        if (
+          preset.id === "qianfan-coding"
+          && existing.models.some(model => ["kimi-k2.5", "deepseek-v3.2", "minimax-m2.5", "ernie-4.5-turbo-20260402"].includes(model.id))
+        ) {
+          existing.models = preset.models.map(model => ({ ...model }));
+          changed = true;
+        }
+        if (
+          preset.id === "xiaomi-coding"
+          && existing.models.length === 4
+          && existing.models.every(model => ["mimo-v2.5", "mimo-v2.5-pro", "mimo-v2.5-asr", "mimo-v2.5-tts"].includes(model.id))
+        ) {
+          existing.models = preset.models.map(model => ({ ...model }));
+          changed = true;
+        }
+      }
+    }
+
+    // Coding Plan uses a separate API-key scope. Older builds put the Coding
+    // endpoint beside the regular Qianfan endpoint, which made one ordinary
+    // key look partially broken forever. Keep the regular provider regular;
+    // the dedicated qianfan-coding preset owns that endpoint now.
+    const qianfan = providers.find(provider => provider.id === "qianfan");
+    if (qianfan && Array.isArray(qianfan.endpoints)) {
+      const filtered = qianfan.endpoints.filter(endpoint =>
+        !/^https?:\/\/qianfan\.baidubce\.com\/v2\/(?:coding|tokenplan\/personal)\/?$/i.test(endpoint.baseUrl),
+      );
+      if (filtered.length !== qianfan.endpoints.length) {
+        if (filtered.length) qianfan.endpoints = filtered;
+        else delete qianfan.endpoints;
+        if (qianfan.baseUrl === "https://qianfan.baidubce.com/v2/coding") {
+          qianfan.baseUrl = "https://qianfan.baidubce.com/v2";
+        }
         changed = true;
       }
     }

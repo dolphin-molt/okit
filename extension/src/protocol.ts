@@ -16,11 +16,13 @@ export type Action =
   | 'tabs'
   | 'cookies'
   | 'screenshot'
+  | 'focus-window'
   | 'close-window'
   | 'set-file-input'
   | 'insert-text'
   | 'network-capture-start'
   | 'network-capture-read'
+  | 'clipboard-read'
   | 'cdp';
 
 export interface Command {
@@ -61,6 +63,11 @@ export interface Command {
   cdpMethod?: string;
   /** CDP method params for 'cdp' action */
   cdpParams?: Record<string, unknown>;
+  /** Keep the automation window open for a user login handoff */
+  hold?: boolean;
+  /** Regex the clipboard text must fully match before it can be returned. */
+  clipboardPattern?: string;
+  clipboardAllowSurrounding?: boolean;
 }
 
 export interface Result {

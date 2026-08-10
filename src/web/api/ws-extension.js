@@ -108,7 +108,7 @@ function setupWebSocket(httpServer) {
  * This is the primary API for platform orchestration (used by auto-create.js).
  *
  * @param {string} action - one of: exec, navigate, tabs, cookies, screenshot,
- *   close-window, cdp, set-file-input, insert-text, network-capture-start,
+ *   focus-window, close-window, cdp, set-file-input, insert-text, network-capture-start,
  *   network-capture-read
  * @param {object} params - action-specific parameters (code, url, pattern, ...)
  * @param {number} timeoutMs - default 60s

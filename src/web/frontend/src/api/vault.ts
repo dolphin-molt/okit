@@ -9,6 +9,14 @@ export interface VaultSecret {
   projects?: { name: string; path: string }[];
 }
 
+export interface AutoCreatePlatform {
+  id: string;
+  label: string;
+  keyHint: string;
+  groupHint: string;
+  mode: 'api' | 'browser';
+}
+
 export async function listVault(): Promise<{ secrets: VaultSecret[] }> {
   return api('/api/vault');
 }
@@ -27,6 +35,10 @@ export async function setVault(data: {
     method: 'POST',
     body: JSON.stringify({ ...data, alias: 'default' }),
   });
+}
+
+export async function listAutoCreatePlatforms(): Promise<{ platforms: AutoCreatePlatform[] }> {
+  return api('/api/vault/auto-create/platforms');
 }
 
 export async function deleteVault(key: string): Promise<{ success: boolean }> {

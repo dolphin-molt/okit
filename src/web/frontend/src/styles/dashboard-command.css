@@ -2418,6 +2418,33 @@ select:focus {
   opacity: 1;
 }
 
+/* Keep transient feedback in the user's visual focus. The toast layer is a
+ * centered stack; cards and dialogs continue to own their own inline states. */
+.toast-container {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.toast-container .toast {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: translateY(14px) scale(0.96);
+  pointer-events: auto;
+}
+
+.toast-container .toast.show {
+  transform: translateY(0) scale(1);
+}
+
 @media (max-width: 900px) {
   .vault-workspace .cloud-push-bar.cloud-push-bar {
     grid-template-columns: 1fr;

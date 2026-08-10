@@ -2,10 +2,28 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 const { backupImportantData } = require('./backup');
+const {
+  isQianfanCodingEndpoint,
+  qianfanCodingErrorCode,
+  qianfanCodingErrorMessage,
+  qianfanCodingModels,
+} = require('./qianfan-coding');
 
 const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
 const USER_CONFIG_PATH = path.join(OKIT_DIR, 'user.json');
+const RETIRED_PRESET_PROVIDER_IDS = new Set(['groq', 'fireworks', 'together']);
+// Apply only this exact built-in endpoint correction. User-customized URLs are
+// intentionally left untouched when presets are refreshed.
+const PRESET_BASE_URL_MIGRATIONS = new Map([
+  ['kimi-coding', { from: 'https://api.kimi.com', to: 'https://api.moonshot.cn/v1' }],
+  ['qianfan-coding', { from: 'https://qianfan.baidubce.com/v2/coding', to: 'https://qianfan.baidubce.com/v2/tokenplan/personal' }],
+  ['xiaomi-coding', { from: 'https://token-plan-cn.xiaomimimo.com/v1', to: 'https://token-plan-sgp.xiaomimimo.com/v1' }],
+]);
+const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map([
+  ['kimi-coding-plan', { from: 'https://api.kimi.com/coding/', to: 'https://api.kimi.com/coding' }],
+  ['xiaomi-coding', { from: 'https://token-plan-cn.xiaomimimo.com/anthropic', to: 'https://token-plan-sgp.xiaomimimo.com/anthropic' }],
+]);
 
 const PRESET_PROVIDERS = [
   {
@@ -165,7 +183,7 @@ const PRESET_PROVIDERS = [
   },
   {
     id: "moonshot",
-    name: "Moonshot (Kimi)",
+    name: "Moonshot (Kimi Global)",
     type: "openai",
     baseUrl: "https://api.moonshot.ai/v1",
     authMode: "api_key",
@@ -178,9 +196,26 @@ const PRESET_PROVIDERS = [
   },
   {
     id: "kimi-coding",
-    name: "Kimi Coding",
+    // Keep this ID for existing configurations while presenting it as Kimi.
+    name: "Kimi",
     type: "openai",
-    baseUrl: "https://api.kimi.com",
+    baseUrl: "https://api.moonshot.cn/v1",
+    authMode: "api_key",
+    models: [
+      { id: "kimi-k2.5", name: "Kimi K2.5" },
+      { id: "kimi-k2-thinking", name: "Kimi K2 Thinking" },
+      { id: "kimi-code", name: "Kimi Code" },
+    ],
+  },
+  {
+    id: "kimi-coding-plan",
+    name: "Kimi Coding Plan",
+    type: "openai",
+    baseUrl: "https://api.kimi.com/coding/v1",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://api.kimi.com/coding/v1", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://api.kimi.com/coding", plan: "coding" },
+    ],
     authMode: "api_key",
     models: [
       { id: "kimi-k2.5", name: "Kimi K2.5" },
@@ -208,15 +243,95 @@ const PRESET_PROVIDERS = [
     name: "百度千帆",
     type: "openai",
     baseUrl: "https://qianfan.baidubce.com/v2",
-    endpoints: [
-      { type: "openai", baseUrl: "https://qianfan.baidubce.com/v2" },
-      { type: "openai", baseUrl: "https://qianfan.baidubce.com/v2/coding" },
-    ],
     authMode: "api_key",
     models: [
       { id: "ernie-4.5-8k-preview", name: "ERNIE 4.5" },
       { id: "ernie-4.0-8k", name: "ERNIE 4.0" },
       { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
+    ],
+  },
+  {
+    id: "qianfan-coding",
+    name: "百度千帆 Coding Plan",
+    type: "openai",
+    baseUrl: "https://qianfan.baidubce.com/v2/tokenplan/personal",
+    authMode: "api_key",
+    models: [
+      { id: "qianfan-code-latest", name: "Qianfan Code" },
+      { id: "kimi-k2.5", name: "Kimi K2.5" },
+      { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
+      { id: "glm-5", name: "GLM-5" },
+      { id: "minimax-m2.5", name: "MiniMax M2.5" },
+      { id: "ernie-4.5-turbo-20260402", name: "ERNIE 4.5 Turbo" },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+      { id: "glm-5.1", name: "GLM-5.1" },
+    ],
+  },
+  {
+    id: "glm-coding",
+    name: "GLM Coding Plan",
+    type: "openai",
+    baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://open.bigmodel.cn/api/anthropic", plan: "coding" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "glm-5.2", name: "GLM-5.2" },
+      { id: "glm-5-turbo", name: "GLM-5 Turbo" },
+      { id: "glm-4.7", name: "GLM-4.7" },
+    ],
+  },
+  {
+    id: "minimax-coding",
+    name: "MiniMax Token Plan",
+    type: "openai",
+    baseUrl: "https://api.minimaxi.com/v1",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://api.minimaxi.com/v1", plan: "token" },
+      { type: "anthropic", baseUrl: "https://api.minimaxi.com/anthropic", plan: "token" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "MiniMax-M2.7", name: "MiniMax M2.7" },
+      { id: "MiniMax-M2.7-highspeed", name: "MiniMax M2.7 Highspeed" },
+      { id: "MiniMax-M2.5", name: "MiniMax M2.5" },
+    ],
+  },
+  {
+    id: "volcengine-coding",
+    name: "火山引擎 Coding Plan",
+    type: "openai",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/coding/v3",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://ark.cn-beijing.volces.com/api/coding/v3", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://ark.cn-beijing.volces.com/api/coding", plan: "coding" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "doubao-seed-code-preview-251028", name: "Doubao Seed Code" },
+      { id: "doubao-seed-2.0-pro", name: "Doubao Seed 2.0 Pro" },
+      { id: "kimi-k2.5", name: "Kimi K2.5" },
+      { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
+      { id: "glm-5", name: "GLM-5" },
+    ],
+  },
+  {
+    id: "tencent-coding",
+    name: "腾讯云 Coding Plan",
+    type: "openai",
+    baseUrl: "https://api.lkeap.cloud.tencent.com/coding/v3",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://api.lkeap.cloud.tencent.com/coding/v3", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://api.lkeap.cloud.tencent.com/coding/anthropic", plan: "coding" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "tc-code-latest", name: "Tencent Code" },
+      { id: "kimi-k2.5", name: "Kimi K2.5" },
+      { id: "glm-5", name: "GLM-5" },
+      { id: "minimax-m2.5", name: "MiniMax M2.5" },
     ],
   },
   {
@@ -274,6 +389,25 @@ const PRESET_PROVIDERS = [
     ],
   },
   {
+    id: "xiaomi-coding",
+    name: "小米 MiMo Token Plan",
+    type: "openai",
+    baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1", plan: "token" },
+      { type: "anthropic", baseUrl: "https://token-plan-sgp.xiaomimimo.com/anthropic", plan: "token" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "mimo-v2.5", name: "MiMo V2.5" },
+      { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro" },
+      { id: "mimo-v2.5-asr", name: "MiMo V2.5 ASR" },
+      { id: "mimo-v2.5-tts", name: "MiMo V2.5 TTS" },
+      { id: "mimo-v2.5-tts-voiceclone", name: "MiMo V2.5 TTS Voice Clone" },
+      { id: "mimo-v2.5-tts-voicedesign", name: "MiMo V2.5 TTS Voice Design" },
+    ],
+  },
+  {
     id: "openrouter",
     name: "OpenRouter",
     type: "openai",
@@ -284,43 +418,6 @@ const PRESET_PROVIDERS = [
       { id: "openai/gpt-5.5", name: "GPT-5.5" },
       { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
       { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-    ],
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    type: "openai",
-    baseUrl: "https://api.groq.com/openai/v1",
-    authMode: "api_key",
-    models: [
-      { id: "gpt-oss", name: "GPT OSS" },
-      { id: "kimi-k2", name: "Kimi K2" },
-      { id: "qwen3-32b", name: "Qwen3 32B" },
-      { id: "llama-3-groq-70b-tool-use", name: "Llama 3 70B Tool Use" },
-    ],
-  },
-  {
-    id: "fireworks",
-    name: "Fireworks",
-    type: "openai",
-    baseUrl: "https://api.fireworks.ai/inference/v1",
-    authMode: "api_key",
-    models: [
-      { id: "accounts/fireworks/models/qwen3-235b", name: "Qwen3 235B" },
-      { id: "accounts/fireworks/models/llama4-maverick", name: "Llama 4 Maverick" },
-      { id: "accounts/fireworks/models/deepseek-r1", name: "DeepSeek R1" },
-    ],
-  },
-  {
-    id: "together",
-    name: "Together AI",
-    type: "openai",
-    baseUrl: "https://api.together.xyz/v1",
-    authMode: "api_key",
-    models: [
-      { id: "meta-llama/Llama-4-Maverick-17B-128E-Instruct", name: "Llama 4 Maverick" },
-      { id: "deepseek-ai/DeepSeek-V4", name: "DeepSeek V4" },
-      { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3 235B" },
     ],
   },
   {
@@ -349,17 +446,87 @@ async function loadProviders() {
   try {
     const content = await fs.readFile(PROVIDERS_PATH, 'utf-8');
     const data = JSON.parse(content);
-    const providers = Array.isArray(data.providers) ? data.providers : [];
+    const sourceProviders = Array.isArray(data.providers) ? data.providers : [];
+    const providers = sourceProviders.filter(p => !RETIRED_PRESET_PROVIDER_IDS.has(p.id));
 
-    // Merge new presets: add missing ones, update name changes
-    let changed = false;
+    // Merge new presets: add missing ones, update name changes, and apply
+    // narrowly-scoped endpoint migrations for known broken built-in defaults.
+    let changed = providers.length !== sourceProviders.length;
     for (const preset of PRESET_PROVIDERS) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
         providers.push(preset);
         changed = true;
-      } else if (existing.name !== preset.name) {
-        existing.name = preset.name;
+      } else {
+        const migration = PRESET_BASE_URL_MIGRATIONS.get(preset.id);
+        if (migration) {
+          if (existing.baseUrl === migration.from) {
+            existing.baseUrl = migration.to;
+            changed = true;
+          }
+          // Model Management reads `endpoints` when it is present. Migrate the
+          // same known stale URL there too; otherwise the card looks updated
+          // while its connection test still calls the old endpoint.
+          if (Array.isArray(existing.endpoints)) {
+            let endpointChanged = false;
+            existing.endpoints = existing.endpoints.map(endpoint => {
+              if (endpoint && endpoint.baseUrl === migration.from) {
+                endpointChanged = true;
+                return { ...endpoint, baseUrl: migration.to };
+              }
+              return endpoint;
+            });
+            if (endpointChanged) changed = true;
+          }
+        }
+        const endpointMigration = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
+        if (endpointMigration && Array.isArray(existing.endpoints)) {
+          let endpointChanged = false;
+          existing.endpoints = existing.endpoints.map(endpoint => {
+            if (endpoint && endpoint.baseUrl === endpointMigration.from) {
+              endpointChanged = true;
+              return { ...endpoint, baseUrl: endpointMigration.to };
+            }
+            return endpoint;
+          });
+          if (endpointChanged) changed = true;
+        }
+        if (existing.name !== preset.name) {
+          existing.name = preset.name;
+          changed = true;
+        }
+        if (
+          preset.id === 'qianfan-coding'
+          && existing.models.some(model => ['kimi-k2.5', 'deepseek-v3.2', 'minimax-m2.5', 'ernie-4.5-turbo-20260402'].includes(model.id))
+        ) {
+          existing.models = preset.models.map(model => ({ ...model }));
+          changed = true;
+        }
+        if (
+          preset.id === 'xiaomi-coding'
+          && existing.models.length === 4
+          && existing.models.every(model => ['mimo-v2.5', 'mimo-v2.5-pro', 'mimo-v2.5-asr', 'mimo-v2.5-tts'].includes(model.id))
+        ) {
+          existing.models = preset.models.map(model => ({ ...model }));
+          changed = true;
+        }
+      }
+    }
+    // Coding Plan uses a separate API-key scope. Older builds put the Coding
+    // endpoint beside the regular Qianfan endpoint, which made one ordinary
+    // key look partially broken forever. Keep the regular provider regular;
+    // the dedicated qianfan-coding preset owns that endpoint now.
+    const qianfan = providers.find(provider => provider.id === 'qianfan');
+    if (qianfan && Array.isArray(qianfan.endpoints)) {
+      const filtered = qianfan.endpoints.filter(endpoint =>
+        !/^https?:\/\/qianfan\.baidubce\.com\/v2\/(?:coding|tokenplan\/personal)\/?$/i.test(endpoint.baseUrl),
+      );
+      if (filtered.length !== qianfan.endpoints.length) {
+        if (filtered.length) qianfan.endpoints = filtered;
+        else delete qianfan.endpoints;
+        if (qianfan.baseUrl === 'https://qianfan.baidubce.com/v2/coding') {
+          qianfan.baseUrl = 'https://qianfan.baidubce.com/v2';
+        }
         changed = true;
       }
     }
@@ -540,7 +707,7 @@ function appleScriptQuote(value) {
 async function createProvider(req, res) {
   try {
     const providers = await loadProviders();
-    const { id, name, type, baseUrl, endpoints, vaultKey, authMode, models } = req.body;
+    const { id, name, type, baseUrl, endpoints, vaultKey, authMode, authVerified, models } = req.body;
 
     if (!id || !name) {
       return res.status(400).json({ error: 'Missing required fields: id, name' });
@@ -556,6 +723,7 @@ async function createProvider(req, res) {
       authMode: authMode || 'api_key',
       models: models || [],
     };
+    if (typeof authVerified === 'boolean') provider.authVerified = authVerified;
 
     const idx = providers.findIndex(p => p.id === id);
     if (idx >= 0) providers[idx] = provider;
@@ -852,7 +1020,18 @@ async function getAuthStatus(req, res) {
     const results = [];
 
     for (const p of providers) {
-      const status = { id: p.id, name: p.name, hasApiKey: false, oauthLoggedIn: null, authMode: p.authMode };
+      const status = {
+        id: p.id,
+        name: p.name,
+        hasApiKey: false,
+        // A key is not considered authenticated until this exact provider
+        // configuration has passed an explicit connection test. This also
+        // makes older providers (which have no field yet) show as pending
+        // verification instead of claiming a connection from mere presence.
+        authVerified: p.authVerified === true,
+        oauthLoggedIn: null,
+        authMode: p.authMode,
+      };
 
       // Check Vault key
       if (p.vaultKey) {
@@ -993,16 +1172,22 @@ async function detectOAuth(providerId) {
 }
 
 async function fetchModels(req, res) {
-  const { providerId } = req.body;
-  if (!providerId) return res.status(400).json({ error: 'providerId required' });
+  const { providerId, endpoints: requestedEndpoints, vaultKey: requestedVaultKey } = req.body;
+  const previewConfig = Array.isArray(requestedEndpoints) || Object.prototype.hasOwnProperty.call(req.body, 'vaultKey');
+  if (!providerId && !previewConfig) return res.status(400).json({ error: 'providerId required' });
 
   try {
     const providers = await loadProviders();
-    const p = providers.find(x => x.id === providerId);
-    if (!p) return res.status(404).json({ error: 'Provider 不存在' });
+    const p = providerId ? providers.find(x => x.id === providerId) : undefined;
+    if (!p && !previewConfig) return res.status(404).json({ error: 'Provider 不存在' });
 
-    const apiKey = p.vaultKey ? await resolveVaultKey(p.vaultKey) : undefined;
-    const endpoints = p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }];
+    const apiKey = previewConfig
+      ? (requestedVaultKey ? await resolveVaultKey(requestedVaultKey) : undefined)
+      : (p?.vaultKey ? await resolveVaultKey(p.vaultKey) : undefined);
+    const endpoints = Array.isArray(requestedEndpoints) && requestedEndpoints.length
+      ? requestedEndpoints
+      : (p?.endpoints || (p ? [{ type: p.type, baseUrl: p.baseUrl }] : []));
+    if (!endpoints.length) return res.status(400).json({ error: '至少需要一个有效端点' });
     const allModels = [];
     const errors = [];
 
@@ -1010,7 +1195,9 @@ async function fetchModels(req, res) {
       try {
         let models = [];
         if (ep.type === 'openai') {
-          models = await fetchOpenAIModels(ep.baseUrl, apiKey);
+          models = isQianfanCodingEndpoint(ep.baseUrl)
+            ? await fetchQianfanCodingModels(ep.baseUrl, apiKey)
+            : await fetchOpenAIModels(ep.baseUrl, apiKey);
         } else if (ep.type === 'google') {
           models = await fetchGoogleModels(ep.baseUrl, apiKey);
         } else if (ep.type === 'anthropic') {
@@ -1024,7 +1211,7 @@ async function fetchModels(req, res) {
       }
     }
 
-    if (allModels.length > 0) {
+    if (allModels.length > 0 && p && !previewConfig) {
       // Update provider with fetched models
       p.models = allModels.map(m => ({ id: m.id, name: m.name || m.id }));
       const data = { providers, version: 1 };
@@ -1036,7 +1223,7 @@ async function fetchModels(req, res) {
       success: allModels.length > 0,
       models: allModels,
       errors: errors.length > 0 ? errors : undefined,
-      kept: allModels.length === 0 ? p.models : undefined,
+      kept: allModels.length === 0 && p ? p.models : undefined,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1054,6 +1241,47 @@ async function fetchOpenAIModels(baseUrl, apiKey) {
   return (d.data || []).map(m => ({ id: m.id, name: m.id }));
 }
 
+async function fetchQianfanCodingModels(baseUrl, apiKey) {
+  const root = baseUrl.replace(/\/+$/, '');
+  const headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+  const listResult = await httpReq(`${root}/models`, { method: 'GET', headers, timeout: 10000 });
+  if (listResult.error) throw new Error(listResult.error);
+
+  const listCode = qianfanCodingErrorCode(listResult.body);
+  const listMessage = qianfanCodingErrorMessage(listCode);
+  if (listMessage) throw new Error(listMessage);
+  if (listResult.status === 200) {
+    const data = JSON.parse(listResult.body);
+    const models = (data.data || []).map(m => ({ id: m.id, name: m.id }));
+    if (models.length) return models;
+  }
+
+  // The Coding Plan documentation guarantees the chat route and model names,
+  // but some deployments do not expose /models. Validate the key with the
+  // documented model and use the known list only after the probe succeeds.
+  if (listResult.status === 404 || listResult.status === 405 || listResult.status === 200) {
+    const probeBody = JSON.stringify({
+      model: 'qianfan-code-latest',
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'hi' }],
+      stream: false,
+    });
+    const probeResult = await httpReq(`${root}/chat/completions`, {
+      method: 'POST', headers, body: probeBody, timeout: 10000,
+    });
+    if (probeResult.error) throw new Error(probeResult.error);
+    const probeCode = qianfanCodingErrorCode(probeResult.body);
+    const probeMessage = qianfanCodingErrorMessage(probeCode);
+    if (probeMessage) throw new Error(probeMessage);
+    if (probeResult.status === 200 || probeResult.status === 400) return qianfanCodingModels();
+    if (probeResult.status === 401) throw new Error('百度千帆 Coding Plan API Key 无效');
+    throw new Error(`HTTP ${probeResult.status}`);
+  }
+
+  if (listResult.status === 401) throw new Error('百度千帆 Coding Plan API Key 无效');
+  throw new Error(`HTTP ${listResult.status}`);
+}
+
 async function fetchGoogleModels(baseUrl, apiKey) {
   const url = `${baseUrl}/v1beta/models${apiKey ? '?key=' + apiKey : ''}`;
   const result = await httpReq(url, { method: 'GET', timeout: 10000 });
@@ -1067,9 +1295,14 @@ async function fetchGoogleModels(baseUrl, apiKey) {
 }
 
 async function fetchAnthropicModels(baseUrl, apiKey) {
-  const url = `${baseUrl}/v1/models`;
+  const url = `${String(baseUrl || '').replace(/\/+$/, '')}/v1/models`;
   const headers = {};
-  if (apiKey) headers['x-api-key'] = apiKey;
+  if (/^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim())) {
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['accept-language'] = 'en-US,en';
+  } else if (apiKey) {
+    headers['x-api-key'] = apiKey;
+  }
   headers['anthropic-version'] = '2023-06-01';
   const result = await httpReq(url, { method: 'GET', headers, timeout: 10000 });
   if (result.error) throw new Error(result.error);

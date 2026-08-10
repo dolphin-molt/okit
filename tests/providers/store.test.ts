@@ -74,6 +74,85 @@ describe('loadProviders', () => {
     expect(result[0].id).toBe('test-provider');
   });
 
+  it('migrates Kimi’s stale base URL and saved endpoint together', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'kimi-coding',
+        name: 'Kimi',
+        type: 'openai',
+        baseUrl: 'https://api.kimi.com',
+        endpoints: [{ type: 'openai', baseUrl: 'https://api.kimi.com', protocol: 'chat' }],
+        vaultKey: 'KIMI_API_KEY-example',
+        authMode: 'api_key',
+        models: [{ id: 'kimi-k2.5' }],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const kimi = result.find(provider => provider.id === 'kimi-coding');
+    expect(kimi?.baseUrl).toBe('https://api.moonshot.cn/v1');
+    expect(kimi?.endpoints).toEqual([
+      { type: 'openai', baseUrl: 'https://api.moonshot.cn/v1', protocol: 'chat' },
+    ]);
+    expect(kimi?.vaultKey).toBe('KIMI_API_KEY-example');
+  });
+
+  it('moves the legacy Qianfan Coding endpoint to the dedicated preset', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'qianfan',
+        name: '百度千帆',
+        type: 'openai',
+        baseUrl: 'https://qianfan.baidubce.com/v2',
+        endpoints: [
+          { type: 'openai', baseUrl: 'https://qianfan.baidubce.com/v2' },
+          { type: 'openai', baseUrl: 'https://qianfan.baidubce.com/v2/coding' },
+        ],
+        vaultKey: 'QIANFAN_API_KEY-example',
+        authMode: 'api_key',
+        models: [{ id: 'deepseek-v3.2' }],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const qianfan = result.find(provider => provider.id === 'qianfan');
+    const coding = result.find(provider => provider.id === 'qianfan-coding');
+    expect(qianfan?.endpoints).toEqual([
+      { type: 'openai', baseUrl: 'https://qianfan.baidubce.com/v2' },
+    ]);
+    expect(coding?.baseUrl).toBe('https://qianfan.baidubce.com/v2/tokenplan/personal');
+    expect(coding?.vaultKey).toBeUndefined();
+  });
+
+  it('migrates the Xiaomi Token Plan endpoints to the signed-in region', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'xiaomi-coding',
+        name: '小米 MiMo Token Plan',
+        type: 'openai',
+        baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
+        endpoints: [
+          { type: 'openai', protocol: 'chat', baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1', plan: 'token' },
+          { type: 'anthropic', baseUrl: 'https://token-plan-cn.xiaomimimo.com/anthropic', plan: 'token' },
+        ],
+        authMode: 'api_key',
+        models: [
+          { id: 'mimo-v2.5' }, { id: 'mimo-v2.5-pro' },
+          { id: 'mimo-v2.5-asr' }, { id: 'mimo-v2.5-tts' },
+        ],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const xiaomi = result.find(provider => provider.id === 'xiaomi-coding');
+    expect(xiaomi?.baseUrl).toBe('https://token-plan-sgp.xiaomimimo.com/v1');
+    expect(xiaomi?.endpoints).toEqual([
+      { type: 'openai', protocol: 'chat', baseUrl: 'https://token-plan-sgp.xiaomimimo.com/v1', plan: 'token' },
+      { type: 'anthropic', baseUrl: 'https://token-plan-sgp.xiaomimimo.com/anthropic', plan: 'token' },
+    ]);
+    expect(xiaomi?.models.map(model => model.id)).toContain('mimo-v2.5-tts-voiceclone');
+  });
+
   it('returns empty when providers is not an array', async () => {
     mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: 'not-array' }));
     const result = await loadProviders();

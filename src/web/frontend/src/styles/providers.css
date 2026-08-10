@@ -42,6 +42,8 @@
   box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
   position: relative;
   transition: box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
 }
 
 .provider-card:hover {
@@ -258,6 +260,7 @@
 /* ─── Model section ─── */
 .provider-card-models {
   padding: 12px 20px 14px;
+  flex: 1 0 auto;
 }
 
 .provider-models-label {
@@ -1124,9 +1127,7 @@
 /* Models page light-surface overrides. Keep these after the shared access styles so
    the model editor does not inherit the older dark modal treatment in light mode. */
 .models-workspace .provider-card {
-  background:
-    linear-gradient(135deg, rgba(56, 189, 248, 0.035), transparent 32%),
-    rgba(255, 255, 252, 0.94);
+  background: rgba(255, 255, 252, 0.94);
   border-color: rgba(16, 26, 22, 0.12);
   box-shadow: 0 14px 36px rgba(13, 20, 17, 0.08);
 }

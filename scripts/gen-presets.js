@@ -40,6 +40,7 @@ async function main() {
   // If dist/ doesn't exist yet (e.g. first build), error out clearly.
   const presetsPath = path.join(DIST_PROVIDERS, 'presets.js');
   const metadataPath = path.join(DIST_PROVIDERS, 'metadata.js');
+  const platformsPath = path.join(DIST_PROVIDERS, 'platforms.js');
 
   if (!await fs.pathExists(presetsPath)) {
     console.error('[gen-presets] Error: dist/providers/presets.js not found. Run `tsc` first.');
@@ -51,6 +52,7 @@ async function main() {
   if (await fs.pathExists(metadataPath)) delete require.cache[require.resolve(metadataPath)];
 
   const { PRESET_PROVIDERS } = require(presetsPath);
+  const { buildPlatforms } = require(platformsPath);
 
   let groups = [];
   let families = [];
@@ -69,6 +71,7 @@ async function main() {
 
   const output = {
     presets: PRESET_PROVIDERS,
+    platforms: buildPlatforms(PRESET_PROVIDERS),
     groups,
     families,
     retired,
@@ -79,7 +82,7 @@ async function main() {
   await fs.ensureDir(path.dirname(OUT_JSON));
   await fs.writeFile(OUT_JSON, JSON.stringify(output, null, 2));
 
-  console.log(`[gen-presets] Wrote ${PRESET_PROVIDERS.length} presets, ${groups.length} groups, ${families.length} families → ${path.relative(ROOT, OUT_JSON)}`);
+  console.log(`[gen-presets] Wrote ${PRESET_PROVIDERS.length} presets, ${output.platforms.length} platforms → ${path.relative(ROOT, OUT_JSON)}`);
 }
 
 main().catch(err => {

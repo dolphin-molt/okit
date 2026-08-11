@@ -81,6 +81,12 @@ export default function VaultPage() {
     return [...set].sort();
   }, [secrets]);
 
+  useEffect(() => {
+    if (groupFilter !== 'all' && !groups.includes(groupFilter)) {
+      setGroupFilter('all');
+    }
+  }, [groupFilter, groups]);
+
   const filtered = useMemo(() => {
     const needle = searchTerm.toLowerCase();
     return secrets.filter(s => {
@@ -130,7 +136,9 @@ export default function VaultPage() {
     return confirm(impactHtml);
   }
 
-  async function handleDelete(key: string) {
+  async function handleDelete(secret: VaultSecret) {
+    const key = secret.key;
+    const alias = secret.aliases[0]?.alias || 'default';
     let impactHtml = '';
     try {
       const imp = await checkKeyImpact(key);
@@ -141,7 +149,7 @@ export default function VaultPage() {
     const ok = await confirm(t('vault.confirmDelete', { key: `<strong>${key}</strong>` }) + `.${impactHtml}`);
     if (!ok) return;
     try {
-      await deleteVault(key);
+      await deleteVault(key, alias);
       showToast(t('vault.deleted', { key }));
       loadVault();
     } catch { showToast(t('vault.deleteFail'), 'error'); }
@@ -372,13 +380,6 @@ export default function VaultPage() {
                     <span className="vault-chip-count">{secrets.filter(s => s.group === g).length}</span>
                   </button>
                 ))}
-                <button
-                  className={`vault-filter-chip${groupFilter === '' ? ' vault-filter-chip--active' : ''}`}
-                  onClick={() => setGroupFilter('')}
-                >
-                  {t('common.ungrouped')}
-                  <span className="vault-chip-count">{secrets.filter(s => !s.group).length}</span>
-                </button>
               </div>
             </div>
           </div>
@@ -489,7 +490,7 @@ export default function VaultPage() {
                         <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key)}><Icon name="copy" /></button>
                         <button className="btn-icon btn-icon--sync" title={t('vault.syncToProject')} onClick={() => openSyncModal(secret.key)}><Icon name="folder" /></button>
                         <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}><Icon name="edit" /></button>
-                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret.key)}><Icon name="trash" /></button>
+                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret)}><Icon name="trash" /></button>
                       </div>
                     </article>
                   ))}

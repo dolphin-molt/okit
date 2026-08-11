@@ -1,7 +1,78 @@
 // API protocol compatibility
 export type ProviderType = 'anthropic' | 'openai' | 'google';
 export type OpenAIProtocol = 'chat' | 'responses';
-export type ProviderEndpointPlan = 'coding' | 'token';
+export type ProviderEndpointPlan = 'coding' | 'token' | 'agent' | 'go';
+export type OfferingType = 'api' | 'coding_plan' | 'token_plan' | 'agent_plan' | 'agent_subscription' | 'go_plan' | string;
+export type AuthMethodType = 'api_key' | 'oauth' | 'cli_login' | 'cloud_credential' | string;
+export type EntitlementType = 'pay_as_you_go' | 'subscription_included' | 'prepaid_quota' | 'free_tier' | 'unknown' | string;
+
+export interface PlatformAuthMethod {
+  id: string;
+  type: AuthMethodType;
+  label: string;
+  providerId: string;
+  credentialRef?: string;
+  status?: 'unconfigured' | 'configured' | 'verified' | 'invalid' | 'expired';
+  verifiedAt?: string;
+  verifiedEndpointId?: string;
+}
+
+export interface PlatformEndpoint {
+  id: string;
+  name: string;
+  offeringId: string;
+  baseUrl: string;
+  protocol: {
+    family: ProviderType | 'custom';
+    mode: OpenAIProtocol | 'messages' | 'generate-content' | string;
+  };
+  authMethodIds: string[];
+  modelDiscovery: {
+    type: 'remote' | 'static' | 'cli' | 'unsupported';
+    path?: string;
+    modelIds?: string[];
+    command?: string;
+  };
+}
+
+export interface PlatformOffering {
+  id: string;
+  type: OfferingType;
+  label: string;
+  providerId: string;
+  endpointIds: string[];
+  authMethodIds: string[];
+  entitlement?: {
+    type: EntitlementType;
+    product?: string;
+  };
+}
+
+export interface PlatformModelAvailability {
+  offeringId: string;
+  endpointIds: string[];
+  remoteModelId: string;
+  status: 'available' | 'unavailable' | 'deprecated' | 'unknown';
+  source: 'remote' | 'static' | 'cli' | 'manual';
+  discoveredAt?: string;
+}
+
+export interface PlatformModel {
+  id: string;
+  name: string;
+  capabilities?: string[];
+  availability: PlatformModelAvailability[];
+}
+
+export interface Platform {
+  id: string;
+  name: string;
+  providerIds: string[];
+  offerings: PlatformOffering[];
+  authMethods: PlatformAuthMethod[];
+  endpoints: PlatformEndpoint[];
+  models: PlatformModel[];
+}
 
 // A provider (platform) that offers AI models
 export interface ProviderEndpoint {
@@ -21,7 +92,12 @@ export interface Provider {
   vaultKey?: string;       // reference to Vault key for API key
   /** Whether the current endpoint/key combination passed an explicit test. */
   authVerified?: boolean;
+  authVerifiedKey?: string;
+  authVerifiedAt?: string;
+  authVerifiedEndpointIds?: string[];
   authMode: 'api_key' | 'oauth' | 'both';
+  /** CLI subscription login only; never expose this provider to API adapters. */
+  cliOnly?: boolean;
   models: ProviderModel[];
 }
 
@@ -58,4 +134,5 @@ export interface AgentAdapter {
 // Stored file format for providers.json
 export interface ProvidersData {
   providers: Provider[];
+  platforms?: Platform[];
 }

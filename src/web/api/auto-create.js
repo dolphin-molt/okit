@@ -228,6 +228,9 @@ function extractKeyFromCaptures(entries, platform) {
   for (const e of entries) {
     const body = e.responsePreview || '';
     if (!body || body.startsWith('base64:')) continue;
+    // Mistral's admin session responses also contain generic key-like fields.
+    // Only its API-key billing endpoint can contain a credential candidate.
+    if (platform === 'mistral' && !/\/api\/billing\/api-keys(?:[/?#]|$)/i.test(e.url || '')) continue;
     candidates.push({
       body,
       url: e.url || '',
@@ -312,6 +315,62 @@ function extractKeyFromCaptures(entries, platform) {
   return null;
 }
 
+function extractNewestNamedKeyFromCaptures(entries, tokenName, platform) {
+  const matches = [];
+  const wantedPrefix = `${tokenName}-`;
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    const fields = Object.entries(value);
+    const field = aliases => fields.find(([name]) => aliases.includes(name.replace(/[_-]/g, '').toLowerCase()))?.[1];
+    const name = field(['name', 'displayname', 'keyname']);
+    if (typeof name === 'string' && name.startsWith(wantedPrefix)) {
+      const candidate = field(['key', 'apikey', 'token', 'value', 'secret']);
+      const key = typeof candidate === 'string' ? keyFromText(candidate, platform) : null;
+      if (key) {
+        const created = field(['createdat', 'created', 'creationdate', 'updatedat']);
+        matches.push({ key, name, created: Date.parse(String(created || '')) || 0 });
+      }
+    }
+    fields.forEach(([, child]) => visit(child));
+  };
+
+  for (const entry of entries || []) {
+    if (platform.id === 'mistral' && !/\/api\/billing\/api-keys(?:[/?#]|$)/i.test(entry.url || '')) continue;
+    try { visit(JSON.parse(entry.responsePreview || '')); } catch {}
+  }
+  matches.sort((a, b) => b.created - a.created);
+  return matches[0] || null;
+}
+
+function capturesContainMistralKeyRecords(entries) {
+  const looksLikeKeyRecord = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const keys = Object.keys(value).map(key => key.replace(/[_-]/g, '').toLowerCase());
+    if (keys.includes('apikeyid') || keys.includes('keyid')) return true;
+    const hasIdentity = keys.includes('id') && (keys.includes('name') || keys.includes('keyname'));
+    const hasKeyMetadata = keys.some(key => [
+      'createdat', 'expiresat', 'expirationdate', 'lastusedat', 'workspaceid', 'ownerid', 'isactive', 'status',
+    ].includes(key));
+    return hasIdentity && hasKeyMetadata;
+  };
+  const containsRecord = value => {
+    if (Array.isArray(value)) return value.some(item => looksLikeKeyRecord(item) || containsRecord(item));
+    if (!value || typeof value !== 'object') return false;
+    return looksLikeKeyRecord(value) || Object.values(value).some(containsRecord);
+  };
+
+  return (entries || []).some(entry => {
+    if (!/\/api\/billing\/api-keys(?:[/?#]|$)/i.test(entry.url || '')) return false;
+    if (String(entry.method || 'GET').toUpperCase() !== 'GET') return false;
+    try { return containsRecord(JSON.parse(entry.responsePreview || '')); } catch { return false; }
+  });
+}
+
 /** Find a field value by checking a list of candidate field names (case-insensitive). */
 function findFieldValue(obj, fieldNames, depth = 0) {
   if (depth > 6 || !obj || typeof obj !== 'object') return null;
@@ -331,7 +390,7 @@ function findFieldValue(obj, fieldNames, depth = 0) {
 /** Recursively search a JSON object for a key-like field. */
 function findKeyField(obj, depth = 0) {
   if (depth > 6 || !obj || typeof obj !== 'object') return null;
-  const KEY_NAMES = ['apikey', 'api_key', 'apikeysecret', 'accesskey', 'access_key', 'key', 'token', 'value', 'secret', 'secret_key'];
+  const KEY_NAMES = ['apikey', 'api_key', 'apikeysecret', 'accesskey', 'access_key', 'key', 'token', 'value', 'secret', 'secret_key', 'secretkey'];
   for (const [k, v] of Object.entries(obj)) {
     const lk = String(k).toLowerCase();
     if (typeof v === 'string' && v.length >= 20 && KEY_NAMES.includes(lk)) return v;
@@ -903,13 +962,14 @@ async function createZhipuKey({ tokenName }) {
 // created row → click its eye icon. Ark's creation response contains only an
 // internal API-key ID; the actual model credential is revealed by that row.
 const VOLC_URL = 'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey';
+const VOLC_AGENT_PLAN_URL = 'https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement?advancedActiveKey=agentPlan';
 const VOLC_CREATE_TEXTS = ['创建 API Key'];
 
-async function createVolcengineKey({ tokenName }) {
+async function createVolcengineKey({ tokenName, url = VOLC_URL }) {
   // Platform names must be unique. Keep the vault variable deterministic while
   // using a harmless suffix only for the console-side display name.
   const uniqueName = `${tokenName}-${Date.now().toString(36).slice(-4)}`;
-  const nav = await sendCommand('navigate', { url: VOLC_URL, workspace: 'okit' }, 30000);
+  const nav = await sendCommand('navigate', { url, workspace: 'okit' }, 30000);
   if (!nav.ok) throw new Error(nav.error || 'navigate failed');
   const tabId = nav.data && nav.data.tabId;
   console.log('[auto-create] volcengine: navigated (tab ' + tabId + ')');
@@ -939,7 +999,15 @@ async function createVolcengineKey({ tokenName }) {
     try { opened = Boolean(JSON.parse(result || '{}').ok); } catch {}
     if (!opened) await sleep(1000);
   }
-  if (!opened) throw new Error('未找到火山方舟“创建 API Key”按钮');
+  if (!opened) {
+    if (url === VOLC_AGENT_PLAN_URL) {
+      const currentUrl = await execJs('location.href').catch(() => '');
+      if (/\/subscription\/agent-plan(?:[/?#]|$)/.test(currentUrl)) {
+        throw new Error('当前账号被火山方舟重定向到 Agent Plan 套餐页，说明 Agent Plan 尚未开通、已失效或权益尚未生效。请先开通或续费 Agent Plan，待套餐生效后再自动创建专属 API Key。');
+      }
+    }
+    throw new Error('未找到火山方舟“创建 API Key”按钮');
+  }
 
   await sleep(500);
   const formResult = await execJs(`(() => {
@@ -1209,30 +1277,48 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified in the authenticated Platform console: the name field is
   // "My Test Key", and the dialog ends with "Create secret key".
   { id: 'openai', label: 'OpenAI', keyHint: 'OPENAI_API_KEY', groupHint: 'OpenAI', mode: 'browser', url: 'https://platform.openai.com/api-keys', createTexts: ['Create new secret key'], nameSelectors: ['input[placeholder="My Test Key"]'], confirmTexts: ['Create secret key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-(?:proj-)?[A-Za-z0-9_-]{20,}'] },
-  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://console.anthropic.com/settings/keys', createTexts: ['Create Key', 'Create API Key', 'Create key'], preConfirmSelectDefaults: [{ triggerText: 'Select an expiration', optionText: 'No expiration' }], confirmTexts: ['Add', 'Create key', 'Create Key', 'Create'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
+  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://platform.claude.com/settings/workspaces/default/keys', createTexts: ['Create Key', 'Create API Key', 'Create key'], formReadyAttempts: 8, nameSelectors: ['input[placeholder*="key name" i]', 'input[placeholder*="name" i]', 'input[aria-label*="key name" i]', 'input[aria-label="Name" i]', 'input[name*="name" i]', 'input[id*="name" i]'], requireNameInput: true, allowDialogTextInputFallback: true, preConfirmSelectDefaults: [{ triggerTexts: ['Select an expiration', '3 hours', '1 day', '7 days', '30 days'], optionTexts: ['Never', 'No expiration'], optional: true }], confirmTexts: ['Add', 'Create key', 'Create Key', 'Create'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
   // Verified in the signed-in Chinese AI Studio UI: the key is named through
   // its aria-labelled input and finalized with "创建密钥".
-  { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AIza[0-9A-Za-z_-]{20,}'] },
+  { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AQ\\.[0-9A-Za-z_-]{20,}', 'AIza[0-9A-Za-z_-]{20,}'] },
   { id: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_API_KEY', groupHint: '火山引擎', mode: 'browser' },
+  { id: 'volcengine-agent', label: '火山引擎 Agent Plan', keyHint: 'VOLCENGINE_AGENT_PLAN_API_KEY', groupHint: '火山引擎 Agent Plan', mode: 'browser', url: VOLC_AGENT_PLAN_URL },
+  // TokenHub is Tencent Cloud's current unified model platform. Its API keys
+  // are ordinary Bearer tokens; do not confuse them with cloud AK/SK pairs.
+  { id: 'tencent-tokenhub', label: '腾讯云 TokenHub', keyHint: 'TENCENT_TOKENHUB_API_KEY', groupHint: '腾讯云 TokenHub', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], confirmTexts: ['确认', '确定', '创建'], postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   { id: 'zhipu', label: '智谱 AI（国内站）', keyHint: 'ZHIPUAI_API_KEY', groupHint: '智谱AI', mode: 'browser' },
   // Verified on the signed-in Z.AI console: the entry is "Add API Key", then
   // the dialog requires an "API key name" before its "Create" action is enabled.
   { id: 'zai-global', label: 'Z.AI（国际站）', keyHint: 'ZAI_API_KEY', groupHint: 'Z.AI', mode: 'browser', url: 'https://z.ai/manage-apikey/apikey-list', createTexts: ['Add API Key'], nameSelectors: ['input#apiKeyName', 'input[placeholder="API key name"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, postCreateRowCopySelector: 'svg.lucide-copy', postCreateCopyAttempts: 20, postCreateCopyRetryMs: 1000, allowExtensionClipboardRead: true, requirePostCreateCopy: true, keyPatterns: ['[^.\\s]{8,128}\\.[^.\\s]{8,256}'], postCreateCopyFailureMessage: 'Z.AI 已创建 API Key，但列表复制控件没有返回可保存的明文；为避免保存掩码，已停止写入 Vault。' },
   { id: 'minimax', label: 'MiniMax（国内站）', keyHint: 'MINIMAX_API_KEY', groupHint: 'MiniMax', mode: 'browser' },
+  // Token Plan uses a dedicated sk-cp key that is not interchangeable with
+  // the ordinary pay-as-you-go API key. The subscribed account exposes the
+  // key on the Token Plan page and may already have generated it.
+  { id: 'minimax-coding', label: 'MiniMax Token Plan（国内）', keyHint: 'MINIMAX_TOKEN_PLAN_API_KEY', groupHint: 'MiniMax · 国内', mode: 'browser', url: 'https://platform.minimaxi.com/console/plan', createTexts: ['复制', '复 制', 'Copy'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-cp-', missingExistingKeyMessage: 'MiniMax Token Plan（国内）页面没有显示可复制的订阅 Key。请确认账户已获得订阅 Key；自动化不会点击“重置 Key”。', postCreateCopyTexts: ['复制', '复 制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'sk-cp-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-cp-[A-Za-z0-9_-]{10,}'], postCreateCopyFailureMessage: 'MiniMax Token Plan（国内）页面已打开，但没有从订阅 Key 旁的复制按钮读取到明文。自动化不会点击“重置 Key”，以免现有 Key 失效。' },
   // Verified on the signed-in international console: "Create new API Key"
   // opens a named form whose final action is simply "Create".
   { id: 'minimax-global', label: 'MiniMax（国际站）', keyHint: 'MINIMAX_GLOBAL_API_KEY', groupHint: 'MiniMax', mode: 'browser', url: 'https://platform.minimax.io/user-center/basic-information/interface-key', createTexts: ['Create new API Key'], nameSelectors: ['input#token_name', 'input[placeholder="Please enter a key name"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, keyPatterns: ['sk-(?:api-)?[A-Za-z0-9_-]{20,}'] },
+  // The international Token Plan mirrors the mainland console: one account
+  // subscription key is shown on Plan details and copied in place. Never use
+  // the ordinary API Keys page or click Reset key during automatic capture.
+  { id: 'minimax-global-coding', label: 'MiniMax Token Plan（国际）', keyHint: 'MINIMAX_GLOBAL_TOKEN_PLAN_API_KEY', groupHint: 'MiniMax · 国际', mode: 'browser', url: 'https://platform.minimax.io/console/plan', createTexts: ['Copy', '复制', '复 制'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-cp-', missingExistingKeyMessage: 'MiniMax Token Plan（国际）页面没有显示可复制的 Subscription Key。请确认账户已获得订阅 Key；自动化不会点击 Reset key。', postCreateCopyTexts: ['Copy', 'Copy key', '复制', '复 制', '复制密钥'], postCreateCopyByMaskedKeyPrefix: 'sk-cp-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-cp-[A-Za-z0-9_-]{10,}'], postCreateCopyFailureMessage: 'MiniMax Token Plan（国际）页面已打开，但没有从 Subscription Key 旁的 Copy 按钮读取到明文。自动化不会点击 Reset key，以免现有 Key 失效。' },
   { id: 'deepseek', label: 'DeepSeek', keyHint: 'DEEPSEEK_API_KEY', groupHint: 'DeepSeek', mode: 'browser', url: 'https://platform.deepseek.com/api_keys', preCreateDismissTexts: ['稍后再填'], createTexts: ['Create new API key', 'Create API key', '创建 API Key', '创建新密钥'], keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], readyAfterMs: 15000 },
   // Verified against the signed-in Kimi international console. The form
   // requires both a name and a project; only its visible `default` project is
   // eligible for automatic selection.
-  { id: 'moonshot', label: 'Moonshot（Kimi 国际站）', keyHint: 'MOONSHOT_API_KEY', groupHint: 'Kimi 国际站', mode: 'browser', url: 'https://platform.kimi.ai/console/api-keys', createTexts: ['Create API Key'], createWaitAttempts: 10, nameSelectors: ['input[placeholder*="Maximum 32"]'], defaultProjectLabel: 'default', confirmTexts: ['OK'], keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'moonshot', label: 'Moonshot', keyHint: 'MOONSHOT_API_KEY', groupHint: 'Moonshot', mode: 'browser', url: 'https://platform.kimi.ai/console/api-keys', createTexts: ['Create API Key'], createWaitAttempts: 10, nameSelectors: ['input[placeholder*="Maximum 32"]'], defaultProjectLabel: 'default', confirmTexts: ['OK'], keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'moonshot-coding-plan', label: 'Moonshot Coding Plan', keyHint: 'MOONSHOT_CODING_PLAN_API_KEY', groupHint: 'Moonshot', mode: 'browser', url: 'https://www.kimi.com/code/console', preNavigationTexts: ['API Keys', 'API 密钥', '密钥管理'], createTexts: ['Create API Key', 'Create API key', '创建 API Key', '创建 API 密钥', '新建密钥'], nameSelectors: ['[role="dialog"] input[placeholder*="name" i]', '[role="dialog"] input[placeholder*="名称"]', 'input[placeholder*="name" i]', 'input[placeholder*="名称"]'], confirmTexts: ['Create', 'Confirm', '创建', '确认'], allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] code', 'input[value^="sk-"]', 'code'], postCreateCopyTexts: ['Copy key', 'Copy', '复制密钥', '复制'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 6, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Keep the stable ID for existing configurations. The Kimi product uses the
   // mainland API console, not the separate Kimi Code subscription page.
-  { id: 'kimi-coding', label: 'Kimi', keyHint: 'KIMI_API_KEY', groupHint: 'Kimi', mode: 'browser', url: 'https://platform.kimi.com/console/api-keys', createTexts: ['新建 API Key'], createWaitAttempts: 10, nameSelectors: ['input[placeholder*="最多输入32"]'], defaultProjectLabel: 'default', confirmTexts: ['确定'], keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'kimi-coding', label: 'Kimi（国内站）', keyHint: 'KIMI_API_KEY', groupHint: 'Kimi（国内站）', mode: 'browser', url: 'https://platform.kimi.com/console/api-keys', createTexts: ['新建 API Key'], createWaitAttempts: 10, nameSelectors: ['input[placeholder*="最多输入32"]'], defaultProjectLabel: 'default', confirmTexts: ['确定'], keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  // Kimi Code subscription keys are managed separately from Kimi Open
+  // Platform keys, are shown only once, and must not reuse KIMI_API_KEY.
+  { id: 'kimi-coding-plan', label: 'Kimi（国际站）', keyHint: 'KIMI_CODE_API_KEY', groupHint: 'Kimi（国际站）', mode: 'browser', url: 'https://www.kimi.com/code/console', preNavigationTexts: ['API Keys', 'API 密钥', '密钥管理'], createTexts: ['Create API Key', 'Create API key', '创建 API Key', '创建 API 密钥', '新建密钥'], nameSelectors: ['[role="dialog"] input[placeholder*="name" i]', '[role="dialog"] input[placeholder*="名称"]', 'input[placeholder*="name" i]', 'input[placeholder*="名称"]'], confirmTexts: ['Create', 'Confirm', '创建', '确认'], allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] code', 'input[value^="sk-"]', 'code'], postCreateCopyTexts: ['Copy key', 'Copy', '复制密钥', '复制'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 6, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], postCreateCopyFailureMessage: 'Kimi Code API Key 已尝试创建，但未读取到一次性明文。请在 Kimi Code Console 的创建结果中复制后重试。' },
   // Verified in the signed-in Bailian console: the default workspace is
   // already selected; fill its optional description textarea before "确定".
-  { id: 'qwen', label: '通义千问（百炼）', keyHint: 'DASHSCOPE_API_KEY', groupHint: '阿里云百炼', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key', createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
+  { id: 'qwen', label: '阿里云百炼', keyHint: 'DASHSCOPE_API_KEY', groupHint: '阿里云百炼', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key', createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
+  // SiliconFlow exposes OpenAI-compatible Bearer keys from its account page.
+  { id: 'siliconflow', label: '硅基流动', keyHint: 'SILICONFLOW_API_KEY', groupHint: '硅基流动', mode: 'browser', url: 'https://cloud.siliconflow.cn/account/ak', createTexts: ['新建API密钥', '新建 API 密钥', '创建API密钥', '创建 API 密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="名称"]'], confirmTexts: ['新建', '确认', '确定', '创建'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyAttempts: 8, postCreateCopyRetryMs: 500, allowExtensionClipboardRead: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Verified on the signed-in BCE API Key page: clicking the list toolbar
   // starts an async route transition before the name form is mounted. Wait
   // for that real form instead of treating the still-visible AI-assistant
@@ -1260,15 +1346,19 @@ const AUTO_CREATE_PLATFORMS = [
   // Its create dialog uses the same "Create API key" label for its final
   // submit button, so this platform explicitly permits that confirmed reuse.
   { id: 'xai', label: 'xAI（Grok）', keyHint: 'XAI_API_KEY', groupHint: 'xAI', mode: 'browser', url: 'https://console.x.ai/', preNavigationTexts: ['API Keys'], createTexts: ['Create API key'], nameSelectors: ['input[placeholder="Production key"]'], confirmTexts: ['Create API key'], allowConfirmCreateText: true, postCreateReadAttempts: 5, keyPatterns: ['xai-[A-Za-z0-9_-]{20,}'] },
-  // Verified on the signed-in Mistral workspace page. Its top-level and final
-  // form actions are both labelled "New key"; the latter appears only in the
-  // opened profile dialog and is therefore an intentional confirmed reuse.
-  { id: 'mistral', label: 'Mistral', keyHint: 'MISTRAL_API_KEY', groupHint: 'Mistral', mode: 'browser', url: 'https://console.mistral.ai/api-keys', createTexts: ['New key'], formEntryTexts: ['Create new key'], nameSelectors: ['input[placeholder="My API Key"]'], confirmTexts: ['New key'], allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input'], postCreateDomReadAttempts: 12, postCreateReadAttempts: 5, keyPatterns: ['\\b[A-Za-z0-9]{32}\\b'] },
+  // Mistral currently opens the key form directly from "New key". Older
+  // workspaces first showed a profile panel with a "Create new key" action,
+  // so that intermediate step remains as an optional compatibility path.
+  { id: 'mistral', label: 'Mistral', keyHint: 'MISTRAL_API_KEY', groupHint: 'Mistral', mode: 'browser', url: 'https://console.mistral.ai/api-keys', createTexts: ['New key'], formEntryTexts: ['Add a new key', 'Create new key'], formEntryOptional: true, formEntryWaitAttempts: 5, formReadyAttempts: 8, nameSelectors: ['[role="dialog"] input[placeholder="My API Key"]', '[role="dialog"] input[name="name"]', '[role="dialog"] input[placeholder*="name" i]', 'input[placeholder="My API Key"]'], confirmTexts: ['New key'], confirmSelectors: ['button[type="submit"]'], confirmAfterNameInput: true, confirmNeedsForeground: true, captureBeforeConfirm: true, allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input', '[role="dialog"] textarea', '[role="dialog"] code', '[role="dialog"] [data-clipboard-text]'], postCreateDomReadAttempts: 4, postCreateCopyTexts: ['Copy API key', 'Copy key', 'Copy'], postCreateCopyAttempts: 8, postCreateCopyRetryMs: 350, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 3, keyPatterns: ['\\b[A-Za-z0-9_-]{80,120}\\b', '\\b[A-Za-z0-9]{32}\\b'] },
   // /keys is OpenRouter's documented entry point. It redirects signed-in users
   // to their default workspace and signed-out users to the sign-in page.
   // Verified in the workspace keys screen: "New Key" opens a form whose
   // required name is #name and final submit action is "Create".
   { id: 'openrouter', label: 'OpenRouter', keyHint: 'OPENROUTER_API_KEY', groupHint: 'OpenRouter', mode: 'browser', url: 'https://openrouter.ai/keys', createTexts: ['New Key'], nameSelectors: ['input#name', 'input[placeholder*="Chatbot Key"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, keyPatterns: ['sk-or-v1-[A-Za-z0-9_-]{20,}'] },
+  // OpenCode Go keys are issued from the signed-in OpenCode workspace after a
+  // Go subscription is active. The auth route resolves the current workspace,
+  // so no workspace identifier is hard-coded here.
+  { id: 'opencode-go', label: 'OpenCode Go', keyHint: 'OPENCODE_API_KEY', groupHint: 'OpenCode Go', mode: 'browser', url: 'https://opencode.ai/auth', preNavigationTexts: ['API 密钥', 'API Keys'], createTexts: ['创建 API 密钥', 'Create API Key', 'Create API key'], nameSelectors: ['[role="dialog"] input[placeholder*="名称"]', '[role="dialog"] input[placeholder*="name" i]', '[role="dialog"] input[name*="name" i]', 'input[placeholder*="名称"]', 'input[placeholder*="name" i]'], confirmTexts: ['创建 API 密钥', 'Create API Key', 'Create API key', '创建', 'Create'], allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] code', '[role="dialog"] [data-clipboard-text]', 'input[value^="sk-"]', 'code'], postCreateCopyTexts: ['复制密钥', '复制', 'Copy API key', 'Copy key', 'Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 500, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 6, captureBeforeConfirm: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
 ];
 
 const AUTO_CREATE_PLATFORM_MAP = new Map(AUTO_CREATE_PLATFORMS.map(platform => [platform.id, platform]));
@@ -1303,6 +1393,7 @@ function keyFromText(text, platform) {
 async function clickCreateAction(platform) {
   const raw = await execJs(`(() => {
     const texts = ${JSON.stringify(platform.createTexts || [])};
+    const normalize = value => String(value || '').replace(/\\s+/g, '').toLowerCase();
     const pageText = (document.body?.innerText || '').slice(0, 16000);
     const workspaceKeys = /\\/workspaces\\/[^/]+\\/keys(?:[/?#]|$)/.test(location.pathname);
     const keyInterface = /API Keys|Create (?:API )?Key|Key Management/i.test(pageText);
@@ -1310,7 +1401,7 @@ async function clickCreateAction(platform) {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0 && !el.disabled;
     });
-    const target = candidates.find(el => texts.some(text => (el.textContent || '').trim().toLowerCase().includes(text.toLowerCase())));
+    const target = candidates.find(el => texts.some(text => normalize(el.textContent).includes(normalize(text))));
     if (!target) return JSON.stringify({
       error: 'create-not-found',
       buttons: candidates.slice(0, 12).map(el => (el.textContent || '').trim().slice(0, 40)),
@@ -1340,6 +1431,26 @@ async function createGenericBrowserKey({ tokenName, platform }) {
   if (!capStart.ok) throw new Error(capStart.error || '无法开始安全抓取');
 
   await sleep(3000);
+  // A previous attempt may have successfully created the key but failed local
+  // format validation. Recover only an OKIT-named key from this provider's
+  // credential-list response before considering another create action.
+  if (platform.recoverExistingNamedKey || platform.blockWhenExistingKeys) {
+    const recoveryRead = await sendCommand('network-capture-read', {
+      workspace: 'okit',
+      ...(tabId ? { tabId } : {}),
+    }, 10000).catch(() => ({ ok: false, data: [] }));
+    const capturedEntries = recoveryRead.ok ? (recoveryRead.data || []) : [];
+    const recovered = platform.recoverExistingNamedKey
+      ? extractNewestNamedKeyFromCaptures(recoveryRead.data || [], tokenName, platform)
+      : null;
+    if (recovered) {
+      await closeAutomationWindow();
+      return { value: recovered.key, name: recovered.name };
+    }
+    if (platform.blockWhenExistingKeys && capturesContainMistralKeyRecords(capturedEntries)) {
+      throw new Error('Mistral 当前已有 Active API Key，控制台不会再次显示其明文。请使用已保存的 Key，或先在 Mistral 撤销旧 Key 后再自动创建。');
+    }
+  }
   // A few providers expose their console from a public product page. Follow
   // only the explicitly configured, non-destructive console action first.
   if (platform.preNavigationTexts?.length) {
@@ -1398,10 +1509,10 @@ async function createGenericBrowserKey({ tokenName, platform }) {
         const style = getComputedStyle(el);
         return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none' && !el.disabled;
       };
-      const keyNode = [...document.querySelectorAll('p, span, div')]
+      const keyNode = [...document.querySelectorAll('input, textarea, p, span, div')]
         .filter(visible)
-        .map(el => ({ el, text: (el.textContent || '').trim() }))
-        .filter(item => item.text.startsWith(prefix) && item.text.indexOf('***') >= prefix.length + 5)
+        .map(el => ({ el, text: String(el.value || el.textContent || '').trim() }))
+        .filter(item => item.text.startsWith(prefix) && /(\\*{3,}|\.{3,}|…)/.test(item.text.slice(prefix.length)))
         .sort((a, b) => a.text.length - b.text.length)[0]?.el;
       let row = keyNode;
       for (let depth = 0; row && depth < 5; depth += 1, row = row.parentElement) {
@@ -1442,6 +1553,9 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       }
       throw new Error(platform.existingMaskedCopyFailureMessage || '已有 API Key，但复制控件没有返回可保存的明文');
     }
+    if (platform.existingKeyRequired) {
+      throw new Error(platform.missingExistingKeyMessage || '当前页面没有可复制的 API Key');
+    }
   }
 
   let createState = await clickCreateAction(platform);
@@ -1463,7 +1577,10 @@ async function createGenericBrowserKey({ tokenName, platform }) {
     await redirectOpenRouterToLogin();
     throw new Error('OpenRouter login required');
   }
-  if (createState.error) throw new Error(`未找到创建密钥按钮：${(createState.buttons || []).join('、') || '请确认已登录并拥有创建权限'}`);
+  if (createState.error) {
+    const actionLabel = platform.creationActionOnly ? '密钥操作按钮' : '创建密钥按钮';
+    throw new Error(`未找到${actionLabel}：${(createState.buttons || []).join('、') || '请确认已登录并拥有操作权限'}`);
+  }
 
   // Mistral's workspace action first opens the user's key-management panel;
   // enter its real form through the panel's visible "Create new key" action.
@@ -1488,7 +1605,7 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       try { formEntryState = JSON.parse(raw || '{}'); } catch { formEntryState = {}; }
       if (!formEntryState.error) break;
     }
-    if (formEntryState.error) {
+    if (formEntryState.error && !platform.formEntryOptional) {
       throw new Error(`未找到创建密钥表单入口：${(formEntryState.buttons || []).join('、') || platform.formEntryTexts.join('、')}`);
     }
     await sleep(350);
@@ -1535,7 +1652,7 @@ async function createGenericBrowserKey({ tokenName, platform }) {
   }
   // A name is optional across platforms. Populate it when the create dialog
   // exposes a conventional input; platforms that create unnamed keys continue.
-  await execJs(`(() => {
+  const nameFillResult = await execJs(`(() => {
     const selectors = ${JSON.stringify(platform.nameSelectors || [
       'input[placeholder*="名称"]',
       'input[placeholder*="Name"]',
@@ -1545,19 +1662,35 @@ async function createGenericBrowserKey({ tokenName, platform }) {
     ])};
     const scopes = [...document.querySelectorAll('[role="dialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"]'), document];
     for (const scope of scopes) {
-      const input = selectors.map(selector => scope.querySelector(selector)).find(Boolean);
+      let input = selectors.map(selector => scope.querySelector(selector)).find(Boolean);
+      if (!input && ${Boolean(platform.allowDialogTextInputFallback)}) {
+        input = [...scope.querySelectorAll('input, textarea')].find(candidate => {
+          const type = (candidate.getAttribute('type') || 'text').toLowerCase();
+          const role = (candidate.getAttribute('role') || '').toLowerCase();
+          const rect = candidate.getBoundingClientRect();
+          return !candidate.disabled && !candidate.readOnly && role !== 'combobox'
+            && ['text', ''].includes(type) && rect.width > 0 && rect.height > 0;
+        });
+      }
       if (!input || input.disabled || input.getBoundingClientRect().width === 0) continue;
       const prototype = input instanceof HTMLTextAreaElement
         ? window.HTMLTextAreaElement.prototype
         : window.HTMLInputElement.prototype;
       const setter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
+      input.focus();
       setter.call(input, ${JSON.stringify(uniqueName)});
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ${JSON.stringify(uniqueName)} }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-      return 'filled';
+      input.blur();
+      return JSON.stringify({ filled: input.value === ${JSON.stringify(uniqueName)} });
     }
-    return 'no-name-input';
-  })()`).catch(() => 'no-name-input');
+    return JSON.stringify({ filled: false, error: 'no-name-input' });
+  })()`).catch(() => '{"filled":false,"error":"fill-failed"}');
+  let nameFillState = {};
+  try { nameFillState = JSON.parse(nameFillResult || '{}'); } catch {}
+  if (platform.requireNameInput && !nameFillState.filled) {
+    throw new Error('Anthropic 创建框的密钥名称输入框未识别，尚未提交创建');
+  }
 
   // Do not misreport a disabled platform prerequisite as a failed click or a
   // possibly-created key. These are explicitly verified, non-secret messages
@@ -1577,38 +1710,44 @@ async function createGenericBrowserKey({ tokenName, platform }) {
   // 选第一个选项(通常是 "No expiration" 或 "1 year")。
   if (platform.preConfirmSelectDefaults?.length) {
     for (const selectConfig of platform.preConfirmSelectDefaults) {
-      await execJs(`(() => {
-        const triggerText = ${JSON.stringify(selectConfig.triggerText || '')};
+      const openSelectResult = await execJs(`(() => {
+        const triggerTexts = ${JSON.stringify(selectConfig.triggerTexts || [selectConfig.triggerText || ''])}.filter(Boolean);
         const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-        // 找到包含 triggerText 的下拉触发器
+        // Find the currently selected expiration trigger. Anthropic's current
+        // Console renders the default preset itself (for example "3 hours")
+        // instead of the former "Select an expiration" placeholder.
         const triggers = [...document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"]')]
           .filter(visible).concat([document]);
         let trigger = null;
         for (const scope of triggers) {
           const candidates = [...scope.querySelectorAll('button, [role="combobox"], [role="button"], select')]
             .filter(visible)
-            .filter(el => (el.textContent || '').includes(triggerText) || el.getAttribute('aria-label')?.includes(triggerText));
+            .filter(el => triggerTexts.some(text => (el.textContent || '').includes(text) || el.getAttribute('aria-label')?.includes(text)));
           if (candidates.length) { trigger = candidates[0]; break; }
         }
-        if (!trigger) return JSON.stringify({ error: 'select-trigger-not-found', triggerText });
+        if (!trigger) return JSON.stringify({ error: 'select-trigger-not-found', triggerTexts });
         // 打开下拉
         trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
         trigger.click();
         return JSON.stringify({ ok: true });
-      })()`).catch(() => '{}');
+      })()`).catch(() => '{"error":"select-open-failed"}');
+      let openSelectState = {};
+      try { openSelectState = JSON.parse(openSelectResult || '{}'); } catch {}
+      if (openSelectState.error && !selectConfig.optional) {
+        throw new Error('未找到密钥过期时间选择框');
+      }
+      if (openSelectState.error) continue;
       await sleep(400);
-      // 选第一个选项
-      await execJs(`(() => {
+      const chooseOptionResult = await execJs(`(() => {
         const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-        const optionText = ${JSON.stringify(selectConfig.optionText || '')};
-        // 先尝试精确匹配 optionText,否则选第一个可见选项
+        const optionTexts = ${JSON.stringify(selectConfig.optionTexts || [selectConfig.optionText || ''])}.filter(Boolean);
         let option = null;
-        if (optionText) {
+        if (optionTexts.length) {
           option = [...document.querySelectorAll('[role="option"], li[role="option"], [role="menuitem"]')]
             .filter(visible)
-            .find(el => (el.textContent || '').trim().toLowerCase().includes(optionText.toLowerCase()));
+            .find(el => optionTexts.some(text => (el.textContent || '').trim().toLowerCase().includes(text.toLowerCase())));
         }
-        if (!option) {
+        if (!option && !optionTexts.length) {
           option = [...document.querySelectorAll('[role="option"], li[role="option"], [role="menuitem"]')]
             .filter(visible)[0];
         }
@@ -1616,7 +1755,12 @@ async function createGenericBrowserKey({ tokenName, platform }) {
         option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
         option.click();
         return JSON.stringify({ ok: true });
-      })()`).catch(() => '{}');
+      })()`).catch(() => '{"error":"option-select-failed"}');
+      let chooseOptionState = {};
+      try { chooseOptionState = JSON.parse(chooseOptionResult || '{}'); } catch {}
+      if (chooseOptionState.error && !selectConfig.optional) {
+        throw new Error('未找到期望的密钥过期时间选项');
+      }
       await sleep(300);
     }
   }
@@ -1691,22 +1835,95 @@ async function createGenericBrowserKey({ tokenName, platform }) {
     await sleep(300);
   }
 
-  await sleep(500);
-  if (!platform.creationActionOnly) {
+	  await sleep(500);
+	  if (platform.captureBeforeConfirm) {
+	    await execJs(`(() => {
+	      if (window.__okitPreConfirmCapture?.armed) return 'already-armed';
+	      const state = window.__okitPreConfirmCapture = { armed: true, clipboard: '', dom: [], responses: [] };
+	      const rememberDom = value => {
+	        const text = String(value || '');
+	        if (text && !state.dom.includes(text)) state.dom.push(text.slice(0, 20000));
+	        if (state.dom.length > 30) state.dom.shift();
+	      };
+	      const scan = () => {
+	        const root = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], [class*="dialog"], [class*="modal"]')]
+	          .find(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+	        if (!root) return;
+	        for (const el of root.querySelectorAll('input, textarea, code, [data-clipboard-text], [data-key]')) {
+	          rememberDom(el.value || el.getAttribute('data-clipboard-text') || el.getAttribute('data-key') || el.textContent || '');
+	        }
+	        rememberDom(root.innerText || '');
+	      };
+	      state.timer = setInterval(scan, 40);
+	      setTimeout(() => clearInterval(state.timer), 15000);
+	      try {
+	        if (navigator.clipboard?.writeText) {
+	          const original = navigator.clipboard.writeText.bind(navigator.clipboard);
+	          const wrapped = text => { state.clipboard = String(text || ''); return original(text); };
+	          try { Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: wrapped }); } catch {}
+	        }
+	      } catch {}
+	      try {
+	        const originalFetch = window.fetch.bind(window);
+	        window.fetch = async (...args) => {
+	          const response = await originalFetch(...args);
+	          const request = args[0];
+	          const url = typeof request === 'string' ? request : (request?.url || '');
+	          const method = String(args[1]?.method || request?.method || 'GET').toUpperCase();
+	          response.clone().text().then(body => {
+	            state.responses.push({ url, method, status: response.status, body: body.slice(0, 250000) });
+	          }).catch(() => {});
+	          return response;
+	        };
+	      } catch {}
+	      try {
+	        const originalOpen = XMLHttpRequest.prototype.open;
+	        const originalSend = XMLHttpRequest.prototype.send;
+	        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+	          this.__okitMethod = String(method || 'GET').toUpperCase();
+	          this.__okitUrl = String(url || '');
+	          return originalOpen.call(this, method, url, ...rest);
+	        };
+	        XMLHttpRequest.prototype.send = function(...args) {
+	          this.addEventListener('load', () => {
+	            let body = '';
+	            try { body = this.responseType === '' || this.responseType === 'text' ? this.responseText : ''; } catch {}
+	            state.responses.push({ url: this.__okitUrl || '', method: this.__okitMethod || 'GET', status: this.status, body: body.slice(0, 250000) });
+	          }, { once: true });
+	          return originalSend.apply(this, args);
+	        };
+	      } catch {}
+	      scan();
+	      return 'armed';
+	    })()`).catch(() => 'capture-arm-failed');
+	  }
+	  if (!platform.creationActionOnly) {
     const confirmResult = await execJs(`(() => {
-    const confirmTexts = ${JSON.stringify(platform.confirmTexts || ['确定', '确认', '创建', '保存', 'Create', 'Confirm', 'Save', 'Generate'])};
-    const createTexts = ${JSON.stringify(platform.createTexts || [])};
-    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
-    const scope = document.querySelector(dialogSelectors);
-    const visibleButtons = (root) => [...root.querySelectorAll('button, [role="button"]')].filter(el => {
-      const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !el.disabled;
+	    const confirmTexts = ${JSON.stringify(platform.confirmTexts || ['确定', '确认', '创建', '保存', 'Create', 'Confirm', 'Save', 'Generate'])};
+	    const createTexts = ${JSON.stringify(platform.createTexts || [])};
+	    const confirmSelectors = ${JSON.stringify(platform.confirmSelectors || [])};
+	    const nameSelectors = ${JSON.stringify(platform.nameSelectors || [])};
+	    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
+	    const visible = el => {
+	      const r = el?.getBoundingClientRect?.();
+	      const style = el ? getComputedStyle(el) : null;
+	      return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
+	    };
+	    const nameInput = nameSelectors.map(selector => document.querySelector(selector)).find(visible);
+	    const formScope = nameInput?.closest('form');
+	    const scope = formScope
+	      || nameInput?.closest(dialogSelectors)
+	      || [...document.querySelectorAll(dialogSelectors)].find(visible)
+	      || document;
+	    const visibleButtons = (root) => [...root.querySelectorAll('button, [role="button"]')].filter(el => {
+	      return visible(el) && !el.disabled;
     });
     // 优先在弹窗内找确认按钮(避免匹配到列表页的创建按钮)。
     // 弹窗没找到时才搜全页面作为 fallback。
     const scopedCandidates = scope ? visibleButtons(scope) : [];
     const allCandidates = visibleButtons(document);
     const candidates = scopedCandidates.length ? scopedCandidates : allCandidates;
-    const target = candidates.find(el => {
+	    const matchingCandidates = candidates.filter(el => {
       const label = (el.textContent || '').trim();
       // Ant Design may render Chinese labels with layout whitespace, e.g.
       // "确 定" instead of "确定". Match by the visible words, not spacing.
@@ -1715,7 +1932,18 @@ async function createGenericBrowserKey({ tokenName, platform }) {
         const normalizedText = text.replace(/\\s+/g, '').toLowerCase();
         return normalizedLabel === normalizedText || normalizedLabel.includes(normalizedText);
       }) && (${Boolean(platform.allowConfirmCreateText)} || !createTexts.some(text => normalizedLabel.includes(text.replace(/\\s+/g, '').toLowerCase())));
-    });
+	    });
+	    const selectorTarget = confirmSelectors
+	      .map(selector => scope.querySelector(selector))
+	      .find(el => visible(el) && !el.disabled);
+	    let target = selectorTarget || matchingCandidates[0];
+    if (${Boolean(platform.confirmAfterNameInput)} && nameInput && matchingCandidates.length > 1) {
+      const inputRect = nameInput.getBoundingClientRect();
+      const belowInput = matchingCandidates
+        .filter(el => el.getBoundingClientRect().top >= inputRect.bottom - 4)
+        .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
+      target = belowInput[0] || matchingCandidates[matchingCandidates.length - 1];
+    }
     if (!target) {
       // 诊断:列出每个按钮的 normalized 文本和匹配结果
       const diag = candidates.map(el => {
@@ -1727,15 +1955,44 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       }).filter(d => d.matchedConfirm || d.blockedByCreate);
       return JSON.stringify({ error: 'confirm-not-found', buttons: candidates.map(el => (el.textContent || '').trim().slice(0, 40)), diag });
     }
-    target.click();
-    return JSON.stringify({ ok: true });
-  })()`);
-  let confirmState = {};
-  try { confirmState = JSON.parse(confirmResult || '{}'); } catch {}
-    if (confirmState.error) throw new Error(`创建对话框需要补充项目、计费或权限设置后再确认：${(confirmState.buttons || []).join('、')}`);
-  }
+	    if (${Boolean(platform.confirmNeedsForeground)}) {
+	      const rect = target.getBoundingClientRect();
+	      return JSON.stringify({ ok: true, foreground: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+	    }
+	    target.click();
+	    return JSON.stringify({ ok: true, foreground: false });
+	  })()`);
+	  let confirmState = {};
+	  try { confirmState = JSON.parse(confirmResult || '{}'); } catch {}
+	    if (confirmState.error) throw new Error(`创建对话框需要补充项目、计费或权限设置后再确认：${(confirmState.buttons || []).join('、')}`);
+	    if (confirmState.foreground) {
+	      const clicked = await foregroundClick({ x: confirmState.x, y: confirmState.y, tabId });
+	      if (!clicked) throw new Error('无法点击创建对话框中的确认按钮');
+	    }
+	  }
 
-  // Some consoles (including Mistral) put the one-time secret directly into
+	  if (platform.captureBeforeConfirm) {
+	    await sleep(300);
+	    const preCaptureRaw = await execJs(`(() => JSON.stringify(window.__okitPreConfirmCapture || {}))()`).catch(() => '{}');
+	    let preCapture = {};
+	    try { preCapture = JSON.parse(preCaptureRaw || '{}'); } catch {}
+	    const clipboardKey = keyFromText(preCapture.clipboard || '', platform);
+	    const domKey = keyFromText((preCapture.dom || []).join('\n'), platform);
+	    const responseEntries = (preCapture.responses || []).map(item => ({
+	      url: item.url,
+	      method: item.method,
+	      responseStatus: item.status,
+	      responsePreview: item.body,
+	    }));
+	    const responseKey = keyFromText(extractKeyFromCaptures(responseEntries, platform.id), platform);
+	    const capturedKey = clipboardKey || responseKey || domKey;
+	    if (capturedKey) {
+	      await closeAutomationWindow();
+	      return { value: capturedKey, name: uniqueName };
+	    }
+	  }
+
+	  // Some consoles (including Mistral) put the one-time secret directly into
   // an input in their success dialog. Read that short-lived field before the
   // potentially slow full network-capture read; otherwise the dialog can be
   // gone before we inspect its value.
@@ -1937,7 +2194,12 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       } else {
         copyAction = [...document.querySelectorAll('button, a, [role="button"]')]
           .filter(visible)
-          .find(el => texts.some(text => (el.textContent || '').trim().toLowerCase() === text.toLowerCase()));
+          .sort((a, b) => Number(Boolean(b.closest('[role="dialog"], [role="alertdialog"]'))) - Number(Boolean(a.closest('[role="dialog"], [role="alertdialog"]'))))
+          .find(el => {
+            const label = [el.textContent, el.getAttribute('aria-label'), el.getAttribute('title')]
+              .filter(Boolean).join(' ').trim().toLowerCase();
+            return texts.some(text => label === text.toLowerCase() || label.includes(text.toLowerCase()));
+          });
       }
       if (!copyAction || !visible(copyAction)) {
         return JSON.stringify({ clicked: false, rowFound: Boolean(rowCopySelector && [...document.querySelectorAll('tr')].some(row => (row.innerText || '').includes(createdName))) });
@@ -2133,8 +2395,16 @@ async function createGenericBrowserKey({ tokenName, platform }) {
   // DOM 诊断:把当前页面的按钮、弹窗、URL 信息输出到错误信息里
   const diag = await execJs(`(() => {
     const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const keyPatterns = ${JSON.stringify(platform.keyPatterns || [])};
+    const redact = value => {
+      let text = String(value || '');
+      for (const source of keyPatterns) {
+        try { text = text.replace(new RegExp(source, 'g'), '[REDACTED]'); } catch {}
+      }
+      return text;
+    };
     const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible).map(el => (el.textContent || '').trim().slice(0, 50)).filter(Boolean).slice(0, 20);
-    const dialogs = [...document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"]')].filter(visible).map(el => (el.textContent || '').trim().slice(0, 200));
+    const dialogs = [...document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"]')].filter(visible).map(el => redact((el.textContent || '').trim()).slice(0, 200));
     const inputs = [...document.querySelectorAll('input')].filter(visible).map(el => ({ type: el.type, placeholder: el.placeholder, value: el.value ? '(has value)' : '(empty)' })).slice(0, 10);
     return JSON.stringify({ url: location.href.slice(-80), title: document.title.slice(0, 60), buttons, dialogs, inputs });
   })()`).catch(() => '{}');
@@ -2145,6 +2415,7 @@ async function createBrowserPlatformKey(platform, tokenName) {
   const ORCHESTRATORS = {
     zhipu: createZhipuKey,
     volcengine: createVolcengineKey,
+    'volcengine-agent': (params) => createVolcengineKey({ ...params, url: VOLC_AGENT_PLAN_URL }),
     minimax: createMinimaxKey,
   };
   const orchestrator = ORCHESTRATORS[platform.id]

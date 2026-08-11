@@ -5,13 +5,16 @@ import { useI18n } from '../../i18n';
 
 // Display metadata for known supported providers (icon + human-readable name).
 const PROVIDER_META: Record<string, { name: string; type: string }> = {
-  'openai-codex': { name: 'Codex (ChatGPT)', type: 'OAuth 订阅' },
-  'anthropic': { name: 'Claude Code', type: 'OAuth 订阅' },
-  'glm-coding': { name: 'GLM Coding Plan', type: '订阅制' },
-  'kimi-coding-plan': { name: 'Kimi Coding Plan', type: '订阅制' },
-  'minimax-coding': { name: 'MiniMax Token Plan', type: '订阅制' },
+  'openai-codex': { name: 'Codex (ChatGPT)', type: 'Agent 订阅' },
+  'anthropic-agent': { name: 'Claude Code', type: 'Agent 订阅' },
+  'google-agent': { name: 'Gemini CLI', type: 'Agent 订阅' },
+  'xai-grok-build': { name: 'Grok', type: 'Agent 订阅' },
+  'github-copilot': { name: 'GitHub Copilot', type: 'Agent 订阅' },
+  'glm-coding': { name: 'GLM Coding Plan', type: 'Coding Plan' },
+  'kimi-coding-plan': { name: 'Kimi Coding Plan', type: 'Coding Plan' },
+  'minimax-coding': { name: 'MiniMax Token Plan', type: 'Token Plan' },
   'openrouter': { name: 'OpenRouter', type: '充值制' },
-  'volcengine-coding': { name: '火山引擎 Coding Plan', type: '订阅制' },
+  'volcengine-coding': { name: '火山引擎 Coding Plan', type: 'Coding Plan' },
 };
 
 export default function UsagePage() {
@@ -164,6 +167,7 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
 }) {
   const hasData = usage?.supported && (usage.windows?.length || 0) > 0;
   const hasError = usage?.error;
+  const hasNotice = usage?.notice;
 
   // Compute overall status for card border color.
   const maxPct = usage?.windows?.reduce((max, w) => {
@@ -198,6 +202,9 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
         {hasError && !fetching && (
           <div className="usage-card-error">{usage!.error}</div>
         )}
+        {hasNotice && !fetching && (
+          <div className="usage-card-empty">{usage!.notice}</div>
+        )}
         {hasData && !fetching && (
           <div className="usage-card-windows">
             {usage!.windows!.map((w, i) => (
@@ -205,7 +212,7 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
             ))}
           </div>
         )}
-        {!hasData && !hasError && !fetching && (
+        {!hasData && !hasError && !hasNotice && !fetching && (
           <div className="usage-card-empty">{t('usage.empty')}</div>
         )}
       </div>

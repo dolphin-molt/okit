@@ -123,7 +123,10 @@ function createServer(port = 3780) {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.sendFile(path.join(publicDir, 'index.html'));
+    // Pass the public directory as `root` instead of sending one absolute
+    // path. The `send` package treats dot-prefixed segments in an absolute
+    // workspace path (for example `.codex`) as hidden files and returns 404.
+    res.sendFile('index.html', { root: publicDir });
   });
 
   return app;

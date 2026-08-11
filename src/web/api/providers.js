@@ -18,19 +18,27 @@ const USER_CONFIG_PATH = path.join(OKIT_DIR, 'user.json');
 // output. This eliminates the hand-maintained JS copy of 28 provider presets.
 // Try dist/ first (production), then fall back to src compiled output.
 let _presets, _metadata;
+let _platforms;
 try {
   _presets = require('../../../providers/presets');
   _metadata = require('../../../providers/metadata');
+  _platforms = require('../../../providers/platforms');
 } catch {
   // Fallback for dev mode where dist/ may not be in the expected relative position
   _presets = require('../../../dist/providers/presets');
   _metadata = require('../../../dist/providers/metadata');
+  _platforms = require('../../../dist/providers/platforms');
 }
 
 const PRESET_PROVIDERS = _presets.PRESET_PROVIDERS;
+const buildPlatforms = _platforms.buildPlatforms;
 const RETIRED_PRESET_PROVIDER_IDS = _metadata.RETIRED_PRESET_PROVIDER_IDS;
 const PRESET_BASE_URL_MIGRATIONS = _metadata.PRESET_BASE_URL_MIGRATIONS;
 const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = _metadata.PRESET_ENDPOINT_BASE_URL_MIGRATIONS;
+const PRESET_AUTH_MODE_MIGRATIONS = _metadata.PRESET_AUTH_MODE_MIGRATIONS;
+const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
+  ['opencode-go', { from: ['go', 'agent'], to: 'coding' }],
+]);
 
 async function loadProviders() {
   if (!(await fs.pathExists(PROVIDERS_PATH))) {
@@ -42,6 +50,15 @@ async function loadProviders() {
     const data = JSON.parse(content);
     const sourceProviders = Array.isArray(data.providers) ? data.providers : [];
     const providers = sourceProviders.filter(p => !RETIRED_PRESET_PROVIDER_IDS.has(p.id));
+    const codexProvider = providers.find(p => p.id === 'openai-codex');
+    if (codexProvider) {
+      try {
+        const cachedModels = await readCodexCachedModels();
+        if (cachedModels.length > 0) codexProvider.models = cachedModels;
+      } catch {
+        // Keep the persisted list until Codex has produced a local model cache.
+      }
+    }
 
     // Merge new presets: add missing ones, update name changes, and apply
     // narrowly-scoped endpoint migrations for known broken built-in defaults.
@@ -84,6 +101,23 @@ async function loadProviders() {
             return endpoint;
           });
           if (endpointChanged) changed = true;
+        }
+        const planMigration = PRESET_ENDPOINT_PLAN_MIGRATIONS.get(preset.id);
+        if (planMigration && Array.isArray(existing.endpoints)) {
+          let endpointChanged = false;
+          existing.endpoints = existing.endpoints.map(endpoint => {
+            if (endpoint?.plan && planMigration.from.includes(endpoint.plan)) {
+              endpointChanged = true;
+              return { ...endpoint, plan: planMigration.to };
+            }
+            return endpoint;
+          });
+          if (endpointChanged) changed = true;
+        }
+        const authModeMigration = PRESET_AUTH_MODE_MIGRATIONS.get(preset.id);
+        if (authModeMigration && existing.authMode === authModeMigration.from) {
+          existing.authMode = authModeMigration.to;
+          changed = true;
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
@@ -133,7 +167,7 @@ async function loadProviders() {
 async function saveProviders(providers) {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData('providers');
-  await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers }, null, 2));
+  await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, platforms: buildPlatforms(providers) }, null, 2));
 }
 
 async function loadUserConfig() {
@@ -163,6 +197,7 @@ const ADAPTERS = [
 ];
 
 function adapterSupportsProvider(adapter, provider) {
+  if (provider.cliOnly) return false;
   const providerTypes = provider.endpoints?.map(e => e.type) || [provider.type];
   return providerTypes.some(type => adapter.supportedTypes.includes(type));
 }
@@ -183,7 +218,7 @@ async function listProviders(req, res) {
       };
     });
 
-    res.json({ providers: result });
+    res.json({ providers: result, platforms: buildPlatforms(result) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -866,16 +901,18 @@ async function triggerOAuthLogin(req, res) {
 
   // Platform-specific OAuth URLs and CLI commands
   const entries = {
-    anthropic: { name: 'Claude Code', url: 'https://console.anthropic.com/', cli: 'claude', cliArgs: ['login'] },
+    anthropic: { name: 'Claude Code', cli: 'claude', cliArgs: ['auth', 'login', '--claudeai'] },
+    'anthropic-agent': { name: 'Claude Code', cli: 'claude', cliArgs: ['auth', 'login', '--claudeai'] },
     'openai-codex': { name: 'ChatGPT', url: 'https://chatgpt.com/', cli: 'codex', cliArgs: ['auth', 'login'] },
+    'google-agent': { name: 'Gemini CLI', cli: 'gemini', cliArgs: [] },
+    'xai-grok-build': { name: 'Grok Build', cli: 'grok', cliArgs: ['login'] },
+    'github-copilot': { name: 'GitHub Copilot', cli: 'copilot', cliArgs: ['login'] },
   };
 
   const entry = entries[providerId];
   if (!entry) {
     return res.status(400).json({ error: `${providerId} 不支持 OAuth 登录` });
   }
-
-  const { spawn } = require('child_process');
 
   // Try CLI login first (if installed), fall back to opening URL.
   // safe: cliArgs comes from the hardcoded `entries` registry above, not user input.
@@ -885,16 +922,29 @@ async function triggerOAuthLogin(req, res) {
     if (!Array.isArray(entry.cliArgs) || entry.cliArgs.some(a => typeof a !== 'string')) {
       return res.status(500).json({ error: 'invalid cliArgs' });
     }
-    const child = spawn(cliPath, entry.cliArgs, {
-      detached: true,
-      stdio: 'ignore',
-      env: { ...process.env, FORCE_COLOR: '0', CI: '1' },
+    const launched = launchInteractiveCli(platform, cliPath, entry.cliArgs);
+    if (!launched) {
+      return res.status(500).json({
+        error: `无法打开交互式终端，请手动运行：${entry.cli} ${entry.cliArgs.join(' ')}`,
+      });
+    }
+    return res.json({
+      success: true,
+      message: `已在终端打开 ${entry.name} OAuth 登录`,
     });
-    child.unref();
-    child.on('error', () => {});
   }
 
-  // Also open the platform console in browser as a fallback.
+  // A normal web login cannot create local CLI credentials. Providers without
+  // a browser-only fallback must tell the user which CLI login to run instead
+  // of opening an unrelated account console.
+  if (!entry.url) {
+    return res.status(400).json({
+      error: `未检测到 ${entry.name} CLI，请先安装 ${entry.cli}，再运行：${entry.cli} ${entry.cliArgs.join(' ')}`,
+    });
+  }
+
+  // Browser-only fallback for providers whose login can complete without a
+  // local CLI callback.
   // Validate the URL scheme before spawning to prevent injection via crafted URLs.
   const url = entry.url;
   if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {
@@ -910,6 +960,50 @@ async function triggerOAuthLogin(req, res) {
   }
 
   res.json({ success: true, message: `已打开 ${entry.name} 控制台，完成登录后刷新状态` });
+}
+
+function launchInteractiveCli(platform, cliPath, args) {
+  const { spawn } = require('child_process');
+  const env = { ...process.env, FORCE_COLOR: '1' };
+
+  if (platform === 'darwin') {
+    const quote = value => `'${String(value).replace(/'/g, `'\\''`)}'`;
+    const command = [cliPath, ...args].map(quote).join(' ');
+    const child = spawn('/usr/bin/osascript', [
+      '-e', 'tell application "Terminal" to activate',
+      '-e', `tell application "Terminal" to do script ${JSON.stringify(command)}`,
+    ], { detached: true, stdio: 'ignore', env });
+    child.unref();
+    return true;
+  }
+
+  if (platform === 'win32') {
+    const child = spawn('cmd.exe', ['/c', 'start', '', cliPath, ...args], {
+      detached: true,
+      stdio: 'ignore',
+      env,
+    });
+    child.unref();
+    return true;
+  }
+
+  const terminalCandidates = [
+    { command: 'x-terminal-emulator', args: ['-e'] },
+    { command: 'gnome-terminal', args: ['--'] },
+    { command: 'konsole', args: ['-e'] },
+  ];
+  for (const terminal of terminalCandidates) {
+    const terminalPath = findCommand(terminal.command);
+    if (!terminalPath) continue;
+    const child = spawn(terminalPath, [...terminal.args, cliPath, ...args], {
+      detached: true,
+      stdio: 'ignore',
+      env,
+    });
+    child.unref();
+    return true;
+  }
+  return false;
 }
 
 function findCommand(cmd) {
@@ -940,7 +1034,8 @@ async function detectOAuth(providerId) {
 
   try {
     switch (providerId) {
-      case 'anthropic': {
+      case 'anthropic':
+      case 'anthropic-agent': {
         const credPath = path.join(home, '.claude', '.credentials.json');
         if (!fs.existsSync(credPath)) return false;
         const data = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
@@ -965,11 +1060,126 @@ async function detectOAuth(providerId) {
         const accounts = JSON.parse(result.stdout);
         return Array.isArray(accounts) && accounts.some(a => a.status === 'ACTIVE');
       }
+      case 'google-agent': {
+        const geminiDir = path.join(home, '.gemini');
+        return ['oauth_creds.json', 'google_accounts.json']
+          .some(file => fs.existsSync(path.join(geminiDir, file)));
+      }
+      case 'xai-grok-build': {
+        const authPath = path.join(home, '.grok', 'auth.json');
+        if (!fs.existsSync(authPath)) return false;
+        const data = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
+        const credentials = [data, ...Object.values(data || {})]
+          .filter(value => value && typeof value === 'object' && !Array.isArray(value));
+        return credentials.some(credential => !!(
+          credential.key
+          || credential.refresh_token
+          || credential.access_token
+          || credential.accessToken
+          || credential.tokens?.access_token
+        ));
+      }
+      case 'github-copilot': {
+        if (process.env.COPILOT_GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN) return true;
+        if (os.platform() === 'darwin') {
+          const { spawnSync } = require('child_process');
+          const result = spawnSync('security', ['find-generic-password', '-s', 'copilot-cli'], {
+            stdio: 'ignore',
+            timeout: 5000,
+          });
+          if (result.status === 0) return true;
+        }
+        for (const filename of ['auth.json', 'config.json']) {
+          const credentialPath = path.join(home, '.copilot', filename);
+          if (!fs.existsSync(credentialPath)) continue;
+          const data = JSON.parse(fs.readFileSync(credentialPath, 'utf-8'));
+          if (data.access_token || data.accessToken || data.oauth_token || data.token) return true;
+        }
+        return false;
+      }
       default:
         return null;
     }
   } catch {
     return false;
+  }
+}
+
+async function readCodexCachedModels() {
+  const cachePath = path.join(os.homedir(), '.codex', 'models_cache.json');
+  if (!(await fs.pathExists(cachePath))) {
+    throw new Error('未找到 Codex 模型缓存，请先完成 OAuth 登录并启动一次 Codex');
+  }
+
+  let cache;
+  try {
+    cache = JSON.parse(await fs.readFile(cachePath, 'utf-8'));
+  } catch {
+    throw new Error('Codex 模型缓存无法读取');
+  }
+
+  const entries = Array.isArray(cache) ? cache : cache.models;
+  if (!Array.isArray(entries)) throw new Error('Codex 模型缓存格式无效');
+
+  const models = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    const id = typeof entry === 'string' ? entry : (entry?.slug || entry?.id);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    models.push({
+      id,
+      name: typeof entry === 'string' ? entry : (entry.display_name || entry.name || id),
+    });
+  }
+  if (models.length === 0) throw new Error('Codex 模型缓存中没有可用模型');
+  return models;
+}
+
+async function readGrokCliModels() {
+  const cliPath = findCommand('grok');
+  if (!cliPath) throw new Error('未检测到 Grok Build CLI，请先安装 Grok Build');
+  const { spawnSync } = require('child_process');
+  const result = spawnSync(cliPath, ['models'], {
+    encoding: 'utf-8',
+    timeout: 15000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.status !== 0) throw new Error((result.stderr || '').trim() || 'Grok 模型列表读取失败');
+  const marker = 'Available models:';
+  const output = String(result.stdout || '');
+  const lines = output.includes(marker) ? output.slice(output.indexOf(marker) + marker.length).split(/\r?\n/) : [];
+  const models = lines.map(line => {
+    const match = line.match(/^\s*[*-]\s+([^\s(]+)/);
+    return match ? { id: match[1], name: match[1] } : null;
+  }).filter(Boolean);
+  if (!models.length) throw new Error('Grok CLI 没有返回可用模型，请先完成 grok login');
+  return models;
+}
+
+async function readCopilotCliModels() {
+  const cliPath = findCommand('copilot');
+  if (!cliPath) throw new Error('未检测到 GitHub Copilot CLI，请先安装 Copilot CLI');
+
+  const { CopilotClient, RuntimeConnection } = await import('@github/copilot-sdk');
+  const client = new CopilotClient({
+    connection: RuntimeConnection.forStdio({ path: cliPath }),
+    useLoggedInUser: true,
+    workingDirectory: process.cwd(),
+    logLevel: 'error',
+  });
+
+  try {
+    await client.start();
+    const entries = await client.listModels();
+    const seen = new Set();
+    const models = entries
+      .filter(entry => entry?.id && !seen.has(entry.id) && seen.add(entry.id))
+      .map(entry => ({ id: entry.id, name: entry.name || entry.label || entry.id }));
+    if (models.length === 0) throw new Error('Copilot 当前账号没有返回可用模型');
+    return models;
+  } finally {
+    await client.stop().catch(() => client.forceStop());
   }
 }
 
@@ -982,6 +1192,32 @@ async function fetchModels(req, res) {
     const providers = await loadProviders();
     const p = providerId ? providers.find(x => x.id === providerId) : undefined;
     if (!p && !previewConfig) return res.status(404).json({ error: 'Provider 不存在' });
+
+    if (p?.id === 'openai-codex' && !previewConfig) {
+      const models = await readCodexCachedModels();
+      p.models = models;
+      await backupImportantData('providers');
+      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      return res.json({ success: true, models });
+    }
+
+    if (p?.id === 'xai-grok-build' && !previewConfig) {
+      if (!(await detectOAuth(p.id))) throw new Error('请先完成 Grok Build 登录');
+      const models = await readGrokCliModels();
+      p.models = models;
+      await backupImportantData('providers');
+      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      return res.json({ success: true, models });
+    }
+
+    if (p?.id === 'github-copilot' && !previewConfig) {
+      if (!(await detectOAuth(p.id))) throw new Error('请先完成 GitHub Copilot 登录');
+      const models = await readCopilotCliModels();
+      p.models = models;
+      await backupImportantData('providers');
+      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      return res.json({ success: true, models });
+    }
 
     const apiKey = previewConfig
       ? (requestedVaultKey ? await resolveVaultKey(requestedVaultKey) : undefined)

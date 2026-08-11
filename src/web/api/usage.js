@@ -26,7 +26,10 @@ const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
 // Providers we can query. Keyed by provider preset id.
 const SUPPORTED = new Set([
   'openai-codex',    // Codex (ChatGPT subscription)
-  'anthropic',       // Claude Code (Pro/Max subscription) — only when OAuth
+  'anthropic-agent', // Claude Code Agent subscription (Pro/Max)
+  'google-agent',    // Gemini CLI subscription/free entitlement (CLI-only stats)
+  'xai-grok-build',  // Grok subscription (console-only stats)
+  'github-copilot',  // GitHub Copilot subscription (GitHub billing stats)
   'glm-coding',      // GLM Coding Plan
   'kimi-coding-plan',// Kimi Coding Plan
   'minimax-coding',  // MiniMax Token Plan
@@ -450,8 +453,35 @@ async function queryUsage(providerId) {
   }
 
   // Claude subscription uses OAuth, not the vault key.
-  if (providerId === 'anthropic') {
+  if (providerId === 'anthropic' || providerId === 'anthropic-agent') {
     return queryClaudeUsage(provider);
+  }
+
+  if (providerId === 'google-agent') {
+    return {
+      supported: true,
+      windows: [],
+      source: 'cli',
+      notice: 'Gemini CLI 未提供可供 OKIT 后台读取的账户用量接口。请在 Gemini CLI 会话中运行 /stats model 查看当前会话用量和适用配额。',
+    };
+  }
+
+  if (providerId === 'github-copilot') {
+    return {
+      supported: true,
+      windows: [],
+      source: 'console',
+      notice: 'GitHub Copilot 订阅用量请在 GitHub Billing and licensing 或 Copilot 客户端的配额页面查看。当前没有可复用的个人订阅用量接口。',
+    };
+  }
+
+  if (providerId === 'xai-grok-build') {
+    return {
+      supported: true,
+      windows: [],
+      source: 'console',
+      notice: 'Grok/X 订阅目前没有公开稳定的用量查询接口，请在 Grok 或 X 账户的订阅页面查看。',
+    };
   }
 
   // Volcengine Coding Plan needs AK/SK (control-plane SigV4), not the inference key.

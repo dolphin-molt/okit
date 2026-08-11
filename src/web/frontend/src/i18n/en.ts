@@ -231,7 +231,9 @@ export default {
   'models.dimModality': 'Modality',
   'models.planCoding': 'Coding Plan',
   'models.planToken': 'Token Plan',
+  'models.planAgentSubscription': 'Agent Subscription',
   'models.planAgent': 'Agent Plan',
+  'models.planGo': 'Go Plan',
   'models.planApiOnly': 'API only',
   'models.modText': 'Text',
   'models.modImage': 'Image',
@@ -705,6 +707,9 @@ export default {
   'provider.tencent-coding': 'Tencent Cloud Coding Plan',
   'provider.xiaomi-coding': 'Xiaomi MiMo Token Plan',
   'provider.xai': 'xAI',
+  'provider.xai-grok-build': 'Grok Build',
+  'provider.github-copilot': 'GitHub Copilot',
+  'provider.opencode-go': 'OpenCode Go',
   'provider.mistral': 'Mistral',
 
   // Usage

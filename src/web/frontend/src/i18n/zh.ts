@@ -231,7 +231,9 @@ export default {
   'models.dimModality': '模态',
   'models.planCoding': 'Coding Plan',
   'models.planToken': 'Token Plan',
+  'models.planAgentSubscription': 'Agent 订阅',
   'models.planAgent': 'Agent Plan',
+  'models.planGo': 'Go Plan',
   'models.planApiOnly': '仅 API',
   'models.modText': '文本',
   'models.modImage': '图像',
@@ -694,7 +696,7 @@ export default {
   'provider.ollama': 'Ollama',
   'provider.lmstudio': 'LM Studio',
   'provider.cohere': 'Cohere',
-  'provider.qwen': '通义千问 (Qwen)',
+  'provider.qwen': '阿里云百炼',
   'provider.stepfun': '阶跃星辰 (StepFun)',
   'provider.litellm': 'LiteLLM (本地)',
   'provider.kimi-coding': 'Kimi',
@@ -705,6 +707,9 @@ export default {
   'provider.tencent-coding': '腾讯云 Coding Plan',
   'provider.xiaomi-coding': '小米 MiMo Token Plan',
   'provider.xai': 'xAI',
+  'provider.xai-grok-build': 'Grok Build',
+  'provider.github-copilot': 'GitHub Copilot',
+  'provider.opencode-go': 'OpenCode Go',
   'provider.mistral': 'Mistral',
 
   // 用量统计

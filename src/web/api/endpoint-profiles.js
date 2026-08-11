@@ -14,6 +14,50 @@
 
 const PROFILES = [
   {
+    id: 'opencode-go-anthropic',
+    // OpenCode Go Anthropic wire API uses /v1/messages and only accepts the
+    // models documented for that protocol. Grok is OpenAI-compatible only.
+    match: /^https?:\/\/opencode\.ai\/zen\/go\/?$/i,
+    probeModel: 'minimax-m3',
+    models: [
+      { id: 'minimax-m3', name: 'MiniMax M3' },
+      { id: 'minimax-m2.7', name: 'MiniMax M2.7' },
+      { id: 'minimax-m2.5', name: 'MiniMax M2.5' },
+      { id: 'qwen3.7-max', name: 'Qwen3.7 Max' },
+      { id: 'qwen3.7-plus', name: 'Qwen3.7 Plus' },
+      { id: 'qwen3.6-plus', name: 'Qwen3.6 Plus' },
+    ],
+  },
+  {
+    id: 'opencode-go-openai',
+    // OpenCode-compatible /v1 endpoint. Grok is available on chat/completions.
+    match: /^https?:\/\/opencode\.ai\/zen\/go\/v1\/?$/i,
+    probeModel: 'grok-4.5',
+    models: [
+      { id: 'grok-4.5', name: 'Grok 4.5' },
+      { id: 'glm-5.2', name: 'GLM-5.2' },
+      { id: 'glm-5.1', name: 'GLM-5.1' },
+      { id: 'kimi-k3', name: 'Kimi K3' },
+      { id: 'kimi-k2.7-code', name: 'Kimi K2.7 Code' },
+      { id: 'kimi-k2.6', name: 'Kimi K2.6' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+      { id: 'mimo-v2.5', name: 'MiMo V2.5' },
+      { id: 'mimo-v2.5-pro', name: 'MiMo V2.5 Pro' },
+    ],
+  },
+  {
+    id: 'zai-global-coding',
+    // Z.AI international GLM Coding Plan.
+    match: /^https?:\/\/api\.z\.ai\/api\/coding\//i,
+    probeModel: 'glm-5.1',
+    models: [
+      { id: 'glm-5.1', name: 'GLM-5.1' },
+      { id: 'glm-5', name: 'GLM-5' },
+      { id: 'glm-4.7', name: 'GLM-4.7' },
+    ],
+  },
+  {
     id: 'glm-coding',
     // GLM Coding Plan — open.bigmodel.cn/api/coding/...
     match: /^https?:\/\/open\.bigmodel\.cn\/api\/coding\//i,
@@ -26,10 +70,11 @@ const PROFILES = [
   },
   {
     id: 'minimax-coding',
-    // MiniMax Token Plan — api.minimaxi.com with /anthropic or plan=token
-    match: /^https?:\/\/api\.minimaxi\.com\/(?:v1|anthropic)/i,
+    // MiniMax Token Plan — mainland China and international endpoints.
+    match: /^https?:\/\/api\.minimax(?:i\.com|\.io)\/(?:v1|anthropic)/i,
     probeModel: 'MiniMax-M2.7',
     models: [
+      { id: 'MiniMax-M3', name: 'MiniMax M3' },
       { id: 'MiniMax-M2.7', name: 'MiniMax M2.7' },
       { id: 'MiniMax-M2.7-highspeed', name: 'MiniMax M2.7 Highspeed' },
       { id: 'MiniMax-M2.5', name: 'MiniMax M2.5' },
@@ -64,11 +109,12 @@ const PROFILES = [
     id: 'kimi-coding-plan',
     // Kimi Coding Plan — api.kimi.com/coding/...
     match: /^https?:\/\/api\.kimi\.com\/coding\//i,
-    probeModel: 'kimi-k2.5',
+    probeModel: 'kimi-for-coding',
     models: [
-      { id: 'kimi-k2.5', name: 'Kimi K2.5' },
-      { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking' },
-      { id: 'kimi-code', name: 'Kimi Code' },
+      { id: 'k3', name: 'Kimi K3' },
+      { id: 'k3-256k', name: 'Kimi K3 256K' },
+      { id: 'kimi-for-coding', name: 'Kimi for Coding' },
+      { id: 'kimi-for-coding-highspeed', name: 'Kimi for Coding Highspeed' },
     ],
   },
   {

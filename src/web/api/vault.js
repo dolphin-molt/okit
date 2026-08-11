@@ -559,12 +559,18 @@ async function testApiKey(req, res) {
     if (type === 'anthropic') {
       url = `${baseUrl}/v1/messages`;
       const isZaiAnthropic = isZaiAnthropicEndpoint(baseUrl);
+      const isMiniMaxAnthropic = isMiniMaxAnthropicEndpoint(baseUrl);
       if (isZaiAnthropic) {
         // Z.AI's Anthropic-compatible coding endpoint expects a GLM model
         // and the platform's standard Bearer authentication. The generic
         // Claude probe (claude-haiku + x-api-key) is not a valid Z.AI probe.
         headers['Authorization'] = `Bearer ${resolvedKey}`;
         headers['accept-language'] = 'en-US,en';
+      } else if (isMiniMaxAnthropic) {
+        // MiniMax documents X-Api-Key for its Anthropic-compatible API.
+        // Prefer the read-only model list below so an unavailable inference
+        // entitlement is not mistaken for an invalid endpoint or credential.
+        headers['X-Api-Key'] = resolvedKey;
       } else {
         headers['x-api-key'] = resolvedKey;
       }
@@ -598,8 +604,28 @@ async function testApiKey(req, res) {
         // protocol-compatible one-token message probe below.
       }
 
+      if (isMiniMaxAnthropic) {
+        const modelsResult = await httpRequest(`${baseUrl.replace(/\/+$/, '')}/v1/models`, {
+          method: 'GET',
+          headers,
+          timeout: 10000,
+        });
+        if (modelsResult.error) return res.json({ success: false, message: `连接失败: ${modelsResult.error}` });
+        if (modelsResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        if (modelsResult.status === 200) {
+          let modelCount = 0;
+          try { modelCount = JSON.parse(modelsResult.body).data?.length || 0; } catch {}
+          return res.json({
+            success: true,
+            message: `MiniMax Anthropic 端点连接成功，Key 有效，可读取 ${modelCount} 个模型`,
+          });
+        }
+        // Older deployments may not expose the model list. Fall back to the
+        // protocol-compatible one-token message probe below.
+      }
+
       const body = JSON.stringify({
-        model: isZaiAnthropic ? 'glm-4.7' : 'claude-haiku-4-5',
+        model: isZaiAnthropic ? 'glm-4.7' : pickProbeModel(baseUrl),
         max_tokens: 1,
         messages: [{ role: 'user', content: 'hi' }],
       });
@@ -672,6 +698,10 @@ async function testApiKey(req, res) {
 
 function isZaiAnthropicEndpoint(baseUrl) {
   return /^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim());
+}
+
+function isMiniMaxAnthropicEndpoint(baseUrl) {
+  return /^https?:\/\/api\.minimax(?:i\.com|\.io)\/anthropic\/?$/i.test(String(baseUrl || '').trim());
 }
 
 function isCodexOAuthEndpoint(baseUrl) {
@@ -809,7 +839,7 @@ function resolveCanonicalGroup(key, alias) {
 
   // ── 仅国内 ──
   if (k.startsWith('DEEPSEEK_') || k === 'OKIT-DEEPSEEK' || k.startsWith('DEEPSEEK')) return 'DeepSeek';
-  if (k.startsWith('DASHSCOPE_')) return '通义千问';
+  if (k.startsWith('DASHSCOPE_')) return '阿里云百炼';
   if (k.startsWith('QIANFAN_') || k.startsWith('QIANFAN')) return '百度千帆';
   if (k.startsWith('VOLCENGINE_') || k === 'OKIT-VOLCENGINE' || k.startsWith('VOLC_')) return '火山引擎';
   if (k.startsWith('TENCENT_') || k.startsWith('TECENT_') || k.startsWith('TENCENT')) return '腾讯云';
@@ -819,6 +849,7 @@ function resolveCanonicalGroup(key, alias) {
   // ── 聚合/代理 ──
   if (k.startsWith('OPENROUTER_')) return 'OpenRouter';
   if (k.startsWith('SILICONFLOW_')) return '硅基流动';
+  if (k.startsWith('OPENCODE_')) return 'OpenCode Go';
 
   // ── 基础设施 ──
   if (k.startsWith('CF_') || k.startsWith('CLOUDFLARE')) return 'Cloudflare';

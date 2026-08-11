@@ -10,7 +10,7 @@ export interface ProviderEndpoint {
   type: 'anthropic' | 'openai' | 'google';
   baseUrl: string;
   protocol?: 'chat' | 'responses';
-  plan?: 'coding' | 'token';
+  plan?: 'coding' | 'token' | 'agent' | 'go';
 }
 
 export interface Provider {
@@ -21,9 +21,66 @@ export interface Provider {
   endpoints?: ProviderEndpoint[];
   vaultKey?: string;
   authVerified?: boolean;
+  authVerifiedKey?: string;
+  authVerifiedAt?: string;
+  authVerifiedEndpointIds?: string[];
   authMode: 'api_key' | 'oauth' | 'both';
   models: ProviderModel[];
   usedBy?: { id: string; name: string; modelId: string }[];
+}
+
+export interface PlatformOffering {
+  id: string;
+  type: string;
+  label: string;
+  providerId: string;
+  endpointIds: string[];
+  authMethodIds: string[];
+}
+
+export interface PlatformAuthMethod {
+  id: string;
+  type: string;
+  label: string;
+  providerId: string;
+  credentialRef?: string;
+  status?: 'unconfigured' | 'configured' | 'verified' | 'invalid' | 'expired';
+  verifiedAt?: string;
+  verifiedEndpointId?: string;
+}
+
+export interface PlatformEndpoint {
+  id: string;
+  name: string;
+  offeringId: string;
+  baseUrl: string;
+  protocol: { family: string; mode: string };
+  authMethodIds: string[];
+  modelDiscovery: { type: string; path?: string; modelIds?: string[]; command?: string };
+}
+
+export interface PlatformModel {
+  id: string;
+  name: string;
+  capabilities?: string[];
+  availability: {
+    offeringId: string;
+    endpointIds: string[];
+    remoteModelId: string;
+    status: string;
+    source: string;
+    discoveredAt?: string;
+  }[];
+}
+
+export interface Platform {
+  id: string;
+  name: string;
+  providerIds: string[];
+  offerings: PlatformOffering[];
+  authMethods: PlatformAuthMethod[];
+  endpoints: PlatformEndpoint[];
+  models: PlatformModel[];
 }
 
 export interface AgentInfo {
@@ -37,7 +94,7 @@ export interface AgentInfo {
   compatibleProviders: { id: string; name: string; type: string; models: ProviderModel[] }[];
 }
 
-export async function listProviders(): Promise<{ providers: Provider[] }> {
+export async function listProviders(): Promise<{ providers: Provider[]; platforms: Platform[] }> {
   return api('/api/providers');
 }
 
@@ -110,6 +167,8 @@ export interface UsageResult {
   supported: boolean;
   windows?: UsageWindow[];
   error?: string;
+  notice?: string;
+  source?: 'live' | 'cli' | 'console';
   raw?: any;
 }
 

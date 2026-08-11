@@ -44,7 +44,7 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
     if (!initialSecret) return;
 
     setLoadingValue(true);
-    getVaultValue(initialSecret.key)
+    getVaultValue(initialSecret.key, activeAlias)
       .then(data => {
         if (!cancelled) setFormValue(data.value);
       })
@@ -70,15 +70,17 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
   async function handleSave() {
     if (!formKey || !formValue) return;
     const group = formGroup === '__custom__' ? formGroupCustom : formGroup;
-    if (onBeforeSave && !(await onBeforeSave({ key: formKey, alias: 'default', group: group || undefined }))) return;
+    if (onBeforeSave && !(await onBeforeSave({ key: formKey, alias: activeAlias, group: group || undefined }))) return;
 
     setSaving(true);
     try {
       await setVault({
         key: formKey,
         value: formValue,
+        alias: activeAlias,
         group: group || undefined,
         originalKey: initialSecret?.key,
+        originalAlias: isEdit ? activeAlias : undefined,
       });
       onSaved(formKey);
     } catch {

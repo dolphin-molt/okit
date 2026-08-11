@@ -21,19 +21,21 @@ export async function listVault(): Promise<{ secrets: VaultSecret[] }> {
   return api('/api/vault');
 }
 
-export async function getVaultValue(key: string): Promise<{ value: string }> {
-  return api(`/api/vault/value?key=${encodeURIComponent(key)}&alias=default`);
+export async function getVaultValue(key: string, alias = 'default'): Promise<{ value: string }> {
+  return api(`/api/vault/value?key=${encodeURIComponent(key)}&alias=${encodeURIComponent(alias)}`);
 }
 
 export async function setVault(data: {
   key: string;
   value: string;
+  alias?: string;
   group?: string;
   originalKey?: string;
+  originalAlias?: string;
 }): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'POST',
-    body: JSON.stringify({ ...data, alias: 'default' }),
+    body: JSON.stringify({ ...data, alias: data.alias || 'default' }),
   });
 }
 
@@ -41,10 +43,10 @@ export async function listAutoCreatePlatforms(): Promise<{ platforms: AutoCreate
   return api('/api/vault/auto-create/platforms');
 }
 
-export async function deleteVault(key: string): Promise<{ success: boolean }> {
+export async function deleteVault(key: string, alias = 'default'): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'DELETE',
-    body: JSON.stringify({ key, alias: 'default' }),
+    body: JSON.stringify({ key, alias }),
   });
 }
 

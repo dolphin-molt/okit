@@ -61,6 +61,11 @@ export async function* executeAction(
     body: JSON.stringify({ toolId, action, ...options }),
   });
 
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+
   for await (const line of readSSELines(res)) {
     try {
       yield JSON.parse(line);

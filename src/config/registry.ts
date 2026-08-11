@@ -170,6 +170,15 @@ export async function loadRegistry(forceDefault: boolean = false): Promise<Regis
   try {
     const content = await fs.readFile(REGISTRY_PATH, "utf-8");
     const userRegistry = JSON.parse(content) as Registry;
+    const legacyCopilot = userRegistry.steps?.find(step =>
+      step.name === "GitHub Copilot CLI"
+      && step.install === "gh extension install github/gh-copilot"
+    );
+    const defaultCopilot = defaultRegistry.steps.find(step => step.name === "GitHub Copilot CLI");
+    if (legacyCopilot && defaultCopilot) {
+      Object.assign(legacyCopilot, defaultCopilot);
+      await saveRegistry(userRegistry);
+    }
     const merged = mergeRegistries(defaultRegistry, userRegistry);
     return merged;
   } catch (error) {

@@ -4,6 +4,7 @@ import { OKIT_DIR } from "../config/registry";
 import { backupImportantData } from "../config/backup";
 import { Provider, ProvidersData } from "./types";
 import { PRESET_PROVIDERS } from "./presets";
+import { buildPlatforms } from "./platforms";
 
 const PROVIDERS_PATH = path.join(OKIT_DIR, "providers.json");
 // These used to be bundled presets. Retire them on load as well as removing
@@ -19,6 +20,13 @@ const PRESET_BASE_URL_MIGRATIONS = new Map([
 const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map([
   ["kimi-coding-plan", { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" }],
   ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" }],
+]);
+const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
+  ["opencode-go", { from: ["go", "agent"], to: "coding" }],
+]);
+const PRESET_AUTH_MODE_MIGRATIONS = new Map([
+  ["anthropic", { from: "both", to: "api_key" }],
+  ["openai", { from: "both", to: "api_key" }],
 ]);
 
 export async function loadProviders(): Promise<Provider[]> {
@@ -77,6 +85,23 @@ export async function loadProviders(): Promise<Provider[]> {
           });
           if (endpointChanged) changed = true;
         }
+        const planMigration = PRESET_ENDPOINT_PLAN_MIGRATIONS.get(preset.id);
+        if (planMigration && Array.isArray(existing.endpoints)) {
+          let endpointChanged = false;
+          existing.endpoints = existing.endpoints.map(endpoint => {
+            if (endpoint?.plan && planMigration.from.includes(endpoint.plan)) {
+              endpointChanged = true;
+              return { ...endpoint, plan: planMigration.to as "coding" };
+            }
+            return endpoint;
+          });
+          if (endpointChanged) changed = true;
+        }
+        const authModeMigration = PRESET_AUTH_MODE_MIGRATIONS.get(preset.id);
+        if (authModeMigration && existing.authMode === authModeMigration.from) {
+          existing.authMode = authModeMigration.to as "api_key";
+          changed = true;
+        }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
           changed = true;
@@ -128,7 +153,7 @@ export async function loadProviders(): Promise<Provider[]> {
 export async function saveProviders(providers: Provider[]): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData("providers");
-  const data: ProvidersData = { providers };
+  const data: ProvidersData = { providers, platforms: buildPlatforms(providers) };
   await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
 }
 

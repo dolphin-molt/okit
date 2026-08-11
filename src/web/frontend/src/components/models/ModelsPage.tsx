@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, triggerOAuthLogin, fetchModels, Provider, ProviderModel, ProviderEndpoint } from '../../api/providers';
+import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, triggerOAuthLogin, fetchModels, Provider, ProviderModel, ProviderEndpoint, Platform } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
@@ -14,7 +14,16 @@ const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = (pro
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VariantOption = { label: string; providerId: string };
 type ProviderFamily = { family: string; plans?: VariantOption[]; ids: string[] };
-const PROVIDER_FAMILIES: ProviderFamily[] = (providersGenerated as any).families;
+const PLATFORM_DEFINITIONS: Platform[] = (providersGenerated as any).platforms || [];
+const PROVIDER_FAMILIES: ProviderFamily[] = PLATFORM_DEFINITIONS.map(platform => ({
+  family: platform.name,
+  plans: platform.offerings.map(offering => ({ label: offering.label, providerId: offering.providerId })),
+  ids: platform.providerIds,
+}));
+const PROVIDER_OFFERING_TYPE = new Map<string, string>();
+for (const platform of PLATFORM_DEFINITIONS) {
+  for (const offering of platform.offerings) PROVIDER_OFFERING_TYPE.set(offering.providerId, offering.type);
+}
 
 const SHOW_MODELS = 4;
 const TYPE_OPTIONS = [
@@ -111,6 +120,7 @@ function endpointProtocol(ep: ProviderEndpoint) {
 function endpointPlan(ep: ProviderEndpoint) {
   if (ep.plan === 'coding') return 'coding';
   if (ep.plan === 'token') return 'token';
+  if (ep.plan === 'go') return 'go';
   return undefined;
 }
 
@@ -132,11 +142,12 @@ interface AuthState {
 }
 
 type StatusFilter = 'all' | 'authed' | 'unauthed' | 'used';
-type PlanFilter = 'coding' | 'token' | 'agent' | 'api-only';
+type PlanFilter = 'coding' | 'token' | 'agent' | 'subscription' | 'go' | 'api-only';
 
 const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
   { key: 'coding', labelKey: 'models.planCoding' },
   { key: 'token', labelKey: 'models.planToken' },
+  { key: 'subscription', labelKey: 'models.planAgentSubscription' },
   { key: 'agent', labelKey: 'models.planAgent' },
   { key: 'api-only', labelKey: 'models.planApiOnly' },
 ];
@@ -148,12 +159,13 @@ const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
  */
 function providerPlans(p: Provider): PlanFilter[] {
   const plans: PlanFilter[] = [];
-  const codingPlanIds = new Set(['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'tencent-coding', 'qianfan-coding']);
-  const tokenPlanIds = new Set(['minimax-coding', 'xiaomi-coding']);
+  const offeringType = PROVIDER_OFFERING_TYPE.get(p.id);
   const endpointPlans = new Set((p.endpoints || []).map(endpoint => endpoint.plan).filter(Boolean));
-  if (codingPlanIds.has(p.id) || endpointPlans.has('coding')) plans.push('coding');
-  if (tokenPlanIds.has(p.id) || endpointPlans.has('token')) plans.push('token');
-  if (p.authMode === 'oauth' || p.authMode === 'both') plans.push('agent');
+  if (offeringType === 'coding_plan' || endpointPlans.has('coding')) plans.push('coding');
+  if (offeringType === 'token_plan' || endpointPlans.has('token')) plans.push('token');
+  if (offeringType === 'agent_subscription') plans.push('subscription');
+  if (offeringType === 'agent_plan' || endpointPlans.has('agent')) plans.push('agent');
+  if (offeringType === 'go_plan' || endpointPlans.has('go')) plans.push('go');
   if (plans.length === 0) plans.push('api-only');
   return plans;
 }
@@ -162,6 +174,7 @@ export default function ModelsPage() {
   const { showToast: toast, confirm } = useApp() as any;
   const { t, providerName } = useI18n();
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [platforms, setPlatforms] = useState<Platform[]>(PLATFORM_DEFINITIONS);
   const [authMap, setAuthMap] = useState<Record<string, AuthState>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -202,6 +215,7 @@ export default function ModelsPage() {
     try {
       const [data, authData] = await Promise.all([listProviders(), getAuthStatus()]);
       setProviders(data.providers || []);
+      setPlatforms(data.platforms || PLATFORM_DEFINITIONS);
       const map: Record<string, AuthState> = {};
       for (const s of authData.statuses || []) {
         map[s.id] = {
@@ -248,6 +262,41 @@ export default function ModelsPage() {
 
   async function handleConnect(p: Provider) {
     setActionMenuId(null);
+    if (getCardAuthMethod(p) === 'oauth') {
+      setTestingConn(p.id);
+      try {
+        const authData = await getAuthStatus();
+        const status = (authData.statuses || []).find((item: any) => item.id === p.id);
+        const oauthLoggedIn = status?.oauthLoggedIn === true;
+        setAuthMap(prev => ({
+          ...prev,
+          [p.id]: {
+            ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), authVerified: false, authMode: p.authMode }),
+            oauthLoggedIn,
+          },
+        }));
+        if (!oauthLoggedIn) {
+          toast(t('models.statusUnauthed'), 'error');
+          return;
+        }
+
+        setSyncingModels(p.id);
+        const res = await fetchModels(p.id);
+        if (res.success) {
+          toast(t('models.connected', { n: res.models.length }), 'success');
+          load();
+        } else {
+          toast(t('models.statusAuthed'), 'success');
+        }
+      } catch (err: any) {
+        toast(err.message || t('models.testFailed'), 'error');
+      } finally {
+        setTestingConn(null);
+        setSyncingModels(null);
+      }
+      return;
+    }
+
     const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
     setTestingConn(p.id);
     setEndpointResults(prev => {
@@ -271,7 +320,12 @@ export default function ModelsPage() {
     }
     const allOk = results.every(r => r.success);
     try {
-      await updateProvider(p.id, { authVerified: allOk });
+      await updateProvider(p.id, {
+        authVerified: allOk,
+        authVerifiedKey: allOk ? p.vaultKey : undefined,
+        authVerifiedAt: allOk ? new Date().toISOString() : undefined,
+        authVerifiedEndpointIds: allOk ? eps.map((_, index) => `${p.id}:endpoint:${index}`) : [],
+      });
     } catch { /* server unavailable, result still shown locally */ }
     setAuthMap(prev => ({
       ...prev,
@@ -451,7 +505,13 @@ export default function ModelsPage() {
 
   function isAuthed(p: Provider): boolean {
     const auth = authMap[p.id];
-    return Boolean((p.vaultKey && auth?.hasApiKey && auth.authVerified !== false) || auth?.oauthLoggedIn === true);
+    return Boolean((p.vaultKey && auth?.hasApiKey && auth.authVerified === true) || auth?.oauthLoggedIn === true);
+  }
+
+  function isAuthMethodAuthed(p: Provider, method: 'api_key' | 'oauth'): boolean {
+    const auth = authMap[p.id];
+    if (method === 'oauth') return auth?.oauthLoggedIn === true;
+    return Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === true);
   }
 
   function matchesQuery(p: Provider): boolean {
@@ -663,13 +723,26 @@ export default function ModelsPage() {
       })),
     ];
     const planChipsArr = [
-      { key: '__all_plan__', label: t('models.filterAll'), active: !activePlanFilter, onClick: () => setActivePlanFilter(null) },
+      { key: '__all_plan__', label: t('models.filterAll'), active: !activePlanFilter, onClick: () => {
+        setActivePlanFilter(null);
+        setFamilyPlan({});
+      } },
       ...PLAN_FILTERS.map(plan => ({
         key: plan.key,
         label: t(plan.labelKey),
-        extra: `${providers.filter(p => providerPlans(p).includes(plan.key)).length}`,
+        // The platform view renders one card per family. Count those same
+        // cards instead of raw provider variants so the chip always matches
+        // what the user will actually see after selecting it.
+        extra: `${new Set(
+          providers
+            .filter(p => providerPlans(p).includes(plan.key))
+            .map(p => PROVIDER_FAMILY_MAP.get(p.id) || p.id)
+        ).size}`,
         active: activePlanFilter === plan.key,
-        onClick: () => setActivePlanFilter(activePlanFilter === plan.key ? null : plan.key),
+        onClick: () => {
+          setActivePlanFilter(activePlanFilter === plan.key ? null : plan.key);
+          setFamilyPlan({});
+        },
       })),
     ];
 
@@ -823,7 +896,20 @@ export default function ModelsPage() {
             // 内联计算当前选中的 provider,不依赖外部函数
             let p: Provider;
             if (isMulti && famDef && famDef.plans) {
-              const selectedLabel = familyPlan[famDef.family] || famDef.plans[0]?.label;
+              // A plan filter should open each family card on the matching
+              // variant. Otherwise a Coding Plan result can still look like
+              // its default API-platform variant even though it matched.
+              const filteredPlan = activePlanFilter
+                ? famDef.plans.find(plan => {
+                    const member = fam.providers.find(provider => provider.id === plan.providerId);
+                    return member && providerPlans(member).includes(activePlanFilter);
+                  })
+                : undefined;
+              // A global filter chooses the initial variant. A manual switch
+              // on this card overrides only this family and must not mutate
+              // the global filter; changing the global filter clears these
+              // local overrides above.
+              const selectedLabel = familyPlan[famDef.family] || filteredPlan?.label || famDef.plans[0]?.label;
               const selectedPlan = famDef.plans.find(pl => pl.label === selectedLabel) || famDef.plans[0];
               p = fam.providers.find(mp => mp.id === selectedPlan.providerId) || fam.providers[0];
             } else {
@@ -835,10 +921,12 @@ export default function ModelsPage() {
             const hasMore = p.models.length > SHOW_MODELS;
             const auth = authMap[p.id];
             const authed = isAuthed(p);
-            const needsVerification = Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
+            const selectedAuthMethod = getCardAuthMethod(p);
+            const needsVerification = selectedAuthMethod === 'api_key'
+              && Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
             const used = isUsedBy(p);
             // 状态反映当前选中的变体(不是整个家族的并集)
-            const familyAuthed = authed;
+            const familyAuthed = isMulti ? authed : isAuthMethodAuthed(p, selectedAuthMethod);
 
             return (
               <article
@@ -860,23 +948,27 @@ export default function ModelsPage() {
                             {famDef.plans.map(pl => (
                               <button
                                 key={pl.providerId}
-                                className={`variant-tab${(familyPlan[famDef.family] || famDef.plans![0].label) === pl.label ? ' variant-tab--active' : ''}`}
-                                onClick={() => setFamilyPlan(prev => ({ ...prev, [famDef.family]: pl.label }))}
+                                className={`variant-tab${p.id === pl.providerId ? ' variant-tab--active' : ''}`}
+                                onClick={() => {
+                                  setFamilyPlan(prev => ({ ...prev, [famDef.family]: pl.label }));
+                                }}
                               >
                                 {pl.label}
                               </button>
                             ))}
                           </div>
                         )}
-                        {/* 认证方式标签(纯展示当前变体的认证类型) */}
-                        <div className="variant-tab-group">
-                          {(p.authMode === 'api_key' || p.authMode === 'both') && (
-                            <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
-                          )}
-                          {(p.authMode === 'oauth' || p.authMode === 'both') && (
-                            <span className={`variant-tab variant-tab--active`}>OAuth</span>
-                          )}
-                        </div>
+      {/* 方案已经按认证方式区分时，不再重复展示认证能力标签。 */}
+      {!famDef.plans?.every(plan => ['api key', 'oauth'].includes(plan.label.trim().toLowerCase())) && (
+        <div className="variant-tab-group">
+          {(p.authMode === 'api_key' || p.authMode === 'both') && (
+            <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
+          )}
+          {(p.authMode === 'oauth' || p.authMode === 'both') && (
+            <span className="variant-tab variant-tab--active">OAuth</span>
+          )}
+        </div>
+      )}
                       </>
                     ) : (
                       // 独立平台:互斥切换 API Key / OAuth
@@ -907,7 +999,21 @@ export default function ModelsPage() {
                         {t('models.testingConn')}
                       </span>
                     )}
-                    <span className={`provider-status provider-status--${familyAuthed ? 'authed' : 'unauthed'}`}>
+                    <span
+                      className={`provider-status provider-status--${familyAuthed ? 'authed' : 'unauthed'} provider-status--with-auth-tooltip`}
+                      tabIndex={0}
+                      data-auth-detail={
+                        familyAuthed
+                          ? selectedAuthMethod === 'oauth'
+                            ? 'OKIT 通过 OAuth 认证'
+                            : 'OKIT 通过 API Key 认证'
+                          : needsVerification
+                            ? 'OKIT 已配置 API Key，尚未通过连接验证'
+                            : selectedAuthMethod === 'oauth'
+                              ? 'OKIT 尚未完成 OAuth 认证'
+                              : 'OKIT 尚未配置 API Key'
+                      }
+                    >
                       {familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
                     </span>
                   </div>
@@ -940,7 +1046,9 @@ export default function ModelsPage() {
                       const epResult = endpointResults[p.id]?.[i];
                       return (
                         <div key={i} className="provider-endpoint-row">
-                          <span className={`type-badge type-badge--${ep.type}`}>{ep.type}</span>
+                          <span className={`type-badge type-badge--${ep.type}`}>
+                            {ep.type === 'openai' ? `openai ${ep.protocol || 'chat'}` : ep.type}
+                          </span>
                           <span className="provider-endpoint-url">{ep.baseUrl}</span>
                           {testingConn === p.id && !epResult && i === (endpointResults[p.id]?.length || 0) && (
                             <span className="ep-test-spinner">...</span>
@@ -1055,7 +1163,13 @@ export default function ModelsPage() {
 
       {showForm && (
         <ProviderForm
+          key={editProvider?.id || 'new-platform'}
           provider={editProvider}
+          platform={platforms.find(platform => editProvider ? platform.providerIds.includes(editProvider.id) : false) || null}
+          onSelectOffering={providerId => {
+            const next = providers.find(provider => provider.id === providerId);
+            if (next) setEditProvider(next);
+          }}
           onSave={handleFormSave}
           onClose={() => { setShowForm(false); setEditProvider(null); }}
         />
@@ -1655,8 +1769,10 @@ function ActionMenu({ actions, onClose }: { actions: { label: string; onClick: (
 }
 
 /* --- Provider Form Modal --- */
-function ProviderForm({ provider, onSave, onClose }: {
+function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }: {
   provider: Provider | null;
+  platform: Platform | null;
+  onSelectOffering: (providerId: string) => void;
   onSave: (data: any) => void;
   onClose: () => void;
 }) {
@@ -1672,6 +1788,13 @@ function ProviderForm({ provider, onSave, onClose }: {
   const [authMode, setAuthMode] = useState<'api_key' | 'oauth' | 'both' | 'none'>(
     (provider?.authMode as any) || 'api_key'
   );
+  const authMethodEnabled = (type: 'api_key' | 'oauth') =>
+    authMode === type || authMode === 'both';
+  const toggleAuthMethod = (type: 'api_key' | 'oauth') => {
+    const apiKey = type === 'api_key' ? !authMethodEnabled('api_key') : authMethodEnabled('api_key');
+    const oauth = type === 'oauth' ? !authMethodEnabled('oauth') : authMethodEnabled('oauth');
+    setAuthMode(apiKey && oauth ? 'both' : apiKey ? 'api_key' : oauth ? 'oauth' : 'none');
+  };
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResults, setConnectionResults] = useState<{ success: boolean; message: string }[] | null>(null);
@@ -1798,6 +1921,7 @@ function ProviderForm({ provider, onSave, onClose }: {
     const validEndpoints = endpoints.map(normalizeEndpoint).filter(ep => ep.baseUrl.trim());
     const primary = validEndpoints[0] || normalizeEndpoint(endpoints[0]);
 
+    const shouldPersistAuthVerification = connectionDirty && (provider ? true : authVerified === true);
     onSave({
       id: provider?.id || name.toLowerCase().replace(/\s+/g, '-'),
       name,
@@ -1810,7 +1934,14 @@ function ProviderForm({ provider, onSave, onClose }: {
       // Only the current key/endpoint combination may be marked verified.
       // Leaving an existing untouched provider unchanged preserves legacy
       // installations that predate this field.
-      ...(connectionDirty ? { authVerified: authVerified === true } : {}),
+      ...(shouldPersistAuthVerification ? { authVerified: authVerified === true } : {}),
+      ...(shouldPersistAuthVerification ? {
+        authVerifiedKey: authVerified === true ? vaultKey.trim() || undefined : undefined,
+        authVerifiedAt: authVerified === true ? new Date().toISOString() : undefined,
+        authVerifiedEndpointIds: authVerified === true
+          ? validEndpoints.map((_, index) => `${provider?.id || name.toLowerCase().replace(/\s+/g, '-')}:endpoint:${index}`)
+          : [],
+      } : {}),
     });
   }
 
@@ -1827,19 +1958,36 @@ function ProviderForm({ provider, onSave, onClose }: {
               <h4>{t('models.basicSection')}</h4>
               <div className="form-group">
                 <label>{t('common.name')}</label>
-                <input className="vault-input" value={name} onChange={e => setName(e.target.value)} required disabled={!!provider} />
+                <input className="vault-input" value={platform?.name || name} onChange={e => setName(e.target.value)} required disabled={!!provider} />
               </div>
+              {platform && (
+                <div className="form-group">
+                  <label>平台提供方式</label>
+                  <div className="auth-mode-options">
+                    {platform.offerings.map(offering => (
+                      <button
+                        type="button"
+                        key={offering.id}
+                        className={`auth-mode-option${offering.providerId === provider?.id ? ' auth-mode-option--active' : ''}`}
+                        onClick={() => onSelectOffering(offering.providerId)}
+                      >
+                        {offering.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="form-group">
                 <label>{t('models.authMode')}</label>
                 <div className="auth-mode-options">
-                  {AUTH_MODE_OPTIONS.map(opt => (
-                    <label key={opt.value} className={`auth-mode-option${authMode === opt.value ? ' auth-mode-option--active' : ''}`}>
+                  {AUTH_MODE_OPTIONS.filter(opt => opt.value === 'api_key' || opt.value === 'oauth').map(opt => (
+                    <label key={opt.value} className={`auth-mode-option${authMethodEnabled(opt.value as 'api_key' | 'oauth') ? ' auth-mode-option--active' : ''}`}>
                       <input
-                        type="radio"
+                        type="checkbox"
                         name="authMode"
                         value={opt.value}
-                        checked={authMode === opt.value}
-                        onChange={() => setAuthMode(opt.value)}
+                        checked={authMethodEnabled(opt.value as 'api_key' | 'oauth')}
+                        onChange={() => toggleAuthMethod(opt.value as 'api_key' | 'oauth')}
                       />
                       <span>{t(opt.labelKey)}</span>
                     </label>
@@ -1849,7 +1997,7 @@ function ProviderForm({ provider, onSave, onClose }: {
             </section>
 
             <section className="form-section">
-              <h4>{t('models.endpointsSection')}</h4>
+              <h4>平台提供方式与端点</h4>
               <div className="endpoint-list">
                 {endpoints.map((ep, i) => (
                   <div key={i} className="endpoint-row">
@@ -1872,7 +2020,7 @@ function ProviderForm({ provider, onSave, onClose }: {
                       value={ep.plan || 'api'}
                       onChange={v => {
                         const next = [...endpoints];
-                        if (v === 'coding' || v === 'token') next[i] = { ...next[i], plan: v };
+                        if (v === 'coding' || v === 'token' || v === 'agent' || v === 'go') next[i] = { ...next[i], plan: v as any };
                         else {
                           const { plan: _plan, ...withoutPlan } = next[i];
                           next[i] = withoutPlan;
@@ -1884,6 +2032,8 @@ function ProviderForm({ provider, onSave, onClose }: {
                         { value: 'api', label: t('models.endpointPlanApi') },
                         { value: 'coding', label: t('models.endpointPlanCoding') },
                         { value: 'token', label: t('models.endpointPlanToken') },
+                        { value: 'agent', label: 'Agent Plan' },
+                        { value: 'go', label: 'Go Plan' },
                       ]}
                     />
                     <input className="vault-input endpoint-url-input" value={ep.baseUrl} onChange={e => updateEndpoint(i, 'baseUrl', e.target.value)} placeholder="https://api.example.com" required />

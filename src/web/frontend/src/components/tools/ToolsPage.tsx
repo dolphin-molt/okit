@@ -65,7 +65,7 @@ export default function ToolsPage() {
     setProgressOutput('');
     try {
       for await (const event of executeAction(name, action)) {
-        if (event.type === 'output') setProgressOutput(prev => prev + (event.message || '') + '\n');
+        if (event.type === 'output') setProgressOutput(prev => prev + (event.message || event.text || '') + '\n');
         if (event.type === 'auth_url' && (event as any).data) window.open((event as any).data, '_blank');
         if (event.type === 'success' || event.type === 'warning') {
           showToast(event.message || t('common.done'), event.type === 'success' ? 'success' : 'info');
@@ -73,8 +73,19 @@ export default function ToolsPage() {
           break;
         }
         if (event.type === 'error') { showToast(event.message || t('common.failed'), 'error'); break; }
+        if (event.type === 'result') {
+          if (event.success) {
+            showToast(t('common.done'), 'success');
+            loadTools();
+          } else {
+            showToast(event.output || t('common.failed'), 'error');
+          }
+          break;
+        }
       }
-    } catch { showToast(t('common.failed'), 'error'); } finally { setActioningTool(null); }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t('common.failed'), 'error');
+    } finally { setActioningTool(null); }
   }
 
   function toggleSelect(name: string) {

@@ -31,23 +31,28 @@ export const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map<string, { from: strin
   ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" }],
 ]);
 
+export const PRESET_AUTH_MODE_MIGRATIONS = new Map<string, { from: string; to: string }>([
+  ["anthropic", { from: "both", to: "api_key" }],
+  ["openai", { from: "both", to: "api_key" }],
+]);
+
 // ── Provider groups (left-nav in models page) ────────────────
 export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = [
-  { key: "official", labelKey: "models.groupOfficial", ids: ["anthropic", "openai", "openai-codex", "google", "xai", "mistral"] },
-  { key: "aggregator", labelKey: "models.groupAggregator", ids: ["openrouter"] },
+  { key: "official", labelKey: "models.groupOfficial", ids: ["anthropic", "anthropic-agent", "openai", "openai-codex", "google", "google-agent", "xai", "xai-grok-build", "github-copilot", "mistral"] },
+  { key: "aggregator", labelKey: "models.groupAggregator", ids: ["openrouter", "opencode-go"] },
   { key: "china", labelKey: "models.groupChina", ids: [
     // 智谱
-    "zai", "zai-global", "glm-coding",
+    "zai", "zai-global", "glm-coding", "zai-global-coding",
     // MiniMax
-    "minimax", "minimax-global", "minimax-coding",
+    "minimax", "minimax-global", "minimax-coding", "minimax-global-coding",
     // Kimi / Moonshot
-    "moonshot", "kimi-coding", "kimi-coding-plan",
+    "moonshot", "moonshot-coding-plan", "kimi-coding", "kimi-coding-plan",
     // 火山引擎
-    "volcengine", "volcengine-coding",
+    "volcengine", "volcengine-coding", "volcengine-agent",
     // 百度千帆
     "qianfan", "qianfan-coding",
-    // 通义千问
-    "qwen",
+    // 阿里云百炼 / 硅基流动
+    "qwen", "siliconflow",
     // DeepSeek
     "deepseek",
     // 阶跃星辰
@@ -55,7 +60,7 @@ export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[]
     // 小米
     "xiaomi", "xiaomi-coding",
     // 腾讯云
-    "tencent-coding",
+    "tencent-tokenhub", "tencent-coding",
   ] },
   { key: "local", labelKey: "models.groupLocal", ids: ["ollama", "litellm"] },
 ];
@@ -63,7 +68,12 @@ export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[]
 // ── Provider families (merge same-site variants into one card) ─
 // 国内站和国际站是不同站点、不同 key,不合并。
 // 只有同一站点内的不同套餐(API 平台 / Coding Plan / Token Plan)才合并。
-export type VariantOption = { label: string; providerId: string };
+export type VariantOption = {
+  label: string;
+  providerId: string;
+  type?: import("./types").OfferingType;
+  entitlement?: import("./types").PlatformOffering["entitlement"];
+};
 export type ProviderFamily = {
   family: string;
   plans?: VariantOption[];
@@ -72,12 +82,43 @@ export type ProviderFamily = {
 
 export const PROVIDER_FAMILIES: ProviderFamily[] = [
   {
+    family: "Anthropic",
+    plans: [
+      { label: "API 平台", providerId: "anthropic" },
+      { label: "Agent 订阅", providerId: "anthropic-agent", type: "agent_subscription", entitlement: { type: "subscription_included", product: "Claude Pro / Max" } },
+    ],
+    ids: ["anthropic", "anthropic-agent"],
+  },
+  {
     family: "OpenAI",
     plans: [
       { label: "API Key", providerId: "openai" },
-      { label: "OAuth", providerId: "openai-codex" },
+      { label: "Agent 订阅", providerId: "openai-codex", type: "agent_subscription", entitlement: { type: "subscription_included", product: "ChatGPT" } },
     ],
     ids: ["openai", "openai-codex"],
+  },
+  {
+    family: "Google Gemini",
+    plans: [
+      { label: "API 平台", providerId: "google", type: "api", entitlement: { type: "pay_as_you_go" } },
+      { label: "Agent 订阅", providerId: "google-agent", type: "agent_subscription", entitlement: { type: "subscription_included", product: "Google AI / Gemini Code Assist" } },
+    ],
+    ids: ["google", "google-agent"],
+  },
+  {
+    family: "xAI",
+    plans: [
+      { label: "API Key", providerId: "xai" },
+      { label: "Agent 订阅", providerId: "xai-grok-build", type: "agent_subscription", entitlement: { type: "subscription_included", product: "Grok / X" } },
+    ],
+    ids: ["xai", "xai-grok-build"],
+  },
+  {
+    family: "GitHub Copilot",
+    plans: [
+      { label: "Agent 订阅", providerId: "github-copilot", type: "agent_subscription", entitlement: { type: "subscription_included", product: "GitHub Copilot" } },
+    ],
+    ids: ["github-copilot"],
   },
   {
     family: "智谱AI（国内）",
@@ -88,6 +129,14 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     ids: ["zai", "glm-coding"],
   },
   {
+    family: "Z.AI（国际）",
+    plans: [
+      { label: "API 平台", providerId: "zai-global" },
+      { label: "Coding Plan", providerId: "zai-global-coding" },
+    ],
+    ids: ["zai-global", "zai-global-coding"],
+  },
+  {
     family: "MiniMax（国内）",
     plans: [
       { label: "API 平台", providerId: "minimax" },
@@ -96,7 +145,23 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     ids: ["minimax", "minimax-coding"],
   },
   {
-    family: "Kimi（国内）",
+    family: "MiniMax（国际）",
+    plans: [
+      { label: "API 平台", providerId: "minimax-global" },
+      { label: "Token Plan", providerId: "minimax-global-coding" },
+    ],
+    ids: ["minimax-global", "minimax-global-coding"],
+  },
+  {
+    family: "Moonshot",
+    plans: [
+      { label: "API 平台", providerId: "moonshot" },
+      { label: "Coding Plan", providerId: "moonshot-coding-plan" },
+    ],
+    ids: ["moonshot", "moonshot-coding-plan"],
+  },
+  {
+    family: "Kimi（国内站）",
     plans: [
       { label: "API 平台", providerId: "kimi-coding" },
       { label: "Coding Plan", providerId: "kimi-coding-plan" },
@@ -108,8 +173,17 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     plans: [
       { label: "API 平台", providerId: "volcengine" },
       { label: "Coding Plan", providerId: "volcengine-coding" },
+      { label: "Agent Plan", providerId: "volcengine-agent" },
     ],
-    ids: ["volcengine", "volcengine-coding"],
+    ids: ["volcengine", "volcengine-coding", "volcengine-agent"],
+  },
+  {
+    family: "腾讯云",
+    plans: [
+      { label: "TokenHub", providerId: "tencent-tokenhub" },
+      { label: "Coding Plan", providerId: "tencent-coding" },
+    ],
+    ids: ["tencent-tokenhub", "tencent-coding"],
   },
   {
     family: "百度千帆",

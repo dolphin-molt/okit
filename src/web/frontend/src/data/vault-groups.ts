@@ -21,7 +21,7 @@ export const PREDEFINED_GROUPS: string[] = [
   'Kimi · 国际',
   // ── 仅国内 ──
   'DeepSeek',
-  '通义千问',
+  '阿里云百炼',
   '百度千帆',
   '火山引擎',
   '腾讯云',

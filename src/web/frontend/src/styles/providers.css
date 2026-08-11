@@ -2419,7 +2419,7 @@
 }
 
 .models-page-full .provider-list {
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -3190,3 +3190,38 @@ span.variant-tab:hover { background: var(--paper); }
 [data-theme="dark"] .variant-tab { color: var(--ink-light); }
 [data-theme="dark"] .variant-tab:hover { background: rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .variant-tab--active { background: rgba(255, 255, 255, 0.06); border-color: var(--kraft-dark); }
+.provider-status--with-auth-tooltip {
+  position: relative;
+  cursor: help;
+  outline: none;
+}
+
+.provider-status--with-auth-tooltip::after {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  right: 0;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 9px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.12);
+  content: attr(data-auth-detail);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: normal;
+}
+
+.provider-status--with-auth-tooltip:hover::after,
+.provider-status--with-auth-tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}

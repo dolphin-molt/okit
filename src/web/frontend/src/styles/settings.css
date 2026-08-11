@@ -1685,7 +1685,7 @@
   backdrop-filter: blur(10px);
 }
 
-.settings-workspace .vault-picker,
+.vault-picker,
 .settings-workspace .platdoc-panel {
   overflow: hidden;
   border: 1px solid rgba(23, 32, 29, 0.1) !important;
@@ -1695,24 +1695,24 @@
   color: #111816 !important;
 }
 
-.settings-workspace .vault-picker {
+.vault-picker {
   width: min(720px, calc(100vw - 40px));
   height: min(560px, calc(100vh - 80px));
   display: flex;
   flex-direction: column;
 }
 
-.settings-workspace .vault-picker.vault-picker--creating,
-.settings-workspace .vault-picker.vault-picker--creating .vault-picker-body,
-.settings-workspace .vault-picker.vault-picker--creating .vault-picker-main {
+.vault-picker.vault-picker--creating,
+.vault-picker.vault-picker--creating .vault-picker-body,
+.vault-picker.vault-picker--creating .vault-picker-main {
   overflow: visible;
 }
 
-.settings-workspace .vault-picker.vault-picker--creating .vault-picker-list {
+.vault-picker.vault-picker--creating .vault-picker-list {
   min-height: 0;
 }
 
-.settings-workspace .vault-picker-header,
+.vault-picker-header,
 .settings-workspace .platdoc-panel .progress-header {
   display: flex;
   min-height: 58px;
@@ -1724,7 +1724,7 @@
   color: #111816 !important;
 }
 
-.settings-workspace .vault-picker-header h2,
+.vault-picker-header h2,
 .settings-workspace .platdoc-panel .progress-title {
   color: #111816;
   font-size: 17px;
@@ -1732,7 +1732,7 @@
   letter-spacing: 0;
 }
 
-.settings-workspace .vault-picker-close,
+.vault-picker-close,
 .settings-workspace .platdoc-panel .progress-close {
   display: inline-flex;
   width: 34px;
@@ -1747,13 +1747,13 @@
   line-height: 1;
 }
 
-.settings-workspace .vault-picker-close:hover,
+.vault-picker-close:hover,
 .settings-workspace .platdoc-panel .progress-close:hover {
   background: rgba(23, 32, 29, 0.09);
   color: #111816;
 }
 
-.settings-workspace .vault-picker-body {
+.vault-picker-body {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1761,7 +1761,7 @@
   background: #fff;
 }
 
-.settings-workspace .vault-picker-sidebar {
+.vault-picker-sidebar {
   flex-shrink: 0;
   width: 172px;
   overflow-y: auto;
@@ -1772,7 +1772,7 @@
   padding: 12px;
 }
 
-.settings-workspace .vault-picker-group {
+.vault-picker-group {
   display: flex;
   min-height: 36px;
   align-items: center;
@@ -1784,26 +1784,26 @@
   font-weight: 800;
 }
 
-.settings-workspace .vault-picker-group:hover {
+.vault-picker-group:hover {
   background: rgba(23, 32, 29, 0.055);
 }
 
-.settings-workspace .vault-picker-group.active {
+.vault-picker-group.active {
   background: rgba(23, 32, 29, 0.09);
   color: #111816;
 }
 
-.settings-workspace .vault-picker-group-count {
+.vault-picker-group-count {
   color: #7b8580;
   font-size: 11px;
   font-weight: 750;
 }
 
-.settings-workspace .vault-picker-group.active .vault-picker-group-count {
+.vault-picker-group.active .vault-picker-group-count {
   color: #4f5a55;
 }
 
-.settings-workspace .vault-picker-main {
+.vault-picker-main {
   display: flex;
   flex: 1;
   min-width: 0;
@@ -1812,7 +1812,7 @@
   background: #fff;
 }
 
-.settings-workspace .vault-picker-search {
+.vault-picker-search {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1825,7 +1825,7 @@
   color: #7b8580;
 }
 
-.settings-workspace .vault-picker-search-field {
+.vault-picker-search-field {
   display: flex;
   flex: 1;
   min-width: 0;
@@ -1837,19 +1837,19 @@
   padding: 0 14px;
 }
 
-.settings-workspace .vault-picker-search-input {
+.vault-picker-search-input {
   color: #111816;
   font-size: 14px;
   font-weight: 650;
 }
 
-.settings-workspace .vault-picker-list {
+.vault-picker-list {
   flex: 1;
   overflow-y: auto;
   padding: 4px 14px 10px;
 }
 
-.settings-workspace .vault-picker-item {
+.vault-picker-item {
   margin-bottom: 6px;
   border-radius: 12px;
   padding: 10px 12px;
@@ -1857,37 +1857,37 @@
   cursor: pointer;
 }
 
-.settings-workspace .vault-picker-empty {
+.vault-picker-empty {
   padding: 24px;
   text-align: center;
   color: #7b8580;
   font-size: 13px;
 }
 
-.settings-workspace .vault-picker-item-top {
+.vault-picker-item-top {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.settings-workspace .vault-picker-item:hover {
+.vault-picker-item:hover {
   background: rgba(23, 32, 29, 0.045);
 }
 
-.settings-workspace .vault-picker-item.active {
+.vault-picker-item.active {
   background: rgba(23, 32, 29, 0.075);
 }
 
-.settings-workspace .vault-picker-item-key,
-.settings-workspace .vault-picker-item.active .vault-picker-item-key {
+.vault-picker-item-key,
+.vault-picker-item.active .vault-picker-item-key {
   color: #1f2a25;
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   font-weight: 800;
 }
 
-.settings-workspace .vault-picker-item-alias,
-.settings-workspace .vault-picker-item.active .vault-picker-item-alias {
+.vault-picker-item-alias,
+.vault-picker-item.active .vault-picker-item-alias {
   display: block;
   margin-top: 2px;
   overflow: hidden;
@@ -1897,8 +1897,8 @@
   white-space: nowrap;
 }
 
-.settings-workspace .vault-picker-item-group,
-.settings-workspace .vault-picker-item.active .vault-picker-item-group {
+.vault-picker-item-group,
+.vault-picker-item.active .vault-picker-item-group {
   border-radius: 999px;
   background: rgba(23, 32, 29, 0.07);
   color: #6b746f;
@@ -1906,7 +1906,7 @@
   font-weight: 800;
 }
 
-.settings-workspace .vault-picker-create-btn {
+.vault-picker-create-btn {
   margin: 0 14px 14px;
   width: calc(100% - 28px);
   min-height: 42px;
@@ -1918,7 +1918,7 @@
   font-weight: 850;
 }
 
-.settings-workspace .vault-picker-create-btn--toolbar {
+.vault-picker-create-btn--toolbar {
   flex: 0 0 auto;
   width: auto;
   min-height: 42px;
@@ -1928,13 +1928,13 @@
   white-space: nowrap;
 }
 
-.settings-workspace .vault-picker-create-btn:hover {
+.vault-picker-create-btn:hover {
   border-color: rgba(23, 32, 29, 0.28);
   background: rgba(23, 32, 29, 0.065);
   color: #111816;
 }
 
-.settings-workspace .vault-picker-create-form {
+.vault-picker-create-form {
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1947,39 +1947,39 @@
   gap: 10px;
 }
 
-.settings-workspace .vault-picker-create-row {
+.vault-picker-create-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: 12px;
   align-items: start;
 }
 
-.settings-workspace .vault-picker-create-row > :first-child {
+.vault-picker-create-row > :first-child {
   min-width: 0;
 }
 
-.settings-workspace .vault-picker-create-row > :last-child {
+.vault-picker-create-row > :last-child {
   min-width: 0;
 }
 
-.settings-workspace .vault-picker-create-field {
+.vault-picker-create-field {
   display: grid;
   min-width: 0;
   gap: 6px;
 }
 
-.settings-workspace .vault-picker-create-field--span {
+.vault-picker-create-field--span {
   grid-column: 1 / -1;
 }
 
-.settings-workspace .vault-picker-create-label {
+.vault-picker-create-label {
   color: #4f5a55;
   font-size: 12px;
   font-weight: 850;
 }
 
-.settings-workspace .vault-picker-create-input,
-.settings-workspace .vault-picker-create-select .custom-select-trigger {
+.vault-picker-create-input,
+.vault-picker-create-select .custom-select-trigger {
   min-height: 38px;
   width: 100%;
   min-width: 0;
@@ -1989,31 +1989,31 @@
   box-shadow: none !important;
 }
 
-.settings-workspace .vault-picker-create-select,
-.settings-workspace .vault-picker-create-select .custom-select-trigger {
+.vault-picker-create-select,
+.vault-picker-create-select .custom-select-trigger {
   max-width: 100%;
 }
 
-.settings-workspace .vault-picker-create-select {
+.vault-picker-create-select {
   position: relative;
 }
 
-.settings-workspace .vault-picker-create-input {
+.vault-picker-create-input {
   color: #111816 !important;
 }
 
-.settings-workspace .vault-picker-create-value {
+.vault-picker-create-value {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.settings-workspace .vault-picker-create-value .vault-picker-create-input {
+.vault-picker-create-value .vault-picker-create-input {
   flex: 1;
   padding-right: 56px !important;
 }
 
-.settings-workspace .vault-picker-create-vis {
+.vault-picker-create-vis {
   position: absolute;
   right: 8px;
   border: 0;
@@ -2026,22 +2026,22 @@
   padding: 4px 7px;
 }
 
-.settings-workspace .vault-picker-create-vis:hover {
+.vault-picker-create-vis:hover {
   background: rgba(23, 32, 29, 0.09);
   color: #111816;
 }
 
-.settings-workspace .vault-picker-create-input::placeholder {
+.vault-picker-create-input::placeholder {
   color: #a0aaa5 !important;
 }
 
-.settings-workspace .vault-picker-test-row {
+.vault-picker-test-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.settings-workspace .vault-picker-test-btn {
+.vault-picker-test-btn {
   min-height: 30px;
   border: 1px solid rgba(2, 132, 199, 0.24);
   border-radius: 8px;
@@ -2053,30 +2053,30 @@
   padding: 0 10px;
 }
 
-.settings-workspace .vault-picker-test-btn:hover {
+.vault-picker-test-btn:hover {
   background: rgba(2, 132, 199, 0.12);
   color: #164e63;
 }
 
-.settings-workspace .vault-picker-test-btn:disabled {
+.vault-picker-test-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.settings-workspace .vault-picker-test-result {
+.vault-picker-test-result {
   font-size: 12px;
   font-weight: 800;
 }
 
-.settings-workspace .vault-picker-test-result.success {
+.vault-picker-test-result.success {
   color: #15803d;
 }
 
-.settings-workspace .vault-picker-test-result.fail {
+.vault-picker-test-result.fail {
   color: #dc2626;
 }
 
-.settings-workspace .vault-picker-create-actions {
+.vault-picker-create-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -2227,11 +2227,11 @@
 }
 
 @media (max-width: 760px) {
-  .settings-workspace .vault-picker-body {
+  .vault-picker-body {
     flex-direction: column;
   }
 
-  .settings-workspace .vault-picker-sidebar {
+  .vault-picker-sidebar {
     width: auto;
     max-height: 150px;
     border-right: 0;

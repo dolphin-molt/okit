@@ -112,7 +112,9 @@ describe('CodexAdapter.applyConfig', () => {
     await adapter.applyConfig(openaiProvider, 'gpt-5.5');
 
     const env = mocks.files.get(CODEX_ENV)!;
-    expect(env).toContain('OPENAI_API_KEY=sk-codex-456');
+    // The TS adapter writes `export KEY='value'` (shell-quoted). Match loosely so
+    // the test is robust to the shell-quoting format.
+    expect(env).toMatch(/OPENAI_API_KEY=['"]?sk-codex-456['"]?/);
   });
 
   it('resolves explicit vault aliases when writing .env', async () => {
@@ -120,15 +122,21 @@ describe('CodexAdapter.applyConfig', () => {
     await adapter.applyConfig(customAliasProvider, 'gpt-5.5');
 
     const env = mocks.files.get(CODEX_ENV)!;
-    expect(env).toContain('OPENAI_API_KEY=sk-codex-team');
+    expect(env).toMatch(/OPENAI_API_KEY=['"]?sk-codex-team['"]?/);
   });
 
-  it('writes api_base for non-official OpenAI endpoints', async () => {
+  it('writes base_url under [model_providers.X] for non-official endpoints (not top-level api_base)', async () => {
+    // The TS adapter correctly uses a [model_providers.X] table with base_url
+    // and removes the legacy top-level api_base key (which was a Codex bug).
     const adapter = new CodexAdapter();
     await adapter.applyConfig(customProvider, 'my-model');
 
     const toml = mocks.files.get(CODEX_CONFIG)!;
-    expect(toml).toContain('api_base = "https://custom.api.com/v1"');
+    expect(toml).toContain('[model_providers.okit-custom-openai]');
+    expect(toml).toContain('base_url = "https://custom.api.com/v1"');
+    expect(toml).not.toContain('api_base');
+    // wire_api defaults to "chat" when the endpoint has no protocol specified
+    expect(toml).toContain('wire_api = "chat"');
   });
 
   it('removes api_base for official OpenAI', async () => {

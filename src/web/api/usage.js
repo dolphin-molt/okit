@@ -33,9 +33,40 @@ const SUPPORTED = new Set([
   'glm-coding',      // GLM Coding Plan
   'kimi-coding-plan',// Kimi Coding Plan
   'minimax-coding',  // MiniMax Token Plan
-  'openrouter',      // OpenRouter
+  'openrouter',      // OpenRouter (prepaid balance)
   'volcengine-coding', // 火山引擎 Coding Plan (needs AK/SK)
+  // Goal ①: prepaid / pay-as-you-go balance providers.
+  'deepseek',        // DeepSeek (充值制)
+  'siliconflow',     // 硅基流动 (充值制)
+  'moonshot',        // Moonshot (充值制)
+  'mistral',         // Mistral (充值制)
+  'qwen',            // 通义千问 (充值制)
 ]);
+
+// Goal ①: classifies each supported provider so the frontend can split the
+// usage page into Subscription (percentage + reset) vs Prepaid (balance) tabs.
+// SUBSCRIPTION = quota-limited with a reset window (reported as usedPercent).
+// PREPAID      = pay-as-you-go balance (reported as absolute credit amounts).
+const UsageKind = { SUBSCRIPTION: 'subscription', PREPAID: 'prepaid' };
+const PROVIDER_KIND = {
+  // Subscription / coding-plan providers
+  'openai-codex': UsageKind.SUBSCRIPTION,
+  'anthropic-agent': UsageKind.SUBSCRIPTION,
+  'google-agent': UsageKind.SUBSCRIPTION,
+  'xai-grok-build': UsageKind.SUBSCRIPTION,
+  'github-copilot': UsageKind.SUBSCRIPTION,
+  'glm-coding': UsageKind.SUBSCRIPTION,
+  'kimi-coding-plan': UsageKind.SUBSCRIPTION,
+  'minimax-coding': UsageKind.SUBSCRIPTION,
+  'volcengine-coding': UsageKind.SUBSCRIPTION,
+  // Prepaid / balance providers
+  'openrouter': UsageKind.PREPAID,
+  'deepseek': UsageKind.PREPAID,
+  'siliconflow': UsageKind.PREPAID,
+  'moonshot': UsageKind.PREPAID,
+  'mistral': UsageKind.PREPAID,
+  'qwen': UsageKind.PREPAID,
+};
 
 async function loadProviders() {
   if (!(await fs.pathExists(PROVIDERS_PATH))) return [];
@@ -331,6 +362,125 @@ async function queryOpenRouterUsage(apiKey) {
   };
 }
 
+// ── Goal ①: prepaid balance providers ────────────────────────
+//
+// Each returns a single "credits" window with absolute USD amounts (no reset
+// time — pay-as-you-go balances don't reset). The isPrepaid flag drives the
+// frontend's dollar-amount rendering instead of a percentage bar.
+
+// DeepSeek — GET /user/balance returns { is_available, balance_infos: [{ currency, total_balance, granted_balance, topped_up_balance }] }.
+// Note: the field is balance_infos (plural array), not balance_info.
+async function queryDeepseekUsage(apiKey) {
+  if (!apiKey) return { supported: true, windows: [], error: '无可用 API Key' };
+  const result = await httpRequest('https://api.deepseek.com/user/balance', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    timeout: 10000,
+  });
+  if (result.error) return { supported: true, windows: [], error: result.error };
+  if (result.status === 401) return { supported: true, windows: [], error: 'API Key 无效' };
+  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
+
+  const d = JSON.parse(result.body);
+  // Pick the CNY entry (DeepSeek's primary billing currency); fall back to first.
+  const infos = Array.isArray(d.balance_infos) ? d.balance_infos : [];
+  const info = infos.find(i => i.currency === 'CNY') || infos[0] || {};
+  const total = round4(parseFloat(info.total_balance ?? 0));
+  return {
+    supported: true,
+    windows: [{
+      label: 'credits',
+      usedPercent: null,
+      usedCredits: null,
+      limitCredits: total,
+      remainingCredits: total,
+      isPrepaid: true,
+    }],
+    raw: d,
+  };
+}
+
+// 硅基流动 (SiliconFlow) — GET /v1/user/info returns { data: { balance, ... } }.
+async function querySiliconflowUsage(apiKey) {
+  if (!apiKey) return { supported: true, windows: [], error: '无可用 API Key' };
+  const result = await httpRequest('https://api.siliconflow.cn/v1/user/info', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    timeout: 10000,
+  });
+  if (result.error) return { supported: true, windows: [], error: result.error };
+  if (result.status === 401) return { supported: true, windows: [], error: 'API Key 无效' };
+  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
+
+  const d = JSON.parse(result.body);
+  const balance = round4(d.data?.balance ?? 0);
+  return {
+    supported: true,
+    windows: [{
+      label: 'credits',
+      usedPercent: null,
+      usedCredits: null,
+      limitCredits: balance,
+      remainingCredits: balance,
+      isPrepaid: true,
+    }],
+    raw: d,
+  };
+}
+
+// Moonshot — the platform API key used for inference is NOT accepted by the
+// billing/balance endpoints (they return 401 Invalid Authentication). Moonshot
+// does not expose a stable public balance API usable with an inference key, so
+// we point users at the console rather than report a misleading error.
+async function queryMoonshotUsage(_apiKey) {
+  return {
+    supported: true,
+    windows: [],
+    source: 'console',
+    notice: 'Moonshot 平台余额查询接口不接受推理用 API Key，请在 Moonshot 控制台的账户余额页面查看。',
+  };
+}
+
+// Mistral — no public balance/credits API exists (all candidate endpoints return
+// 404). Point users at the console.
+async function queryMistralUsage(_apiKey) {
+  return {
+    supported: true,
+    windows: [],
+    source: 'console',
+    notice: 'Mistral 暂无公开的余额查询 API，请在 Mistral Console 的 Billing 页面查看。',
+  };
+}
+
+// 通义千问 (Qwen / DashScope) — GET /compatible-mode/v1/usage returns balance.
+// Note: the exact response shape varies; we probe common fields defensively.
+async function queryQwenUsage(apiKey) {
+  if (!apiKey) return { supported: true, windows: [], error: '无可用 API Key' };
+  const result = await httpRequest('https://dashscope.aliyuncs.com/compatible-mode/v1/usage', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    timeout: 10000,
+  });
+  if (result.error) return { supported: true, windows: [], error: result.error };
+  if (result.status === 401) return { supported: true, windows: [], error: 'API Key 无效' };
+  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
+
+  const d = JSON.parse(result.body);
+  const balance = round4(d.data?.balance ?? d.balance ?? 0);
+  return {
+    supported: true,
+    windows: [{
+      label: 'credits',
+      usedPercent: null,
+      usedCredits: null,
+      limitCredits: balance,
+      remainingCredits: balance,
+      isPrepaid: true,
+    }],
+    raw: d,
+  };
+}
+
 // 火山引擎 Coding Plan — requires AK/SK with ark:Read permission.
 // Uses Volcengine Signature V4 (a variant of AWS SigV4) on the control-plane
 // gateway open.volcengineapi.com. The inference API key cannot be used here.
@@ -501,6 +651,17 @@ async function queryUsage(providerId) {
       return queryMinimaxCodingUsage(apiKey);
     case 'openrouter':
       return queryOpenRouterUsage(apiKey);
+    // Goal ①: prepaid balance providers.
+    case 'deepseek':
+      return queryDeepseekUsage(apiKey);
+    case 'siliconflow':
+      return querySiliconflowUsage(apiKey);
+    case 'moonshot':
+      return queryMoonshotUsage(apiKey);
+    case 'mistral':
+      return queryMistralUsage(apiKey);
+    case 'qwen':
+      return queryQwenUsage(apiKey);
     default:
       return { supported: false };
   }
@@ -525,6 +686,11 @@ async function getUsage(req, res) {
   }
   try {
     const result = await queryUsage(providerId);
+    // Goal ①: stamp the usage kind on every response so the frontend can split
+    // subscription vs prepaid cards without re-deriving the classification.
+    if (result && result.supported !== false) {
+      result.kind = PROVIDER_KIND[providerId] || UsageKind.SUBSCRIPTION;
+    }
     res.json(result);
   } catch (err) {
     res.json({ supported: false, error: err.message });

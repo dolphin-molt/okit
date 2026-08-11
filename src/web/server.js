@@ -9,7 +9,7 @@ const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getC
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders } = require('./api/usage');
 
 function createServer(port = 3780) {
@@ -106,6 +106,11 @@ function createServer(port = 3780) {
   app.get('/api/providers', listProviders);
   app.get('/api/providers/adapters', getAdaptersList);
   app.post('/api/providers', createProvider);
+  // Goal ③: favorite/recent model endpoints. Registered before the :id routes
+  // so the static "models/..." segments aren't captured as an id.
+  app.get('/api/providers/models/favorites', getFavoriteModels);
+  app.post('/api/providers/models/favorite', addFavoriteModel);
+  app.delete('/api/providers/models/favorite/:providerId/:modelId', removeFavoriteModel);
   app.put('/api/providers/:id', updateProvider);
   app.delete('/api/providers/:id', deleteProvider);
   app.post('/api/providers/switch', switchProvider);

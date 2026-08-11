@@ -4,11 +4,13 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
+import FavoriteButton from '../shared/FavoriteButton';
 import crossDataRaw from '../../data/cross_platform_models.json';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const crossData: Record<string, any[]> = crossDataRaw as any;
 // Provider metadata (groups, families) — generated from src/providers/metadata.ts by scripts/gen-presets.js
 import providersGenerated from '../../data/providers-generated.json';
+import { api } from '../../api/client';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = (providersGenerated as any).groups;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,15 +203,6 @@ export default function ModelsPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [cardAuthMethod, setCardAuthMethod] = useState<Record<string, 'api_key' | 'oauth'>>({});
   const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
-  // 模型视角：选中的模型（纳入管理），前端 state
-  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
-  const toggleModelSelected = useCallback((k: string) => {
-    setSelectedModels((prev) => {
-      const n = new Set(prev);
-      if (n.has(k)) n.delete(k); else n.add(k);
-      return n;
-    });
-  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -305,7 +298,6 @@ export default function ModelsPage() {
       return next;
     });
     const results: { success: boolean; message: string }[] = [];
-    const { api } = await import('../../api/client');
     for (const ep of eps) {
       try {
         const res = await api('/api/vault/test-key', {
@@ -401,7 +393,6 @@ export default function ModelsPage() {
       return next;
     });
     const results: { success: boolean; message: string }[] = [];
-    const { api } = await import('../../api/client');
     for (const ep of eps) {
       try {
         const res = await api('/api/vault/test-key', {
@@ -862,26 +853,7 @@ export default function ModelsPage() {
             activeProtocol={activeProtocol}
             activeMode={activeMode}
             activeModality={activeModality}
-            selected={selectedModels}
-            onToggle={toggleModelSelected}
           />
-        )}
-        {view === 'model' && !activeModel && selectedModels.size > 0 && (
-          <div className="model-bulk-bar">
-            <span className="model-bulk-count">{t('models.selectedCount', { n: selectedModels.size })}</span>
-            <button
-              className="btn-primary"
-              onClick={() => {
-                try { localStorage.setItem('okit.managedModels', JSON.stringify([...selectedModels])); } catch { /* ignore */ }
-                toast(t('models.bulkEnabled', { n: selectedModels.size }));
-              }}
-            >
-              {t('models.bulkEnable')}
-            </button>
-            <button className="btn-ghost" onClick={() => setSelectedModels(new Set())}>
-              {t('models.clearSelection')}
-            </button>
-          </div>
         )}
         {view === 'platform' && !activePlatform && (
           <div>
@@ -1472,6 +1444,7 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
                   {po > 0 ? ` · $${po.toFixed(2)}/M out` : ''}
                 </span>
                 {!r.key && <span className="platform-model-nodata-tag">{t('models.noParamData')}</span>}
+                <FavoriteButton providerId={provider.id} modelId={r.id} />
                 <span className="platform-model-chevron">▾</span>
               </div>
               {isOpen && (
@@ -1609,7 +1582,7 @@ function fmtTimeAgo(ts: number): string {
   return `${Math.floor(diff / 31536000)}y`;
 }
 
-function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: _sq, onSelect, t, activeProvider, hideLegacy, activeProtocol, activeMode, activeModality, selected, onToggle }: {
+function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: _sq, onSelect, t, activeProvider, hideLegacy, activeProtocol, activeMode, activeModality }: {
   models: [string, any[]][];
   providers: Provider[];
   activeModel: string | null;
@@ -1621,8 +1594,6 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
   activeProtocol: string | null;
   activeMode: string | null;
   activeModality: string | null;
-  selected: Set<string>;
-  onToggle: (k: string) => void;
 }) {
   // 与厂商 chip 数量统计用同一套过滤条件，保证数量一致
   const filtered = filterModelEntries(models, { hideLegacy, activeProtocol, activeMode, activeModality, searchQuery: _sq, providers, activeProvider });
@@ -1651,21 +1622,8 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
   // 厂商排序（按模型数量）
   const sortedGroups = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
 
-  const visibleKeys = filtered.map(([k]) => k);
-  const allSelected = visibleKeys.length > 0 && visibleKeys.every((k) => selected.has(k));
-  const toggleSelectAll = () => {
-    if (allSelected) visibleKeys.forEach((k) => onToggle(k));
-    else visibleKeys.forEach((k) => { if (!selected.has(k)) onToggle(k); });
-  };
-
   return (
     <div className="model-grid-wrap">
-      <div className="model-grid-toolbar">
-        <label className="model-select-all">
-          <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-          {t('models.selectAllCurrent')} ({visibleKeys.length})
-        </label>
-      </div>
       {sortedGroups.map(([pp, items]) => (
         <section key={pp} className="model-grid-section">
           <h3 className="model-grid-section-title">
@@ -1685,7 +1643,6 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
               const isMulti = (inputModes.length || 0) > 1;
               const created = entries[0]?.created || 0;
               const isLegacy = entries.some((e: any) => e.legacy);
-              const isSel = selected.has(key);
               const mod = entries[0]?.modality || 'text';
               const MOD_LABEL: Record<string, string> = {
                 text: t('models.modText'), image: t('models.modImage'), video: t('models.modVideo'),
@@ -1694,16 +1651,9 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
               return (
                 <article
                   key={key}
-                  className={`model-card${isLegacy ? ' model-card--legacy' : ''}${isSel ? ' model-card--selected' : ''}`}
+                  className={`model-card${isLegacy ? ' model-card--legacy' : ''}`}
                   onClick={() => onSelect(key)}
                 >
-                  <input
-                    type="checkbox"
-                    className="model-card-check"
-                    checked={isSel}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => onToggle(key)}
-                  />
                   <div className="model-card-title">
                     <span className={`model-card-mod model-card-mod--${mod}`}>{MOD_LABEL[mod] || mod}</span>
                     <h3>{key}</h3>
@@ -1864,7 +1814,6 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
     setConnectionResults([]);
     const results: { success: boolean; message: string }[] = [];
     try {
-      const { api } = await import('../../api/client');
       for (const ep of validEndpoints) {
         try {
           const result = await api('/api/vault/test-key', {

@@ -90,12 +90,28 @@ describe('ClaudeAdapter.applyConfig', () => {
     expect(written.env.ANTHROPIC_AUTH_TOKEN).toBe('sk-test-123');
   });
 
+  it('writes DEFAULT_HAIKU/SONNET/OPUS model keys (aligns with cc-switch)', async () => {
+    // Claude Code resolves each tier via its DEFAULT_*_MODEL key; if a custom
+    // provider only sets ANTHROPIC_MODEL, the CLI 404s when falling back to a
+    // smaller variant. All four must map to the same backing model.
+    const adapter = new ClaudeAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+
+    const written = JSON.parse(mocks.files.get(SETTINGS_PATH)!);
+    expect(written.env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('glm-4.7');
+    expect(written.env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('glm-4.7');
+    expect(written.env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('glm-4.7');
+  });
+
   it('clears env overrides for official Anthropic (no apiKey)', async () => {
     mocks.files.set(SETTINGS_PATH, JSON.stringify({
       env: {
         ANTHROPIC_BASE_URL: 'https://old-url.com',
         ANTHROPIC_MODEL: 'old-model',
         ANTHROPIC_AUTH_TOKEN: 'old-token',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'old-haiku',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'old-sonnet',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'old-opus',
       },
     }));
 
@@ -108,6 +124,36 @@ describe('ClaudeAdapter.applyConfig', () => {
     expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
     expect(env.ANTHROPIC_MODEL).toBeUndefined();
     expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined();
+    expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBeUndefined();
+    expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBeUndefined();
+  });
+
+  it('clears custom routing for official Anthropic even when an API key is bound', async () => {
+    // Regression: isOfficial must be decided by base URL alone, not by whether
+    // a key is present. A user who set a key on the Anthropic preset must still
+    // have BASE_URL/MODEL/AUTH_TOKEN cleared on switch-back (otherwise Claude
+    // Code keeps routing to the previous third-party gateway). The key is kept
+    // as the native ANTHROPIC_API_KEY field.
+    const officialWithKey = { ...anthropicProvider, vaultKey: 'TEST_API_KEY' };
+    mocks.files.set(SETTINGS_PATH, JSON.stringify({
+      env: {
+        ANTHROPIC_BASE_URL: 'https://gateway.com',
+        ANTHROPIC_AUTH_TOKEN: 'gateway-token',
+        ANTHROPIC_MODEL: 'gateway-model',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'gw-haiku',
+      },
+    }));
+
+    const adapter = new ClaudeAdapter();
+    await adapter.applyConfig(officialWithKey, 'claude-opus-4-7');
+
+    const env = JSON.parse(mocks.files.get(SETTINGS_PATH)!).env;
+    expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_MODEL).toBeUndefined();
+    expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBe('sk-test-123');
   });
 
   it('preserves existing non-provider env vars', async () => {

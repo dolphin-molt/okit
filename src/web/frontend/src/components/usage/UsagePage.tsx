@@ -4,17 +4,23 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
 // Display metadata for known supported providers (icon + human-readable name).
-const PROVIDER_META: Record<string, { name: string; type: string }> = {
-  'openai-codex': { name: 'Codex (ChatGPT)', type: 'Agent 订阅' },
-  'anthropic-agent': { name: 'Claude Code', type: 'Agent 订阅' },
-  'google-agent': { name: 'Gemini CLI', type: 'Agent 订阅' },
-  'xai-grok-build': { name: 'Grok', type: 'Agent 订阅' },
-  'github-copilot': { name: 'GitHub Copilot', type: 'Agent 订阅' },
-  'glm-coding': { name: 'GLM Coding Plan', type: 'Coding Plan' },
-  'kimi-coding-plan': { name: 'Kimi Coding Plan', type: 'Coding Plan' },
-  'minimax-coding': { name: 'MiniMax Token Plan', type: 'Token Plan' },
-  'openrouter': { name: 'OpenRouter', type: '充值制' },
-  'volcengine-coding': { name: '火山引擎 Coding Plan', type: 'Coding Plan' },
+const PROVIDER_META: Record<string, { name: string; type: string; kind: 'subscription' | 'prepaid' }> = {
+  'openai-codex': { name: 'Codex (ChatGPT)', type: 'Agent 订阅', kind: 'subscription' },
+  'anthropic-agent': { name: 'Claude Code', type: 'Agent 订阅', kind: 'subscription' },
+  'google-agent': { name: 'Gemini CLI', type: 'Agent 订阅', kind: 'subscription' },
+  'xai-grok-build': { name: 'Grok', type: 'Agent 订阅', kind: 'subscription' },
+  'github-copilot': { name: 'GitHub Copilot', type: 'Agent 订阅', kind: 'subscription' },
+  'glm-coding': { name: 'GLM Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  'kimi-coding-plan': { name: 'Kimi Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  'minimax-coding': { name: 'MiniMax Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'volcengine-coding': { name: '火山引擎 Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  // Goal ①: prepaid balance providers.
+  'openrouter': { name: 'OpenRouter', type: '充值制', kind: 'prepaid' },
+  'deepseek': { name: 'DeepSeek', type: '充值制', kind: 'prepaid' },
+  'siliconflow': { name: '硅基流动', type: '充值制', kind: 'prepaid' },
+  'moonshot': { name: 'Moonshot', type: '充值制', kind: 'prepaid' },
+  'mistral': { name: 'Mistral', type: '充值制', kind: 'prepaid' },
+  'qwen': { name: '通义千问', type: '充值制', kind: 'prepaid' },
 };
 
 export default function UsagePage() {
@@ -26,6 +32,9 @@ export default function UsagePage() {
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
   const [lastRefresh, setLastRefresh] = useState<number>(0);
+  // Goal ①: subscription vs prepaid split. Defaults to subscription (the
+  // historically-supported set); the tab surfaces the new balance providers.
+  const [usageMode, setUsageMode] = useState<'subscription' | 'prepaid'>('subscription');
 
   // Load supported provider IDs and the full provider list (for display names).
   useEffect(() => {
@@ -78,6 +87,7 @@ export default function UsagePage() {
     id,
     name: providerName(id),
     type: providerType(id),
+    kind: PROVIDER_META[id]?.kind || 'subscription',
     usage: usageMap[id],
     fetching: fetchingIds.has(id),
   }));
@@ -87,6 +97,11 @@ export default function UsagePage() {
     const score = (c: typeof a) => c.usage?.windows?.length ? 0 : c.fetching ? 1 : 2;
     return score(a) - score(b);
   });
+
+  // Goal ①: split by kind for the subscription/prepaid tabs.
+  const subscriptionCards = allCards.filter(c => c.kind === 'subscription');
+  const prepaidCards = allCards.filter(c => c.kind === 'prepaid');
+  const visibleCards = usageMode === 'subscription' ? subscriptionCards : prepaidCards;
 
   const queriedCount = Object.keys(usageMap).length;
   const okCount = allCards.filter(c => (c.usage?.windows?.length || 0) > 0).length;
@@ -134,8 +149,25 @@ export default function UsagePage() {
         </div>
       </header>
 
+      <div className="usage-tabs">
+        <button
+          type="button"
+          className={`usage-tab${usageMode === 'subscription' ? ' active' : ''}`}
+          onClick={() => setUsageMode('subscription')}
+        >
+          {t('usage.tabSubscription')} ({subscriptionCards.length})
+        </button>
+        <button
+          type="button"
+          className={`usage-tab${usageMode === 'prepaid' ? ' active' : ''}`}
+          onClick={() => setUsageMode('prepaid')}
+        >
+          {t('usage.tabPrepaid')} ({prepaidCards.length})
+        </button>
+      </div>
+
       <div className="usage-grid">
-        {allCards.map(card => (
+        {visibleCards.map(card => (
           <UsageCard
             key={card.id}
             id={card.id}
@@ -227,15 +259,24 @@ function UsageBar({ w }: { w: UsageWindow }) {
   const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
   const label = windowLabel(w.label);
 
-  if (w.isPrepaid && w.usedCredits != null) {
-    const rem = w.remainingCredits != null ? `$${w.remainingCredits.toFixed(2)}` : '?';
-    const used = `$${w.usedCredits.toFixed(2)}`;
+  if (w.isPrepaid) {
+    // Goal ①: prepaid providers report absolute USD amounts. Most balance APIs
+    // only expose the remaining balance (no separate "used" figure), so we
+    // prefer remainingCredits and fall back to limit - used when available.
+    const rem = w.remainingCredits != null
+      ? `$${w.remainingCredits.toFixed(2)}`
+      : (w.limitCredits != null && w.usedCredits != null)
+        ? `$${(w.limitCredits - w.usedCredits).toFixed(2)}`
+        : '?';
+    const used = w.usedCredits != null ? `$${w.usedCredits.toFixed(2)}` : null;
     return (
       <div className={`usage-bar usage-bar--${tone}`}>
         <span className="usage-bar-label">{label}</span>
         <div className="usage-bar-info">
-          <span className="usage-bar-credits">{t_global('usage.used')}: {used}</span>
-          <span className="usage-bar-remaining">{t_global('usage.remaining')}: {rem}</span>
+          {used != null && (
+            <span className="usage-bar-credits">{t_global('usage.usedAmount')}: {used}</span>
+          )}
+          <span className="usage-bar-remaining">{t_global('usage.balance')}: {rem}</span>
         </div>
       </div>
     );

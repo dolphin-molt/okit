@@ -3,6 +3,10 @@ import { getAdapters, launchAgent, switchProvider, AgentInfo } from '../../api/p
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon } from '../../assets/agents';
+import { useFavorites } from '../shared/favorites';
+import UsageSummary from './UsageSummary';
+import FavoriteModels from './FavoriteModels';
+import QuickTools from './QuickTools';
 
 export default function HomePage() {
   const { t } = useI18n();
@@ -13,6 +17,12 @@ export default function HomePage() {
   const [switching, setSwitching] = useState<string | null>(null);
   const [launching, setLaunching] = useState<string | null>(null);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  // Goal ③/②: which provider cards have "show all models" expanded. When a
+  // user has favorites/recents we only show those by default and tuck the rest
+  // behind a "show all" toggle, so daily-use models surface without scrolling
+  // through dozens of entries.
+  const [showAllModels, setShowAllModels] = useState<Set<string>>(new Set());
+  const { isFavorite } = useFavorites();
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +72,11 @@ export default function HomePage() {
 
   return (
     <div className="quick-start-page">
+      {/* Goal ②: dashboard blocks — daily-driver content above the fold */}
+      <UsageSummary />
+      <FavoriteModels />
+      <QuickTools />
+
       {/* Agent Tabs */}
       <div className="agent-tabs">
         {adapters.map(agent => {
@@ -141,23 +156,52 @@ export default function HomePage() {
                 </div>
                 {isExpanded && p.models.length > 0 && (
                   <div className="provider-card-models-list">
-                    {p.models.map(m => {
-                      const isThisModel = isCurrent && activeAgent.current?.modelId === m.id;
+                    {(() => {
+                      const showAll = showAllModels.has(p.id);
+                      // Goal ③: surface favorites first. If the user has starred
+                      // any models on this provider, show only those unless the
+                      // card is expanded; otherwise show everything (no favorites
+                      // yet → don't hide models the user might want to pick).
+                      const favIds = new Set(p.models.filter(m => isFavorite(p.id, m.id)).map(m => m.id));
+                      const hasFavs = favIds.size > 0;
+                      const visibleModels = hasFavs && !showAll
+                        ? p.models.filter(m => favIds.has(m.id))
+                        : p.models;
                       return (
-                        <button
-                          key={m.id}
-                          className={`agent-model-btn${isThisModel ? ' active' : ''}`}
-                          disabled={switching === `${activeAgent.id}:${m.id}`}
-                          onClick={() => handleSwitch(activeAgent.id, p.id, m.id)}
-                        >
-                          <span className="agent-model-name">{m.name || m.id}</span>
-                          {m.id !== (m.name || m.id) && (
-                            <span className="agent-model-id">{m.id}</span>
+                        <>
+                          {visibleModels.map(m => {
+                            const isThisModel = isCurrent && activeAgent.current?.modelId === m.id;
+                            return (
+                              <button
+                                key={m.id}
+                                className={`agent-model-btn${isThisModel ? ' active' : ''}`}
+                                disabled={switching === `${activeAgent.id}:${m.id}`}
+                                onClick={() => handleSwitch(activeAgent.id, p.id, m.id)}
+                              >
+                                <span className="agent-model-name">{m.name || m.id}</span>
+                                {m.id !== (m.name || m.id) && (
+                                  <span className="agent-model-id">{m.id}</span>
+                                )}
+                                {isThisModel && <span className="agent-model-check">✓</span>}
+                              </button>
+                            );
+                          })}
+                          {hasFavs && (
+                            <button
+                              type="button"
+                              className="agent-model-showall"
+                              onClick={() => setShowAllModels(prev => {
+                                const n = new Set(prev);
+                                n.has(p.id) ? n.delete(p.id) : n.add(p.id);
+                                return n;
+                              })}
+                            >
+                              {showAll ? t('home.collapse') : t('home.showAll')} ({p.models.length})
+                            </button>
                           )}
-                          {isThisModel && <span className="agent-model-check">✓</span>}
-                        </button>
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
                 )}
               </div>

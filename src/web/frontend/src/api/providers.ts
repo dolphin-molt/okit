@@ -127,6 +127,38 @@ export async function switchProvider(agentId: string, providerId: string, modelI
   });
 }
 
+// --- Goal ③: favorite / recent model types + API ----------------------------
+
+export interface FavoriteModel {
+  providerId: string;
+  modelId: string;
+  addedAt: string;
+}
+
+export interface RecentModel {
+  providerId: string;
+  modelId: string;
+  agentId: string;
+  lastUsedAt: string;
+}
+
+export async function getFavoriteModels(): Promise<{ favorites: FavoriteModel[]; recent: RecentModel[] }> {
+  return api('/api/providers/models/favorites');
+}
+
+export async function addFavoriteModel(providerId: string, modelId: string): Promise<{ success: boolean; favorites: FavoriteModel[] }> {
+  return api('/api/providers/models/favorite', {
+    method: 'POST',
+    body: JSON.stringify({ providerId, modelId }),
+  });
+}
+
+export async function removeFavoriteModel(providerId: string, modelId: string): Promise<{ success: boolean; favorites: FavoriteModel[] }> {
+  return api(`/api/providers/models/favorite/${encodeURIComponent(providerId)}/${encodeURIComponent(modelId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function launchAgent(agentId: string): Promise<{ success: boolean; command: string }> {
   return api('/api/providers/launch', {
     method: 'POST',
@@ -169,6 +201,8 @@ export interface UsageResult {
   error?: string;
   notice?: string;
   source?: 'live' | 'cli' | 'console';
+  /** Goal ①: 'subscription' (percentage + reset) or 'prepaid' (USD balance). */
+  kind?: 'subscription' | 'prepaid';
   raw?: any;
 }
 

@@ -726,4 +726,23 @@ export default {
   'usage.noProviders': '暂无支持用量查询的 Provider',
   'usage.used': '已用',
   'usage.remaining': '余额',
+  'usage.tabSubscription': '订阅套餐',
+  'usage.tabPrepaid': '充值余额',
+  'usage.balance': '余额',
+  'usage.usedAmount': '已用',
+  'usage.consoleOnly': '暂不支持查询，请前往控制台',
+
+  // 常用模型（目标③）
+  'favorite.add': '添加到常用',
+  'favorite.remove': '取消常用',
+  'favorite.toggleError': '操作失败，请重试',
+
+  // 首页驾驶舱（目标②）
+  'home.usageSummary': '今日用量',
+  'home.favoriteModels': '常用模型',
+  'home.quickTools': '常用工具',
+  'home.showAll': '显示全部',
+  'home.collapse': '收起',
+  'home.noFavorites': '还没有常用模型，去 Models 页点击 ☆ 收藏',
+  'home.launch': '启动',
 } as const;

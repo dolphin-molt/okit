@@ -685,3 +685,20 @@
 [data-theme="dark"] .log-row--expanded { background: rgba(255,255,255,0.03) !important; }
 [data-theme="dark"] .log-detail-code,
 [data-theme="dark"] .log-detail-pre { background: rgba(0,0,0,0.25); border-color: var(--kraft-dark); }
+
+/* --- Goal ③: FavoriteButton (shared star toggle) --- */
+.favorite-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px; border: none; background: transparent; cursor: pointer;
+  color: var(--ink-muted); border-radius: 4px; line-height: 0;
+  transition: color 0.12s, background 0.12s;
+}
+.favorite-btn:hover { color: var(--warn, #f59e0b); background: rgba(245, 158, 11, 0.1); }
+.favorite-btn--active { color: var(--warn, #f59e0b); }
+.favorite-btn--active:hover { color: var(--warn, #f59e0b); }
+/* Hidden until parent row is hovered, unless alwaysVisible is set. */
+.favorite-btn:not(.favorite-btn--active):not(.favorite-btn--always) { opacity: 0; }
+*:hover > .favorite-btn, .favorite-btn:focus-visible { opacity: 1; }
+.favorite-btn:focus-visible { outline: 2px solid var(--kraft); outline-offset: 1px; }
+[data-theme="dark"] .favorite-btn { color: var(--ink-muted); }
+[data-theme="dark"] .favorite-btn:hover { background: rgba(245, 158, 11, 0.18); }

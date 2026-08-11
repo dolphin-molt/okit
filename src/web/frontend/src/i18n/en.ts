@@ -726,4 +726,23 @@ export default {
   'usage.noProviders': 'No providers support usage query',
   'usage.used': 'Used',
   'usage.remaining': 'Remaining',
+  'usage.tabSubscription': 'Subscription',
+  'usage.tabPrepaid': 'Prepaid Balance',
+  'usage.balance': 'Balance',
+  'usage.usedAmount': 'Used',
+  'usage.consoleOnly': 'Query not supported — open the provider console',
+
+  // Favorite models (goal ③)
+  'favorite.add': 'Add to favorites',
+  'favorite.remove': 'Remove from favorites',
+  'favorite.toggleError': 'Action failed, please retry',
+
+  // Home dashboard (goal ②)
+  'home.usageSummary': 'Today’s usage',
+  'home.favoriteModels': 'Favorite models',
+  'home.quickTools': 'Quick tools',
+  'home.showAll': 'Show all',
+  'home.collapse': 'Collapse',
+  'home.noFavorites': 'No favorites yet — star a model on the Models page',
+  'home.launch': 'Launch',
 } as const;

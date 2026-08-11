@@ -6,6 +6,22 @@ import { backupImportantData } from "./backup";
 
 type Language = "zh" | "en";
 
+// A model the user explicitly starred as a favorite. Manually managed, capped.
+export interface FavoriteModel {
+  providerId: string;
+  modelId: string;
+  addedAt: string; // ISO timestamp
+}
+
+// A model that was used in a successful switchProvider call. Auto-maintained:
+// each switch prepends the model (deduped by providerId+modelId), capped at 10.
+export interface RecentModel {
+  providerId: string;
+  modelId: string;
+  agentId: string;      // which external CLI agent was switched
+  lastUsedAt: string;   // ISO timestamp
+}
+
 export type UserConfig = {
   language?: Language;
   claude?: {
@@ -72,6 +88,11 @@ export type UserConfig = {
   hints?: {
     mainHelpShown?: boolean;
   };
+  // Goal ③: favorites are user-starred; recents are auto-recorded on each
+  // successful switchProvider. Both drive the "常用模型" surfacing in pickers
+  // and the home dashboard.
+  favoriteModels?: FavoriteModel[];
+  recentModels?: RecentModel[];
 };
 
 const USER_CONFIG_PATH = path.join(OKIT_DIR, "user.json");
@@ -107,6 +128,10 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     relay: patch.relay ? { ...current.relay, ...patch.relay } : current.relay,
     providers: patch.providers ? { ...current.providers, ...patch.providers } : current.providers,
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
+    // Arrays are replaced wholesale — callers read-modify-write the full list
+    // (e.g. switchProvider prepends to recentModels after deduping).
+    favoriteModels: patch.favoriteModels ?? current.favoriteModels,
+    recentModels: patch.recentModels ?? current.recentModels,
     sync: patch.sync ? {
       ...current.sync,
       ...patch.sync,

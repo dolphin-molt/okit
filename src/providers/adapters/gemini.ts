@@ -25,11 +25,28 @@ export class GeminiAdapter extends BaseAdapter {
 
   async applyConfig(provider: Provider, modelId: string): Promise<void> {
     const apiKey = await this.resolveApiKey(provider);
+    const isOfficialGoogle = provider.baseUrl === "https://generativelanguage.googleapis.com";
+
+    await fs.ensureDir(GEMINI_DIR);
+    const envPath = path.join(GEMINI_DIR, ".env");
 
     if (apiKey) {
-      await fs.ensureDir(GEMINI_DIR);
-      const envPath = path.join(GEMINI_DIR, ".env");
-      await fs.writeFile(envPath, `GEMINI_API_KEY=${apiKey}\nGOOGLE_API_KEY=${apiKey}\n`);
+      // API-key mode: write key + model + (for non-official gateways) the base URL.
+      // GEMINI_MODEL is required — without it Gemini CLI keeps the previous model.
+      const lines = [
+        `GEMINI_API_KEY=${apiKey}`,
+        `GOOGLE_API_KEY=${apiKey}`,
+        `GEMINI_MODEL=${modelId}`,
+      ];
+      if (!isOfficialGoogle) {
+        lines.push(`GOOGLE_GEMINI_BASE_URL=${provider.baseUrl}`);
+      }
+      await fs.writeFile(envPath, lines.join("\n") + "\n");
+    } else if (isOfficialGoogle) {
+      // OAuth mode for official Google: clear any stale API key so Gemini CLI
+      // falls back to its own OAuth login. Mirrors Claude's official-clear path.
+      // (settings.json's security.auth.selectedType is left for the CLI to manage.)
+      await fs.writeFile(envPath, "");
     }
 
     await updateUserConfig({

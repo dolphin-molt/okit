@@ -149,7 +149,7 @@ const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
 function providerPlans(p: Provider): PlanFilter[] {
   const plans: PlanFilter[] = [];
   const codingPlanIds = new Set(['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'tencent-coding', 'qianfan-coding']);
-  const tokenPlanIds = new Set(['minimax-coding', 'xiaomi-coding', 'qianfan-coding']);
+  const tokenPlanIds = new Set(['minimax-coding', 'xiaomi-coding']);
   const endpointPlans = new Set((p.endpoints || []).map(endpoint => endpoint.plan).filter(Boolean));
   if (codingPlanIds.has(p.id) || endpointPlans.has('coding')) plans.push('coding');
   if (tokenPlanIds.has(p.id) || endpointPlans.has('token')) plans.push('token');

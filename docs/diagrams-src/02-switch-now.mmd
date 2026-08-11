@@ -1,0 +1,27 @@
+graph LR
+    subgraph "Web UI 路径"
+        H["HomePage<br/>点模型"]
+        H -->|"POST /api/providers/switch"| JS["JS writers<br/>providers.js<br/>9个手写函数"]
+        JS -->|"❌ Codex 硬编码 wire_api<br/>❌ Gemini 丢弃 model"| F1["Agent 配置文件<br/>(可能损坏)"]
+        JS --> UP1["user.json<br/>config.providers ✓"]
+    end
+
+    subgraph "聊天页路径（不互通！）"
+        A["AgentPage<br/>composer"]
+        A -->|"POST /api/settings"| SET["settings.js<br/>updateSettings"]
+        SET -->|"❌ 不写任何 agent 文件"| UP2["user.json<br/>config.agent"]
+        SET -.->|"❌ 不更新"| F1
+    end
+
+    subgraph "CLI 路径（另一套）"
+        C["okit provider use"]
+        C --> TS["TS adapters<br/>registry.ts<br/>9个类"]
+        TS -->|"较新 较正确"| F2["Agent 配置文件<br/>(正确)"]
+        TS --> UP3["user.json ✓"]
+    end
+
+    style JS fill:#ffcdd2,stroke:#c62828
+    style SET fill:#ffcdd2,stroke:#c62828
+    style TS fill:#c8e6c9,stroke:#2e7d32
+    style F1 fill:#ffcdd2,stroke:#c62828
+    style F2 fill:#c8e6c9,stroke:#2e7d32

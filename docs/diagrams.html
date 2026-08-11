@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>OKIT 改造方案 · 图解版</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background: #f7f5ef; color: #2a2a2a; line-height: 1.6; padding: 24px; }
+  h1 { font-size: 28px; margin-bottom: 8px; color: #1a1a1a; }
+  .subtitle { color: #666; margin-bottom: 32px; font-size: 14px; }
+  h2 { font-size: 22px; margin: 40px 0 8px; padding-bottom: 6px;
+       border-bottom: 2px solid #c9c3b3; color: #1a1a1a; }
+  h3 { font-size: 16px; margin: 20px 0 8px; color: #444; }
+  .section { background: #fff; border: 1.5px solid #d4cebe; border-radius: 8px;
+             padding: 20px; margin: 12px 0; box-shadow: 2px 2px 0 rgba(0,0,0,0.06); }
+  .diagram { background: #fafaf6; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  .note { background: #fff8e1; border-left: 4px solid #f0ad4e; padding: 10px 14px;
+          margin: 10px 0; font-size: 13px; border-radius: 0 4px 4px 0; }
+  .good { background: #e8f5e9; border-left-color: #4caf50; }
+  .bad { background: #ffebee; border-left-color: #f44336; }
+  .mermaid { display: flex; justify-content: center; }
+  .toc { background: #fff; border: 1.5px solid #d4cebe; border-radius: 8px;
+         padding: 16px 24px; margin-bottom: 32px; }
+  .toc a { color: #1565c0; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { padding-left: 20px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+           font-size: 11px; font-weight: 600; margin-left: 8px; vertical-align: middle; }
+  .badge-now { background: #ffebee; color: #c62828; }
+  .badge-goal { background: #e8f5e9; color: #2e7d32; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  th, td { border: 1px solid #d4cebe; padding: 8px 12px; text-align: left; }
+  th { background: #efebe0; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>OKIT 改造方案 · 图解版</h1>
+<p class="subtitle">分支 feat/usage-and-quickstart-redesign · 对标 cc-switch v3.10.3 · 2026-08-11</p>
+
+<div class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#s0">全局架构：四个目标的关系</a></li>
+    <li><a href="#s4">目标④ 切换：现状 vs 目标（最关键）</a></li>
+    <li><a href="#s1">目标① 用量：数据模型与分类</a></li>
+    <li><a href="#s2">目标② 首页：从切换器到驾驶舱</a></li>
+    <li><a href="#s3">目标③ 常用模型：数据流转</a></li>
+    <li><a href="#s5">实施顺序与依赖</a></li>
+  </ol>
+</div>
+
+<!-- ========== Section 0: 全局 ========== -->
+<h2 id="s0">① 全局架构：四个目标的关系</h2>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph "地基（必须先做）"
+        T4["🎯 目标④<br/>Agent 切换统一"]
+    end
+    subgraph "数据层（依赖地基）"
+        T3["⭐ 目标③<br/>常用模型机制"]
+        T1["📊 目标①<br/>用量对接+分类"]
+    end
+    subgraph "展现层（依赖数据层）"
+        T2["🏠 目标②<br/>首页驾驶舱"]
+    end
+
+    T4 --> T3
+    T4 --> T1
+    T3 --> T2
+    T1 --> T2
+
+    style T4 fill:#ffcdd2,stroke:#c62828,stroke-width:3px
+    style T3 fill:#fff9c4,stroke:#f9a825
+    style T1 fill:#fff9c4,stroke:#f9a825
+    style T2 fill:#c8e6c9,stroke:#2e7d32
+</div>
+  </div>
+  <div class="note">
+    <strong>核心逻辑</strong>：切换不可靠 → UI 再好看也没用。所以 <strong>目标④是地基</strong>，必须先修。
+    目标③的"最近使用"要在切换成功后自动记录；目标②的首页要显示用量和常用模型。
+  </div>
+</div>
+
+<!-- ========== Section 4: 切换 ========== -->
+<h2 id="s4">② 目标④ · Agent 切换模型（最关键）</h2>
+
+<h3>现状：双套实现 + 多处 bug <span class="badge badge-now">现状</span></h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph LR
+    subgraph "Web UI 路径"
+        H["HomePage<br/>点模型"]
+        H -->|"POST /api/providers/switch"| JS["JS writers<br/>providers.js<br/>9个手写函数"]
+        JS -->|"❌ Codex 硬编码 wire_api<br/>❌ Gemini 丢弃 model"| F1["Agent 配置文件<br/>(可能损坏)"]
+        JS --> UP1["user.json<br/>config.providers ✓"]
+    end
+
+    subgraph "聊天页路径（不互通！）"
+        A["AgentPage<br/>composer"]
+        A -->|"POST /api/settings"| SET["settings.js<br/>updateSettings"]
+        SET -->|"❌ 不写任何 agent 文件"| UP2["user.json<br/>config.agent"]
+        SET -.->|"❌ 不更新"| F1
+    end
+
+    subgraph "CLI 路径（另一套）"
+        C["okit provider use"]
+        C --> TS["TS adapters<br/>registry.ts<br/>9个类"]
+        TS -->|"较新 较正确"| F2["Agent 配置文件<br/>(正确)"]
+        TS --> UP3["user.json ✓"]
+    end
+
+    style JS fill:#ffcdd2,stroke:#c62828
+    style SET fill:#ffcdd2,stroke:#c62828
+    style TS fill:#c8e6c9,stroke:#2e7d32
+    style F1 fill:#ffcdd2,stroke:#c62828
+    style F2 fill:#c8e6c9,stroke:#2e7d32
+</div>
+  </div>
+  <div class="note bad">
+    <strong>三个致命问题</strong>：<br/>
+    ① <strong>Web 和 CLI 用两套代码</strong>（JS writers vs TS adapters），已经漂移。Codex 的 Web 路径有 bug，CLI 路径是对的。<br/>
+    ② <strong>Gemini 切换完全丢弃 model</strong>，只写 API key。<br/>
+    ③ <strong>HomePage 和聊天页状态不互通</strong>：聊天页切换不写 agent 配置文件，两边各管各的。
+  </div>
+</div>
+
+<h3>cc-switch 怎么做（照抄）<span class="badge badge-goal">目标</span></h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph "单一入口"
+        UI["任意 UI 操作<br/>HomePage / 聊天页 / CLI"]
+        UI -->|"统一调用"| SW["switchProvider<br/>单一入口"]
+    end
+
+    subgraph "切换四步（cc-switch 实践）"
+        SW --> S1["1️⃣ Backfill<br/>读当前 agent 配置文件<br/>回写到旧 provider 记录<br/>避免用户手改丢失"]
+        S1 --> S2["2️⃣ 更新状态<br/>user.json 记录<br/>当前 agent 用哪个 provider+model"]
+        S2 --> S3["3️⃣ 原子写配置<br/>.tmp 文件 + rename<br/>避免半写损坏"]
+        S3 --> S4["4️⃣ 自动记 recent<br/>加入最近使用列表<br/>(目标③ 用)"]
+    end
+
+    SW --> ADP["TS Adapter 分发<br/>(唯一真源)"]
+    ADP --> C["ClaudeAdapter"]
+    ADP --> CD["CodexAdapter"]
+    ADP --> G["GeminiAdapter"]
+    ADP --> O["其他 6 个"]
+
+    style SW fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
+    style ADP fill:#fff9c4,stroke:#f9a825
+</div>
+  </div>
+</div>
+
+<h3>每个 Agent 写什么文件（数据模型）</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph Claude["🟠 Claude Code"]
+        CF["~/.claude/settings.json"]
+        CF --> CE["env 块:<br/>ANTHROPIC_BASE_URL<br/>ANTHROPIC_AUTH_TOKEN<br/>ANTHROPIC_MODEL<br/>+ 3个 DEFAULT_*_MODEL"]
+    end
+
+    subgraph Codex["🔵 Codex"]
+        COF1["~/.codex/auth.json"]
+        COF2["~/.codex/config.toml"]
+        COF1 --> COE1["OPENAI_API_KEY"]
+        COF2 --> COE2["model + model_provider<br/>[model_providers.X]<br/>base_url / env_key / wire_api<br/>requires_openai_auth"]
+    end
+
+    subgraph Gemini["🟢 Gemini"]
+        GF1["~/.gemini/.env"]
+        GF2["~/.gemini/settings.json"]
+        GF1 --> GE1["GEMINI_API_KEY<br/>GEMINI_MODEL ← 现在丢了!<br/>GOOGLE_GEMINI_BASE_URL"]
+        GF2 --> GE2["security.auth.selectedType<br/>(合并 不覆盖)"]
+    end
+
+    subgraph Additive["🟣 OpenCode / OpenClaw / ZCode / Hermes"]
+        AF["~/.opencode/config.json<br/>~/.openclaw/openclaw.json<br/>~/.zcode/config.json<br/>~/.hermes/config.json"]
+        AF --> AE["additive 模式<br/>读-改-写<br/>只插入一个 provider key<br/>不替换其他 provider"]
+    end
+
+    style CE fill:#fff3e0
+    style COE1 fill:#e3f2fd
+    style COE2 fill:#e3f2fd
+    style GE1 fill:#e8f5e9
+    style GE2 fill:#e8f5e9
+    style AE fill:#f3e5f5
+</div>
+  </div>
+  <div class="note">
+    <strong>两类写入模式</strong>：<br/>
+    <strong>独占模式</strong>（Claude/Codex/Gemini）：切换 = 完全替换配置文件，只有一个"当前 provider"。<br/>
+    <strong>累加模式</strong>（OpenCode/OpenClaw/ZCode/Hermes/WorkBuddy/Kimi-Code）：多个 provider 共存，切换只是加一条/激活一条。
+  </div>
+</div>
+
+<!-- ========== Section 1: 用量 ========== -->
+<h2 id="s1">③ 目标① · 用量统计：数据模型与分类</h2>
+
+<h3>现状：覆盖太少 + 无分类 <span class="badge badge-now">现状</span></h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+pie title 39个预设的用量覆盖现状
+    "✅ 实时查询 (7)" : 7
+    "⚠️ 仅控制台提示 (3)" : 3
+    "❌ 完全不支持 (29)" : 29
+</div>
+  </div>
+  <div class="note bad">
+    <strong>问题</strong>：DeepSeek、硅基流动、Moonshot、Mistral 这些常用的充值制平台全部不支持。
+    而且订阅套餐和充值余额<strong>混在一个网格里</strong>，没有区分。
+  </div>
+</div>
+
+<h3>目标：两类用量的数据模型 <span class="badge badge-goal">目标</span></h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph sub["订阅/套餐 Subscription"]
+        direction TB
+        S_desc["有额度上限 + 重置时间<br/>用百分比衡量"]
+        S_eg["例子: Codex订阅 / Claude订阅<br/>GLM·Kimi·MiniMax·火山 Coding Plan"]
+        S_data["数据: usedPercent + resetAt<br/>5小时窗 / 周窗 / 月窗"]
+    end
+
+    subgraph pre["充值/API余额 Prepaid"]
+        direction TB
+        P_desc["充值扣费 + 无重置时间<br/>显示绝对金额"]
+        P_eg["例子: OpenRouter / DeepSeek<br/>硅基流动 / Moonshot / Mistral"]
+        P_data["数据: balance + used + total<br/>单位 USD"]
+    end
+
+    style sub fill:#fff3e0,stroke:#e65100
+    style pre fill:#e3f2fd,stroke:#0d47a1
+    style S_desc fill:#ffe0b2
+    style P_desc fill:#bbdefb
+</div>
+  </div>
+  <div class="diagram">
+<div class="mermaid">
+graph LR
+    subgraph "统一响应 shape"
+        R["GET /api/usage/:id"]
+        R --> K["kind: subscription | prepaid"]
+        R --> P["plans[] / balance"]
+    end
+
+    subgraph "订阅返回"
+        SP["plans: [{<br/>  planName: 5小时窗口<br/>  usedPercent: 72<br/>  resetAt: 2026-08-11T18:00<br/>}]"]
+    end
+
+    subgraph "充值返回"
+        PP["plans: [{<br/>  planName: API余额<br/>  total: 50.00<br/>  used: 12.34<br/>  remaining: 37.66<br/>  unit: USD<br/>}]"]
+    end
+
+    K --> SP
+    K --> PP
+
+    style R fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+</div>
+  </div>
+</div>
+
+<h3>前端：订阅 / 充值 tab 切换</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    PAGE["用量统计页"]
+    PAGE --> TAB["二选一切换器"]
+    TAB -->|"订阅套餐"| SUB["订阅卡片网格<br/>百分比条 + 重置时间<br/>Claude 72%·5h窗<br/>GLM 45%·本周"]
+    TAB -->|"充值余额"| PRE["充值卡片网格<br/>美元余额数字<br/>DeepSeek $37.66<br/>Moonshot $120.00"]
+
+    style TAB fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style SUB fill:#fff3e0
+    style PRE fill:#e3f2fd
+</div>
+  </div>
+</div>
+
+<!-- ========== Section 2: 首页 ========== -->
+<h2 id="s2">④ 目标② · 首页：从切换器到驾驶舱</h2>
+
+<h3>现状 vs 目标对比</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph now["🏠 现在的首页"]
+        direction TB
+        N1["Agent 图标 tab 行"]
+        N2["Agent 头像 + 启动按钮"]
+        N3["Provider 卡片<br/>展开显示全部模型<br/>(OpenAI下5个 ZAI下十几个)"]
+        N1 --- N2 --- N3
+    end
+
+    subgraph goal["🏠 目标首页（每日驾驶舱）"]
+        direction TB
+        G1["📊 今日用量摘要<br/>常用Provider的用量一眼可见"]
+        G2["⭐ 常用模型 (≤6个)<br/>点一个→选切到哪个Agent"]
+        G3["🛠️ 常用工具<br/>一键启动"]
+        G4["Agent tab + Provider卡<br/>但默认只显示常用模型<br/>显示全部 才展开"]
+        G1 --- G2 --- G3 --- G4
+    end
+
+    style now fill:#ffebee,stroke:#c62828
+    style goal fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style N3 fill:#ffcdd2
+    style G1 fill:#c8e6c9
+    style G2 fill:#c8e6c9
+    style G3 fill:#c8e6c9
+</div>
+  </div>
+  <div class="note good">
+    <strong>设计理念</strong>：用户每天进来想看三件事 —— 我的额度还剩多少？我常用的模型一键能切吗？我的工具一键能开吗？
+    其他页面（Vault / Tools 详情 / Models 管理）用完就不回了，<strong>首页必须是高频触达的</strong>。
+  </div>
+</div>
+
+<!-- ========== Section 3: 常用模型 ========== -->
+<h2 id="s3">⑤ 目标③ · 常用模型：数据流转</h2>
+
+<h3>数据模型</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    subgraph "user.json 新增两个字段"
+        FAV["favoriteModels[]<br/>用户显式收藏<br/>上限20个"]
+        REC["recentModels[]<br/>自动记录<br/>上限10个"]
+    end
+
+    FAV --> FAVF["{<br/>  providerId: anthropic<br/>  modelId: claude-opus-4-7<br/>  addedAt: 2026-08-11T...<br/>}"]
+
+    REC --> RECF["{<br/>  providerId: glm-coding<br/>  modelId: glm-4.7<br/>  agentId: claude<br/>  lastUsedAt: 2026-08-11T...<br/>}"]
+
+    style FAV fill:#fff9c4,stroke:#f9a825
+    style REC fill:#e3f2fd,stroke:#1565c0
+</div>
+  </div>
+</div>
+
+<h3>数据怎么流转</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant UI as 选择器<br/>(首页/聊天页/Models页)
+    participant API as switchProvider API
+    participant ADP as TS Adapter
+    participant F as Agent配置文件
+    participant DB as user.json
+
+    U->>UI: 点一个模型
+    UI->>API: switch(agent, provider, model)
+
+    API->>ADP: applyConfig
+    ADP->>F: 写配置文件 (原子写)
+    F-->>ADP: 成功
+
+    ADP-->>API: 完成
+    API->>DB: 更新 config.providers[agent]
+    API->>DB: 自动追加 recentModels (置顶)
+
+    Note over DB: recentModels 自动维护<br/>用户无需手动操作
+
+    par 并行
+        API-->>UI: 切换成功
+    end
+    UI->>U: 刷新显示<br/>常用/最近置顶
+</div>
+  </div>
+  <div class="note">
+    <strong>关键</strong>：<code>recentModels</code> 是<strong>自动</strong>的 —— 用户每次切换成功，系统自动把这个模型加入"最近使用"并置顶。
+    <code>favoriteModels</code> 是<strong>手动</strong>的 —— 用户点 ⭐ 显式收藏。<br/>
+    所有模型选择器渲染时：置顶显示 favorite + recent，其余折叠到"显示全部"。
+  </div>
+</div>
+
+<h3>三层渲染规则（所有选择器统一）</h3>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+graph TB
+    LIST["模型列表渲染"]
+    LIST --> L1["⭐ 收藏区<br/>favorite ∩ 当前Provider<br/>带星标"]
+    L1 --> L2["🕐 最近区<br/>recent ∩ 当前Provider<br/>带时钟"]
+    L2 --> L3["📋 全部区<br/>其余模型<br/>默认折叠"]
+    L3 -->|"点击展开"| L4["显示全部模型"]
+
+    style L1 fill:#fff9c4,stroke:#f9a825
+    style L2 fill:#e3f2fd,stroke:#1565c0
+    style L3 fill:#f5f5f5,stroke:#999
+</div>
+  </div>
+  <div class="note good">
+    这样用户日常看到的就是 2-3 个常用模型，不是几十个。"显示全部"才展开全量。
+  </div>
+</div>
+
+<!-- ========== Section 5: 实施顺序 ========== -->
+<h2 id="s5">⑥ 实施顺序与依赖</h2>
+<div class="section">
+  <div class="diagram">
+<div class="mermaid">
+gantt
+    title 实施顺序（严格按依赖）
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
+
+    section 地基
+    目标④ 切换统一 + 测试        :a1, 2026-08-11, 5d
+
+    section 数据层
+    目标③ 常用模型机制           :a2, after a1, 3d
+    目标① 用量对接+分类          :a3, after a1, 4d
+
+    section 展现层
+    目标② 首页驾驶舱             :a4, after a2 a3, 4d
+</div>
+  </div>
+  <div class="note bad">
+    <strong>⚠️ 不能跳序</strong>。如果先做目标②（首页）再做目标④（切换），
+    首页的"常用模型点击切换"会触发有 bug 的切换路径，用户一点 Gemini 模型就丢 model，
+    反而比现在更糟。<strong>地基不稳，上层白搭</strong>。
+  </div>
+</div>
+
+<h3>改动范围概览</h3>
+<div class="section">
+  <table>
+    <tr><th>目标</th><th>新增</th><th>修改</th><th>删除</th></tr>
+    <tr><td>④ 切换统一</td><td>7个adapter测试 + 1个集成测试</td><td>3个adapter修bug + providers.js + AgentPage</td><td>9个JS writer (~300行死代码)</td></tr>
+    <tr><td>③ 常用模型</td><td>FavoriteButton组件</td><td>providers.js加recent记录 + 选择器渲染逻辑 + Models页加星</td><td>ModelPickerModal (90行死代码)</td></tr>
+    <tr><td>① 用量对接</td><td>5个provider查询函数</td><td>usage.js加kind枚举 + UsagePage加tab</td><td>—</td></tr>
+    <tr><td>② 首页驾驶舱</td><td>3个新区块组件</td><td>HomePage重构 + home.css清理</td><td>quick-start.css (134行孤儿) + 60个i18n孤儿key</td></tr>
+    <tr><td><strong>合计</strong></td><td colspan="3"><strong>删多于增，净减约 400 行死代码</strong></td></tr>
+  </table>
+</div>
+
+<p style="text-align:center; margin-top:40px; color:#999; font-size:12px;">
+  — 文档结束 · 分支 feat/usage-and-quickstart-redesign —
+</p>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', flowchart: { htmlLabels: true, curve: 'basis' } });
+</script>
+</body>
+</html>

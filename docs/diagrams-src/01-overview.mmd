@@ -1,0 +1,21 @@
+graph TB
+    subgraph "地基（必须先做）"
+        T4["🎯 目标④<br/>Agent 切换统一"]
+    end
+    subgraph "数据层（依赖地基）"
+        T3["⭐ 目标③<br/>常用模型机制"]
+        T1["📊 目标①<br/>用量对接+分类"]
+    end
+    subgraph "展现层（依赖数据层）"
+        T2["🏠 目标②<br/>首页驾驶舱"]
+    end
+
+    T4 --> T3
+    T4 --> T1
+    T3 --> T2
+    T1 --> T2
+
+    style T4 fill:#ffcdd2,stroke:#c62828,stroke-width:3px
+    style T3 fill:#fff9c4,stroke:#f9a825
+    style T1 fill:#fff9c4,stroke:#f9a825
+    style T2 fill:#c8e6c9,stroke:#2e7d32

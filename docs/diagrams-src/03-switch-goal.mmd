@@ -1,0 +1,21 @@
+graph TB
+    subgraph "单一入口"
+        UI["任意 UI 操作<br/>HomePage / 聊天页 / CLI"]
+        UI -->|"统一调用"| SW["switchProvider<br/>单一入口"]
+    end
+
+    subgraph "切换四步（cc-switch 实践）"
+        SW --> S1["1️⃣ Backfill<br/>读当前 agent 配置文件<br/>回写到旧 provider 记录<br/>避免用户手改丢失"]
+        S1 --> S2["2️⃣ 更新状态<br/>user.json 记录<br/>当前 agent 用哪个 provider+model"]
+        S2 --> S3["3️⃣ 原子写配置<br/>.tmp 文件 + rename<br/>避免半写损坏"]
+        S3 --> S4["4️⃣ 自动记 recent<br/>加入最近使用列表<br/>(目标③ 用)"]
+    end
+
+    SW --> ADP["TS Adapter 分发<br/>(唯一真源)"]
+    ADP --> C["ClaudeAdapter"]
+    ADP --> CD["CodexAdapter"]
+    ADP --> G["GeminiAdapter"]
+    ADP --> O["其他 6 个"]
+
+    style SW fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
+    style ADP fill:#fff9c4,stroke:#f9a825

@@ -465,6 +465,12 @@ export default function ModelsPage() {
 
   // 过滤 + 分组
   const filteredProviders = useMemo(() => {
+    // 预计算每个 provider 的家族成员(用于套餐筛选时保留同家族成员)
+    const familyIdsMap = new Map<string, string[]>();
+    for (const f of PROVIDER_FAMILIES) {
+      for (const id of f.ids) familyIdsMap.set(id, f.ids);
+    }
+
     return providers.filter(p => {
       // 平台视角：按分组或具体平台过滤
       if (activeProvider && p.id !== activeProvider) return false;
@@ -473,10 +479,23 @@ export default function ModelsPage() {
       if (activeProtocol && !providerProtocols(p).includes(activeProtocol)) return false;
       // 模态筛选：平台模型必须支持该能力
       if (activeMode && !providerModes(p).includes(activeMode)) return false;
-      if (activePlanFilter && !providerPlans(p).includes(activePlanFilter)) return false;
+      // 套餐筛选:对多成员家族,任一成员匹配则保留整个家族(卡片内用 tab 切换)
+      if (activePlanFilter) {
+        const ownPlans = providerPlans(p);
+        if (ownPlans.includes(activePlanFilter)) return true; // 自身匹配
+        const familyIds = familyIdsMap.get(p.id);
+        if (familyIds) {
+          const familyMatch = familyIds.some(fid => {
+            const fp = providers.find(pp => pp.id === fid);
+            return fp && providerPlans(fp).includes(activePlanFilter);
+          });
+          if (familyMatch) return true; // 家族中有成员匹配
+        }
+        return false;
+      }
       if (!matchesQuery(p)) return false;
       if (statusFilter === 'authed' && !isAuthed(p)) return false;
-      if (statusFilter === 'unauthed' && isAuthed(p)) return false;
+      if (statusFilter === 'unauthed' && !isAuthed(p)) return false;
       if (statusFilter === 'used' && !isUsedBy(p)) return false;
       return true;
     });

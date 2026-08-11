@@ -1209,7 +1209,7 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified in the authenticated Platform console: the name field is
   // "My Test Key", and the dialog ends with "Create secret key".
   { id: 'openai', label: 'OpenAI', keyHint: 'OPENAI_API_KEY', groupHint: 'OpenAI', mode: 'browser', url: 'https://platform.openai.com/api-keys', createTexts: ['Create new secret key'], nameSelectors: ['input[placeholder="My Test Key"]'], confirmTexts: ['Create secret key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-(?:proj-)?[A-Za-z0-9_-]{20,}'] },
-  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://console.anthropic.com/settings/keys', createTexts: ['Create Key', 'Create API Key', 'Create key'], confirmTexts: ['Create Key'], postCreateDomReadAttempts: 8, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
+  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://console.anthropic.com/settings/keys', createTexts: ['Create Key', 'Create API Key', 'Create key'], preConfirmSelectDefaults: [{ triggerText: 'Select an expiration', optionText: 'No expiration' }], confirmTexts: ['Add', 'Create key', 'Create Key', 'Create'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
   // Verified in the signed-in Chinese AI Studio UI: the key is named through
   // its aria-labelled input and finalized with "创建密钥".
   { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AIza[0-9A-Za-z_-]{20,}'] },
@@ -1573,6 +1573,54 @@ async function createGenericBrowserKey({ tokenName, platform }) {
     if (blocker?.message) throw new Error(blocker.message);
   }
 
+  // Anthropic 及类似平台有一个 expiration 下拉框需要选一个值才能确认。
+  // 选第一个选项(通常是 "No expiration" 或 "1 year")。
+  if (platform.preConfirmSelectDefaults?.length) {
+    for (const selectConfig of platform.preConfirmSelectDefaults) {
+      await execJs(`(() => {
+        const triggerText = ${JSON.stringify(selectConfig.triggerText || '')};
+        const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        // 找到包含 triggerText 的下拉触发器
+        const triggers = [...document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"]')]
+          .filter(visible).concat([document]);
+        let trigger = null;
+        for (const scope of triggers) {
+          const candidates = [...scope.querySelectorAll('button, [role="combobox"], [role="button"], select')]
+            .filter(visible)
+            .filter(el => (el.textContent || '').includes(triggerText) || el.getAttribute('aria-label')?.includes(triggerText));
+          if (candidates.length) { trigger = candidates[0]; break; }
+        }
+        if (!trigger) return JSON.stringify({ error: 'select-trigger-not-found', triggerText });
+        // 打开下拉
+        trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        trigger.click();
+        return JSON.stringify({ ok: true });
+      })()`).catch(() => '{}');
+      await sleep(400);
+      // 选第一个选项
+      await execJs(`(() => {
+        const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        const optionText = ${JSON.stringify(selectConfig.optionText || '')};
+        // 先尝试精确匹配 optionText,否则选第一个可见选项
+        let option = null;
+        if (optionText) {
+          option = [...document.querySelectorAll('[role="option"], li[role="option"], [role="menuitem"]')]
+            .filter(visible)
+            .find(el => (el.textContent || '').trim().toLowerCase().includes(optionText.toLowerCase()));
+        }
+        if (!option) {
+          option = [...document.querySelectorAll('[role="option"], li[role="option"], [role="menuitem"]')]
+            .filter(visible)[0];
+        }
+        if (!option) return JSON.stringify({ error: 'option-not-found' });
+        option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        option.click();
+        return JSON.stringify({ ok: true });
+      })()`).catch(() => '{}');
+      await sleep(300);
+    }
+  }
+
   // Kimi's form requires an explicit project. Choosing a different project
   // would change the scope of the created credential, so only the provider's
   // visible `default` project is eligible for automatic selection.
@@ -1648,14 +1696,16 @@ async function createGenericBrowserKey({ tokenName, platform }) {
     const confirmResult = await execJs(`(() => {
     const confirmTexts = ${JSON.stringify(platform.confirmTexts || ['确定', '确认', '创建', '保存', 'Create', 'Confirm', 'Save', 'Generate'])};
     const createTexts = ${JSON.stringify(platform.createTexts || [])};
-    const scope = document.querySelector('[role="dialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"]') || document;
+    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
+    const scope = document.querySelector(dialogSelectors);
     const visibleButtons = (root) => [...root.querySelectorAll('button, [role="button"]')].filter(el => {
       const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !el.disabled;
     });
-    const scopedCandidates = visibleButtons(scope);
-    // Some consoles render their create form in a sheet that is not the
-    // element matching [role=dialog]. Search the full page as a fallback.
-    const candidates = [...new Set([...scopedCandidates, ...visibleButtons(document)])];
+    // 优先在弹窗内找确认按钮(避免匹配到列表页的创建按钮)。
+    // 弹窗没找到时才搜全页面作为 fallback。
+    const scopedCandidates = scope ? visibleButtons(scope) : [];
+    const allCandidates = visibleButtons(document);
+    const candidates = scopedCandidates.length ? scopedCandidates : allCandidates;
     const target = candidates.find(el => {
       const label = (el.textContent || '').trim();
       // Ant Design may render Chinese labels with layout whitespace, e.g.
@@ -1663,10 +1713,20 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       const normalizedLabel = label.replace(/\\s+/g, '').toLowerCase();
       return confirmTexts.some(text => {
         const normalizedText = text.replace(/\\s+/g, '').toLowerCase();
-        return normalizedLabel === normalizedText || normalizedLabel.startsWith(normalizedText);
+        return normalizedLabel === normalizedText || normalizedLabel.includes(normalizedText);
       }) && (${Boolean(platform.allowConfirmCreateText)} || !createTexts.some(text => normalizedLabel.includes(text.replace(/\\s+/g, '').toLowerCase())));
     });
-    if (!target) return JSON.stringify({ error: 'confirm-not-found', buttons: candidates.map(el => (el.textContent || '').trim().slice(0, 40)) });
+    if (!target) {
+      // 诊断:列出每个按钮的 normalized 文本和匹配结果
+      const diag = candidates.map(el => {
+        const label = (el.textContent || '').trim();
+        const normalizedLabel = label.replace(/\\s+/g, '').toLowerCase();
+        const matchedConfirm = confirmTexts.some(text => { const nt = text.replace(/\\s+/g, '').toLowerCase(); return normalizedLabel === nt || normalizedLabel.includes(nt); });
+        const blockedByCreate = createTexts.some(text => normalizedLabel.includes(text.replace(/\\s+/g, '').toLowerCase()));
+        return { raw: label.slice(0, 40), normalized: normalizedLabel.slice(0, 40), matchedConfirm, blockedByCreate, allowConfirm: ${Boolean(platform.allowConfirmCreateText)} };
+      }).filter(d => d.matchedConfirm || d.blockedByCreate);
+      return JSON.stringify({ error: 'confirm-not-found', buttons: candidates.map(el => (el.textContent || '').trim().slice(0, 40)), diag });
+    }
     target.click();
     return JSON.stringify({ ok: true });
   })()`);
@@ -1685,9 +1745,18 @@ async function createGenericBrowserKey({ tokenName, platform }) {
       const fields = selectors.length
         ? [...new Set(selectors.flatMap(selector => [...document.querySelectorAll(selector)]))]
         : [...document.querySelectorAll('input, textarea, [data-clipboard-text], [data-key]')];
+      // Read values from input/textarea elements
       const values = fields
         .map(el => el.value || el.getAttribute('data-clipboard-text') || el.getAttribute('data-key') || '');
-      return selectors.length ? values.join('\\n') : [document.body.innerText || '', ...values].join('\\n');
+      // Also read textContent from selector-matched elements (some platforms
+      // put the key in a span/code rather than an input)
+      const textContents = selectors.length
+        ? fields.map(el => (el.textContent || '').trim()).filter(Boolean)
+        : [];
+      // Always include the dialog/body innerText as fallback — some platforms
+      // show the key in a success toast or notification, not in a form field.
+      const dialogText = (document.querySelector('[role="dialog"], [role="alertdialog"], [class*="modal"], [class*="dialog"], [class*="toast"], [class*="notification"]')?.innerText) || '';
+      return [values.join('\\n'), textContents.join('\\n'), dialogText, selectors.length ? '' : (document.body.innerText || '')].join('\\n');
     })()`).catch(() => '');
     return keyFromText(domText, platform);
   };
@@ -2061,7 +2130,15 @@ async function createGenericBrowserKey({ tokenName, platform }) {
   if (secretDiagnostics.length) {
     console.log('[auto-create] safe secret-field diagnostics', JSON.stringify(secretDiagnostics));
   }
-  throw new Error(`密钥可能已创建，但未能读取一次性明文（已抓取 ${entries.length} 条请求）。请在自动化窗口复制密钥后手动保存。`);
+  // DOM 诊断:把当前页面的按钮、弹窗、URL 信息输出到错误信息里
+  const diag = await execJs(`(() => {
+    const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const buttons = [...document.querySelectorAll('button, [role="button"]')].filter(visible).map(el => (el.textContent || '').trim().slice(0, 50)).filter(Boolean).slice(0, 20);
+    const dialogs = [...document.querySelectorAll('[role="dialog"], [class*="modal"], [class*="dialog"]')].filter(visible).map(el => (el.textContent || '').trim().slice(0, 200));
+    const inputs = [...document.querySelectorAll('input')].filter(visible).map(el => ({ type: el.type, placeholder: el.placeholder, value: el.value ? '(has value)' : '(empty)' })).slice(0, 10);
+    return JSON.stringify({ url: location.href.slice(-80), title: document.title.slice(0, 60), buttons, dialogs, inputs });
+  })()`).catch(() => '{}');
+  throw new Error(`密钥可能已创建，但未能读取一次性明文（已抓取 ${entries.length} 条请求）。页面诊断: ${diag}。请在自动化窗口复制密钥后手动保存。`);
 }
 
 async function createBrowserPlatformKey(platform, tokenName) {

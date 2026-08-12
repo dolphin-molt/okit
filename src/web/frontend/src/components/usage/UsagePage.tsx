@@ -73,10 +73,10 @@ export default function UsagePage() {
   }, [supportedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function providerName(id: string): string {
-    const meta = PROVIDER_META[id];
-    if (meta) return meta.name;
+    // Provider name comes from presets.ts via the providers API — single
+    // source of truth. Don't hardcode display names in PROVIDER_META.
     const p = providers.find(x => x.id === id);
-    return p?.name || id;
+    return p?.name || PROVIDER_META[id]?.name || id;
   }
 
   function providerType(id: string): string {
@@ -87,7 +87,8 @@ export default function UsagePage() {
     id,
     name: providerName(id),
     type: providerType(id),
-    kind: PROVIDER_META[id]?.kind || 'subscription',
+    // kind is stamped by the usage API response; fall back to PROVIDER_META.
+    kind: usageMap[id]?.kind || PROVIDER_META[id]?.kind || 'subscription',
     usage: usageMap[id],
     fetching: fetchingIds.has(id),
   }));

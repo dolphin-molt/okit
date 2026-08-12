@@ -1,7 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
-import { execFile } from "child_process";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
@@ -9,10 +8,11 @@ import { checkCodexOAuth } from "../auth";
 
 const CODEX_DIR = path.join(os.homedir(), ".codex");
 const CODEX_CONFIG_PATH = path.join(CODEX_DIR, "config.toml");
+const CODEX_AUTH_PATH = path.join(CODEX_DIR, "auth.json");
 
 export class CodexAdapter extends BaseAdapter {
   readonly id = "codex";
-  readonly name = "Codex";
+  readonly name = "ChatGPT";
   readonly supportedTypes: ProviderType[] = ["openai"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {
@@ -36,27 +36,64 @@ export class CodexAdapter extends BaseAdapter {
       toml = await fs.readFile(CODEX_CONFIG_PATH, "utf-8");
     }
 
-    const providerId = getCodexProviderId(provider);
-    const openAIEndpoint = getProviderEndpoint(provider, "openai");
+    // Official OpenAI subscription = OAuth mode. Mirror cc-switch's "OpenAI
+    // Official" preset which writes an EMPTY config + EMPTY auth: Codex falls
+    // back to its native OAuth login + default model catalog. We must strip
+    // all third-party residue (model_provider, [model_providers.okit-*],
+    // disable_response_storage, web_search, model_catalog_json, OPENAI_API_KEY)
+    // so the ChatGPT desktop app uses the subscription, not a stale API key.
+    const isOfficial = provider.id === "openai-codex" || provider.id === "openai";
 
-    toml = upsertTopLevelTomlKey(toml, "model", tomlString(modelId));
-    toml = upsertTopLevelTomlKey(toml, "model_provider", tomlString(providerId));
-    toml = removeTopLevelTomlKey(toml, "api_base");
+    if (isOfficial) {
+      // Set model, strip everything else that only applies to third-party.
+      toml = upsertTopLevelTomlKey(toml, "model", tomlString(modelId));
+      toml = removeTopLevelTomlKey(toml, "model_provider");
+      toml = removeTopLevelTomlKey(toml, "disable_response_storage");
+      toml = removeTopLevelTomlKey(toml, "web_search");
+      toml = removeTopLevelTomlKey(toml, "model_catalog_json");
+      toml = removeTopLevelTomlKey(toml, "api_base");
+      // model_reasoning_effort is harmless for official too — keep it so
+      // reasoning models behave the same across subscription and API modes.
+      // toml = upsertTopLevelTomlKey(toml, "model_reasoning_effort", tomlString("high"));
+      // Purge every [model_providers.okit-*] table we may have written.
+      toml = removeAllOkitProviderTables(toml);
+      // Remove OPENAI_API_KEY from auth.json but PRESERVE OAuth tokens so
+      // the subscription stays logged in.
+      await removeApiKeyFromAuthJson(CODEX_AUTH_PATH);
+      await fs.writeFile(CODEX_CONFIG_PATH, toml);
+    } else {
+      const providerId = getCodexProviderId(provider);
+      const openAIEndpoint = getProviderEndpoint(provider, "openai");
 
-    if (providerId !== "openai") {
-      const envKey = getCodexEnvKey(provider);
-      const wireApi = openAIEndpoint.protocol === "responses" ? "responses" : "chat";
+      toml = upsertTopLevelTomlKey(toml, "model", tomlString(modelId));
+      toml = upsertTopLevelTomlKey(toml, "model_provider", tomlString(providerId));
+      // Third-party gateways need these: response storage isn't implemented,
+      // web_search_preview tool gets rejected, reasoning effort applies.
+      toml = upsertTopLevelTomlKey(toml, "model_reasoning_effort", tomlString("high"));
+      toml = upsertTopLevelTomlKey(toml, "disable_response_storage", "true");
+      toml = upsertTopLevelTomlKey(toml, "web_search", tomlString("disabled"));
+      toml = removeTopLevelTomlKey(toml, "api_base");
+
+      // Codex dropped support for wire_api = "chat" — "responses" is required.
+      // requires_openai_auth tells Codex to pull the credential from auth.json's
+      // OPENAI_API_KEY. base_url normalization: append /v1 for origin-only URLs.
+      //
+      // Credential delivery via auth.json (not .env) is critical: the ChatGPT
+      // desktop app reads auth.json, NOT .env. cc-switch does the same.
       toml = upsertTomlTable(toml, `model_providers.${providerId}`, [
         `name = ${tomlString(provider.name)}`,
-        `base_url = ${tomlString(openAIEndpoint.baseUrl)}`,
-        `env_key = ${tomlString(envKey)}`,
-        `wire_api = ${tomlString(wireApi)}`,
+        `base_url = ${tomlString(normalizeBaseUrl(openAIEndpoint.baseUrl))}`,
+        `wire_api = "responses"`,
+        `requires_openai_auth = true`,
       ]);
-      if (apiKey) await upsertEnvFile(path.join(CODEX_DIR, ".env"), envKey, apiKey);
-    } else if (apiKey) {
-      await upsertEnvFile(path.join(CODEX_DIR, ".env"), "OPENAI_API_KEY", apiKey);
+
+      if (apiKey) await upsertAuthJson(CODEX_AUTH_PATH, apiKey);
+      await fs.writeFile(CODEX_CONFIG_PATH, toml);
+
+      // Generate model-catalogs.json so the user can switch between this
+      // provider's models via `/model` inside Codex CLI.
+      await writeModelCatalog(provider);
     }
-    await fs.writeFile(CODEX_CONFIG_PATH, toml);
 
     await updateUserConfig({
       providers: { codex: { providerId: provider.id, modelId } },
@@ -71,12 +108,82 @@ function getProviderEndpoint(provider: Provider, type: ProviderType) {
   return endpoint;
 }
 
-function getCodexProviderId(provider: Provider): string {
-  return provider.id === "openai" ? "openai" : `okit-${sanitizeTomlKey(provider.id)}`;
+const MODEL_CATALOG_DIR = path.join(CODEX_DIR, "model-catalogs");
+const MODEL_CATALOG_PATH = path.join(MODEL_CATALOG_DIR, "model-catalogs.json");
+const MODEL_CATALOG_REF = "~/.codex/model-catalogs/model-catalogs.json";
+
+// Write ~/.codex/model-catalogs/model-catalogs.json with one entry per model on
+// the active provider, then add `model_catalog_json` to config.toml so Codex
+// loads it. This lets the user run `/model` inside Codex CLI to switch models
+// without returning to OKIT. Schema follows Xiaomi MiMo's documented format
+// (https://mimo.mi.com/docs/zh-CN/tokenplan/integration/codex-configuration),
+// which is Codex's native model-catalog shape.
+async function writeModelCatalog(provider: Provider): Promise<void> {
+  // Read the user's exclusion list for this provider (models UNCHECKED in the
+  // UI). Absent entry = all models included (default "all checked").
+  const userConfig = await loadUserConfig();
+  const excluded = new Set<string>(userConfig.codexCatalogExcluded?.[provider.id] || []);
+
+  // Build the catalog from the provider's model list, omitting excluded models.
+  // Each entry carries the fields Codex requires; unknown capabilities default
+  // to safe values.
+  const included = provider.models.filter(m => !excluded.has(m.id));
+  const entries = included.map((m, i) => ({
+    slug: m.id,
+    display_name: m.name || m.id,
+    description: `${provider.name} · ${m.name || m.id}`,
+    default_reasoning_level: "high",
+    supported_reasoning_levels: [
+      { effort: "none", description: "Disable Thinking" },
+      { effort: "high", description: "Enabled Thinking" },
+    ],
+    shell_type: "shell_command",
+    visibility: "list",
+    supported_in_api: true,
+    priority: i,
+    base_instructions: "",
+    supports_reasoning_summaries: true,
+    default_reasoning_summary: "none",
+    support_verbosity: false,
+    truncation_policy: { mode: "bytes", limit: 10000 },
+    supports_parallel_tool_calls: false,
+    supports_image_detail_original: false,
+    context_window: 128000,
+    max_context_window: 128000,
+    effective_context_window_percent: 95,
+    // Third-party coding endpoints generally don't support the web_search tool
+    // (it triggers "tool type not supported by this gateway"), so opt out.
+    experimental_supported_tools: [] as string[],
+    input_modalities: ["text"],
+    supports_search_tool: false,
+  }));
+
+  await fs.ensureDir(MODEL_CATALOG_DIR);
+  await fs.writeFile(MODEL_CATALOG_PATH, JSON.stringify({ models: entries }, null, 2));
+
+  // Add the catalog pointer to config.toml (idempotent upsert).
+  let toml = await fs.readFile(CODEX_CONFIG_PATH, "utf-8");
+  toml = upsertTopLevelTomlKey(toml, "model_catalog_json", tomlString(MODEL_CATALOG_REF));
+  await fs.writeFile(CODEX_CONFIG_PATH, toml);
 }
 
-function getCodexEnvKey(provider: Provider): string {
-  return `OKIT_CODEX_${provider.id.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase()}_API_KEY`;
+// Append /v1 for origin-only base URLs (no path after host), preserve URLs that
+// already have a path or end in /v1. Mirrors cc-switch's to_codex provider.
+function normalizeBaseUrl(url: string): string {
+  if (!url) return url;
+  if (/\/v\d+\/?$/.test(url)) return url;          // already ends with /v1, /v2…
+  try {
+    const parsed = new URL(url);
+    // origin-only = no path (or just "/")
+    if (!parsed.pathname || parsed.pathname === "/") {
+      return url.replace(/\/?$/, "") + "/v1";
+    }
+  } catch { /* not a URL — return as-is */ }
+  return url;
+}
+
+function getCodexProviderId(provider: Provider): string {
+  return provider.id === "openai" ? "openai" : `okit-${sanitizeTomlKey(provider.id)}`;
 }
 
 function sanitizeTomlKey(value: string): string {
@@ -146,33 +253,56 @@ function escapeRegex(value: string): string {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function upsertEnvFile(envPath: string, key: string, value: string): Promise<void> {
-  let content = "";
-  if (await fs.pathExists(envPath)) {
-    content = await fs.readFile(envPath, "utf-8");
+// Write OPENAI_API_KEY into ~/.codex/auth.json. Codex CLI and the ChatGPT
+// desktop app both read credentials from here when requires_openai_auth=true.
+// Preserve any existing keys (e.g. OAuth tokens) the user may have set up.
+async function upsertAuthJson(authPath: string, apiKey: string): Promise<void> {
+  let auth: Record<string, unknown> = {};
+  if (await fs.pathExists(authPath)) {
+    try {
+      auth = JSON.parse(await fs.readFile(authPath, "utf-8"));
+    } catch {
+      // Corrupt auth.json — start fresh with just the key.
+      auth = {};
+    }
   }
-
-  const line = `export ${key}=${shellQuote(value)}`;
-  const regex = new RegExp(`^\\s*(?:export\\s+)?${escapeRegex(key)}=.*$`, "m");
-  content = regex.test(content)
-    ? content.replace(regex, line)
-    : `${content.trimEnd()}\n${line}\n`;
-
-  await fs.writeFile(envPath, content.trimStart());
-  await syncMacGuiEnv(key, value);
+  auth["OPENAI_API_KEY"] = apiKey;
+  await fs.writeFile(authPath, JSON.stringify(auth, null, 2));
 }
 
-function shellQuote(value: string): string {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+// Remove OPENAI_API_KEY from auth.json, preserving OAuth tokens and any other
+// fields. Called when switching back to the official OpenAI subscription so
+// Codex falls back to OAuth instead of a stale third-party key.
+async function removeApiKeyFromAuthJson(authPath: string): Promise<void> {
+  if (!(await fs.pathExists(authPath))) return;
+  let auth: Record<string, unknown>;
+  try {
+    auth = JSON.parse(await fs.readFile(authPath, "utf-8"));
+  } catch {
+    return; // corrupt — leave it alone
+  }
+  if ("OPENAI_API_KEY" in auth) {
+    delete auth["OPENAI_API_KEY"];
+    await fs.writeFile(authPath, JSON.stringify(auth, null, 2));
+  }
 }
 
-async function syncMacGuiEnv(key: string, value: string): Promise<void> {
-  if (os.platform() !== "darwin") return;
-
-  await new Promise<void>((resolve) => {
-    execFile("/bin/launchctl", ["setenv", key, value], (err) => {
-      if (err) console.warn(`[codex] launchctl setenv ${key} failed: ${err.message}`);
-      resolve();
-    });
-  });
+// Remove every [model_providers.okit-*] table from the TOML. OKIT-prefixed
+// provider ids are our namespace; anything else (e.g. user-defined or Azure)
+// is left untouched. Each table spans from its [header] to the next [header]
+// or EOF.
+function removeAllOkitProviderTables(toml: string): string {
+  const lines = toml.split("\n");
+  const result: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const headerMatch = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (headerMatch) {
+      const tableName = headerMatch[1];
+      skipping = tableName.startsWith("model_providers.okit");
+    }
+    if (!skipping) result.push(line);
+  }
+  // Trim trailing blank lines left by removed tables.
+  return result.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }

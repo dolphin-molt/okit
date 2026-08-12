@@ -44,7 +44,9 @@
   transition: box-shadow 0.15s;
   display: flex;
   flex-direction: column;
-  min-height: 260px;
+  /* No min-height: the model chip strip was removed, so cards now hold header +
+     endpoints only. Grid's default align-items: stretch keeps same-row cards
+     equal-height without forcing a fixed floor. */
 }
 
 .provider-card:hover {
@@ -96,6 +98,14 @@
   color: var(--ink);
   letter-spacing: 0.3px;
 }
+
+/* Brand logo next to the provider name (Models page cards). Sized to match the
+   h3 text height; SVGs inherit currentColor for single-color marks, PNGs render
+   at their native aspect ratio. */
+.provider-card-brand-icon {
+  width: 20px; height: 20px; object-fit: contain; flex-shrink: 0;
+}
+[data-theme="dark"] .provider-card-brand-icon { filter: brightness(0.9); }
 
 .provider-card-actions {
   display: flex;
@@ -1945,6 +1955,7 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .models-workspace .provider-status {
@@ -3225,3 +3236,15 @@ span.variant-tab:hover { background: var(--paper); }
   opacity: 1;
   transform: translateY(0);
 }
+
+/* "接入文档" link in the provider edit modal header */
+.provider-docs-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: auto; padding: 4px 10px;
+  font-size: 12px; font-weight: 500; color: var(--ink-muted);
+  text-decoration: none; border: 1px solid var(--border, #d4cebe); border-radius: 14px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.provider-docs-link:hover { color: var(--ink); border-color: var(--ink); }
+.provider-docs-link svg { opacity: 0.7; }
+[data-theme="dark"] .provider-docs-link { color: var(--ink-muted); }

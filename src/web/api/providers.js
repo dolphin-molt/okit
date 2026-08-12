@@ -14,6 +14,69 @@ const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
 const USER_CONFIG_PATH = path.join(OKIT_DIR, 'user.json');
 
+// Sort models by "capability descending": higher version first, then size tier.
+// Extracts version tuples (5.6 > 5.5 > 4.7) and size tiers from the id so
+// models display high→low regardless of the provider API return order.
+// Within the SAME version, "lite" variants (flash/mini/haiku) sort AFTER the
+// standard model — flash is a cheaper tier, not a higher one.
+function sortModels(models) {
+  // Higher rank = more capable. 0 = standard (no tier word found).
+  const sizeRank = { opus: 4, pro: 3, sonnet: 2, haiku: 1, flash: -1, mini: -2, nano: -3, micro: -3, lite: -3, turbo: -1 };
+  const extractKey = (id) => {
+    const lower = id.toLowerCase();
+    const verMatch = lower.match(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+    const ver = verMatch ? [parseInt(verMatch[1]) || 0, parseInt(verMatch[2]) || 0, parseInt(verMatch[3]) || 0] : [0, 0, 0];
+    let size = 0;
+    for (const [word, rank] of Object.entries(sizeRank)) {
+      if (lower.includes(word)) { size = rank; break; }
+    }
+    return { ver, size, name: lower };
+  };
+  return [...models].sort((a, b) => {
+    const ka = extractKey(a.id);
+    const kb = extractKey(b.id);
+    for (let i = 0; i < 3; i++) {
+      if (ka.ver[i] !== kb.ver[i]) return kb.ver[i] - ka.ver[i];
+    }
+    if (ka.size !== kb.size) return kb.size - ka.size;
+    return ka.name.localeCompare(kb.name);
+  });
+}
+
+// Tag each model with `recent: true/false` so the frontend can default-hide
+// stale / non-coding models while still letting users add them back from the
+// "add models" picker. We do NOT delete them from the list — the picker needs
+// the full set to restore hidden entries.
+//
+// Rules for `recent: false` (hidden by default):
+// 1. Non-text-LLM model types (embedding/vision/audio/tts/3d/image/video/
+//    character/seedream/seedance/seededit/hitem/wan) → not coding-capable.
+// 2. Dated snapshots with YYMMDD suffix < 260000 (before 2026) → stale.
+function tagRecentModels(models) {
+  const DATE_RE = /(\d{6})$/;
+  const NON_CODING_RE = /embed|vision|audio|tts|asr|3d|image|video|character|seedream|seedance|seededit|hitem|^wan|ui-tars|voice|speak|realtime|terminus|distill|preview|-7b-|-14b-|-32b-|-72b-|-6b-|-8b-/i;
+  return models.map(m => {
+    let recent = true;
+    if (NON_CODING_RE.test(m.id)) recent = false;
+    const match = m.id.match(DATE_RE);
+    if (match && parseInt(match[1]) < 260000) recent = false;
+    return { ...m, recent };
+  });
+}
+
+// Sort providers alphabetically by display name. Uses localeCompare with
+// zh-Hans-CN so Chinese names sort by pinyin, English names sort A-Z, and
+// mixed lists interleave naturally. Official/subscription presets (anthropic,
+// openai-codex, google-agent, anthropic-agent) are pinned to the top so they
+// don't get buried under Chinese-named third-party providers.
+// Sort all providers alphabetically by display name. Chinese names sort by
+// pinyin (zh-Hans-CN), English names sort A-Z, mixed lists interleave.
+function sortProviders(arr) {
+  return [...arr].sort((a, b) =>
+    (a.name || a.id).localeCompare(b.name || b.id, 'zh-Hans-CN')
+  );
+}
+
 // Single source of truth: import presets + metadata from the compiled TS
 // output. This eliminates the hand-maintained JS copy of 28 provider presets.
 // Try dist/ first (production), then fall back to src compiled output.
@@ -48,6 +111,7 @@ const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = _metadata.PRESET_ENDPOINT_BASE_URL_M
 const PRESET_AUTH_MODE_MIGRATIONS = _metadata.PRESET_AUTH_MODE_MIGRATIONS;
 const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
   ['opencode-go', { from: ['go', 'agent'], to: 'coding' }],
+  ['qianfan-coding', { from: ['coding'], to: 'token' }],
 ]);
 
 async function loadProviders() {
@@ -73,6 +137,11 @@ async function loadProviders() {
     // Merge new presets: add missing ones, update name changes, and apply
     // narrowly-scoped endpoint migrations for known broken built-in defaults.
     let changed = providers.length !== sourceProviders.length;
+    // Strip cliOnly from all stored providers — this flag was used to hide
+    // the Claude subscription preset, but it should be visible in Claude Code.
+    for (const p of providers) {
+      if (p.cliOnly !== undefined) { delete p.cliOnly; changed = true; }
+    }
     for (const preset of PRESET_PROVIDERS) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
@@ -128,6 +197,19 @@ async function loadProviders() {
         if (authModeMigration && existing.authMode === authModeMigration.from) {
           existing.authMode = authModeMigration.to;
           changed = true;
+        }
+        // Sync endpoints that exist in the preset but are missing from the
+        // stored provider (e.g. a newly-declared anthropic endpoint added
+        // after providers.json was first initialized). Only ADDS missing
+        // endpoint types — never overwrites user edits.
+        if (Array.isArray(preset.endpoints)) {
+          const existingTypes = new Set((existing.endpoints || []).map(e => e.type));
+          for (const presetEp of preset.endpoints) {
+            if (presetEp && !existingTypes.has(presetEp.type)) {
+              existing.endpoints = [...(existing.endpoints || []), presetEp];
+              changed = true;
+            }
+          }
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
@@ -196,7 +278,7 @@ async function saveUserConfig(config) {
 
 const ADAPTERS = [
   { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude', launchType: 'cli' },
-  { id: 'codex', name: 'Codex', supportedTypes: ['openai'], command: 'codex', launchType: 'cli' },
+  { id: 'codex', name: 'ChatGPT', supportedTypes: ['openai'], command: 'codex', launchType: 'cli' },
   { id: 'gemini', name: 'Gemini', supportedTypes: ['google'], command: 'gemini', launchType: 'cli' },
   { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'opencode', launchType: 'cli' },
   { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'], command: 'openclaw', launchType: 'cli' },
@@ -227,13 +309,15 @@ async function listProviders(req, res) {
     const result = providers.map(p => {
       return {
         ...p,
+        models: sortModels(p.models || []),
         usedBy: ADAPTERS
           .filter(a => adapterSupportsProvider(a, p) && providersConfig[a.id]?.providerId === p.id)
           .map(a => ({ id: a.id, name: a.name, modelId: providersConfig[a.id]?.modelId })),
       };
     });
 
-    res.json({ providers: result, platforms: buildPlatforms(result) });
+    const sortedResult = sortProviders(result);
+    res.json({ providers: sortedResult, platforms: buildPlatforms(sortedResult) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -248,7 +332,23 @@ async function getAdaptersList(req, res) {
     const result = ADAPTERS.map(adapter => {
       const sel = providersConfig[adapter.id];
       const currentProvider = sel?.providerId ? providers.find(p => p.id === sel.providerId) : null;
-      const compatible = providers.filter(p => adapterSupportsProvider(adapter, p));
+      // All type-compatible providers that are configured (have a key / verified /
+      // oauth-eligible). These are candidates for the "add to home" picker.
+      const isProviderReady = (p) => {
+        if (sel?.providerId === p.id) return true;
+        if (p.authVerified) return true;
+        if (p.vaultKey) return true;
+        if (p.authMode === 'oauth' || p.authMode === 'both') return true;
+        return false;
+      };
+      const allCompatible = providers.filter(p => adapterSupportsProvider(adapter, p) && isProviderReady(p));
+
+      // The home list is user-curated: only provider ids the user explicitly
+      // added via addHomeProvider. Empty/absent = render nothing (the user adds
+      // their own from the "+ 添加" button).
+      const homeIds = Array.isArray(config.homeProviders?.[adapter.id]) ? config.homeProviders[adapter.id] : [];
+      const homeSet = new Set(homeIds);
+      const homeProviders = allCompatible.filter(p => homeSet.has(p.id));
 
       return {
         ...adapter,
@@ -258,12 +358,21 @@ async function getAdaptersList(req, res) {
         current: sel?.providerId && sel?.modelId
           ? { providerId: sel.providerId, providerName: currentProvider?.name || sel.providerId, modelId: sel.modelId }
           : null,
-        compatibleProviders: compatible.map(p => ({
-          id: p.id,
-          name: p.name,
-          type: p.type,
-          models: p.models,
+        // Providers shown on the home page (user-curated subset), sorted.
+        compatibleProviders: sortProviders(homeProviders).map(p => ({
+          id: p.id, name: p.name, type: p.type, baseUrl: p.baseUrl,
+          models: tagRecentModels(sortModels(p.models || [])),
         })),
+        // All configured-and-compatible providers, for the "+ 添加" picker.
+        // Excludes the official subscription presets (anthropic-agent /
+        // openai-codex / google-agent) — those are the built-in fallback for
+        // single-type agents and don't need to be added manually. Sorted.
+        availableProviders: sortProviders(allCompatible
+          .filter(p => !['anthropic-agent', 'openai-codex', 'google-agent'].includes(p.id))
+        ).map(p => ({
+            id: p.id, name: p.name, type: p.type,
+            added: homeSet.has(p.id),
+          })),
       };
     });
 
@@ -538,6 +647,246 @@ async function getFavoriteModels(_req, res) {
       favorites: Array.isArray(config.favoriteModels) ? config.favoriteModels : [],
       recent: Array.isArray(config.recentModels) ? config.recentModels : [],
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// --- Home-page provider list (curated per agent) ---------------------------
+//
+// The home page only shows providers the user explicitly added — not every
+// configured provider. This keeps the daily-driver surface small. Adding a
+// provider to the home list does NOT switch to it; it just surfaces it for
+// quick switching. Removing hides it from the home list without deleting it.
+
+async function addHomeProvider(req, res) {
+  try {
+    const { agentId } = req.params;
+    const { providerId } = req.body;
+    if (!agentId || !providerId) {
+      return res.status(400).json({ error: 'Missing agentId or providerId' });
+    }
+    const config = await loadUserConfig();
+    const home = { ...(config.homeProviders || {}) };
+    const list = Array.isArray(home[agentId]) ? [...home[agentId]] : [];
+    if (!list.includes(providerId)) list.push(providerId);
+    home[agentId] = list;
+    config.homeProviders = home;
+    await saveUserConfig(config);
+    res.json({ success: true, homeProviders: list });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function removeHomeProvider(req, res) {
+  try {
+    const { agentId, providerId } = req.params;
+    if (!agentId || !providerId) {
+      return res.status(400).json({ error: 'Missing agentId or providerId' });
+    }
+    const config = await loadUserConfig();
+    const home = { ...(config.homeProviders || {}) };
+    const list = Array.isArray(home[agentId]) ? home[agentId].filter(id => id !== providerId) : [];
+    if (list.length === 0) {
+      delete home[agentId];
+    } else {
+      home[agentId] = list;
+    }
+    config.homeProviders = home;
+    await saveUserConfig(config);
+
+    // If the user removed the LAST provider OR the currently-active provider
+    // for a single-type agent (claude / codex / gemini), auto-switch back to
+    // the official subscription so the CLI doesn't keep using stale config.
+    // Single-type agents are exclusive — the active provider must always be
+    // one that still exists in the home list.
+    const SINGLE_TYPE_AGENTS = {
+      'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
+      'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
+      'gemini': { providerId: 'google-agent', modelId: 'gemini-2.5-pro' },
+    };
+    const currentSel = config.providers?.[agentId];
+    const removedWasCurrent = currentSel?.providerId === providerId;
+    const shouldFallback = list.length === 0 || removedWasCurrent;
+    if (shouldFallback && SINGLE_TYPE_AGENTS[agentId]) {
+      try {
+        const fallback = SINGLE_TYPE_AGENTS[agentId];
+        const adapter = ADAPTERS.find(a => a.id === agentId);
+        const providers = await loadProviders();
+        const provider = providers.find(p => p.id === fallback.providerId);
+        if (adapter && provider && adapterSupportsProvider(adapter, provider)) {
+          const agentAdapter = _getAdapter(agentId);
+          if (agentAdapter) {
+            await agentAdapter.applyConfig(provider, fallback.modelId);
+            const cfg = await loadUserConfig();
+            if (!cfg.providers) cfg.providers = {};
+            cfg.providers[agentId] = { providerId: fallback.providerId, modelId: fallback.modelId };
+            await saveUserConfig(cfg);
+          }
+        }
+      } catch (e) {
+        // Don't fail the remove if the fallback switch errors — the provider
+        // was already removed from the home list.
+        console.warn(`[removeHomeProvider] fallback switch failed: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, homeProviders: list });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// --- Agent config file viewer (read-only) -----------------------------------
+//
+// Each agent writes to a well-known config file (or two). This endpoint reads
+// those files so the user can verify a switch actually landed on disk, without
+// leaving the UI. Read-only — never writes.
+
+const AGENT_CONFIG_FILES = {
+  'claude': ['.claude/settings.json'],
+  'codex': ['.codex/config.toml', '.codex/.env', '.codex/model-catalogs/model-catalogs.json'],
+  'gemini': ['.gemini/.env', '.gemini/settings.json'],
+  'opencode': ['.config/opencode/opencode.json'],
+  'openclaw': ['.openclaw/openclaw.json'],
+  'workbuddy': ['.workbuddy/models.json'],
+  'zcode': ['.zcode/config.json'],
+  'hermes': ['.hermes/config.json'],
+  'kimi-code': ['.kimi-code/config.toml', '.kimi-code/.env'],
+};
+
+async function getAgentConfigFiles(req, res) {
+  try {
+    const { agentId } = req.params;
+    const relPaths = AGENT_CONFIG_FILES[agentId];
+    if (!relPaths) {
+      return res.status(404).json({ error: `No config files mapped for agent: ${agentId}` });
+    }
+    const home = os.homedir();
+    const files = await Promise.all(relPaths.map(async (rel) => {
+      const fullPath = path.join(home, rel);
+      const exists = await fs.pathExists(fullPath);
+      let content = null;
+      if (exists) {
+        try {
+          content = await fs.readFile(fullPath, 'utf-8');
+          // Cap at 64KB so a pathological file can't blow up the UI.
+          if (content.length > 65536) content = content.slice(0, 65536) + '\n…(truncated)';
+        } catch {
+          content = '(读取失败)';
+        }
+      }
+      return { path: `~/${rel}`, exists, content };
+    }));
+    res.json({ agentId, files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Save edited config file content. Only paths registered in AGENT_CONFIG_FILES
+// for the given agent are writable — this prevents arbitrary file writes. The
+// client sends the `~`-prefixed path it got from GET; we strip the prefix and
+// match against the whitelist before touching disk.
+async function saveAgentConfigFile(req, res) {
+  try {
+    const { agentId } = req.params;
+    const { filePath, content } = req.body;
+    const relPaths = AGENT_CONFIG_FILES[agentId];
+    if (!relPaths) {
+      return res.status(404).json({ error: `No config files mapped for agent: ${agentId}` });
+    }
+    if (!filePath || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Missing filePath or content' });
+    }
+    // Normalize: strip leading ~/ then match exactly against the whitelist.
+    const rel = filePath.startsWith('~/') ? filePath.slice(2) : filePath;
+    if (!relPaths.includes(rel)) {
+      return res.status(403).json({ error: `Path not in writable whitelist: ${filePath}` });
+    }
+    const fullPath = path.join(os.homedir(), rel);
+    // Refuse to follow symlinks or escape the home dir.
+    await fs.ensureDir(path.dirname(fullPath));
+    await fs.writeFile(fullPath, content, 'utf-8');
+    res.json({ success: true, path: `~/${rel}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// --- Codex model-catalog exclusion -----------------------------------------
+//
+// Users choose which of a provider's models appear in Codex's /model list by
+// unchecking them in the UI. We persist the UNCHECKED ids (not the checked
+// ones) so that a brand-new model on the provider defaults to "checked =
+// visible" without the user having to opt in. Toggling rewrites the catalog
+// immediately so the change is reflected next time Codex reads it.
+
+async function setCatalogExcluded(req, res) {
+  try {
+    const { providerId } = req.params;
+    const { excluded } = req.body; // string[] of model ids to EXCLUDE
+    if (!providerId || !Array.isArray(excluded)) {
+      return res.status(400).json({ error: 'Missing providerId or excluded[]' });
+    }
+    const config = await loadUserConfig();
+    if (!config.codexCatalogExcluded) config.codexCatalogExcluded = {};
+    config.codexCatalogExcluded[providerId] = excluded;
+    await saveUserConfig(config);
+    res.json({ success: true, providerId, excluded });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getCatalogExcluded(_req, res) {
+  try {
+    const config = await loadUserConfig();
+    res.json({ excluded: config.codexCatalogExcluded || {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// --- Claude Code tier mapping ------------------------------------------------
+//
+// Claude Code uses ANTHROPIC_MODEL + DEFAULT_HAIKU/SONNET/OPUS_MODEL. For
+// third-party providers the user can map each tier to a different model id so
+// Claude Code's internal tier-switching (fast/standard/powerful) routes to the
+// right model on the gateway. We persist per-provider overrides; switching to
+// a provider without overrides defaults all tiers to the selected model.
+
+async function getTierMaps(_req, res) {
+  try {
+    const config = await loadUserConfig();
+    res.json({ tierMaps: config.claudeTierMaps || {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function setTierMap(req, res) {
+  try {
+    const { providerId } = req.params;
+    const { haiku, sonnet, opus } = req.body;
+    if (!providerId) {
+      return res.status(400).json({ error: 'Missing providerId' });
+    }
+    const config = await loadUserConfig();
+    if (!config.claudeTierMaps) config.claudeTierMaps = {};
+    // Empty string / null = clear that tier (fall back to ANTHROPIC_MODEL).
+    const map = {};
+    if (haiku) map.haiku = haiku;
+    if (sonnet) map.sonnet = sonnet;
+    if (opus) map.opus = opus;
+    if (Object.keys(map).length === 0) {
+      delete config.claudeTierMaps[providerId];
+    } else {
+      config.claudeTierMaps[providerId] = map;
+    }
+    await saveUserConfig(config);
+    res.json({ success: true, providerId, tierMap: map });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1108,6 +1457,14 @@ module.exports = {
   addFavoriteModel,
   removeFavoriteModel,
   getFavoriteModels,
+  addHomeProvider,
+  removeHomeProvider,
+  getAgentConfigFiles,
+  saveAgentConfigFile,
+  setCatalogExcluded,
+  getCatalogExcluded,
+  getTierMaps,
+  setTierMap,
   launchAgent,
   getAuthStatus,
   triggerOAuthLogin,

@@ -15,11 +15,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "anthropic-agent",
-    name: "Anthropic Agent Subscription",
+    name: "Claude 订阅 (Pro/Max)",
     type: "anthropic",
     baseUrl: "https://api.anthropic.com",
     authMode: "oauth",
-    cliOnly: true,
     models: [
       { id: "claude-opus-4-7", name: "Claude Opus 4.7" },
       { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
@@ -86,6 +85,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "火山引擎",
     type: "openai",
     baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    endpoints: [
+      { type: "openai", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
+      { type: "anthropic", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
+    ],
     authMode: "api_key",
     models: [
       { id: "doubao-seed-2.0-pro", name: "Doubao Seed 2.0 Pro" },
@@ -161,6 +164,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "MiniMax（国内站）",
     type: "openai",
     baseUrl: "https://api.minimaxi.com/v1",
+    endpoints: [
+      { type: "openai", baseUrl: "https://api.minimaxi.com/v1" },
+      { type: "anthropic", baseUrl: "https://api.minimaxi.com/anthropic" },
+    ],
     authMode: "api_key",
     models: [
       { id: "MiniMax-M2.7", name: "MiniMax M2.7" },
@@ -174,6 +181,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "MiniMax（国际站）",
     type: "openai",
     baseUrl: "https://api.minimax.io/v1",
+    endpoints: [
+      { type: "openai", baseUrl: "https://api.minimax.io/v1" },
+      { type: "anthropic", baseUrl: "https://api.minimax.io/anthropic" },
+    ],
     authMode: "api_key",
     models: [
       { id: "MiniMax-M2.7", name: "MiniMax M2.7" },
@@ -221,6 +232,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "Moonshot",
     type: "openai",
     baseUrl: "https://api.moonshot.ai/v1",
+    endpoints: [
+      { type: "openai", baseUrl: "https://api.moonshot.ai/v1" },
+      { type: "anthropic", baseUrl: "https://api.moonshot.ai/anthropic" },
+    ],
     authMode: "api_key",
     models: [
       { id: "kimi-latest", name: "Kimi Latest" },
@@ -230,28 +245,15 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     ],
   },
   {
-    id: "moonshot-coding-plan",
-    name: "Moonshot Coding Plan",
-    type: "openai",
-    baseUrl: "https://api.kimi.com/coding/v1",
-    endpoints: [
-      { type: "openai", protocol: "chat", baseUrl: "https://api.kimi.com/coding/v1", plan: "coding" },
-      { type: "anthropic", baseUrl: "https://api.kimi.com/coding", plan: "coding" },
-    ],
-    authMode: "api_key",
-    models: [
-      { id: "k3", name: "Kimi K3" },
-      { id: "k3-256k", name: "Kimi K3 256K" },
-      { id: "kimi-for-coding", name: "Kimi for Coding" },
-      { id: "kimi-for-coding-highspeed", name: "Kimi for Coding Highspeed" },
-    ],
-  },
-  {
     id: "kimi-coding",
     // Keep this ID for existing configurations while presenting it as Kimi.
     name: "Kimi（国内站）",
     type: "openai",
     baseUrl: "https://api.moonshot.cn/v1",
+    endpoints: [
+      { type: "openai", baseUrl: "https://api.moonshot.cn/v1" },
+      { type: "anthropic", baseUrl: "https://api.moonshot.cn/anthropic" },
+    ],
     authMode: "api_key",
     models: [
       { id: "kimi-k2.5", name: "Kimi K2.5" },
@@ -261,7 +263,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "kimi-coding-plan",
-    name: "Kimi（国际站）",
+    name: "Kimi Coding Plan",
     type: "openai",
     baseUrl: "https://api.kimi.com/coding/v1",
     endpoints: [
@@ -281,6 +283,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "阿里云百炼",
     type: "openai",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    endpoints: [
+      { type: "openai", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+      { type: "anthropic", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+    ],
     authMode: "api_key",
     models: [
       { id: "qwen3.6-max-preview", name: "Qwen3.6 Max Preview" },
@@ -292,10 +298,31 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     ],
   },
   {
+    id: "qwen-coding",
+    name: "阿里云百炼 Coding Plan",
+    type: "openai",
+    baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", plan: "coding" },
+    ],
+    authMode: "api_key",
+    models: [
+      { id: "qwen3-coder-plus", name: "Qwen3 Coder Plus" },
+      { id: "glm-5", name: "GLM-5" },
+      { id: "kimi-k2.5", name: "Kimi K2.5" },
+      { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
+    ],
+  },
+  {
     id: "qianfan",
     name: "百度千帆",
     type: "openai",
     baseUrl: "https://qianfan.baidubce.com/v2",
+    endpoints: [
+      { type: "openai", baseUrl: "https://qianfan.baidubce.com/v2" },
+      { type: "anthropic", baseUrl: "https://qianfan.baidubce.com/anthropic" },
+    ],
     authMode: "api_key",
     models: [
       { id: "ernie-4.5-8k-preview", name: "ERNIE 4.5" },
@@ -305,9 +332,13 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "qianfan-coding",
-    name: "百度千帆 Coding Plan",
+    name: "百度千帆 Token Plan",
     type: "openai",
     baseUrl: "https://qianfan.baidubce.com/v2/tokenplan/personal",
+    endpoints: [
+      { type: "openai", protocol: "chat", baseUrl: "https://qianfan.baidubce.com/v2/tokenplan/personal" },
+      { type: "anthropic", baseUrl: "https://qianfan.baidubce.com/anthropic/tokenplan/personal", plan: "token" },
+    ],
     authMode: "api_key",
     models: [
       { id: "qianfan-code-latest", name: "Qianfan Code" },
@@ -386,38 +417,24 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     ],
   },
   {
-    id: "tencent-tokenhub",
-    name: "腾讯云 TokenHub",
+    id: "tencent",
+    name: "腾讯云",
     type: "openai",
-    baseUrl: "https://tokenhub.tencentmaas.com/v1",
+    baseUrl: "https://api.lkeap.cloud.tencent.com/v1",
     endpoints: [
-      { type: "openai", protocol: "chat", baseUrl: "https://tokenhub.tencentmaas.com/v1" },
+      { type: "openai", baseUrl: "https://api.lkeap.cloud.tencent.com/v1" },
+      { type: "anthropic", baseUrl: "https://api.lkeap.cloud.tencent.com/api/anthropic" },
     ],
     authMode: "api_key",
     models: [
-      { id: "hy3", name: "Hy3" },
-      { id: "hy3-preview", name: "Hy3 Preview" },
       { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+      { id: "deepseek-v3", name: "DeepSeek V3" },
+      { id: "deepseek-r1", name: "DeepSeek R1" },
+      { id: "hy3", name: "Hy3" },
       { id: "glm-5.2", name: "GLM-5.2" },
       { id: "kimi-k3", name: "Kimi K3" },
       { id: "minimax-m3", name: "MiniMax M3" },
-    ],
-  },
-  {
-    id: "tencent-coding",
-    name: "腾讯云 Coding Plan",
-    type: "openai",
-    baseUrl: "https://api.lkeap.cloud.tencent.com/coding/v3",
-    endpoints: [
-      { type: "openai", protocol: "chat", baseUrl: "https://api.lkeap.cloud.tencent.com/coding/v3", plan: "coding" },
-      { type: "anthropic", baseUrl: "https://api.lkeap.cloud.tencent.com/coding/anthropic", plan: "coding" },
-    ],
-    authMode: "api_key",
-    models: [
-      { id: "tc-code-latest", name: "Tencent Code" },
-      { id: "kimi-k2.5", name: "Kimi K2.5" },
-      { id: "glm-5", name: "GLM-5" },
-      { id: "minimax-m2.5", name: "MiniMax M2.5" },
+      { id: "hunyuan-turbos", name: "Hunyuan Turbo S" },
     ],
   },
   {
@@ -493,7 +510,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
   },
   {
     id: "stepfun",
-    name: "阶跃星辰 (StepFun)",
+    name: "阶跃星辰",
     type: "openai",
     baseUrl: "https://api.stepfun.com/v1",
     authMode: "api_key",
@@ -501,6 +518,18 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
       { id: "step-3.5-flash", name: "Step 3.5 Flash" },
       { id: "step-2", name: "Step 2" },
       { id: "step-1-flash", name: "Step 1 Flash" },
+    ],
+  },
+  {
+    id: "stepfun-global",
+    name: "StepFun (Global)",
+    type: "openai",
+    baseUrl: "https://api.stepfun.ai/v1",
+    authMode: "api_key",
+    models: [
+      { id: "step-3.7-flash", name: "Step 3.7 Flash" },
+      { id: "step-3.5-flash", name: "Step 3.5 Flash" },
+      { id: "step-image-edit-2", name: "Step Image Edit 2" },
     ],
   },
   {

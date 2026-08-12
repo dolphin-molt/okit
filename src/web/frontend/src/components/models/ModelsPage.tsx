@@ -5,6 +5,8 @@ import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
 import FavoriteButton from '../shared/FavoriteButton';
+import { getProviderIcon } from '../../assets/providers';
+import { getProviderDocsUrl } from '../../data/providerDocs';
 import crossDataRaw from '../../data/cross_platform_models.json';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const crossData: Record<string, any[]> = crossDataRaw as any;
@@ -27,7 +29,6 @@ for (const platform of PLATFORM_DEFINITIONS) {
   for (const offering of platform.offerings) PROVIDER_OFFERING_TYPE.set(offering.providerId, offering.type);
 }
 
-const SHOW_MODELS = 4;
 const TYPE_OPTIONS = [
   { value: 'anthropic', label: 'anthropic' },
   { value: 'openai', label: 'openai' },
@@ -193,7 +194,6 @@ export default function ModelsPage() {
   const [hideLegacy, setHideLegacy] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [expandedModels, setExpandedModels] = useState<Set<string>>(new Set());
   // 平台视角：当前查看详情的平台（点击平台卡片进入）
   const [activePlatform, setActivePlatform] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
@@ -481,13 +481,6 @@ export default function ModelsPage() {
     }
   }
 
-  function toggleExpand(id: string) {
-    setExpandedModels(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
 
   // 计算每个 provider 是否"已被使用"
   function isUsedBy(p: Provider): boolean {
@@ -565,15 +558,10 @@ export default function ModelsPage() {
   }, []);
 
   const sortedProviders = useMemo(
-    () => [...filteredProviders].sort((a, b) => {
-      const oa = providerOrder.get(a.id);
-      const ob = providerOrder.get(b.id);
-      if (oa != null && ob != null) return oa - ob;
-      if (oa != null) return -1;
-      if (ob != null) return 1;
-      return a.id.localeCompare(b.id);
-    }),
-    [filteredProviders, providerOrder]
+    () => [...filteredProviders].sort((a, b) =>
+      (a.name || a.id).localeCompare(b.name || b.id, 'zh-Hans-CN')
+    ),
+    [filteredProviders]
   );
 
   // Group sorted providers into families for the platform view.
@@ -888,9 +876,6 @@ export default function ModelsPage() {
               p = fam.providers[0];
             }
             const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
-            const showAll = expandedModels.has(p.id);
-            const visibleModels = showAll ? p.models : p.models.slice(0, SHOW_MODELS);
-            const hasMore = p.models.length > SHOW_MODELS;
             const auth = authMap[p.id];
             const authed = isAuthed(p);
             const selectedAuthMethod = getCardAuthMethod(p);
@@ -909,60 +894,8 @@ export default function ModelsPage() {
               >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
+                    {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className="provider-card-brand-icon" /> : null; })()}
                     <h3>{isMulti && famDef ? famDef.family : providerName(p.id, p.name)}</h3>
-                  </div>
-                  <div className="provider-variant-tabs" onClick={e => e.stopPropagation()}>
-                    {isMulti && famDef ? (
-                      <>
-                        {/* 套餐维度 */}
-                        {famDef.plans && famDef.plans.length > 1 && (
-                          <div className="variant-tab-group">
-                            {famDef.plans.map(pl => (
-                              <button
-                                key={pl.providerId}
-                                className={`variant-tab${p.id === pl.providerId ? ' variant-tab--active' : ''}`}
-                                onClick={() => {
-                                  setFamilyPlan(prev => ({ ...prev, [famDef.family]: pl.label }));
-                                }}
-                              >
-                                {pl.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-      {/* 方案已经按认证方式区分时，不再重复展示认证能力标签。 */}
-      {!famDef.plans?.every(plan => ['api key', 'oauth'].includes(plan.label.trim().toLowerCase())) && (
-        <div className="variant-tab-group">
-          {(p.authMode === 'api_key' || p.authMode === 'both') && (
-            <span className="variant-tab variant-tab--active">{t('models.authModeApiKey')}</span>
-          )}
-          {(p.authMode === 'oauth' || p.authMode === 'both') && (
-            <span className="variant-tab variant-tab--active">OAuth</span>
-          )}
-        </div>
-      )}
-                      </>
-                    ) : (
-                      // 独立平台:互斥切换 API Key / OAuth
-                      <>
-                        {supportsMethod(p, 'api_key') && (
-                          <button
-                            className={`variant-tab${getCardAuthMethod(p) === 'api_key' ? ' variant-tab--active' : ''}`}
-                            onClick={() => setCardAuthMethod(prev => ({ ...prev, [p.id]: 'api_key' }))}
-                          >
-                            {t('models.authModeApiKey')}
-                          </button>
-                        )}
-                        {supportsMethod(p, 'oauth') && (
-                          <button
-                            className={`variant-tab${getCardAuthMethod(p) === 'oauth' ? ' variant-tab--active' : ''}`}
-                            onClick={() => setCardAuthMethod(prev => ({ ...prev, [p.id]: 'oauth' }))}
-                          >
-                            OAuth
-                          </button>
-                        )}
-                      </>
-                    )}
                   </div>
                   <div className="provider-card-status">
                     {testingConn === p.id && (
@@ -1004,6 +937,7 @@ export default function ModelsPage() {
                         onClose={() => setActionMenuId(null)}
                         actions={[
                           { label: t('models.menuConnect'), onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id },
+                          { label: t('models.setKey'), onClick: () => { setActionMenuId(null); setVaultPickerFor(p.id); } },
                           { label: t('models.menuEdit'), onClick: () => handleEdit(p) },
                           { label: t('models.menuDelete'), onClick: () => handleDelete(p), danger: true },
                         ]}
@@ -1012,104 +946,6 @@ export default function ModelsPage() {
                   </div>
                 </div>
 
-                <div className="provider-card-body">
-                  <div className="provider-card-endpoints">
-                    {eps.map((ep, i) => {
-                      const epResult = endpointResults[p.id]?.[i];
-                      return (
-                        <div key={i} className="provider-endpoint-row">
-                          <span className={`type-badge type-badge--${ep.type}`}>
-                            {ep.type === 'openai' ? `openai ${ep.protocol || 'chat'}` : ep.type}
-                          </span>
-                          <span className="provider-endpoint-url">{ep.baseUrl}</span>
-                          {testingConn === p.id && !epResult && i === (endpointResults[p.id]?.length || 0) && (
-                            <span className="ep-test-spinner">...</span>
-                          )}
-                          {epResult && (
-                            <span className={`ep-test-result${epResult.success ? ' ep-test-ok' : ' ep-test-fail'}`}>
-                              {epResult.success ? '✓' : '✗'}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* 认证操作区:根据选中的认证方式显示不同操作按钮 */}
-                  {!isMulti && (
-                    <div className="provider-card-auth">
-                      {getCardAuthMethod(p) === 'api_key' && !p.vaultKey && (
-                        <button
-                          className="auth-login-btn"
-                          onClick={e => { e.stopPropagation(); setVaultPickerFor(p.id); }}
-                        >
-                          {t('models.setKey')}
-                        </button>
-                      )}
-                      {getCardAuthMethod(p) === 'oauth' && !auth?.oauthLoggedIn && (
-                        <button
-                          className="auth-login-btn"
-                          disabled={loggingIn === p.id}
-                          onClick={e => { e.stopPropagation(); handleOAuthLogin(p.id); }}
-                        >
-                          {loggingIn === p.id ? '...' : t('models.login')}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {isMulti && (
-                    <div className="provider-card-auth">
-                      {/* API Key 且未绑定:显示设置密钥 */}
-                      {(p.authMode === 'api_key' || p.authMode === 'both') && !p.vaultKey && (
-                        <button
-                          className="auth-login-btn"
-                          onClick={e => { e.stopPropagation(); setVaultPickerFor(p.id); }}
-                        >
-                          {t('models.setKey')}
-                        </button>
-                      )}
-                      {/* OAuth 且未登录:显示登录 */}
-                      {(p.authMode === 'oauth' || p.authMode === 'both') && !auth?.oauthLoggedIn && (
-                        <button
-                          className="auth-login-btn"
-                          disabled={loggingIn === p.id}
-                          onClick={e => { e.stopPropagation(); handleOAuthLogin(p.id); }}
-                        >
-                          {loggingIn === p.id ? '...' : t('models.login')}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {p.models.length > 0 && (
-                  <div className="provider-card-models">
-                    <div className="provider-models-label">
-                      {t('models.modelsCount', { n: p.models.length })}
-                    </div>
-                    <div className="provider-models-list">
-                      {visibleModels.map(m => {
-                        const caps = modelCaps(m);
-                        const isMulti = caps.some(c => c !== 'text');
-                        return (
-                          <span key={m.id} className={`model-chip${isMulti ? ' model-chip--multi' : ''}`} title={m.id}>
-                            {isMulti && (
-                              <span className="model-chip-caps">
-                                {caps.includes('image') ? 'img' : caps.includes('audio') ? 'aud' : 'mm'}
-                              </span>
-                            )}
-                            <span className="model-chip-name">{m.name || m.id}</span>
-                          </span>
-                        );
-                      })}
-                      {hasMore && (
-                        <button className="models-expand-btn" onClick={e => { e.stopPropagation(); toggleExpand(p.id); }}>
-                          {showAll ? t('models.collapse') : `+${p.models.length - SHOW_MODELS}`}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
               </article>
             );
           })}
@@ -1900,6 +1736,15 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
       <div className="modal-panel modal-panel--wide provider-form-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-panel-header">
           <h2>{provider ? t('models.editPlatform') : t('models.newPlatform')}</h2>
+          {provider && (() => {
+            const docsUrl = getProviderDocsUrl(provider.id);
+            return docsUrl ? (
+              <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="provider-docs-link">
+                {t('models.providerDocs')}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            ) : null;
+          })()}
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-panel-body provider-form-body">

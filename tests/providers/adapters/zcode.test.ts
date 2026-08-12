@@ -39,13 +39,13 @@ const { updateUserConfig } = await import('../../../src/config/user');
 const CONFIG_PATH = path.join(os.homedir(), '.zcode', 'config.json');
 
 const testProvider = {
-  id: 'volcengine',
-  name: '火山引擎',
-  type: 'anthropic' as const,
-  baseUrl: 'https://ark.cn-beijing.volces.com/api/coding',
+  id: 'deepseek',
+  name: 'DeepSeek',
+  type: 'openai' as const,
+  baseUrl: 'https://api.deepseek.com',
   vaultKey: 'TEST_API_KEY',
   authMode: 'api_key' as const,
-  models: [{ id: 'glm-4.7', name: 'GLM-4.7' }],
+  models: [{ id: 'deepseek-chat', name: 'DeepSeek V4' }],
 };
 
 beforeEach(() => {
@@ -66,78 +66,77 @@ describe('ZCodeAdapter', () => {
   });
 });
 
-describe('ZCodeAdapter.applyConfig', () => {
-  it('writes provider into models.providers array (additive)', async () => {
+describe('ZCodeAdapter.applyConfig (cc-switch schema)', () => {
+  it('writes provider into models.providers as an OBJECT keyed by id', async () => {
     const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(1);
-    expect(written.models.providers[0].id).toBe('volcengine');
-    expect(written.models.providers[0].baseUrl).toBe('https://ark.cn-beijing.volces.com/api/coding');
-    expect(written.models.providers[0].apiKey).toBe('sk-test-123');
+    expect(written.models.mode).toBe('merge');
+    expect(typeof written.models.providers).toBe('object');
+    expect(written.models.providers.deepseek).toBeDefined();
+    expect(written.models.providers.deepseek.baseUrl).toBe('https://api.deepseek.com');
+    expect(written.models.providers.deepseek.apiKey).toBe('sk-test-123');
   });
 
-  it('sets agents.default.model and agents.default.provider', async () => {
+  it('writes the api protocol field (openai-completions for openai type)', async () => {
     const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.agents.default.model).toBe('glm-4.7');
-    expect(written.agents.default.provider).toBe('volcengine');
+    expect(written.models.providers.deepseek.api).toBe('openai-completions');
   });
 
-  it('preserves existing providers when switching to a new one (additive merge)', async () => {
+  it('maps anthropic type to api = "anthropic"', async () => {
+    const anthropicProvider = { ...testProvider, id: 'zai', type: 'anthropic' as const };
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(anthropicProvider, 'glm-4.7');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.models.providers.zai.api).toBe('anthropic');
+  });
+
+  it('sets agents.defaults.model as object {primary, fallbacks} (plural "defaults")', async () => {
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.agents.defaults.model).toEqual({
+      primary: 'deepseek/deepseek-chat',
+      fallbacks: [],
+    });
+  });
+
+  it('preserves existing providers when adding a new one (additive merge)', async () => {
     mocks.files.set(CONFIG_PATH, JSON.stringify({
-      models: { providers: [{ id: 'other', name: 'Other', type: 'openai', baseUrl: 'https://other.com' }] },
-      agents: { default: { model: 'old', provider: 'other' } },
+      models: { mode: 'merge', providers: { glm: { baseUrl: 'https://glm.com', api: 'openai-completions' } } },
+      agents: { defaults: {} },
     }));
 
     const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(2);
-    expect(written.models.providers.some((p: any) => p.id === 'other')).toBe(true);
-    expect(written.models.providers.some((p: any) => p.id === 'volcengine')).toBe(true);
+    expect(Object.keys(written.models.providers)).toEqual(['glm', 'deepseek']);
   });
 
-  it('updates apiKey and models on an existing provider entry (idempotent upsert)', async () => {
-    // The adapter upserts by provider.id: when the entry already exists it only
-    // refreshes apiKey and the model list — name/type/baseUrl set at creation
-    // time are left untouched (the provider identity hasn't changed).
-    mocks.files.set(CONFIG_PATH, JSON.stringify({
-      models: { providers: [{ id: 'volcengine', name: '火山引擎', type: 'anthropic', baseUrl: 'https://ark.cn-beijing.volces.com/api/coding', apiKey: 'old-key' }] },
-    }));
-
+  it('models entry has id + name (no capabilities field)', async () => {
     const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(1);
-    expect(written.models.providers[0].apiKey).toBe('sk-test-123');
-    expect(written.models.providers[0].models).toEqual([
-      { id: 'glm-4.7', name: 'GLM-4.7', capabilities: [] },
-    ]);
-  });
-
-  it('maps models to {id, name, capabilities}', async () => {
-    const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
-
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers[0].models).toEqual([
-      { id: 'glm-4.7', name: 'GLM-4.7', capabilities: [] },
+    expect(written.models.providers.deepseek.models).toEqual([
+      { id: 'deepseek-chat', name: 'DeepSeek V4' },
     ]);
   });
 
   it('records selection in user.json', async () => {
     const adapter = new ZCodeAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     expect(updateUserConfig).toHaveBeenCalledWith(
       expect.objectContaining({
-        providers: { zcode: { providerId: 'volcengine', modelId: 'glm-4.7' } },
+        providers: { zcode: { providerId: 'deepseek', modelId: 'deepseek-chat' } },
       }),
     );
   });

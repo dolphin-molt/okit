@@ -7,6 +7,17 @@ import { loadUserConfig, updateUserConfig } from "../../config/user";
 
 const OPENCLAW_CONFIG_PATH = path.join(os.homedir(), ".openclaw", "openclaw.json");
 
+// Map OKIT's protocol type to the OpenClaw `api` field. OpenClaw routes by this
+// string, not by an internal type enum. Mirrors cc-switch presets.
+function apiProtocolFor(type: ProviderType): string {
+  switch (type) {
+    case "anthropic": return "anthropic";
+    case "google": return "google-generative-ai";
+    case "openai":
+    default: return "openai-completions";
+  }
+}
+
 export class OpenClawAdapter extends BaseAdapter {
   readonly id = "openclaw";
   readonly name = "OpenClaw";
@@ -33,30 +44,35 @@ export class OpenClawAdapter extends BaseAdapter {
       data = content.trim() ? JSON.parse(content) : {};
     }
 
-    // Update models.providers
-    if (!data.models) data.models = {};
-    if (!data.models.providers) data.models.providers = [];
-
-    const providers = data.models.providers as Record<string, any>[];
-    let found = providers.find((p: any) => p.id === provider.id);
-    if (!found) {
-      found = { id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl };
-      providers.push(found);
+    // models is an object: { mode: "merge", providers: { <id>: {...} } }.
+    // Providers are KEYED BY ID (object map), not an array — mirrors cc-switch.
+    if (typeof data.models !== "object" || data.models === null) data.models = {};
+    if (!data.models.mode) data.models.mode = "merge";
+    if (typeof data.models.providers !== "object" || data.models.providers === null) {
+      data.models.providers = {};
     }
-    if (apiKey) {
-      found.apiKey = apiKey;
-    }
-    found.models = provider.models.map(m => ({
-      id: m.id,
-      name: m.name || m.id,
-      capabilities: m.capabilities || [],
-    }));
 
-    // Update agents default
-    if (!data.agents) data.agents = {};
-    if (!data.agents.default) data.agents.default = {};
-    data.agents.default.model = modelId;
-    data.agents.default.provider = provider.id;
+    const providerEntry: Record<string, any> = {
+      baseUrl: provider.baseUrl,
+      api: apiProtocolFor(provider.type),
+      models: provider.models.map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+      })),
+    };
+    if (apiKey) providerEntry.apiKey = apiKey;
+    data.models.providers[provider.id] = providerEntry;
+
+    // agents.defaults.model (note plural "defaults") is an object:
+    // { primary: "provider/model", fallbacks: [...] }. Not agents.default.
+    if (typeof data.agents !== "object" || data.agents === null) data.agents = {};
+    if (typeof data.agents.defaults !== "object" || data.agents.defaults === null) {
+      data.agents.defaults = {};
+    }
+    data.agents.defaults.model = {
+      primary: `${provider.id}/${modelId}`,
+      fallbacks: [],
+    };
 
     await fs.writeFile(OPENCLAW_CONFIG_PATH, JSON.stringify(data, null, 2));
     await updateUserConfig({

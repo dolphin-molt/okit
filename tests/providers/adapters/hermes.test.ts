@@ -39,13 +39,13 @@ const { updateUserConfig } = await import('../../../src/config/user');
 const CONFIG_PATH = path.join(os.homedir(), '.hermes', 'config.json');
 
 const testProvider = {
-  id: 'glm-coding',
-  name: 'GLM Coding Plan',
+  id: 'deepseek',
+  name: 'DeepSeek',
   type: 'openai' as const,
-  baseUrl: 'https://open.bigmodel.cn/api/coding',
+  baseUrl: 'https://api.deepseek.com',
   vaultKey: 'TEST_API_KEY',
   authMode: 'api_key' as const,
-  models: [{ id: 'glm-4.7', name: 'GLM-4.7' }],
+  models: [{ id: 'deepseek-chat', name: 'DeepSeek V4' }],
 };
 
 beforeEach(() => {
@@ -66,39 +66,77 @@ describe('HermesAdapter', () => {
   });
 });
 
-describe('HermesAdapter.applyConfig', () => {
-  it('writes provider into models.providers (additive, same shape as zcode)', async () => {
+describe('HermesAdapter.applyConfig (cc-switch schema)', () => {
+  it('writes provider into models.providers as an OBJECT keyed by id', async () => {
     const adapter = new HermesAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(1);
-    expect(written.models.providers[0].id).toBe('glm-coding');
-    expect(written.models.providers[0].apiKey).toBe('sk-test-123');
-    expect(written.agents.default.model).toBe('glm-4.7');
-    expect(written.agents.default.provider).toBe('glm-coding');
+    expect(written.models.mode).toBe('merge');
+    expect(typeof written.models.providers).toBe('object');
+    expect(written.models.providers.deepseek).toBeDefined();
+    expect(written.models.providers.deepseek.baseUrl).toBe('https://api.deepseek.com');
+    expect(written.models.providers.deepseek.apiKey).toBe('sk-test-123');
   });
 
-  it('preserves existing providers when adding a new one', async () => {
+  it('writes the api protocol field (openai-completions for openai type)', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.models.providers.deepseek.api).toBe('openai-completions');
+  });
+
+  it('maps anthropic type to api = "anthropic"', async () => {
+    const anthropicProvider = { ...testProvider, id: 'zai', type: 'anthropic' as const };
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(anthropicProvider, 'glm-4.7');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.models.providers.zai.api).toBe('anthropic');
+  });
+
+  it('sets agents.defaults.model as object {primary, fallbacks} (plural "defaults")', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.agents.defaults.model).toEqual({
+      primary: 'deepseek/deepseek-chat',
+      fallbacks: [],
+    });
+  });
+
+  it('preserves existing providers when adding a new one (additive merge)', async () => {
     mocks.files.set(CONFIG_PATH, JSON.stringify({
-      models: { providers: [{ id: 'old-provider', name: 'Old', type: 'openai', baseUrl: 'https://old.com' }] },
-      agents: { default: {} },
+      models: { mode: 'merge', providers: { glm: { baseUrl: 'https://glm.com', api: 'openai-completions' } } },
+      agents: { defaults: {} },
     }));
 
     const adapter = new HermesAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(2);
+    expect(Object.keys(written.models.providers)).toEqual(['glm', 'deepseek']);
+  });
+
+  it('models entry has id + name (no capabilities field)', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.models.providers.deepseek.models).toEqual([
+      { id: 'deepseek-chat', name: 'DeepSeek V4' },
+    ]);
   });
 
   it('records selection in user.json', async () => {
     const adapter = new HermesAdapter();
-    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     expect(updateUserConfig).toHaveBeenCalledWith(
       expect.objectContaining({
-        providers: { hermes: { providerId: 'glm-coding', modelId: 'glm-4.7' } },
+        providers: { hermes: { providerId: 'deepseek', modelId: 'deepseek-chat' } },
       }),
     );
   });

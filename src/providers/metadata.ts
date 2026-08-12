@@ -15,6 +15,10 @@ export const RETIRED_PRESET_PROVIDER_IDS = new Set([
   "groq",
   "fireworks",
   "together",
+  "moonshot-coding-plan",
+  "tencent-lke",
+  "tencent-tokenhub",
+  "tencent-coding",
 ]);
 
 // ── URL migrations ───────────────────────────────────────────
@@ -52,15 +56,15 @@ export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[]
     // 百度千帆
     "qianfan", "qianfan-coding",
     // 阿里云百炼 / 硅基流动
-    "qwen", "siliconflow",
+    "qwen", "qwen-coding", "siliconflow",
     // DeepSeek
     "deepseek",
     // 阶跃星辰
-    "stepfun",
+    "stepfun", "stepfun-global",
     // 小米
     "xiaomi", "xiaomi-coding",
     // 腾讯云
-    "tencent-tokenhub", "tencent-coding",
+    "tencent",
   ] },
   { key: "local", labelKey: "models.groupLocal", ids: ["ollama", "litellm"] },
 ];
@@ -88,6 +92,14 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
       { label: "Agent 订阅", providerId: "anthropic-agent", type: "agent_subscription", entitlement: { type: "subscription_included", product: "Claude Pro / Max" } },
     ],
     ids: ["anthropic", "anthropic-agent"],
+  },
+  {
+    family: "阿里云百炼",
+    plans: [
+      { label: "API 平台", providerId: "qwen" },
+      { label: "Coding Plan", providerId: "qwen-coding" },
+    ],
+    ids: ["qwen", "qwen-coding"],
   },
   {
     family: "OpenAI",
@@ -156,14 +168,13 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     family: "Moonshot",
     plans: [
       { label: "API 平台", providerId: "moonshot" },
-      { label: "Coding Plan", providerId: "moonshot-coding-plan" },
     ],
-    ids: ["moonshot", "moonshot-coding-plan"],
+    ids: ["moonshot"],
   },
   {
-    family: "Kimi（国内站）",
+    family: "Kimi",
     plans: [
-      { label: "API 平台", providerId: "kimi-coding" },
+      { label: "国内 API 平台", providerId: "kimi-coding" },
       { label: "Coding Plan", providerId: "kimi-coding-plan" },
     ],
     ids: ["kimi-coding", "kimi-coding-plan"],
@@ -180,16 +191,15 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
   {
     family: "腾讯云",
     plans: [
-      { label: "TokenHub", providerId: "tencent-tokenhub" },
-      { label: "Coding Plan", providerId: "tencent-coding" },
+      { label: "API 平台", providerId: "tencent" },
     ],
-    ids: ["tencent-tokenhub", "tencent-coding"],
+    ids: ["tencent"],
   },
   {
     family: "百度千帆",
     plans: [
       { label: "API 平台", providerId: "qianfan" },
-      { label: "Coding Plan", providerId: "qianfan-coding" },
+      { label: "Token Plan", providerId: "qianfan-coding" },
     ],
     ids: ["qianfan", "qianfan-coding"],
   },

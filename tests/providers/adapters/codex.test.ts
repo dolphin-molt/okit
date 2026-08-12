@@ -53,7 +53,7 @@ const { updateUserConfig } = await import('../../../src/config/user');
 
 const CODEX_DIR = path.join(os.homedir(), '.codex');
 const CODEX_CONFIG = path.join(CODEX_DIR, 'config.toml');
-const CODEX_ENV = path.join(CODEX_DIR, '.env');
+const CODEX_AUTH = path.join(CODEX_DIR, 'auth.json');
 
 const openaiProvider = {
   id: 'openai',
@@ -89,7 +89,7 @@ describe('CodexAdapter', () => {
   it('has correct id and name', () => {
     const adapter = new CodexAdapter();
     expect(adapter.id).toBe('codex');
-    expect(adapter.name).toBe('Codex');
+    expect(adapter.name).toBe('ChatGPT');
   });
 
   it('supports openai type only', () => {
@@ -107,22 +107,28 @@ describe('CodexAdapter.applyConfig', () => {
     expect(toml).toContain('model = "gpt-5.5"');
   });
 
-  it('writes .env with OPENAI_API_KEY', async () => {
+  it('official OpenAI subscription: writes ONLY model, strips third-party residue, no auth.json key', async () => {
     const adapter = new CodexAdapter();
     await adapter.applyConfig(openaiProvider, 'gpt-5.5');
 
-    const env = mocks.files.get(CODEX_ENV)!;
-    // The TS adapter writes `export KEY='value'` (shell-quoted). Match loosely so
-    // the test is robust to the shell-quoting format.
-    expect(env).toMatch(/OPENAI_API_KEY=['"]?sk-codex-456['"]?/);
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).toContain('model = "gpt-5.5"');
+    // Official OAuth mode: no model_provider, no third-party-only fields.
+    expect(toml).not.toContain('model_provider');
+    expect(toml).not.toContain('disable_response_storage');
+    expect(toml).not.toContain('web_search');
+    expect(toml).not.toContain('model_catalog_json');
+    expect(toml).not.toContain('[model_providers');
+    // No OPENAI_API_KEY written — Codex uses its native OAuth tokens instead.
+    expect(mocks.files.has(CODEX_AUTH)).toBe(false);
   });
 
-  it('resolves explicit vault aliases when writing .env', async () => {
+  it('resolves explicit vault aliases for third-party providers writing auth.json', async () => {
     const adapter = new CodexAdapter();
-    await adapter.applyConfig(customAliasProvider, 'gpt-5.5');
+    await adapter.applyConfig({ ...customAliasProvider, id: 'custom-alias' }, 'gpt-5.5');
 
-    const env = mocks.files.get(CODEX_ENV)!;
-    expect(env).toMatch(/OPENAI_API_KEY=['"]?sk-codex-team['"]?/);
+    const auth = JSON.parse(mocks.files.get(CODEX_AUTH)!);
+    expect(auth.OPENAI_API_KEY).toBe('sk-codex-team');
   });
 
   it('writes base_url under [model_providers.X] for non-official endpoints (not top-level api_base)', async () => {
@@ -135,8 +141,100 @@ describe('CodexAdapter.applyConfig', () => {
     expect(toml).toContain('[model_providers.okit-custom-openai]');
     expect(toml).toContain('base_url = "https://custom.api.com/v1"');
     expect(toml).not.toContain('api_base');
-    // wire_api defaults to "chat" when the endpoint has no protocol specified
-    expect(toml).toContain('wire_api = "chat"');
+    // No env_key — credentials go via auth.json (requires_openai_auth=true),
+    // so the ChatGPT desktop app can find them too.
+    expect(toml).not.toContain('env_key');
+    // Codex requires wire_api = "responses" on current builds (chat was dropped).
+    // Mirror cc-switch: unconditional "responses" regardless of endpoint protocol.
+    expect(toml).toContain('wire_api = "responses"');
+    expect(toml).toContain('requires_openai_auth = true');
+    // Top-level fields cc-switch always emits.
+    expect(toml).toContain('disable_response_storage = true');
+    expect(toml).toContain('model_reasoning_effort = "high"');
+    // web_search disabled — third-party gateways reject the web_search tool.
+    expect(toml).toContain('web_search = "disabled"');
+    // auth.json gets the key for third-party providers too.
+    const auth = JSON.parse(mocks.files.get(CODEX_AUTH)!);
+    expect(auth.OPENAI_API_KEY).toBe('sk-codex-456');
+  });
+
+  it('appends /v1 to origin-only base URLs (cc-switch normalization)', async () => {
+    const originOnly = { ...customProvider, baseUrl: 'https://custom.api.com' };
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(originOnly, 'my-model');
+
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).toContain('base_url = "https://custom.api.com/v1"');
+  });
+
+  it('writes model-catalogs.json with all provider models for /model switching', async () => {
+    const CATALOG_PATH = path.join(os.homedir(), '.codex', 'model-catalogs', 'model-catalogs.json');
+    const multiModel = {
+      ...customProvider,
+      models: [
+        { id: 'm-flash', name: 'Flash' },
+        { id: 'm-pro', name: 'Pro' },
+      ],
+    };
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(multiModel, 'm-flash');
+
+    // catalog file written
+    const catalog = JSON.parse(mocks.files.get(CATALOG_PATH)!);
+    expect(catalog.models).toHaveLength(2);
+    expect(catalog.models[0].slug).toBe('m-flash');
+    expect(catalog.models[0].display_name).toBe('Flash');
+    expect(catalog.models[1].slug).toBe('m-pro');
+    // web_search tool disabled for third-party compatibility
+    expect(catalog.models[0].supports_search_tool).toBe(false);
+
+    // config.toml points at the catalog
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).toContain('model_catalog_json = "~/.codex/model-catalogs/model-catalogs.json"');
+  });
+
+  it('official OpenAI: strips third-party residue when switching back to subscription', async () => {
+    // Start with a config that has third-party gunk from a previous provider.
+    mocks.files.set(CODEX_CONFIG, [
+      'model = "mimo-v2.5"',
+      'model_provider = "okit-xiaomi-coding"',
+      'model_reasoning_effort = "high"',
+      'disable_response_storage = true',
+      'web_search = "disabled"',
+      'model_catalog_json = "~/.codex/model-catalogs/model-catalogs.json"',
+      '',
+      '[model_providers.okit-xiaomi-coding]',
+      'name = "小米 MiMo Token Plan"',
+      'base_url = "https://token-plan-sgp.xiaomimimo.com/v1"',
+      'wire_api = "responses"',
+      'requires_openai_auth = true',
+      '',
+      '[projects."/some/path"]',
+      'trust_level = "trusted"',
+      '',
+    ].join('\n'));
+    // And auth.json has a third-party key.
+    mocks.files.set(CODEX_AUTH, JSON.stringify({ OPENAI_API_KEY: 'sk-third-party', tokens: { id: 'oauth-keep' } }));
+
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(openaiProvider, 'gpt-5.6-sol');
+
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).toContain('model = "gpt-5.6-sol"');
+    // Third-party fields removed.
+    expect(toml).not.toContain('model_provider');
+    expect(toml).not.toContain('disable_response_storage');
+    expect(toml).not.toContain('web_search');
+    expect(toml).not.toContain('model_catalog_json');
+    // All okit-* provider tables purged.
+    expect(toml).not.toContain('[model_providers.okit-');
+    // Non-okit sections (projects) preserved.
+    expect(toml).toContain('[projects."/some/path"]');
+
+    // auth.json: OPENAI_API_KEY removed, OAuth tokens preserved.
+    const auth = JSON.parse(mocks.files.get(CODEX_AUTH)!);
+    expect(auth.OPENAI_API_KEY).toBeUndefined();
+    expect(auth.tokens).toEqual({ id: 'oauth-keep' });
   });
 
   it('removes api_base for official OpenAI', async () => {

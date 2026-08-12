@@ -447,6 +447,15 @@
   border-color: var(--ink);
 }
 
+/* Home page provider cards are collapsible (header only when folded). Override
+   the Models page's 260px min-height so a folded card doesn't leave a huge
+   empty gap. The expanded state grows naturally with the model list. The
+   .quick-start-page ancestor bumps specificity above providers.css's bare
+   .provider-card rule (which is imported after home.css). */
+.quick-start-page .provider-card--clickable {
+  min-height: auto;
+}
+
 .provider-card-types {
   display: flex;
   align-items: center;
@@ -468,6 +477,26 @@
   font-weight: 500;
 }
 
+/* Claude Code tier mapping — three dropdowns (HAIKU/SONNET/OPUS) shown below
+   the model list for non-official providers. */
+.provider-tier-maps {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 0 20px 10px; border-top: 1px dashed var(--border, #d4cebe); padding-top: 10px;
+}
+.provider-tier-row {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+}
+.provider-tier-label {
+  font-weight: 600; color: var(--ink-muted); letter-spacing: 0.5px;
+}
+.provider-tier-select {
+  padding: 3px 8px; border: 1px solid var(--kraft-dark); border-radius: 4px;
+  background: var(--paper); color: var(--ink); font: inherit; font-size: 11px;
+  cursor: pointer; outline: none; max-width: 140px;
+}
+.provider-tier-select:focus { border-color: var(--ink); }
+[data-theme="dark"] .provider-tier-select { background: var(--bg, #1a1815); }
+
 .provider-card-models-list {
   display: flex;
   flex-wrap: wrap;
@@ -475,35 +504,100 @@
   padding: 10px 20px 14px;
 }
 
-.agent-model-btn {
+/* Model chip = name button + optional remove (×) button. The whole chip
+   looks like one rounded tag; the name part switches the current model,
+   the × removes it from the visible list. Current model has no ×. */
+.agent-model-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--kraft-dark);
+  border-radius: 6px;
+  background: transparent;
+  overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.agent-model-chip:hover {
+  border-color: var(--ink);
+  background: var(--kraft);
+}
+
+.agent-model-chip.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.agent-model-chip.switching {
+  opacity: 0.5;
+}
+
+.agent-model-chip-name {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  border: 1px solid var(--kraft-dark);
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-family: inherit;
+  transition: none;
+}
+
+.agent-model-chip-name:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.agent-model-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: inherit;
+  transition: all 0.15s ease;
+}
+
+.agent-model-chip-remove:hover {
+  opacity: 0.7;
+  color: var(--ink);
+}
+
+.agent-model-chip.active .agent-model-chip-remove {
+  color: rgba(255,255,255,0.6);
+}
+
+.agent-model-chip.active .agent-model-chip-remove:hover {
+  opacity: 1;
+  color: var(--paper);
+}
+
+/* "+ Add models" button — appears when there are removed models to restore */
+.agent-model-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px dashed var(--ok, #16a34a);
   border-radius: 6px;
   background: transparent;
-  color: var(--ink);
+  color: var(--ok, #16a34a);
   cursor: pointer;
   font-size: 12px;
   font-family: inherit;
   transition: all 0.15s ease;
 }
 
-.agent-model-btn:hover {
-  border-color: var(--ink);
-  background: var(--kraft);
-}
-
-.agent-model-btn.active {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.agent-model-btn:disabled {
-  opacity: 0.5;
-  cursor: wait;
+.agent-model-add-btn:hover {
+  background: rgba(22, 163, 74, 0.08);
+  border-style: solid;
 }
 
 .agent-model-name {
@@ -518,6 +612,11 @@
 
 .agent-model-check {
   font-weight: bold;
+  color: var(--ok, #16a34a);
+  font-size: 13px;
+}
+
+.agent-model-btn.active .agent-model-check {
   color: #4ade80;
 }
 
@@ -727,20 +826,38 @@
   border: 1.5px dashed var(--border, #d4cebe); border-radius: 6px;
 }
 
-/* Usage summary strip */
+/* Usage summary strip — shows remaining quota per window */
 .usage-summary-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
 }
 .usage-summary-card {
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 4px;
   padding: 10px 12px; border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
   background: var(--paper); box-shadow: 2px 2px 0 rgba(0,0,0,0.04);
 }
 .usage-summary-card--ok { border-color: var(--ok, #16a34a); }
 .usage-summary-card--warn { border-color: #f59e0b; }
 .usage-summary-card--danger { border-color: #ef4444; }
-.usage-summary-name { font-size: 11px; color: var(--ink-muted); }
-.usage-summary-value { font-size: 18px; font-weight: 700; color: var(--ink); }
+.usage-summary-card--unknown { border-color: var(--border, #d4cebe); }
+.usage-summary-name { font-size: 12px; font-weight: 600; color: var(--ink); }
+
+/* Per-window rows (subscription: 5h / weekly / monthly) */
+.usage-summary-windows { display: flex; flex-direction: column; gap: 2px; }
+.usage-summary-window {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.usage-summary-window-label { font-size: 11px; color: var(--ink-muted); }
+.usage-summary-window-value { font-size: 14px; font-weight: 700; }
+.usage-summary-window--ok .usage-summary-window-value { color: var(--ok, #16a34a); }
+.usage-summary-window--warn .usage-summary-window-value { color: #b45309; }
+.usage-summary-window--danger .usage-summary-window-value { color: #dc2626; }
+.usage-summary-window--unknown .usage-summary-window-value { color: var(--ink-muted); }
+
+/* Prepaid balance (single big number) */
+.usage-summary-balance { font-size: 18px; font-weight: 700; color: var(--ok, #16a34a); }
+
+/* Error / console-only notice */
+.usage-summary-empty { font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
 
 /* Favorite models chip grid */
 .fav-model-grid { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
@@ -768,30 +885,181 @@
 .fav-model-popover-item:hover { background: rgba(0,0,0,0.05); }
 .fav-model-popover-item:disabled { opacity: 0.5; cursor: default; }
 
-/* Quick tools launcher */
-.quick-tools-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
-}
-.quick-tool-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 12px 8px; border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
-  background: var(--paper); cursor: pointer; transition: border-color 0.12s;
-}
-.quick-tool-btn:hover:not(:disabled) { border-color: var(--ink); }
-.quick-tool-btn--active { border-color: var(--ok, #16a34a); }
-.quick-tool-btn:disabled { opacity: 0.5; cursor: default; }
-.quick-tool-icon { width: 28px; height: 28px; object-fit: contain; }
-.quick-tool-icon-fallback {
-  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; color: var(--ink-muted);
-  border: 1.5px solid var(--border, #d4cebe); border-radius: 50%;
-}
-.quick-tool-name { font-size: 12px; font-weight: 600; color: var(--ink); }
-.quick-tool-model { font-size: 10px; color: var(--ink-muted); font-family: var(--mono, monospace); }
-
 /* Agent model "show all" toggle inside provider cards */
 .agent-model-showall {
   align-self: flex-start; padding: 4px 10px; border: 1.5px dashed var(--border, #d4cebe);
   border-radius: 16px; background: transparent; cursor: pointer; font-size: 11px; color: var(--ink-muted);
 }
 .agent-model-showall:hover { color: var(--ink); border-color: var(--ink); }
+
+/* Agent configuration section gets a bit of top spacing to separate it from
+   the dashboard blocks above. */
+.home-section--agent { margin-top: 8px; }
+
+/* Home provider card: remove button + add-provider button + picker modal */
+.provider-card-remove-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px; border: none; background: transparent; cursor: pointer;
+  color: var(--ink-muted); border-radius: 4px; line-height: 0;
+  opacity: 0; transition: opacity 0.12s, color 0.12s;
+}
+.provider-card:hover .provider-card-remove-btn { opacity: 1; }
+.provider-card-remove-btn:hover { color: #dc2626; background: rgba(220,38,38,0.1); }
+
+.home-add-provider-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border: 1.5px dashed var(--border, #d4cebe); border-radius: 6px;
+  background: transparent; cursor: pointer; color: var(--ink-muted); font-size: 13px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.home-add-provider-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+/* Picker overlay */
+.home-add-picker-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.home-add-picker {
+  background: var(--paper); border: 1.5px solid var(--border, #d4cebe); border-radius: 8px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.1); width: min(440px, 90vw); max-height: 70vh;
+  display: flex; flex-direction: column;
+}
+.home-add-picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1.5px solid var(--border, #d4cebe);
+}
+.home-add-picker-header h3 { margin: 0; font-size: 15px; color: var(--ink); }
+.home-add-picker-list { padding: 8px; overflow-y: auto; }
+.home-add-picker-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 6px; cursor: pointer; transition: background 0.1s;
+}
+.home-add-picker-item:hover { background: rgba(0,0,0,0.04); }
+.home-add-picker-item.added { opacity: 0.6; }
+.home-add-picker-item input[type="checkbox"] { margin: 0; }
+
+/* Enable/disable sliding switch on home provider cards */
+.provider-switch {
+  position: relative; width: 36px; height: 20px; border-radius: 10px;
+  border: none; background: #cbd5cb; cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: background 0.18s;
+}
+.provider-switch--on { background: var(--ok, #16a34a); }
+.provider-switch:disabled { cursor: default; opacity: 0.7; }
+.provider-switch-knob {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  transition: transform 0.18s;
+}
+.provider-switch--on .provider-switch-knob { transform: translateX(16px); }
+[data-theme="dark"] .provider-switch { background: #495057; }
+[data-theme="dark"] .provider-switch--on { background: var(--ok, #16a34a); }
+
+/* Home provider cards: push the title to the left edge so the switch + remove
+   buttons land flush right. Scoped to .quick-start-page so the Models page
+   (which shares .provider-card-title) is unaffected. */
+.quick-start-page .provider-card-title { flex: 1; min-width: 0; margin-right: 12px; }
+.quick-start-page .provider-card-header { gap: 8px; }
+
+/* Provider actions row (add + view config) */
+.home-provider-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.home-view-config-btn {
+  padding: 8px 14px; border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
+  background: var(--paper); cursor: pointer; color: var(--ink-muted); font-size: 13px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.home-view-config-btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.home-view-config-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Config file viewer modal */
+.home-config-viewer {
+  background: var(--paper); border: 1.5px solid var(--border, #d4cebe); border-radius: 8px;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.1); width: min(680px, 92vw); max-height: 80vh;
+  display: flex; flex-direction: column;
+}
+.home-config-viewer-actions { display: flex; gap: 8px; align-items: center; }
+.home-config-viewer-body { padding: 8px 16px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* Config viewer tab bar — pill/capsule style */
+.home-config-tabs {
+  display: flex; gap: 6px; padding: 4px 16px 0; flex-wrap: wrap; flex-shrink: 0;
+}
+.home-config-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; background: transparent;
+  border: 1.5px solid var(--kraft-dark); border-radius: 999px;
+  cursor: pointer; font-size: 12px; font-weight: 500; color: var(--ink-muted);
+  white-space: nowrap; transition: all 0.15s ease;
+}
+.home-config-tab:hover { color: var(--ink); border-color: var(--ink); }
+.home-config-tab.active {
+  color: var(--paper); background: var(--ink); border-color: var(--ink);
+  font-weight: 600;
+}
+.home-config-tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.home-config-tab-dot.exists { background: var(--ok, #16a34a); }
+.home-config-tab-dot.missing { background: #dc2626; }
+.home-config-tab.active .home-config-tab-dot.exists { background: #4ade80; }
+[data-theme="dark"] .home-config-tab { border-color: var(--border, #3a3530); }
+[data-theme="dark"] .home-config-tab.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.home-config-file { display: flex; flex-direction: column; gap: 6px; }
+.home-config-file-path { display: flex; align-items: center; gap: 8px; }
+.home-config-file-path code { font-family: var(--mono, monospace); font-size: 12px; color: var(--ink); }
+.home-config-file-status { font-size: 11px; padding: 1px 8px; border-radius: 10px; }
+.home-config-file-status.exists { color: var(--ok, #16a34a); background: rgba(22,163,74,0.1); }
+.home-config-file-status.missing { color: #dc2626; background: rgba(220,38,38,0.1); }
+.home-config-file-content {
+  margin: 0; padding: 12px; background: rgba(0,0,0,0.04); border: 1px solid var(--border, #d4cebe);
+  border-radius: 4px; font-family: var(--mono, monospace); font-size: 12px; color: var(--ink);
+  white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow-y: auto;
+}
+[data-theme="dark"] .home-config-file-content { background: rgba(0,0,0,0.25); }
+
+/* Editable config file — textarea-based editor */
+.home-config-file-editor {
+  margin: 0; padding: 12px; background: rgba(0,0,0,0.04); border: 1px solid var(--border, #d4cebe);
+  border-radius: 4px; font-family: var(--mono, monospace); font-size: 12px; color: var(--ink);
+  white-space: pre; overflow-x: auto; min-height: 200px; max-height: 50vh;
+  resize: vertical; width: 100%; line-height: 1.5; tab-size: 2; outline: none;
+  transition: border-color 0.15s;
+}
+.home-config-file-editor:focus { border-color: var(--ink); }
+[data-theme="dark"] .home-config-file-editor { background: rgba(0,0,0,0.25); }
+.home-config-dirty-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--warn, #d97706); flex-shrink: 0;
+}
+.home-config-save-btn {
+  margin-left: auto; padding: 3px 14px; border: 1.5px solid var(--border, #d4cebe);
+  border-radius: 6px; background: transparent; color: var(--ink-muted);
+  cursor: not-allowed; font: inherit; font-size: 12px; font-weight: 500;
+  transition: all 0.15s ease;
+}
+.home-config-save-btn.dirty {
+  border-color: var(--ok, #16a34a); color: var(--ok, #16a34a);
+  cursor: pointer;
+}
+.home-config-save-btn.dirty:hover {
+  background: var(--ok, #16a34a); color: #fff;
+}
+.home-config-save-btn:disabled { opacity: 0.5; }
+
+/* Codex model-catalog selector inside expanded provider cards */
+.provider-catalog-section { margin-top: 8px; border-top: 1px dashed var(--border, #d4cebe); padding-top: 8px; }
+.provider-catalog-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: transparent; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--ink-muted); padding: 4px 0;
+}
+.provider-catalog-toggle:hover { color: var(--ink); }
+.provider-catalog-chevron { margin-left: auto; }
+.provider-catalog-list {
+  display: flex; flex-direction: column; gap: 2px; margin-top: 6px;
+  max-height: 200px; overflow-y: auto;
+}
+.provider-catalog-item {
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px;
+  font-size: 12px; color: var(--ink); cursor: pointer; border-radius: 4px;
+}
+.provider-catalog-item:hover { background: rgba(0,0,0,0.04); }
+.provider-catalog-item input[type="checkbox"] { margin: 0; }

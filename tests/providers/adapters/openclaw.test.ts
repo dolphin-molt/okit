@@ -66,45 +66,67 @@ describe('OpenClawAdapter', () => {
   });
 });
 
-describe('OpenClawAdapter.applyConfig', () => {
-  it('writes provider into models.providers array (additive)', async () => {
+describe('OpenClawAdapter.applyConfig (cc-switch schema)', () => {
+  it('writes provider into models.providers as an OBJECT keyed by id', async () => {
     const adapter = new OpenClawAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(1);
-    expect(written.models.providers[0].id).toBe('deepseek');
-    expect(written.models.providers[0].apiKey).toBe('sk-test-123');
+    expect(written.models.mode).toBe('merge');
+    expect(typeof written.models.providers).toBe('object');
+    expect(written.models.providers.deepseek).toBeDefined();
+    expect(written.models.providers.deepseek.baseUrl).toBe('https://api.deepseek.com');
+    expect(written.models.providers.deepseek.apiKey).toBe('sk-test-123');
   });
 
-  it('sets agents.default.model and provider', async () => {
+  it('writes the api protocol field (openai-completions for openai type)', async () => {
     const adapter = new OpenClawAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.agents.default.model).toBe('deepseek-chat');
-    expect(written.agents.default.provider).toBe('deepseek');
+    expect(written.models.providers.deepseek.api).toBe('openai-completions');
   });
 
-  it('preserves existing providers (additive merge)', async () => {
+  it('maps anthropic type to api = "anthropic"', async () => {
+    const anthropicProvider = { ...testProvider, id: 'zai', type: 'anthropic' as const };
+    const adapter = new OpenClawAdapter();
+    await adapter.applyConfig(anthropicProvider, 'glm-4.7');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.models.providers.zai.api).toBe('anthropic');
+  });
+
+  it('sets agents.defaults.model as object {primary, fallbacks} (plural "defaults")', async () => {
+    const adapter = new OpenClawAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.agents.defaults.model).toEqual({
+      primary: 'deepseek/deepseek-chat',
+      fallbacks: [],
+    });
+  });
+
+  it('preserves existing providers when adding a new one (additive merge)', async () => {
     mocks.files.set(CONFIG_PATH, JSON.stringify({
-      models: { providers: [{ id: 'glm', name: 'GLM', type: 'openai', baseUrl: 'https://glm.com' }] },
+      models: { mode: 'merge', providers: { glm: { baseUrl: 'https://glm.com', api: 'openai-completions' } } },
+      agents: { defaults: {} },
     }));
 
     const adapter = new OpenClawAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers).toHaveLength(2);
+    expect(Object.keys(written.models.providers)).toEqual(['glm', 'deepseek']);
   });
 
-  it('maps models to {id, name, capabilities}', async () => {
+  it('models entry has id + name (no capabilities field)', async () => {
     const adapter = new OpenClawAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers[0].models).toEqual([
-      { id: 'deepseek-chat', name: 'DeepSeek V4', capabilities: [] },
+    expect(written.models.providers.deepseek.models).toEqual([
+      { id: 'deepseek-chat', name: 'DeepSeek V4' },
     ]);
   });
 

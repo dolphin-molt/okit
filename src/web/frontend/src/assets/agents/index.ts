@@ -1,5 +1,5 @@
 import claude from './claude.png';
-import codex from './codex.png';
+import chatgpt from './chatgpt.png';
 import gemini from './gemini.svg';
 import workbuddy from './workbuddy.png';
 import zcode from './zcode.png';
@@ -10,7 +10,7 @@ import openclaw from './openclaw.svg';
 
 const ICON_MAP: Record<string, string> = {
   'claude': claude,
-  'codex': codex,
+  'codex': chatgpt,
   'gemini': gemini,
   'workbuddy': workbuddy,
   'zcode': zcode,

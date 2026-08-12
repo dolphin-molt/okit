@@ -36,26 +36,27 @@ vi.mock('../../../src/vault/store', () => ({
 const { OpenCodeAdapter } = await import('../../../src/providers/adapters/opencode');
 const { updateUserConfig } = await import('../../../src/config/user');
 
-const CONFIG_PATH = path.join(os.homedir(), '.opencode', 'config.json');
+// OpenCode reads ~/.config/opencode/opencode.json (NOT ~/.opencode/config.json).
+const CONFIG_PATH = path.join(os.homedir(), '.config', 'opencode', 'opencode.json');
 
 const openaiProvider = {
-  id: 'openai',
-  name: 'OpenAI',
+  id: 'deepseek',
+  name: 'DeepSeek',
   type: 'openai' as const,
-  baseUrl: 'https://api.openai.com/v1',
+  baseUrl: 'https://api.deepseek.com/v1',
   vaultKey: 'TEST_API_KEY',
   authMode: 'api_key' as const,
-  models: [{ id: 'gpt-5.5' }],
+  models: [{ id: 'deepseek-chat', name: 'DeepSeek V4' }],
 };
 
 const anthropicProvider = {
-  id: 'anthropic',
-  name: 'Anthropic',
+  id: 'zai',
+  name: 'Z.AI',
   type: 'anthropic' as const,
-  baseUrl: 'https://api.anthropic.com',
+  baseUrl: 'https://api.z.ai/api',
   vaultKey: 'TEST_API_KEY',
   authMode: 'api_key' as const,
-  models: [{ id: 'claude-opus-4-7' }],
+  models: [{ id: 'glm-4.7' }],
 };
 
 beforeEach(() => {
@@ -76,50 +77,68 @@ describe('OpenCodeAdapter', () => {
   });
 });
 
-describe('OpenCodeAdapter.applyConfig', () => {
-  it('writes flat config with provider/model/apiKey/baseUrl', async () => {
+describe('OpenCodeAdapter.applyConfig (cc-switch schema)', () => {
+  it('writes provider as an object keyed by id under `provider`', async () => {
     const adapter = new OpenCodeAdapter();
-    await adapter.applyConfig(openaiProvider, 'gpt-5.5');
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.provider).toBe('openai');
-    expect(written.model).toBe('gpt-5.5');
-    expect(written.apiKey).toBe('sk-test-123');
-    expect(written.baseUrl).toBe('https://api.openai.com/v1');
+    expect(typeof written.provider).toBe('object');
+    expect(written.provider.deepseek).toBeDefined();
   });
 
-  it('maps provider type via mapProviderType', async () => {
+  it('writes npm package mapped from type (openai → @ai-sdk/openai-compatible)', async () => {
     const adapter = new OpenCodeAdapter();
-    await adapter.applyConfig(anthropicProvider, 'claude-opus-4-7');
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.provider).toBe('anthropic');
+    expect(written.provider.deepseek.npm).toBe('@ai-sdk/openai-compatible');
   });
 
-  it('overwrites previous selection (flat, not additive)', async () => {
+  it('writes npm @ai-sdk/anthropic for anthropic type', async () => {
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(anthropicProvider, 'glm-4.7');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.zai.npm).toBe('@ai-sdk/anthropic');
+  });
+
+  it('writes options.baseURL + options.apiKey', async () => {
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.options.baseURL).toBe('https://api.deepseek.com/v1');
+    expect(written.provider.deepseek.options.apiKey).toBe('sk-test-123');
+  });
+
+  it('writes models as object keyed by model id', async () => {
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.models['deepseek-chat']).toEqual({ name: 'DeepSeek V4' });
+  });
+
+  it('preserves existing providers (additive merge)', async () => {
     mocks.files.set(CONFIG_PATH, JSON.stringify({
-      provider: 'google',
-      model: 'gemini-3',
-      apiKey: 'old-key',
-      baseUrl: 'https://old.com',
+      provider: { glm: { npm: '@ai-sdk/anthropic', options: {}, models: {} } },
     }));
 
     const adapter = new OpenCodeAdapter();
-    await adapter.applyConfig(openaiProvider, 'gpt-5.5');
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
 
     const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.provider).toBe('openai');
-    expect(written.model).toBe('gpt-5.5');
-    expect(written.apiKey).toBe('sk-test-123');
+    expect(Object.keys(written.provider)).toEqual(['glm', 'deepseek']);
   });
 
   it('records selection in user.json', async () => {
     const adapter = new OpenCodeAdapter();
-    await adapter.applyConfig(openaiProvider, 'gpt-5.5');
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
 
     expect(updateUserConfig).toHaveBeenCalledWith(
       expect.objectContaining({
-        providers: { opencode: { providerId: 'openai', modelId: 'gpt-5.5' } },
+        providers: { opencode: { providerId: 'deepseek', modelId: 'deepseek-chat' } },
       }),
     );
   });

@@ -95,7 +95,9 @@ describe('GeminiAdapter.applyConfig', () => {
 
     const env = mocks.files.get(ENV_PATH)!;
     expect(env).toContain('GEMINI_API_KEY=sk-test-123');
-    expect(env).toContain('GOOGLE_API_KEY=sk-test-123');
+    // GOOGLE_API_KEY is intentionally NOT written (cc-switch writes only
+    // GEMINI_API_KEY; GOOGLE_API_KEY can collide with unrelated global creds).
+    expect(env).not.toContain('GOOGLE_API_KEY=');
     expect(env).toContain('GEMINI_MODEL=gemini-3-pro');
   });
 
@@ -132,6 +134,28 @@ describe('GeminiAdapter.applyConfig', () => {
     await adapter.applyConfig(gatewayProvider, 'gemini-3-pro');
 
     expect(mocks.ensureDir).toHaveBeenCalled();
+  });
+
+  it('writes security.auth.selectedType = gemini-api-key for API-key providers', async () => {
+    const SETTINGS = path.join(os.homedir(), '.gemini', 'settings.json');
+    const adapter = new GeminiAdapter();
+    await adapter.applyConfig(gatewayProvider, 'gemini-3-pro');
+
+    const written = JSON.parse(mocks.files.get(SETTINGS)!);
+    expect(written.security.auth.selectedType).toBe('gemini-api-key');
+  });
+
+  it('writes security.auth.selectedType = oauth-personal for Google Official OAuth', async () => {
+    const SETTINGS = path.join(os.homedir(), '.gemini', 'settings.json');
+    // Pre-existing settings (e.g. mcpServers) must be preserved on merge.
+    mocks.files.set(SETTINGS, JSON.stringify({ mcpServers: { foo: {} } }));
+
+    const adapter = new GeminiAdapter();
+    await adapter.applyConfig(googleOAuthProvider, 'gemini-3-pro');
+
+    const written = JSON.parse(mocks.files.get(SETTINGS)!);
+    expect(written.security.auth.selectedType).toBe('oauth-personal');
+    expect(written.mcpServers).toEqual({ foo: {} });
   });
 
   it('records selection in user.json', async () => {

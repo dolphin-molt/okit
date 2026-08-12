@@ -1283,9 +1283,9 @@ const AUTO_CREATE_PLATFORMS = [
   { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AQ\\.[0-9A-Za-z_-]{20,}', 'AIza[0-9A-Za-z_-]{20,}'] },
   { id: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_API_KEY', groupHint: '火山引擎', mode: 'browser' },
   { id: 'volcengine-agent', label: '火山引擎 Agent Plan', keyHint: 'VOLCENGINE_AGENT_PLAN_API_KEY', groupHint: '火山引擎 Agent Plan', mode: 'browser', url: VOLC_AGENT_PLAN_URL },
-  // TokenHub is Tencent Cloud's current unified model platform. Its API keys
-  // are ordinary Bearer tokens; do not confuse them with cloud AK/SK pairs.
-  { id: 'tencent-tokenhub', label: '腾讯云 TokenHub', keyHint: 'TENCENT_TOKENHUB_API_KEY', groupHint: '腾讯云 TokenHub', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], confirmTexts: ['确认', '确定', '创建'], postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
+  // are ordinary Bearer tokens shared across all plans.
+  { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/lke/api-key', createTexts: ['创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], confirmTexts: ['确认', '确定', '创建'], postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   { id: 'zhipu', label: '智谱 AI（国内站）', keyHint: 'ZHIPUAI_API_KEY', groupHint: '智谱AI', mode: 'browser' },
   // Verified on the signed-in Z.AI console: the entry is "Add API Key", then
   // the dialog requires an "API key name" before its "Create" action is enabled.
@@ -1317,6 +1317,8 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified in the signed-in Bailian console: the default workspace is
   // already selected; fill its optional description textarea before "确定".
   { id: 'qwen', label: '阿里云百炼', keyHint: 'DASHSCOPE_API_KEY', groupHint: '阿里云百炼', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key', createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
+  // 阿里云百炼 Coding Plan — 套餐专属 key，同一个控制台但独立管理页
+  { id: 'qwen-coding', label: '阿里云百炼 Coding Plan', keyHint: 'DASHSCOPE_CODING_API_KEY', groupHint: '阿里云百炼 Coding Plan', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key?plan=coding', createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
   // SiliconFlow exposes OpenAI-compatible Bearer keys from its account page.
   { id: 'siliconflow', label: '硅基流动', keyHint: 'SILICONFLOW_API_KEY', groupHint: '硅基流动', mode: 'browser', url: 'https://cloud.siliconflow.cn/account/ak', createTexts: ['新建API密钥', '新建 API 密钥', '创建API密钥', '创建 API 密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="名称"]'], confirmTexts: ['新建', '确认', '确定', '创建'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyAttempts: 8, postCreateCopyRetryMs: 500, allowExtensionClipboardRead: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Verified on the signed-in BCE API Key page: clicking the list toolbar

@@ -23,6 +23,7 @@ const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map([
 ]);
 const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
   ["opencode-go", { from: ["go", "agent"], to: "coding" }],
+  ["qianfan-coding", { from: ["coding"], to: "token" }],
 ]);
 const PRESET_AUTH_MODE_MIGRATIONS = new Map([
   ["anthropic", { from: "both", to: "api_key" }],
@@ -46,6 +47,11 @@ export async function loadProviders(): Promise<Provider[]> {
     // narrowly-scoped endpoint migrations for known broken built-in defaults.
     const existingIds = new Set(providers.map(p => p.id));
     let changed = providers.length !== data.providers.length;
+    // Strip cliOnly from all stored providers — this flag hid the Claude
+    // subscription preset, but it should be visible in Claude Code.
+    for (const p of providers) {
+      if ((p as any).cliOnly !== undefined) { delete (p as any).cliOnly; changed = true; }
+    }
     for (const preset of PRESET_PROVIDERS as Provider[]) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
@@ -101,6 +107,19 @@ export async function loadProviders(): Promise<Provider[]> {
         if (authModeMigration && existing.authMode === authModeMigration.from) {
           existing.authMode = authModeMigration.to as "api_key";
           changed = true;
+        }
+        // Sync endpoints that exist in the preset but are missing from the
+        // stored provider (e.g. a newly-declared anthropic-compatible endpoint
+        // added after the user's providers.json was first initialized). Only
+        // ADDS missing endpoint types — never removes or overwrites user edits.
+        if (Array.isArray(preset.endpoints)) {
+          const existingTypes = new Set((existing.endpoints || []).map(e => e.type));
+          for (const presetEp of preset.endpoints) {
+            if (presetEp && !existingTypes.has(presetEp.type)) {
+              existing.endpoints = [...(existing.endpoints || []), presetEp];
+              changed = true;
+            }
+          }
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;

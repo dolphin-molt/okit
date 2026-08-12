@@ -93,6 +93,22 @@ export type UserConfig = {
   // and the home dashboard.
   favoriteModels?: FavoriteModel[];
   recentModels?: RecentModel[];
+  // Provider ids the user has explicitly added to each agent's home-page list.
+  // Empty/absent = show nothing (the user adds their own). This is the "常用
+  // 站点" concept: the home page only renders what the user curated, not every
+  // configured provider.
+  homeProviders?: Record<string, string[]>;
+  // Codex model-catalog exclusion: per-provider lists of model ids the user
+  // UNCHECKED in the UI. When writing ~/.codex/model-catalogs/..., the codex
+  // adapter omits these so /model only lists models the user wants. Absent
+  // entry = all models included (default "all checked").
+  codexCatalogExcluded?: Record<string, string[]>;
+  // Claude Code tier mapping: per-provider overrides for the three Anthropic
+  // model tiers. Keys are providerIds; values are { haiku, sonnet, opus }
+  // model-id strings. When a claude provider is switched, the adapter reads
+  // this to write ANTHROPIC_DEFAULT_HAIKU/SONNET/OPUS_MODEL differentially.
+  // Absent tier = fall back to ANTHROPIC_MODEL (the selected model).
+  claudeTierMaps?: Record<string, { haiku?: string; sonnet?: string; opus?: string }>;
 };
 
 const USER_CONFIG_PATH = path.join(OKIT_DIR, "user.json");
@@ -132,6 +148,10 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     // (e.g. switchProvider prepends to recentModels after deduping).
     favoriteModels: patch.favoriteModels ?? current.favoriteModels,
     recentModels: patch.recentModels ?? current.recentModels,
+    // Per-agent home-page provider lists: merge per agent key.
+    homeProviders: patch.homeProviders ? { ...current.homeProviders, ...patch.homeProviders } : current.homeProviders,
+    codexCatalogExcluded: patch.codexCatalogExcluded ? { ...current.codexCatalogExcluded, ...patch.codexCatalogExcluded } : current.codexCatalogExcluded,
+    claudeTierMaps: patch.claudeTierMaps ? { ...current.claudeTierMaps, ...patch.claudeTierMaps } : current.claudeTierMaps,
     sync: patch.sync ? {
       ...current.sync,
       ...patch.sync,

@@ -9,7 +9,7 @@ const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getC
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders } = require('./api/usage');
 
 function createServer(port = 3780) {
@@ -111,6 +111,16 @@ function createServer(port = 3780) {
   app.get('/api/providers/models/favorites', getFavoriteModels);
   app.post('/api/providers/models/favorite', addFavoriteModel);
   app.delete('/api/providers/models/favorite/:providerId/:modelId', removeFavoriteModel);
+  // Home-page provider list (curated per agent).
+  app.post('/api/providers/agents/:agentId/home', addHomeProvider);
+  app.delete('/api/providers/agents/:agentId/home/:providerId', removeHomeProvider);
+  app.get('/api/providers/agents/:agentId/config-files', getAgentConfigFiles);
+  app.put('/api/providers/agents/:agentId/config-files', saveAgentConfigFile);
+  // Codex model-catalog exclusion (which models show in /model).
+  app.get('/api/providers/catalog/excluded', getCatalogExcluded);
+  app.put('/api/providers/catalog/excluded/:providerId', setCatalogExcluded);
+  app.get('/api/providers/tier-maps', getTierMaps);
+  app.put('/api/providers/tier-maps/:providerId', setTierMap);
   app.put('/api/providers/:id', updateProvider);
   app.delete('/api/providers/:id', deleteProvider);
   app.post('/api/providers/switch', switchProvider);

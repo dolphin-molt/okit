@@ -91,7 +91,10 @@ export interface AgentInfo {
   canLaunch?: boolean;
   installed?: boolean;
   current: { providerId: string; providerName: string; modelId: string } | null;
-  compatibleProviders: { id: string; name: string; type: string; models: ProviderModel[] }[];
+  /** Providers shown on the home page (user-curated subset). */
+  compatibleProviders: { id: string; name: string; type: string; baseUrl?: string; models: ProviderModel[]; allModels?: ProviderModel[] }[];
+  /** All configured-and-compatible providers, for the "+ add" picker. */
+  availableProviders?: { id: string; name: string; type: string; added: boolean }[];
 }
 
 export async function listProviders(): Promise<{ providers: Provider[]; platforms: Platform[] }> {
@@ -156,6 +159,66 @@ export async function addFavoriteModel(providerId: string, modelId: string): Pro
 export async function removeFavoriteModel(providerId: string, modelId: string): Promise<{ success: boolean; favorites: FavoriteModel[] }> {
   return api(`/api/providers/models/favorite/${encodeURIComponent(providerId)}/${encodeURIComponent(modelId)}`, {
     method: 'DELETE',
+  });
+}
+
+// --- Home-page provider list (curated per agent) ---
+
+export async function addHomeProvider(agentId: string, providerId: string): Promise<{ success: boolean; homeProviders: string[] }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/home`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId }),
+  });
+}
+
+export async function removeHomeProvider(agentId: string, providerId: string): Promise<{ success: boolean; homeProviders: string[] }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/home/${encodeURIComponent(providerId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface AgentConfigFile {
+  path: string;
+  exists: boolean;
+  content: string | null;
+}
+
+export async function getAgentConfigFiles(agentId: string): Promise<{ agentId: string; files: AgentConfigFile[] }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/config-files`);
+}
+
+export async function saveAgentConfigFile(agentId: string, filePath: string, content: string): Promise<{ success: boolean; path: string }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/config-files`, {
+    method: 'PUT',
+    body: JSON.stringify({ filePath, content }),
+  });
+}
+
+// --- Codex model-catalog exclusion ---
+
+export async function getCatalogExcluded(): Promise<{ excluded: Record<string, string[]> }> {
+  return api('/api/providers/catalog/excluded');
+}
+
+export async function setCatalogExcluded(providerId: string, excluded: string[]): Promise<{ success: boolean; providerId: string; excluded: string[] }> {
+  return api(`/api/providers/catalog/excluded/${encodeURIComponent(providerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ excluded }),
+  });
+}
+
+// --- Claude Code tier mapping ---
+
+export interface TierMap { haiku?: string; sonnet?: string; opus?: string }
+
+export async function getTierMaps(): Promise<{ tierMaps: Record<string, TierMap> }> {
+  return api('/api/providers/tier-maps');
+}
+
+export async function setTierMap(providerId: string, map: TierMap): Promise<{ success: boolean; providerId: string; tierMap: TierMap }> {
+  return api(`/api/providers/tier-maps/${encodeURIComponent(providerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(map),
   });
 }
 

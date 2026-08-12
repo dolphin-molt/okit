@@ -7,6 +7,15 @@ import { loadUserConfig, updateUserConfig } from "../../config/user";
 
 const HERMES_CONFIG_PATH = path.join(os.homedir(), ".hermes", "config.json");
 
+function apiProtocolFor(type: ProviderType): string {
+  switch (type) {
+    case "anthropic": return "anthropic";
+    case "google": return "google-generative-ai";
+    case "openai":
+    default: return "openai-completions";
+  }
+}
+
 export class HermesAdapter extends BaseAdapter {
   readonly id = "hermes";
   readonly name = "Hermes";
@@ -33,28 +42,25 @@ export class HermesAdapter extends BaseAdapter {
       data = content.trim() ? JSON.parse(content) : {};
     }
 
-    if (!data.models) data.models = {};
-    if (!data.models.providers) data.models.providers = [];
-
-    const providers = data.models.providers as Record<string, any>[];
-    let found = providers.find((p: any) => p.id === provider.id);
-    if (!found) {
-      found = { id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl };
-      providers.push(found);
+    if (typeof data.models !== "object" || data.models === null) data.models = {};
+    if (!data.models.mode) data.models.mode = "merge";
+    if (typeof data.models.providers !== "object" || data.models.providers === null) {
+      data.models.providers = {};
     }
-    if (apiKey) {
-      found.apiKey = apiKey;
-    }
-    found.models = provider.models.map(m => ({
-      id: m.id,
-      name: m.name || m.id,
-      capabilities: m.capabilities || [],
-    }));
 
-    if (!data.agents) data.agents = {};
-    if (!data.agents.default) data.agents.default = {};
-    data.agents.default.model = modelId;
-    data.agents.default.provider = provider.id;
+    const providerEntry: Record<string, any> = {
+      baseUrl: provider.baseUrl,
+      api: apiProtocolFor(provider.type),
+      models: provider.models.map(m => ({ id: m.id, name: m.name || m.id })),
+    };
+    if (apiKey) providerEntry.apiKey = apiKey;
+    data.models.providers[provider.id] = providerEntry;
+
+    if (typeof data.agents !== "object" || data.agents === null) data.agents = {};
+    if (typeof data.agents.defaults !== "object" || data.agents.defaults === null) {
+      data.agents.defaults = {};
+    }
+    data.agents.defaults.model = { primary: `${provider.id}/${modelId}`, fallbacks: [] };
 
     await fs.writeFile(HERMES_CONFIG_PATH, JSON.stringify(data, null, 2));
     await updateUserConfig({

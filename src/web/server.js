@@ -149,12 +149,16 @@ function createServer(port = 3780) {
 
 function startServer(port = 3780, onStarted) {
   const { setupWebSocket, sendToExtension, isExtensionConnected } = require('./api/ws-extension');
-const app = createServer(port);
+  const app = createServer(port);
 
   const server = require('http').createServer(app);
-  setupWebSocket(server);
 
   server.listen(port, '127.0.0.1', () => {
+    // Attach WebSocket only after the HTTP port is bound successfully.
+    // WebSocketServer forwards errors from its HTTP server; attaching it
+    // before listen() turns EADDRINUSE into an uncaught WebSocket error and
+    // prevents the fallback-port retry below from completing.
+    setupWebSocket(server);
     console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
     console.log(`  Press Ctrl+C to stop\n`);
     if (onStarted) onStarted(port);

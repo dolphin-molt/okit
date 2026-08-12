@@ -4,6 +4,7 @@ export interface ProviderModel {
   id: string;
   name?: string;
   capabilities?: string[];
+  recent?: boolean;
 }
 
 export interface ProviderEndpoint {

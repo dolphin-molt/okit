@@ -99,6 +99,7 @@ async function createWindow() {
     minWidth: 1040,
     minHeight: 720,
     title: "OKIT",
+    icon: path.join(__dirname, "..", "web", "public", "okit-icon.png"),
     backgroundColor: "#07100b",
     show: false,
     webPreferences: {

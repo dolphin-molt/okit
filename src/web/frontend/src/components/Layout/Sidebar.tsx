@@ -170,7 +170,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
     <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar-cut" />
       <div className="sidebar-brand">
-        <div className="sidebar-brand-logo">O</div>
+        <img className="sidebar-brand-logo" src="/okit-icon.png" alt="" />
         <span className="sidebar-brand-name">OKIT</span>
       </div>
       <div className="nav-scroll">

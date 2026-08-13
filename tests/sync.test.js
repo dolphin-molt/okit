@@ -11,6 +11,7 @@ const mockFs = vi.hoisted(() => ({
   ensureDir: vi.fn(),
   writeJson: vi.fn(),
   writeFile: vi.fn(),
+  rename: vi.fn(),
   mkdirSync: vi.fn(),
   appendFileSync: vi.fn(),
 }));
@@ -62,6 +63,7 @@ beforeEach(() => {
   mockFs.ensureDir.mockResolvedValue(undefined);
   mockFs.writeJson.mockResolvedValue(undefined);
   mockFs.writeFile.mockResolvedValue(undefined);
+  mockFs.rename.mockResolvedValue(undefined);
   mockFs.mkdirSync.mockReturnValue(undefined);
   mockFs.appendFileSync.mockReturnValue(undefined);
 });
@@ -222,7 +224,7 @@ describe('syncPull', () => {
 
     await syncPull();
 
-    const providerWrite = mockFs.writeFile.mock.calls.find(([file]) => String(file).endsWith('providers.json'));
+    const providerWrite = mockFs.writeFile.mock.calls.find(([file]) => String(file).includes('providers.json'));
     expect(providerWrite).toBeTruthy();
     const written = JSON.parse(providerWrite[1]);
     expect(written.providers).toEqual(expect.arrayContaining([

@@ -5,6 +5,7 @@ import { backupImportantData } from "../config/backup";
 import { Provider, ProvidersData } from "./types";
 import { PRESET_PROVIDERS } from "./presets";
 import { buildPlatforms } from "./platforms";
+import { atomicWrite, atomicWriteJSON } from "../utils/atomicWrite";
 
 const PROVIDERS_PATH = path.join(OKIT_DIR, "providers.json");
 // These used to be bundled presets. Retire them on load as well as removing
@@ -173,7 +174,7 @@ export async function saveProviders(providers: Provider[]): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData("providers");
   const data: ProvidersData = { providers, platforms: buildPlatforms(providers) };
-  await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
+  await atomicWriteJSON(PROVIDERS_PATH, data);
 }
 
 export async function getProvider(id: string): Promise<Provider | undefined> {

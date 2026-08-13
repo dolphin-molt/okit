@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 // OpenCode reads ~/.config/opencode/opencode.json (NOT ~/.opencode/config.json).
 // The schema is additive: provider is an object keyed by provider id, each entry
@@ -79,7 +80,7 @@ export class OpenCodeAdapter extends BaseAdapter {
     // returns empty for additive apps). We only ensure this provider + its
     // models are present.
 
-    await fs.writeFile(OPENCODE_CONFIG_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(OPENCODE_CONFIG_PATH, data);
     await updateUserConfig({
       providers: { opencode: { providerId: provider.id, modelId } },
     } as any);

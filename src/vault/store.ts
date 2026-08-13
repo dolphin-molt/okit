@@ -4,6 +4,7 @@ import crypto from "crypto";
 import os from "os";
 import { OKIT_DIR } from "../config/registry";
 import { backupImportantData } from "../config/backup";
+import { atomicWrite, atomicWriteJSON } from "../utils/atomicWrite";
 
 const VAULT_DIR = path.join(OKIT_DIR, "vault");
 const SECRETS_FILE = path.join(VAULT_DIR, "secrets.enc");
@@ -50,7 +51,9 @@ function deriveMasterKey(): Buffer {
   const key = crypto.pbkdf2Sync(identity, "okit-vault-salt", 100000, KEY_LENGTH, "sha256");
 
   fs.ensureDirSync(VAULT_DIR);
-  fs.writeFileSync(fp, key.toString("hex"), { mode: 0o600 });
+  const tmp = fp + ".okit-tmp";
+  fs.writeFileSync(tmp, key.toString("hex"), { mode: 0o600 });
+  fs.renameSync(tmp, fp);
   return key;
 }
 
@@ -159,10 +162,10 @@ export class VaultStore {
     // Encrypt secrets
     const secretsJson = JSON.stringify(this.data.secrets);
     const encrypted = encrypt(secretsJson, this.key);
-    await fs.writeFile(SECRETS_FILE, encrypted, { mode: 0o600 });
+    await atomicWrite(SECRETS_FILE, encrypted);
 
     // Save bindings separately (unencrypted, just paths)
-    await fs.writeFile(REGISTRY_FILE, JSON.stringify(this.data.bindings, null, 2));
+    await atomicWriteJSON(REGISTRY_FILE, this.data.bindings);
     this.cacheStamp = await this.getCacheStamp();
   }
 
@@ -308,7 +311,7 @@ export class VaultStore {
         }
 
         await fs.ensureDir(path.dirname(filePath));
-        await fs.writeFile(filePath, content);
+        await atomicWrite(filePath, content);
       } catch (err: any) {
         for (const binding of bindings) {
           results.push({

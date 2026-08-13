@@ -19,11 +19,13 @@ const PLATFORM_SECRET_FIELDS = {
   'cloudflare-r2': ['accountId', 'r2AccessKeyId', 'r2SecretAccessKey'],
   volcengine: ['accessKey', 'secretKey'],
   supabase: ['projectId', 'apiKey', 'apiToken'],
+  webdav: ['password'],
+  icloud: [],
 };
 const SYNC_CODE_PREFIX = 'okit-sync:';
 const SYNC_CODE_SALT = 'okit-sync-code-salt';
 
-const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine']);
+const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine', 'webdav', 'icloud']);
 
 function loadAdapter(name) {
   if (!name || !/^[a-z0-9-]+$/.test(name) || !VALID_ADAPTERS.has(name)) {

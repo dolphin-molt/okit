@@ -1,9 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import { useApp } from './components/Layout/AppContext';
-import ToolsPage from './components/tools/ToolsPage';
 import VaultPage from './components/vault/VaultPage';
-import AuthPage from './components/auth/AuthPage';
 import LogsPage from './components/logs/LogsPage';
 import MonitorPage from './components/monitor/MonitorPage';
 import AgentPage from './components/agent/AgentPage';
@@ -14,6 +13,34 @@ import UsagePage from './components/usage/UsagePage';
 import AgentsPage from './components/agents/AgentsPage';
 import LandingPage from './components/landing/LandingPage';
 import HomePage from './components/home/HomePage';
+import ProviderImportModal from './components/shared/ProviderImportModal';
+
+function DeepLinkHandler() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [importCode, setImportCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const kind = searchParams.get('import');
+    const code = searchParams.get('code');
+    if (kind === 'provider' && code) {
+      setImportCode(code);
+      // Clean URL after capturing the code
+      searchParams.delete('import');
+      searchParams.delete('code');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []);
+
+  if (!importCode) return null;
+
+  return (
+    <ProviderImportModal
+      code={importCode}
+      onClose={() => setImportCode(null)}
+      onImported={() => { /* provider list will refresh on next page load */ }}
+    />
+  );
+}
 
 export default function App() {
   const { sidebarCollapsed } = useApp();
@@ -23,15 +50,14 @@ export default function App() {
       <Route path="/landing" element={<LandingPage />} />
       <Route path="*" element={
         <div id="app">
+          <DeepLinkHandler />
           <Sidebar collapsed={sidebarCollapsed} />
           <main className={`main-content${sidebarCollapsed ? ' main-content--expanded' : ''}`}>
             <div className="tab-content">
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/tools" element={<ToolsPage />} />
                 <Route path="/vault" element={<VaultPage />} />
-                <Route path="/auth" element={<AuthPage />} />
                 <Route path="/models" element={<ModelsPage />} />
                 <Route path="/usage" element={<UsagePage />} />
                 <Route path="/agents" element={<AgentsPage />} />

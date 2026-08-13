@@ -1,40 +1,7 @@
 import kleur from "kleur";
 import execa from "execa";
-import prompts from "prompts";
-import { loadRegistry } from "../config/registry";
-import { executeSteps, printResults } from "../executor/runner";
-import { t } from "../config/i18n";
 
 const PACKAGE_NAME = "okit-cli";
-
-export async function showUpgradeMenu(): Promise<void> {
-  console.log(kleur.cyan("\n⬆️  Upgrade\n"));
-
-  while (true) {
-    const response = await prompts({
-      type: "select",
-      name: "action",
-      message: t("selectOperation"),
-      choices: [
-        { title: "Upgrade OKIT itself", value: "self" },
-        { title: "Upgrade all tools", value: "tools" },
-        { title: t("back"), value: "back" },
-      ],
-    });
-
-    switch (response.action) {
-      case "self":
-        await upgradeSelf();
-        break;
-      case "tools":
-        await upgradeTools();
-        break;
-      case "back":
-      default:
-        return;
-    }
-  }
-}
 
 export async function upgradeSelf(): Promise<void> {
   console.log(kleur.cyan("\n⬆️  Upgrading OKIT...\n"));
@@ -91,21 +58,4 @@ export async function upgradeSelf(): Promise<void> {
     }
     console.log(kleur.red(`✗ 升级失败: ${message}`));
   }
-}
-
-export async function upgradeTools(): Promise<void> {
-  const registry = await loadRegistry();
-  const upgradableSteps = registry.steps.filter((s) => s.upgrade);
-
-  if (upgradableSteps.length === 0) {
-    console.log(kleur.yellow("没有可升级的工具"));
-    return;
-  }
-
-  console.log(
-    kleur.cyan(`\n⬆️  Upgrading all tools (${upgradableSteps.length})\n`)
-  );
-
-  const results = await executeSteps(upgradableSteps, "upgrade", registry);
-  printResults(results);
 }

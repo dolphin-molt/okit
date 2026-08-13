@@ -201,7 +201,7 @@ export default function AgentPage() {
       const toolLabels: Record<string, string> = {
         list_tools: t('agent.suggest.tools'), install_tool: t('common.install'), upgrade_tool: t('common.upgrade'), uninstall_tool: t('common.uninstall'), open_app: t('common.open'),
         list_vault_keys: t('agent.suggest.keys'), get_vault_value: t('agent.suggest.keys'), set_vault_key: t('common.save'), delete_vault_key: t('common.delete'),
-        get_system_info: t('agent.suggest.system'), get_disk_usage: t('monitor.disk'), get_logs: t('agent.suggest.logs'), get_settings: t('nav.settings'), update_settings: t('common.save'),
+        get_logs: t('agent.suggest.logs'), get_settings: t('nav.settings'), update_settings: t('common.save'),
       };
       const label = toolLabels[data.tool] || data.tool;
       let argsText = '';
@@ -395,7 +395,7 @@ export default function AgentPage() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  function renderSuggestionIcon(kind: 'tools' | 'system' | 'keys' | 'logs') {
+  function renderSuggestionIcon(kind: 'tools' | 'keys' | 'logs') {
     const common = {
       width: 18,
       height: 18,
@@ -407,14 +407,12 @@ export default function AgentPage() {
       strokeLinejoin: 'round' as const,
     };
     if (kind === 'tools') return <svg {...common}><path d="M6.5 3.5h5M6.5 9h5M6.5 14.5h5" /><path d="M3 3.5h.01M3 9h.01M3 14.5h.01" /></svg>;
-    if (kind === 'system') return <svg {...common}><path d="M3 12l3-3 2 2 3.5-5 3.5 6" /><rect x="2" y="2" width="14" height="14" rx="2.5" /></svg>;
     if (kind === 'keys') return <svg {...common}><circle cx="6.5" cy="9" r="3" /><path d="M9.5 9H16M13 9v2M15 9v2" /></svg>;
     return <svg {...common}><path d="M4 3h10v12H4z" /><path d="M7 7h4M7 10h4M7 13h2" /></svg>;
   }
 
   const suggestions = [
     { key: 'tools', label: t('agent.suggest.tools'), prompt: '查看我的工具安装状态' },
-    { key: 'system', label: t('agent.suggest.system'), prompt: '查看系统资源使用情况' },
     { key: 'keys', label: t('agent.suggest.keys'), prompt: '列出所有密钥' },
     { key: 'logs', label: t('agent.suggest.logs'), prompt: '查看最近的操作日志' },
   ] as const;

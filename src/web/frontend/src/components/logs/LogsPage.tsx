@@ -3,7 +3,7 @@ import { getLogs } from '../../api/logs';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
-export default function LogsPage() {
+export default function LogsPage({ embedded = false }: { embedded?: boolean }) {
   const { setConnectionStatus } = useApp();
   const { t } = useI18n();
   const [logs, setLogs] = useState<any[]>([]);
@@ -58,6 +58,23 @@ export default function LogsPage() {
     return s.length > n ? s.slice(0, n) + '...' : s;
   }
 
+  function exportLogs() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      source: 'OKIT',
+      logs,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `okit-logs-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const logStats = useMemo(() => {
     const failed = logs.filter(log => !log.success).length;
     const uniqueTools = new Set(logs.map(log => log.name).filter(Boolean)).size;
@@ -94,12 +111,12 @@ export default function LogsPage() {
   if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
 
   return (
-    <div className="access-workspace logs-workspace">
+    <div className={`access-workspace logs-workspace${embedded ? ' logs-workspace--embedded' : ''}`}>
       <header className="access-hero">
         <div className="access-hero-stats" aria-label="Log summary">
           <div><span>{t('common.total')}</span><strong>{logs.length}</strong></div>
           <div><span>{t('logs.failed')}</span><strong>{logStats.failed}</strong></div>
-          <div><span>{t('logs.toolsTouched')}</span><strong>{logStats.uniqueTools}</strong></div>
+          <div><span>{t('logs.targets')}</span><strong>{logStats.uniqueTools}</strong></div>
           <div><span>{t('logs.avgDuration')}</span><strong>{formatDuration(logStats.avgDuration)}</strong></div>
         </div>
       </header>
@@ -116,6 +133,9 @@ export default function LogsPage() {
             placeholder={t('logs.searchPlaceholder')}
           />
         </div>
+        <button className="logs-export-btn" type="button" onClick={exportLogs}>
+          {t('logs.export')}
+        </button>
       </div>
 
       <div className="log-table-wrap">
@@ -124,7 +144,7 @@ export default function LogsPage() {
           <tr>
             <th className="log-th-status">{t('logs.status')}</th>
             <th className="log-th-detail">{t('logs.detail')}</th>
-            <th className="log-th-name">{t('logs.tool')}</th>
+            <th className="log-th-name">{t('logs.target')}</th>
             <th className="log-th-action">{t('logs.action')}</th>
             <th className="log-th-time">{t('logs.time')}</th>
             <th className="log-th-duration">{t('logs.duration')}</th>

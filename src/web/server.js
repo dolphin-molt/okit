@@ -4,7 +4,6 @@ const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValu
 const { autoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
-const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getCleanupAgent, confirmCleanupAgent } = require('./api/monitor');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
@@ -60,15 +59,6 @@ function createServer(port = 3780) {
   app.get('/api/cloudflare/stores', listStores);
   app.get('/api/cloudflare/store-secrets', listStoreSecrets);
   app.post('/api/cloudflare/sync', syncToCloudflare);
-
-  // Monitor routes
-  app.get('/api/monitor', getMonitor);
-  app.get('/api/monitor/du', getDu);
-  app.get('/api/monitor/cleanup-scan', getCleanupScan);
-  app.post('/api/monitor/cleanup-ai', getCleanupAi);
-  app.post('/api/monitor/cleanup-delete', deleteCleanupItem);
-  app.post('/api/monitor/cleanup-agent', getCleanupAgent);
-  app.post('/api/monitor/cleanup-agent/confirm', confirmCleanupAgent);
 
   // Agent routes
   app.post('/api/agent/chat', agentChat);

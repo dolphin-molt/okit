@@ -12,6 +12,7 @@ import { useI18n } from '../../i18n';
 import { useUsagePolling } from '../../lib/useUsagePolling';
 import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 import { useNavigate } from 'react-router-dom';
+import { getProviderIcon } from '../../assets/providers';
 
 // Map backend window labels (english short codes) to compact UI labels.
 const WINDOW_LABEL: Record<string, string> = {
@@ -32,6 +33,16 @@ function toneForRemaining(remainingPct: number | null): string {
   return 'ok';
 }
 
+function toneLabel(tone: string, t: (k: string) => string): string {
+  if (tone === 'danger') return t('home.usageCritical');
+  if (tone === 'warn') return t('home.usageWatch');
+  return t('home.usageHealthy');
+}
+
+function remainingPercent(window: UsageWindow): number | null {
+  return window.usedPercent == null ? null : Math.max(0, Math.min(100, Math.round(100 - window.usedPercent)));
+}
+
 function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }) {
   const windows = u.windows || [];
   if (windows.length === 0) {
@@ -43,22 +54,36 @@ function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }
     const w = windows[0];
     const rem = w.remainingCredits;
     return (
-      <span className="usage-summary-balance">
-        {rem != null ? `$${rem.toFixed(2)}` : '—'}
-      </span>
+      <div className="usage-summary-balance-wrap">
+        <span className="usage-summary-balance">{rem != null ? `$${rem.toFixed(2)}` : '—'}</span>
+        <span className="usage-summary-balance-label">{t('home.usageBalance')}</span>
+      </div>
     );
   }
 
-  // Subscription: one row per window, each showing remaining %.
+  // Subscription: make the most important window visual, then keep the
+  // additional reset windows compact below it.
+  const primary = windows[0];
+  const primaryRemaining = remainingPercent(primary);
   return (
     <div className="usage-summary-windows">
-      {windows.map((w, i) => {
-        const used = w.usedPercent;
-        const remaining = used != null ? Math.max(0, Math.round(100 - used)) : null;
+      <div className="usage-summary-primary">
+        <div className="usage-summary-primary-head">
+          <span>{WINDOW_LABEL[primary.label] || primary.label}</span>
+          <strong>{primaryRemaining != null ? `${primaryRemaining}%` : '?'}</strong>
+        </div>
+        <div className="usage-summary-track" role="progressbar" aria-valuenow={primaryRemaining ?? undefined} aria-valuemin={0} aria-valuemax={100}>
+          <span className={`usage-summary-fill usage-summary-fill--${toneForRemaining(primaryRemaining)}`} style={{ width: `${primaryRemaining ?? 0}%` }} />
+        </div>
+        <span className="usage-summary-primary-caption">{t('home.usageRemaining')}</span>
+      </div>
+      {windows.slice(1).map((w, i) => {
+        const remaining = remainingPercent(w);
         return (
-          <div key={i} className={`usage-summary-window usage-summary-window--${toneForRemaining(remaining)}`}>
+          <div key={i} className="usage-summary-window">
             <span className="usage-summary-window-label">{WINDOW_LABEL[w.label] || w.label}</span>
-            <span className="usage-summary-window-value">
+            <span className="usage-summary-window-mini-track"><span style={{ width: `${remaining ?? 0}%` }} /></span>
+            <span className={`usage-summary-window-value usage-summary-window-value--${toneForRemaining(remaining)}`}>
               {remaining != null ? `${remaining}%` : '?'}
             </span>
           </div>
@@ -145,11 +170,14 @@ export default function UsageSummary() {
   if (cards.length === 0) return null;
 
   return (
-    <section className="home-section">
-      <div className="home-section-header">
-        <h3 className="home-section-title">{t('home.usageSummary')}</h3>
-        <button className="home-section-link" onClick={() => navigate('/usage')}>
-          {t('usage.viewAll')} →
+    <section className="home-section usage-summary-section">
+      <div className="usage-summary-heading">
+        <div>
+          <div className="home-section-title">{t('home.usageSummary')}</div>
+          <p>{t('home.usageSummaryHint')}</p>
+        </div>
+        <button className="usage-summary-link" onClick={() => navigate('/usage')}>
+          {t('usage.viewAll')} <span aria-hidden="true">↗</span>
         </button>
       </div>
       {visibleDangerAlerts.length > 0 && (
@@ -168,10 +196,18 @@ export default function UsageSummary() {
       )}
       <div className="usage-summary-grid">
         {cards.map(c => (
-          <div key={c.id} className={`usage-summary-card usage-summary-card--${c.tone}`}>
-            <span className="usage-summary-name">{c.name}</span>
+          <article key={c.id} className={`usage-summary-card usage-summary-card--${c.tone}${c.usage?.kind === 'prepaid' ? ' usage-summary-card--prepaid' : ''}`}>
+            <div className="usage-summary-card-head">
+              <div className="usage-summary-provider">
+                {getProviderIcon(c.id) && <img src={getProviderIcon(c.id)} alt="" />}
+                <span>{c.name}</span>
+              </div>
+              <span className={`usage-summary-status usage-summary-status--${c.tone}`}>
+                {c.usage?.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(c.tone, t)}
+              </span>
+            </div>
             <RemainingWindows u={c.usage!} t={t} />
-          </div>
+          </article>
         ))}
       </div>
     </section>

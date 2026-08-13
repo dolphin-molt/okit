@@ -3573,6 +3573,12 @@
 .provider-editor-native-note > span { align-self: flex-start; padding: 3px 7px; border: 1px solid rgba(16, 26, 22, 0.14); border-radius: 4px; font-family: var(--font-mono); font-size: 9px; }
 .provider-editor-native-note strong { color: var(--ink); font-size: 12px; }
 .provider-editor-native-note p { margin: 5px 0 0; color: var(--ink-muted); font-size: 10px; }
+.provider-editor-native-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.provider-editor-native-status { color: var(--red); font-size: 10px; font-weight: 700; }
+.provider-editor-native-status.is-authed { color: var(--green, #15803d); }
+.provider-editor-native-login { min-height: 30px; padding: 0 11px; border: 1px solid rgba(16, 26, 22, 0.16); border-radius: 7px; background: var(--paper); color: var(--ink); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.provider-editor-native-login:hover:not(:disabled) { border-color: var(--ink); }
+.provider-editor-native-login:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .provider-editor-model-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .provider-editor-model-toolbar .vault-input { flex: 1; }

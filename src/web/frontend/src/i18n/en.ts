@@ -716,6 +716,13 @@ export default {
 
   // Home dashboard (goal ②)
   'home.usageSummary': 'Today’s usage',
+  'home.usageSummaryHint': 'Subscription headroom and prepaid balances, prioritized by risk.',
+  'home.usageOpen': 'Open full usage',
+  'home.usageRemaining': 'Remaining',
+  'home.usageBalance': 'Balance',
+  'home.usageHealthy': 'Healthy',
+  'home.usageWatch': 'Watch',
+  'home.usageCritical': 'Critical',
   'home.showAll': 'Show all',
   'home.collapse': 'Collapse',
   'home.addProvider': 'Add provider',

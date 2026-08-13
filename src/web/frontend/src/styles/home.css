@@ -826,38 +826,109 @@
   border: 1.5px dashed var(--border, #d4cebe); border-radius: 6px;
 }
 
-/* Usage summary strip — shows remaining quota per window */
+/* Usage pulse — a risk-prioritized dashboard rather than a flat card grid. */
+.usage-summary-section {
+  margin-bottom: 20px; padding: 18px;
+  border: 1px solid var(--border); border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(22, 163, 74, 0.10), transparent 32%),
+    var(--paper);
+  box-shadow: 0 10px 28px rgba(28, 25, 23, 0.06);
+}
+.usage-summary-heading {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+  margin-bottom: 16px;
+}
+.usage-summary-heading .home-section-title {
+  margin: 0 0 4px; color: var(--ink); font-size: 15px; letter-spacing: 0.08em;
+}
+.usage-summary-heading p { margin: 0; color: var(--ink-muted); font-size: 12px; }
+.usage-summary-link {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--ink-muted); font-size: 11px; font-weight: 700; text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.usage-summary-link:hover { color: var(--ink); border-color: var(--ink); background: rgba(0, 0, 0, 0.04); }
 .usage-summary-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;
 }
 .usage-summary-card {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 10px 12px; border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
-  background: var(--paper); box-shadow: 2px 2px 0 rgba(0,0,0,0.04);
+  min-height: 142px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px;
+  padding: 15px; border: 1px solid var(--border); border-radius: 13px;
+  background: rgba(255, 255, 255, 0.56); box-shadow: 0 3px 10px rgba(28, 25, 23, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.usage-summary-card--ok { border-color: var(--ok, #16a34a); }
-.usage-summary-card--warn { border-color: #f59e0b; }
-.usage-summary-card--danger { border-color: #ef4444; }
-.usage-summary-card--unknown { border-color: var(--border, #d4cebe); }
-.usage-summary-name { font-size: 12px; font-weight: 600; color: var(--ink); }
-
-/* Per-window rows (subscription: 5h / weekly / monthly) */
-.usage-summary-windows { display: flex; flex-direction: column; gap: 2px; }
-.usage-summary-window {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+.usage-summary-card:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(28, 25, 23, 0.08); }
+.usage-summary-card--ok { border-color: rgba(22, 163, 74, 0.34); }
+.usage-summary-card--warn { border-color: rgba(217, 119, 6, 0.46); }
+.usage-summary-card--danger { border-color: rgba(220, 38, 38, 0.48); }
+.usage-summary-card--unknown { border-color: var(--border); }
+.usage-summary-card--prepaid { background: rgba(22, 163, 74, 0.06); }
+.usage-summary-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.usage-summary-provider {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  color: var(--ink); font-size: 13px; font-weight: 750;
 }
-.usage-summary-window-label { font-size: 11px; color: var(--ink-muted); }
-.usage-summary-window-value { font-size: 14px; font-weight: 700; }
-.usage-summary-window--ok .usage-summary-window-value { color: var(--ok, #16a34a); }
-.usage-summary-window--warn .usage-summary-window-value { color: #b45309; }
-.usage-summary-window--danger .usage-summary-window-value { color: #dc2626; }
-.usage-summary-window--unknown .usage-summary-window-value { color: var(--ink-muted); }
+.usage-summary-provider img {
+  width: 26px; height: 26px; flex: 0 0 26px; object-fit: contain; border-radius: 7px;
+}
+.usage-summary-provider span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-summary-status {
+  flex: none; padding: 4px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+}
+.usage-summary-status--ok { color: var(--green); background: rgba(22, 163, 74, 0.11); }
+.usage-summary-status--warn { color: #b45309; background: rgba(217, 119, 6, 0.12); }
+.usage-summary-status--danger { color: var(--red); background: rgba(220, 38, 38, 0.11); }
+.usage-summary-status--unknown { color: var(--ink-muted); background: rgba(0, 0, 0, 0.05); }
 
-/* Prepaid balance (single big number) */
-.usage-summary-balance { font-size: 18px; font-weight: 700; color: var(--ok, #16a34a); }
+/* Primary subscription window. The bar represents what is left, not what is used. */
+.usage-summary-windows { display: flex; flex-direction: column; gap: 10px; }
+.usage-summary-primary-head { display: flex; align-items: baseline; justify-content: space-between; color: var(--ink-muted); font-size: 11px; }
+.usage-summary-primary-head strong { color: var(--green); font-size: 24px; line-height: 1; }
+.usage-summary-track { height: 7px; margin-top: 7px; overflow: hidden; border-radius: 999px; background: rgba(28, 25, 23, 0.10); }
+.usage-summary-fill { display: block; height: 100%; border-radius: inherit; transition: width 0.25s ease; }
+.usage-summary-fill--ok { background: var(--green); }
+.usage-summary-fill--warn { background: #d97706; }
+.usage-summary-fill--danger { background: var(--red); }
+.usage-summary-fill--unknown { background: var(--ink-muted); }
+.usage-summary-primary-caption { display: block; margin-top: 5px; color: var(--ink-muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
+.usage-summary-window { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; }
+.usage-summary-window-label { color: var(--ink-muted); font-size: 11px; }
+.usage-summary-window-mini-track { height: 4px; overflow: hidden; border-radius: 999px; background: rgba(28, 25, 23, 0.10); }
+.usage-summary-window-mini-track span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.usage-summary-window-value { font-size: 12px; font-weight: 750; }
+.usage-summary-window-value--ok { color: var(--green); }
+.usage-summary-window-value--warn { color: #b45309; }
+.usage-summary-window-value--danger { color: var(--red); }
+.usage-summary-window-value--unknown { color: var(--ink-muted); }
 
-/* Error / console-only notice */
-.usage-summary-empty { font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+/* Prepaid balance and empty state. */
+.usage-summary-balance-wrap { display: flex; align-items: baseline; gap: 8px; }
+.usage-summary-balance { color: var(--green); font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.usage-summary-balance-label { color: var(--ink-muted); font-size: 11px; }
+.usage-summary-empty { color: var(--ink-muted); font-size: 11px; line-height: 1.4; }
+
+[data-theme="dark"] .usage-summary-section {
+  background:
+    radial-gradient(circle at 100% 0, rgba(22, 163, 74, 0.12), transparent 34%),
+    var(--paper);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+[data-theme="dark"] .usage-summary-card { background: rgba(255, 255, 255, 0.035); box-shadow: none; }
+[data-theme="dark"] .usage-summary-card--prepaid { background: rgba(22, 163, 74, 0.10); }
+[data-theme="dark"] .usage-summary-link:hover { background: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .usage-summary-track,
+[data-theme="dark"] .usage-summary-window-mini-track { background: rgba(255, 255, 255, 0.10); }
+[data-theme="dark"] .usage-summary-status--unknown { background: rgba(255, 255, 255, 0.08); }
+
+@media (max-width: 760px) {
+  .usage-summary-section { padding: 14px; }
+  .usage-summary-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .usage-summary-link { align-self: flex-start; }
+  .usage-summary-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+}
 
 /* Agent model "show all" toggle inside provider cards */
 .agent-model-showall {

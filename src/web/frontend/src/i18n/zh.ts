@@ -716,6 +716,13 @@ export default {
 
   // 首页驾驶舱（目标②）
   'home.usageSummary': '今日用量',
+  'home.usageSummaryHint': '订阅剩余额度与充值余额，按风险优先展示',
+  'home.usageOpen': '打开完整统计',
+  'home.usageRemaining': '剩余额度',
+  'home.usageBalance': '余额',
+  'home.usageHealthy': '充足',
+  'home.usageWatch': '关注',
+  'home.usageCritical': '紧张',
   'home.showAll': '显示全部',
   'home.collapse': '收起',
   'home.addProvider': '添加站点',

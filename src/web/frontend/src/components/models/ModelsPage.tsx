@@ -922,6 +922,16 @@ export default function ModelsPage() {
             const auth = authMap[p.id];
             const authed = isAuthed(p);
             const selectedAuthMethod = getCardAuthMethod(p);
+            // A platform card can represent several offerings. The default
+            // OpenAI variant is API Key, but its Agent Subscription offering
+            // is the separate openai-codex provider, so derive OAuth actions
+            // from the whole family rather than only the selected variant.
+            const oauthProvider = p.authMode === 'oauth' || p.authMode === 'both'
+              ? p
+              : famDef
+                ? providers.find(candidate => famDef.ids.includes(candidate.id)
+                  && (candidate.authMode === 'oauth' || candidate.authMode === 'both'))
+                : undefined;
             const needsVerification = selectedAuthMethod === 'api_key'
               && Boolean(p.vaultKey && auth?.hasApiKey && (auth.authState === 'needs_verification' || auth.authState === 'invalid'));
             const used = isUsedBy(p);
@@ -980,12 +990,12 @@ export default function ModelsPage() {
                       <ActionMenu
                         onClose={() => setActionMenuId(null)}
                         actions={[
-                          ...(selectedAuthMethod === 'oauth' ? [{
-                            label: loggingIn === p.id ? t('models.testingConn') : t('models.authModeOAuth'),
-                            onClick: () => { setActionMenuId(null); handleOAuthLogin(p.id); },
-                            disabled: loggingIn === p.id,
+                          ...(oauthProvider ? [{
+                            label: loggingIn === oauthProvider.id ? t('models.testingConn') : t('models.authModeOAuth'),
+                            onClick: () => { setActionMenuId(null); handleOAuthLogin(oauthProvider.id); },
+                            disabled: loggingIn === oauthProvider.id,
                           }] : []),
-                          ...(selectedAuthMethod !== 'oauth' ? [{ label: p.authMode === 'none' ? t('models.syncModels') : t('models.menuConnect'), onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id }] : []),
+                          ...(selectedAuthMethod !== 'oauth' ? [{ label: p.authMode === 'none' ? t('models.syncModels') : `${t('models.authModeApiKey')} ${t('models.menuConnect')}`, onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id }] : []),
                           { label: t('models.menuEdit'), onClick: () => handleEdit(p) },
                           { label: t('models.menuDelete'), onClick: () => handleDelete(p), danger: true },
                         ]}
@@ -1024,6 +1034,9 @@ export default function ModelsPage() {
           key={editProvider?.id || 'new-platform'}
           provider={editProvider}
           platform={platforms.find(platform => editProvider ? platform.providerIds.includes(editProvider.id) : false) || null}
+          onOAuthLogin={handleOAuthLogin}
+          oauthLoggedIn={editProvider ? authMap[editProvider.id]?.oauthLoggedIn === true : false}
+          oauthLoggingIn={editProvider ? loggingIn === editProvider.id : false}
           onSelectOffering={providerId => {
             const next = providers.find(provider => provider.id === providerId);
             if (next) setEditProvider(next);
@@ -1647,10 +1660,13 @@ function ActionMenu({ actions, onClose }: { actions: { label: string; onClick: (
 }
 
 /* --- Provider Form Modal --- */
-function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }: {
+function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oauthLoggedIn, oauthLoggingIn, onSave, onClose }: {
   provider: Provider | null;
   platform: Platform | null;
   onSelectOffering: (providerId: string) => void;
+  onOAuthLogin: (providerId: string) => void;
+  oauthLoggedIn: boolean;
+  oauthLoggingIn: boolean;
   onSave: (data: any) => void;
   onClose: () => void;
 }) {
@@ -1958,6 +1974,19 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
                       <div>
                         <strong>{t('models.agentNativeTitle')}</strong>
                         <p>{t('models.agentNativeEditorHint', { agents: provider?.nativeAgentIds?.join(', ') || '—' })}</p>
+                        <div className="provider-editor-native-actions">
+                          <span className={`provider-editor-native-status${oauthLoggedIn ? ' is-authed' : ''}`}>
+                            {oauthLoggedIn ? t('models.statusAuthed') : t('models.statusUnauthed')}
+                          </span>
+                          <button
+                            type="button"
+                            className="provider-editor-native-login"
+                            onClick={() => provider && onOAuthLogin(provider.id)}
+                            disabled={!provider || oauthLoggingIn}
+                          >
+                            {oauthLoggingIn ? t('models.testingConn') : t('models.authModeOAuth')}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (

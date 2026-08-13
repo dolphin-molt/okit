@@ -711,6 +711,8 @@ export default {
   'usage.balance': '余额',
   'usage.usedAmount': '已用',
   'usage.consoleOnly': '暂不支持查询，请前往控制台',
+  'usage.viewAll': '查看全部',
+  'usage.dismissAlert': '关闭提醒',
 
   // 首页驾驶舱（目标②）
   'home.usageSummary': '今日用量',

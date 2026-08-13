@@ -711,6 +711,8 @@ export default {
   'usage.balance': 'Balance',
   'usage.usedAmount': 'Used',
   'usage.consoleOnly': 'Query not supported — open the provider console',
+  'usage.viewAll': 'View all',
+  'usage.dismissAlert': 'Dismiss',
 
   // Home dashboard (goal ②)
   'home.usageSummary': 'Today’s usage',

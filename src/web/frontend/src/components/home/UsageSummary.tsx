@@ -6,9 +6,12 @@
 // they report (e.g. GLM shows both 5h and monthly; Codex shows 5h + weekly);
 // prepaid providers show the dollar balance.
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getUsage, getSupportedUsageProviders, listProviders, UsageResult, UsageWindow } from '../../api/providers';
 import { useI18n } from '../../i18n';
+import { useUsagePolling } from '../../lib/useUsagePolling';
+import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
+import { useNavigate } from 'react-router-dom';
 
 // Map backend window labels (english short codes) to compact UI labels.
 const WINDOW_LABEL: Record<string, string> = {
@@ -67,6 +70,7 @@ function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }
 
 export default function UsageSummary() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
   // Provider display names from API (single source of truth = presets.ts).
@@ -86,19 +90,28 @@ export default function UsageSummary() {
       .catch(() => {});
   }, []);
 
-  const fetchOne = useCallback(async (id: string) => {
-    try {
-      const res = await getUsage(id);
-      setUsageMap(prev => ({ ...prev, [id]: res }));
-    } catch {
-      /* ignore — the strip degrades to "no data" */
-    }
+  // Silent polling via shared hook (5-min base, 1-min if reset is imminent).
+  const handlePollResult = useCallback((id: string, result: UsageResult) => {
+    setUsageMap(prev => ({ ...prev, [id]: result }));
   }, []);
 
+  useUsagePolling({
+    supportedIds,
+    onResult: handlePollResult,
+    silent: true,
+  });
+
+  // Compute alerts + fire browser notifications.
+  const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
+  const dangerAlerts = alerts.filter(a => a.severity === 'danger');
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
+  const visibleDangerAlerts = dangerAlerts.filter(a => !dismissedKeys.has(a.notifyKey));
+
   useEffect(() => {
-    if (supportedIds.length === 0) return;
-    supportedIds.forEach(id => fetchOne(id));
-  }, [supportedIds, fetchOne]);
+    if (alerts.length > 0) {
+      fireNotifications(alerts);
+    }
+  }, [alerts]);
 
   // Build cards: only include providers that actually have usable data
   // (windows present, or a meaningful balance). Skip providers whose only
@@ -133,7 +146,26 @@ export default function UsageSummary() {
 
   return (
     <section className="home-section">
-      <h3 className="home-section-title">{t('home.usageSummary')}</h3>
+      <div className="home-section-header">
+        <h3 className="home-section-title">{t('home.usageSummary')}</h3>
+        <button className="home-section-link" onClick={() => navigate('/usage')}>
+          {t('usage.viewAll')} →
+        </button>
+      </div>
+      {visibleDangerAlerts.length > 0 && (
+        <div className="usage-alerts">
+          {visibleDangerAlerts.slice(0, 3).map(a => (
+            <div key={a.notifyKey} className="usage-alert usage-alert--danger">
+              <span className="usage-alert-icon">🔴</span>
+              <span className="usage-alert-text">{a.message}</span>
+              <button
+                className="usage-alert-close"
+                onClick={() => setDismissedKeys(prev => new Set(prev).add(a.notifyKey))}
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="usage-summary-grid">
         {cards.map(c => (
           <div key={c.id} className={`usage-summary-card usage-summary-card--${c.tone}`}>

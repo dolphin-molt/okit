@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getUsage, getSupportedUsageProviders, listProviders, UsageResult, UsageWindow, Provider } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
+import { useUsagePolling } from '../../lib/useUsagePolling';
+import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 
 // Display metadata for known supported providers (icon + human-readable name).
 const PROVIDER_META: Record<string, { name: string; type: string; kind: 'subscription' | 'prepaid' }> = {
@@ -65,12 +67,41 @@ export default function UsagePage() {
     setLastRefresh(Date.now());
   }, [supportedIds, fetchOne]);
 
-  // Auto-fetch on first load once we know which providers are supported.
+  // Silent polling: auto-refresh every 5 min (or 1 min if a reset is imminent).
+  // Uses the shared hook — updates usageMap without toggling fetchingIds.
+  const providerNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of providers) map[p.id] = p.name;
+    return map;
+  }, [providers]);
+
+  const handlePollResult = useCallback((id: string, result: UsageResult) => {
+    setUsageMap(prev => ({ ...prev, [id]: result }));
+  }, []);
+
+  useUsagePolling({
+    supportedIds,
+    onResult: handlePollResult,
+    silent: true,
+  });
+
+  // Manual "refresh all" button — still uses the spinner-showing fetchOne.
+  const handleManualRefresh = useCallback(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Compute alerts from the latest usage data.
+  const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
+  // Track dismissed alerts so the banner doesn't reappear after user closes it.
+  const [dismissedAlertKeys, setDismissedAlertKeys] = useState<Set<string>>(new Set());
+  const visibleAlerts = alerts.filter(a => !dismissedAlertKeys.has(a.notifyKey));
+
+  // Fire browser notifications when new danger alerts appear.
   useEffect(() => {
-    if (supportedIds.length > 0 && Object.keys(usageMap).length === 0) {
-      fetchAll();
+    if (alerts.length > 0) {
+      fireNotifications(alerts);
     }
-  }, [supportedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [alerts]);
 
   function providerName(id: string): string {
     // Provider name comes from presets.ts via the providers API — single
@@ -134,7 +165,7 @@ export default function UsagePage() {
               </div>
             )}
           </div>
-          <button className="usage-refresh-btn" onClick={fetchAll} disabled={fetchingIds.size > 0}>
+          <button className="usage-refresh-btn" onClick={handleManualRefresh} disabled={fetchingIds.size > 0}>
             {fetchingIds.size > 0 ? (
               <><span className="provider-status-spinner" aria-hidden="true" /> {t('usage.refreshing')}</>
             ) : (
@@ -149,6 +180,22 @@ export default function UsagePage() {
           </button>
         </div>
       </header>
+
+      {visibleAlerts.length > 0 && (
+        <div className="usage-alerts">
+          {visibleAlerts.slice(0, 5).map(a => (
+            <div key={a.notifyKey} className={`usage-alert usage-alert--${a.severity}`}>
+              <span className="usage-alert-icon">{a.severity === 'danger' ? '🔴' : '🟡'}</span>
+              <span className="usage-alert-text">{a.message}</span>
+              <button
+                className="usage-alert-close"
+                onClick={() => setDismissedAlertKeys(prev => new Set(prev).add(a.notifyKey))}
+                title={t('usage.dismissAlert')}
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="usage-tabs">
         <button

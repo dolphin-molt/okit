@@ -118,12 +118,21 @@ function httpRequest(url, options) {
 async function queryCodexUsage() {
   const authPath = path.join(os.homedir(), '.codex', 'auth.json');
   if (!(await fs.pathExists(authPath))) {
-    return { supported: true, windows: [], error: '尚未登录 ChatGPT (无 ~/.codex/auth.json)' };
+    return { supported: true, windows: [], error: '尚未通过 codex login 登录 ChatGPT 订阅' };
   }
   const content = await fs.readFile(authPath, 'utf-8');
   const auth = JSON.parse(content);
+  // Distinguish "API key mode" from "not logged in" — the former has no
+  // subscription quota to report, so we point the user at the platform usage
+  // page instead of showing a confusing "not logged in" error.
   if (auth.auth_mode !== 'chatgpt' || !auth.tokens?.access_token) {
-    return { supported: true, windows: [], error: '尚未登录 ChatGPT' };
+    if (auth.OPENAI_API_KEY || auth.openai_api_key || auth.api_key) {
+      return {
+        supported: true, windows: [],
+        error: '当前为 API Key 模式，无订阅配额。订阅用量仅限 ChatGPT Plus/Pro 用户。API 消耗请查看 platform.openai.com/usage',
+      };
+    }
+    return { supported: true, windows: [], error: '尚未通过 codex login 登录 ChatGPT 订阅' };
   }
   const result = await httpRequest('https://chatgpt.com/backend-api/wham/usage', {
     method: 'GET',
@@ -293,23 +302,44 @@ async function queryKimiCodingUsage(apiKey) {
   return { supported: true, windows, raw: d };
 }
 
-// MiniMax Token Plan — official endpoint returning remaining percent.
+// MiniMax Token Plan — the "coding_plan" brand was renamed to "token_plan" and
+// the endpoint path changed. We try the new path first (cn domain), then fall
+// back to the global domain, then the legacy path as a last resort.
 async function queryMinimaxCodingUsage(apiKey) {
   if (!apiKey) return { supported: true, windows: [], error: '无可用 API Key' };
-  const result = await httpRequest('https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains', {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-    timeout: 10000,
-  });
+
+  // Ordered endpoint candidates: new CN, new global, legacy.
+  const endpoints = [
+    'https://api.minimaxi.com/v1/token_plan/remains',
+    'https://api.minimax.io/v1/token_plan/remains',
+    'https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains',
+  ];
+
+  let result;
+  for (const url of endpoints) {
+    result = await httpRequest(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      timeout: 10000,
+    });
+    // Stop on success or non-404 errors (404 = wrong path, try next).
+    if (result.status === 200 || (result.status && result.status !== 404)) break;
+  }
   if (result.error) return { supported: true, windows: [], error: result.error };
   if (result.status === 401) return { supported: true, windows: [], error: 'API Key 无效' };
   if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
 
-  const d = JSON.parse(result.body);
-  const remains = d.model_remains || [];
+  let d;
+  try { d = JSON.parse(result.body); } catch {
+    return { supported: true, windows: [], error: '响应解析失败', raw: result.body };
+  }
+
   const windows = [];
+  // Defensive parsing: support both old field names (model_remains) and
+  // potential new shapes (remains, data.remains, etc.).
+  const remains = d.model_remains || d.remains || d.data?.model_remains || d.data?.remains || [];
   for (const r of remains) {
-    if (r.model_name !== 'general') continue; // skip "video" etc.
+    if (r.model_name && r.model_name !== 'general') continue; // skip "video" etc.
     if (r.current_interval_remaining_percent != null) {
       windows.push({
         label: '5h',
@@ -609,7 +639,7 @@ async function queryUsage(providerId) {
       supported: true,
       windows: [],
       source: 'cli',
-      notice: 'Gemini CLI 未提供可供 OKIT 后台读取的账户用量接口。请在 Gemini CLI 会话中运行 /stats model 查看当前会话用量和适用配额。',
+      notice: 'Gemini CLI 不提供可编程查询的配额接口。请在 Gemini CLI 会话中输入 /stats model 查看当前用量。（Google 暂未开放类似 Codex/Claude 的用量 API）',
     };
   }
 
@@ -618,7 +648,7 @@ async function queryUsage(providerId) {
       supported: true,
       windows: [],
       source: 'console',
-      notice: 'GitHub Copilot 订阅用量请在 GitHub Billing and licensing 或 Copilot 客户端的配额页面查看。当前没有可复用的个人订阅用量接口。',
+      notice: 'GitHub Copilot 订阅用量请在 GitHub → Settings → Billing and licensing 查看。个人订阅暂无公开 API（需 PAT with user scope），企业版需管理员查询。',
     };
   }
 
@@ -627,7 +657,7 @@ async function queryUsage(providerId) {
       supported: true,
       windows: [],
       source: 'console',
-      notice: 'Grok/X 订阅目前没有公开稳定的用量查询接口，请在 Grok 或 X 账户的订阅页面查看。',
+      notice: 'Grok/X 订阅暂未开放用量查询 API。请在 grok.com → Settings → Billing 或 X 账户的订阅页面查看。',
     };
   }
 

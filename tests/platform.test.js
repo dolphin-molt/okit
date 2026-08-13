@@ -15,7 +15,7 @@ const mockFs = vi.hoisted(() => ({
 
 vi.mock('fs-extra', () => ({ default: mockFs, ...mockFs }));
 
-const mockStore = { get: vi.fn(), getAliases: vi.fn(), exportAll: vi.fn(), set: vi.fn() };
+const mockStore = { get: vi.fn(), exportAll: vi.fn(), set: vi.fn() };
 function MockVaultStore() { return mockStore; }
 
 const mockSupabaseAdapter = {
@@ -50,9 +50,8 @@ const VALID_CONFIG = {
 };
 
 const SAMPLE_SECRETS = [
-  { key: 'OPEN_AI_KEY', alias: 'default', value: 'sk-abc123', group: 'AI', updatedAt: '2026-01-01T00:00:00Z' },
-  { key: 'SILICONFLOW_API_KEY', alias: 'default', value: 'sk-xyz789', group: 'AI', updatedAt: '2026-01-02T00:00:00Z' },
-  { key: 'OPEN_AI_KEY', alias: 'company', value: 'sk-company-abc', group: 'AI', updatedAt: '2026-01-03T00:00:00Z' },
+  { key: 'OPEN_AI_KEY', value: 'sk-abc123', desc: 'Production', group: 'AI', updatedAt: '2026-01-01T00:00:00Z' },
+  { key: 'SILICONFLOW_API_KEY', value: 'sk-xyz789', desc: '', group: 'AI', updatedAt: '2026-01-02T00:00:00Z' },
 ];
 
 beforeEach(() => {
@@ -74,7 +73,6 @@ describe('testConnection', () => {
   it('calls adapter testConnection with resolved config', async () => {
     mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.get.mockResolvedValue('resolved-token');
-    mockStore.getAliases.mockResolvedValue([]);
     mockSupabaseAdapter.testConnection.mockResolvedValue('连接成功');
 
     const result = await testConnection('supabase');
@@ -97,7 +95,6 @@ describe('pushSecrets', () => {
     mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
     mockStore.get.mockResolvedValue('resolved');
-    mockStore.getAliases.mockResolvedValue([]);
     mockSupabaseAdapter.syncSecrets.mockResolvedValue([
       { key: 'OPEN_AI_KEY', success: true },
       { key: 'SILICONFLOW_API_KEY', success: true },
@@ -107,15 +104,14 @@ describe('pushSecrets', () => {
     expect(results).toHaveLength(2);
 
     const callArgs = mockSupabaseAdapter.syncSecrets.mock.calls[0][1];
-    const openAiGroup = callArgs.find((s) => s.key === 'OPEN_AI_KEY');
-    expect(openAiGroup.aliases).toHaveLength(2);
+    const openAiSecret = callArgs.find((s) => s.key === 'OPEN_AI_KEY');
+    expect(openAiSecret).toMatchObject({ value: 'sk-abc123', desc: 'Production' });
   });
 
   it('filters secrets by keys when provided', async () => {
     mockFs.readJson.mockResolvedValue(VALID_CONFIG);
     mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
     mockStore.get.mockResolvedValue('resolved');
-    mockStore.getAliases.mockResolvedValue([]);
     mockSupabaseAdapter.syncSecrets.mockResolvedValue([
       { key: 'OPEN_AI_KEY', success: true },
     ]);

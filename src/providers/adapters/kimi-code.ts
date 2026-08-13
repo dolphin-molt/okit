@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const KIMI_CODE_DIR = path.join(os.homedir(), ".kimi-code");
 const KIMI_CODE_CONFIG_PATH = path.join(KIMI_CODE_DIR, "config.toml");
@@ -53,7 +54,7 @@ export class KimiCodeAdapter extends BaseAdapter {
     } else if (apiKey) {
       await upsertEnvFile(path.join(KIMI_CODE_DIR, ".env"), "MOONSHOT_API_KEY", apiKey);
     }
-    await fs.writeFile(KIMI_CODE_CONFIG_PATH, toml);
+    await atomicWrite(KIMI_CODE_CONFIG_PATH, toml);
 
     await updateUserConfig({
       providers: { "kimi-code": { providerId: provider.id, modelId } },
@@ -146,7 +147,7 @@ async function upsertEnvFile(envPath: string, key: string, value: string): Promi
     ? content.replace(regex, line)
     : `${content.trimEnd()}\n${line}\n`;
 
-  await fs.writeFile(envPath, content.trimStart());
+  await atomicWrite(envPath, content.trimStart());
   await syncMacGuiEnv(key, value);
 }
 

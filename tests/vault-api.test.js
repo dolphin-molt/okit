@@ -9,19 +9,24 @@ const mockStore = {
   list: vi.fn(),
   getBindings: vi.fn(),
 };
+const mockCloudSyncCore = {
+  pushSecrets: vi.fn(),
+};
 function MockVaultStore() { return mockStore; }
 
 const origRequire = Module.prototype.require;
 Module.prototype.require = function (id) {
   if (id === '../../vault/store') return { VaultStore: MockVaultStore };
+  if (id === './cloud-sync-core') return mockCloudSyncCore;
   return origRequire.apply(this, arguments);
 };
 
 vi.spyOn(fse, 'existsSync').mockReturnValue(false);
 vi.spyOn(fse, 'mkdirSync').mockReturnValue(undefined);
 vi.spyOn(fse, 'appendFileSync').mockReturnValue(undefined);
+vi.spyOn(fse, 'readJson').mockResolvedValue({});
 
-const { setVault } = await import('../src/web/api/vault.js');
+const { listVault, setVault, deleteVault, autoSyncToPlatforms } = await import('../src/web/api/vault.js');
 
 function createResponse() {
   return {
@@ -44,7 +49,7 @@ beforeEach(() => {
 });
 
 describe('vault api setVault', () => {
-  it('moves an edited secret when key or alias changes', async () => {
+  it('moves an edited secret when its key changes and saves its description', async () => {
     mockStore.get
       .mockResolvedValueOnce('old-value')
       .mockResolvedValueOnce(null);
@@ -53,19 +58,18 @@ describe('vault api setVault', () => {
     await setVault({
       body: {
         key: 'NEW_KEY',
-        alias: 'team',
         value: 'new-value',
+        desc: 'Production credential',
         group: 'NPM',
         originalKey: 'OLD_KEY',
-        originalAlias: 'default',
       },
     }, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toMatchObject({ success: true, key: 'NEW_KEY', alias: 'team' });
+    expect(res.body).toMatchObject({ success: true, key: 'NEW_KEY', desc: 'Production credential' });
     expect(mockStore.get).toHaveBeenNthCalledWith(1, 'OLD_KEY');
-    expect(mockStore.get).toHaveBeenNthCalledWith(2, 'NEW_KEY/team');
-    expect(mockStore.set).toHaveBeenCalledWith('NEW_KEY/team', 'new-value', 'NPM', undefined);
+    expect(mockStore.get).toHaveBeenNthCalledWith(2, 'NEW_KEY');
+    expect(mockStore.set).toHaveBeenCalledWith('NEW_KEY', 'new-value', 'NPM', undefined, 'Production credential');
     expect(mockStore.delete).toHaveBeenCalledWith('OLD_KEY');
   });
 
@@ -78,10 +82,8 @@ describe('vault api setVault', () => {
     await setVault({
       body: {
         key: 'EXISTING_KEY',
-        alias: 'default',
         value: 'new-value',
         originalKey: 'OLD_KEY',
-        originalAlias: 'default',
       },
     }, res);
 
@@ -89,5 +91,77 @@ describe('vault api setVault', () => {
     expect(res.body.error).toContain('already exists');
     expect(mockStore.set).not.toHaveBeenCalled();
     expect(mockStore.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('vault api key records', () => {
+  it('lists one key with its optional description', async () => {
+    mockStore.list.mockResolvedValue([{
+      key: 'SERVICE_KEY',
+      masked: 'sk-***123',
+      desc: 'Production',
+      group: 'AI',
+      expiresAt: '',
+      updatedAt: '2026-08-13T00:00:00.000Z',
+    }]);
+    mockStore.getBindings.mockResolvedValue([]);
+    const res = createResponse();
+
+    await listVault({}, res);
+
+    expect(res.body.secrets).toEqual([
+      expect.objectContaining({ key: 'SERVICE_KEY', desc: 'Production', masked: 'sk-***123' }),
+    ]);
+  });
+
+  it('deletes a key directly without alias lookup', async () => {
+    mockStore.delete.mockResolvedValue(true);
+    const res = createResponse();
+
+    await deleteVault({ body: { key: 'SERVICE_KEY' } }, res);
+
+    expect(res.body).toEqual({ success: true });
+    expect(mockStore.delete).toHaveBeenCalledWith('SERVICE_KEY');
+  });
+});
+
+describe('vault auto sync', () => {
+  it('reuses cloud sync core so platform vault references are resolved', async () => {
+    fse.existsSync.mockReturnValue(true);
+    fse.readJson.mockResolvedValue({
+      sync: {
+        autoSync: true,
+        platforms: {
+          supabase: { enabled: true, apiToken: 'SUPABASE_API_TOKEN' },
+          cloudflare: { enabled: false, apiToken: 'CF_API_TOKEN' },
+        },
+      },
+    });
+    mockCloudSyncCore.pushSecrets.mockResolvedValue([{ key: 'SERVICE_KEY', success: true }]);
+
+    await autoSyncToPlatforms('SERVICE_KEY');
+
+    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledTimes(1);
+    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledWith('supabase', ['SERVICE_KEY']);
+  });
+
+  it('handles platform sync failures without throwing from stale adapter state', async () => {
+    fse.existsSync.mockReturnValue(true);
+    fse.readJson.mockResolvedValue({
+      sync: {
+        autoSync: true,
+        platforms: {
+          supabase: { enabled: true, apiToken: 'SUPABASE_API_TOKEN' },
+        },
+      },
+    });
+    mockCloudSyncCore.pushSecrets.mockResolvedValue([{
+      key: 'SERVICE_KEY',
+      success: false,
+      error: 'remote rejected the key',
+    }]);
+
+    await expect(autoSyncToPlatforms('SERVICE_KEY')).resolves.toBeUndefined();
+    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledWith('supabase', ['SERVICE_KEY']);
   });
 });

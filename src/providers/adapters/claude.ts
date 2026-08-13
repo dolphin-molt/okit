@@ -6,6 +6,7 @@ import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { checkClaudeOAuth } from "../auth";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
 // OAuth login token stored by `claude /login`. When switching to a third-party
@@ -127,7 +128,7 @@ export class ClaudeAdapter extends BaseAdapter {
         const hasOAuth = await hasKeychainOAuth();
         if (hasOAuth) {
           const helperPath = path.join(os.homedir(), ".claude", ".okit-key-helper.sh");
-          await fs.writeFile(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
+          await atomicWrite(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
           data.apiKeyHelper = helperPath;
           delete env.ANTHROPIC_API_KEY;
         } else {
@@ -160,7 +161,7 @@ export class ClaudeAdapter extends BaseAdapter {
         // The helper is a tiny script that echoes the key. We write it to a
         // file under ~/.claude/ so it persists across Claude Code restarts.
         const helperPath = path.join(os.homedir(), ".claude", ".okit-key-helper.sh");
-        await fs.writeFile(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
+        await atomicWrite(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
         data.apiKeyHelper = helperPath;
       } else {
         delete data.apiKeyHelper;
@@ -173,7 +174,7 @@ export class ClaudeAdapter extends BaseAdapter {
     if (Object.keys(env).length === 0) delete data.env;
     else data.env = env;
 
-    await fs.writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(CLAUDE_SETTINGS_PATH, data);
 
     // Save selection to both new and legacy paths
     await updateUserConfig({

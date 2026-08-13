@@ -11,6 +11,7 @@ import {
   PRESET_ENDPOINT_BASE_URL_MIGRATIONS,
   RETIRED_PRESET_PROVIDER_IDS,
 } from "./metadata";
+import { atomicWriteJSON } from "../utils/atomicWrite";
 
 const PROVIDERS_PATH = path.join(OKIT_DIR, "providers.json");
 // These used to be bundled presets. Retire them on load as well as removing
@@ -183,7 +184,7 @@ export async function saveProviders(providers: Provider[]): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData("providers");
   const data: ProvidersData = { providers, platforms: buildPlatforms(providers) };
-  await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
+  await atomicWriteJSON(PROVIDERS_PATH, data);
 }
 
 export async function getProvider(id: string): Promise<Provider | undefined> {

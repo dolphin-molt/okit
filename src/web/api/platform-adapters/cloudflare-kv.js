@@ -60,7 +60,7 @@ async function syncSecrets(config, secrets) {
 
   for (const secret of secrets) {
     try {
-      const val = JSON.stringify({ group: secret.group, aliases: secret.aliases });
+      const val = JSON.stringify({ value: secret.value, desc: secret.desc || '', group: secret.group || '' });
       await cfFetch(config.apiToken,
         `/accounts/${accountId}/storage/kv/namespaces/${nsId}/values/${encodeURIComponent(secret.key)}`,
         { method: 'PUT', body: val });

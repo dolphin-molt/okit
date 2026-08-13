@@ -19,11 +19,13 @@ const PLATFORM_SECRET_FIELDS = {
   'cloudflare-r2': ['accountId', 'r2AccessKeyId', 'r2SecretAccessKey'],
   volcengine: ['accessKey', 'secretKey'],
   supabase: ['projectId', 'apiKey', 'apiToken'],
+  webdav: ['password'],
+  icloud: [],
 };
 const SYNC_CODE_PREFIX = 'okit-sync:';
 const SYNC_CODE_SALT = 'okit-sync-code-salt';
 
-const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine']);
+const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine', 'webdav', 'icloud']);
 
 function loadAdapter(name) {
   if (!name || !/^[a-z0-9-]+$/.test(name) || !VALID_ADAPTERS.has(name)) {
@@ -88,12 +90,6 @@ function appendLog(action, name, success, detail) {
   } catch {}
 }
 
-function parseKeyAlias(input) {
-  const slashIdx = input.indexOf('/');
-  if (slashIdx === -1) return { key: input, alias: 'default' };
-  return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
-}
-
 function deriveSyncCodeKey(password) {
   return crypto.pbkdf2Sync(password, SYNC_CODE_SALT, 100000, 32, 'sha256');
 }
@@ -142,16 +138,11 @@ function isVaultRefField(platform, key, value) {
   return typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key) && VAULT_KEY_PATTERN.test(value);
 }
 
-function keyAliasFor(secret) {
-  return secret.alias && secret.alias !== 'default' ? `${secret.key}/${secret.alias}` : secret.key;
-}
-
 async function collectPlatformVaultSecrets(platConfig, platform) {
   const refs = [];
   for (const [field, value] of Object.entries(platConfig || {})) {
     if (!isVaultRefField(platform, field, value)) continue;
-    const parsed = parseKeyAlias(value);
-    refs.push({ field, value, ...parsed });
+    refs.push({ field, value, key: value });
   }
   if (refs.length === 0) return [];
 
@@ -161,8 +152,7 @@ async function collectPlatformVaultSecrets(platConfig, platform) {
   const selected = [];
   const missing = [];
   for (const ref of refs) {
-    let secret = allSecrets.find(s => s.key === ref.key && (s.alias || 'default') === ref.alias);
-    if (!secret && ref.alias === 'default') secret = allSecrets.find(s => s.key === ref.key);
+    const secret = allSecrets.find(s => s.key === ref.key);
     if (!secret) {
       missing.push(ref.value);
       continue;
@@ -174,15 +164,15 @@ async function collectPlatformVaultSecrets(platConfig, platform) {
   const seen = new Set();
   return selected
     .filter(secret => {
-      const id = `${secret.key}/${secret.alias || 'default'}`;
+      const id = secret.key;
       if (seen.has(id)) return false;
       seen.add(id);
       return true;
     })
     .map(secret => ({
       key: secret.key,
-      alias: secret.alias || 'default',
       value: secret.value,
+      desc: secret.desc || '',
       group: secret.group || '',
       expiresAt: secret.expiresAt || '',
       updatedAt: secret.updatedAt,
@@ -198,13 +188,7 @@ async function resolveVaultRefs(platConfig, platform) {
     if (allowedFields && !allowedFields.includes(key)) continue;
     if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
       if (!VAULT_KEY_PATTERN.test(value)) continue;
-      const parsed = parseKeyAlias(value);
-      let actual = await store.get(value);
-      if (!actual && typeof store.resolve === 'function') actual = await store.resolve(parsed.key, parsed.alias);
-      if (!actual && typeof store.getAliases === 'function') {
-        const aliases = await store.getAliases(parsed.key);
-        if (aliases.length > 0) actual = await store.get(`${parsed.key}/${aliases[0]}`);
-      }
+      const actual = await store.get(value);
       if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
       resolved[key] = actual;
     }
@@ -234,13 +218,7 @@ async function pushSecrets(platform, keys) {
   const allSecrets = await store.exportAll();
 
   const keySet = keys ? new Set(keys) : null;
-  const grouped = {};
-  for (const s of allSecrets) {
-    if (keySet && !keySet.has(s.key)) continue;
-    if (!grouped[s.key]) grouped[s.key] = { key: s.key, group: s.group || '', aliases: [] };
-    grouped[s.key].aliases.push({ alias: s.alias || 'default', value: s.value, updatedAt: s.updatedAt });
-  }
-  const secrets = Object.values(grouped);
+  const secrets = allSecrets.filter(secret => !keySet || keySet.has(secret.key));
 
   const resolved = await resolveVaultRefs(platConfig, platform);
   const adapter = loadAdapter(platform);
@@ -329,19 +307,16 @@ async function syncPull() {
   const store = new VaultStore();
   const localSecrets = await store.exportAll();
   const localMap = new Map();
-  for (const s of localSecrets) localMap.set(s.key + '/' + (s.alias || 'default'), s);
+  for (const s of localSecrets) localMap.set(s.key, s);
 
   let added = 0, updated = 0;
   for (const remote of (remoteData.secrets || [])) {
-    const mapKey = remote.key + '/' + (remote.alias || 'default');
-    const local = localMap.get(mapKey);
+    const local = localMap.get(remote.key);
     if (!local) {
-      const keyAlias = remote.alias && remote.alias !== 'default' ? `${remote.key}/${remote.alias}` : remote.key;
-      await store.set(keyAlias, remote.value, remote.group, remote.expiresAt);
+      await store.set(remote.key, remote.value, remote.group, remote.expiresAt, remote.desc);
       added++;
     } else if (remote.updatedAt && (!local.updatedAt || remote.updatedAt > local.updatedAt)) {
-      const keyAlias = remote.alias && remote.alias !== 'default' ? `${remote.key}/${remote.alias}` : remote.key;
-      await store.set(keyAlias, remote.value, remote.group, remote.expiresAt);
+      await store.set(remote.key, remote.value, remote.group, remote.expiresAt, remote.desc);
       updated++;
     }
   }
@@ -395,7 +370,7 @@ async function importSyncCode(code, password) {
   const secrets = Array.isArray(payload.platformSecrets) ? payload.platformSecrets : [];
   for (const secret of secrets) {
     if (!secret?.key || typeof secret.value !== 'string') continue;
-    await store.set(keyAliasFor(secret), secret.value, secret.group || '', secret.expiresAt || undefined);
+    await store.set(secret.key, secret.value, secret.group || '', secret.expiresAt || undefined, secret.desc || '');
   }
 
   const config = await loadConfig();

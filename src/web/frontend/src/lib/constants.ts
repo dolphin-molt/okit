@@ -30,6 +30,8 @@ export const PLATFORM_FIELDS: Record<string, string[]> = {
   volcengine: ['accessKey', 'secretKey'],
   supabase: ['projectId', 'apiKey'],
   'cloudflare-kv': ['apiToken'],
+  webdav: ['url', 'username', 'password'],
+  icloud: [],
 };
 
 export const PLATFORM_IDS: Record<string, string> = {
@@ -39,6 +41,8 @@ export const PLATFORM_IDS: Record<string, string> = {
   volcengine: '火山引擎 KMS',
   supabase: 'Supabase',
   'cloudflare-kv': 'Cloudflare KV',
+  webdav: 'WebDAV',
+  icloud: 'iCloud',
 };
 
 export const PLATFORM_DOCS: Record<string, { fields: Record<string, { label: string; hint: string }>; steps: { text: string; links?: Record<string, string> }[]; code?: { title: string; sql: string } }> = {
@@ -113,6 +117,29 @@ export const PLATFORM_DOCS: Record<string, { fields: Record<string, { label: str
       { text: '前往 API Tokens 页面 → Manage account → Account API Tokens，点击 "Create Token"', links: { 'API Tokens 页面': 'https://dash.cloudflare.com/profile/api-tokens' } },
       { text: '创建 Token，权限选择 Account → Workers KV Storage → Edit' },
       { text: '将 Token 填入配置中，测试连接后会自动创建 okit-sync 命名空间' },
+    ],
+  },
+  webdav: {
+    fields: {
+      url: { label: '服务器地址', hint: '如 https://dav.jianguoyun.com/dav/' },
+      username: { label: '用户名', hint: 'WebDAV 账号' },
+      password: { label: '密码', hint: '应用专用密码（非登录密码）' },
+    },
+    steps: [
+      { text: 'WebDAV 支持坚果云、Nextcloud、Synology、Box 等服务', links: { '坚果云': 'https://www.jianguoyun.com/' } },
+      { text: '坚果云：在「账户信息 → 安全选项 → 第三方应用」中添加一个应用，获取应用密码' },
+      { text: '服务器地址填入完整的 WebDAV URL（以 http:// 或 https:// 开头）' },
+      { text: '用户名填账号，密码填应用专用密码（不是登录密码）' },
+      { text: '点击测试连接，会自动创建 okit-sync 目录' },
+    ],
+  },
+  icloud: {
+    fields: {},
+    steps: [
+      { text: 'iCloud 同步仅支持 macOS，且需要已在系统设置中登录 iCloud 并开启 iCloud Drive' },
+      { text: '无需任何配置，启用后同步文件会自动写入 iCloud Drive 的 okit-sync 目录' },
+      { text: 'macOS 会自动在所有登录同一 iCloud 账号的设备间同步' },
+      { text: 'Linux / Windows 用户请使用 WebDAV 或其他平台' },
     ],
   },
 };

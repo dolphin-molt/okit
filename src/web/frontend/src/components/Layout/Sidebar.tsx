@@ -32,11 +32,6 @@ const WORKSPACE_ITEMS = [
 ];
 
 const TOOL_ITEMS = [
-  { path: '/tools', labelKey: 'nav.tools', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
-      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2 2.5-2.5z" />
-    </svg>
-  )},
   { path: '/vault', labelKey: 'nav.vault', icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
       <path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
@@ -54,13 +49,6 @@ const TOOL_ITEMS = [
   { path: '/usage', labelKey: 'nav.usage', icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
       <path d="M5 20V10M12 20V4M19 20v-7" />
-    </svg>
-  )},
-  { path: '/auth', labelKey: 'nav.auth', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
-      <circle cx="8" cy="12" r="4" />
-      <path d="M11 12h10v2.5a2.5 2.5 0 0 1-2.5 2.5H17" />
-      <circle cx="8" cy="12" r="0.6" fill="currentColor" />
     </svg>
   )},
 ];

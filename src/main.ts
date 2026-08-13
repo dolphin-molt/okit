@@ -4,13 +4,8 @@ import { Command } from "commander";
 import kleur from "kleur";
 import prompts from "prompts";
 import pkg from "../package.json";
-import { showMainMenu, showClaudeMenu } from "./commands/menu";
-import { showUpgradeMenu, upgradeSelf, upgradeTools } from "./commands/upgrade";
-import { uninstallOkit } from "./commands/uninstall";
+import { upgradeSelf } from "./commands/upgrade";
 import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
-import { runCheck } from "./commands/check";
-import { runAuth } from "./commands/auth";
-import { relayConnect, relayStatus, relayCreate, relayConfig, relayAgents, relayToken, relayTokenRotate, relayStop, relayPs, relayLogs } from "./commands/relay";
 import {
   vaultSet,
   vaultGet,
@@ -26,17 +21,6 @@ import {
   hookUninstall,
   hookStatus,
 } from "./commands/hook";
-import {
-  showProfileMenu,
-  createProfile,
-  applyProfile,
-  showProfiles,
-  showProfileDetail,
-  removeProfile,
-  exportProfile,
-  importProfile,
-} from "./commands/profile";
-import { resetRegistry } from "./config/registry";
 import { setLanguage, getLanguage, t, Language, initLanguage, loadLanguageConfig } from "./config/i18n";
 import { loadUserConfig, updateUserConfig } from "./config/user";
 import {
@@ -128,7 +112,7 @@ function configurePrompts(lang: Language) {
   }
 }
 
-// 默认：交互菜单
+// 默认：显示帮助
 program.action(async () => {
   const unknown = getUnknownSubcommand();
   if (unknown) {
@@ -141,47 +125,17 @@ program.action(async () => {
   await selectLanguageIfNeeded();
   configurePrompts(getLanguage());
   await showMainHelpHintOnce();
-  await showMainMenu();
+  program.outputHelp();
 });
 
 // upgrade 子命令
 program
   .command("upgrade")
-  .description("升级 OKIT（默认）或工具")
-  .option("--tools", "升级所有工具")
-  .option("--menu", "打开升级菜单")
-  .action(async (options: { tools?: boolean; menu?: boolean }) => {
+  .description("升级 OKIT")
+  .action(async () => {
     checkPlatform();
     await selectLanguageIfNeeded();
-    if (options.menu) {
-      await showUpgradeMenu();
-      return;
-    }
-    if (options.tools) {
-      await upgradeTools();
-      return;
-    }
     await upgradeSelf();
-  });
-
-// uninstall 子命令
-program
-  .command("uninstall")
-  .description("卸载 OKIT")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await uninstallOkit();
-  });
-
-// claude 子命令
-program
-  .command("claude")
-  .description("Claude Code 交互菜单")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await showClaudeMenu();
   });
 
 // repo 子命令
@@ -203,108 +157,6 @@ repo
     await createRepositoryFlow();
   });
 
-// check 子命令 - 环境健康检查
-program
-  .command("check")
-  .description("环境健康检查（工具版本、升级、授权状态）")
-  .option("--json", "输出 JSON 格式（适合 Agent 消费）")
-  .action(async (options: { json?: boolean }) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await runCheck({ json: options.json });
-  });
-
-// profile 子命令
-const profile = program
-  .command("profile")
-  .description("管理工具 Profile（一键安装预设工具集）")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await showProfileMenu();
-  });
-
-profile
-  .command("create")
-  .description("创建新 Profile")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await createProfile();
-  });
-
-profile
-  .command("apply [name]")
-  .description("应用 Profile（安装所有工具）")
-  .action(async (name?: string) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await applyProfile(name);
-  });
-
-profile
-  .command("list")
-  .description("列出所有 Profile")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await showProfiles();
-  });
-
-profile
-  .command("show <name>")
-  .description("查看 Profile 详情及安装状态")
-  .action(async (name: string) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await showProfileDetail(name);
-  });
-
-profile
-  .command("delete [name]")
-  .description("删除 Profile")
-  .action(async (name?: string) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await removeProfile(name);
-  });
-
-profile
-  .command("export [name]")
-  .description("导出 Profile 为 JSON 文件")
-  .option("-o, --output <path>", "输出路径")
-  .action(async (name?: string, options?: { output?: string }) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await exportProfile(name, options?.output);
-  });
-
-profile
-  .command("import <file>")
-  .description("从 JSON 文件导入 Profile")
-  .action(async (file: string) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    configurePrompts(getLanguage());
-    await importProfile(file);
-  });
-
-// auth 子命令 - 授权生命周期管理
-program
-  .command("auth")
-  .description("检查并修复工具授权状态")
-  .option("--fix", "尝试自动修复授权问题")
-  .action(async (options: { fix?: boolean }) => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await runAuth({ fix: options.fix });
-  });
-
 // vault 子命令 - 密钥管理
 const vault = program
   .command("vault")
@@ -315,14 +167,14 @@ const vault = program
 
 vault
   .command("set <key> <value>")
-  .description("存储密钥（支持 KEY/alias 格式，如 GITHUB_TOKEN/company）")
+  .description("存储密钥")
   .action(async (key: string, value: string) => {
     await vaultSet(key, value);
   });
 
 vault
   .command("get <key>")
-  .description("获取密钥明文（支持 KEY/alias 格式）")
+  .description("获取密钥明文")
   .action(async (key: string) => {
     await vaultGet(key);
   });
@@ -470,89 +322,6 @@ hook
     await hookStatus();
   });
 
-// relay 子命令 - 中继服务器
-const relay = program
-  .command("relay")
-  .description("中继服务器（本地服务安全暴露到外网）");
-
-relay
-  .command("config")
-  .description("配置中继服务器地址和认证 token")
-  .option("--url <url>", "中继服务器 URL")
-  .option("--token <token>", "认证 token")
-  .action(async (options: { url?: string; token?: string }) => {
-    await relayConfig(options);
-  });
-
-relay
-  .command("connect")
-  .description("连接本地服务到中继")
-  .requiredOption("--tunnel <id>", "隧道 ID")
-  .requiredOption("--agent <name>", "Agent 名称（用于注册和路由）")
-  .option("--target <url>", "本地目标地址", "http://localhost:3000")
-  .option("-d, --daemon", "后台运行")
-  .action(async (options: { tunnel: string; agent: string; target: string; daemon?: boolean }) => {
-    await relayConnect(options);
-  });
-
-relay
-  .command("stop <agent-name>")
-  .description("停止后台运行的 Agent")
-  .action(async (agentName: string) => {
-    await relayStop(agentName);
-  });
-
-relay
-  .command("ps")
-  .description("列出所有后台运行的 Bridge")
-  .action(async () => {
-    await relayPs();
-  });
-
-relay
-  .command("logs <agent-name>")
-  .description("查看 Bridge 日志")
-  .option("-f, --follow", "实时跟踪日志")
-  .option("-n, --lines <number>", "显示最后 N 行", "50")
-  .action(async (agentName: string, options: { follow?: boolean; lines?: string }) => {
-    await relayLogs(agentName, { follow: options.follow, lines: parseInt(options.lines || "50") });
-  });
-
-relay
-  .command("status <tunnel>")
-  .description("查看隧道状态")
-  .action(async (tunnel: string) => {
-    await relayStatus(tunnel);
-  });
-
-relay
-  .command("create [tunnel]")
-  .description("创建隧道")
-  .action(async (tunnel?: string) => {
-    await relayCreate(tunnel);
-  });
-
-relay
-  .command("agents")
-  .description("列出所有在线 Agent")
-  .action(async () => {
-    await relayAgents();
-  });
-
-relay
-  .command("token [agent-name]")
-  .description("查询 Agent 的 access token")
-  .action(async (agentName?: string) => {
-    await relayToken(agentName);
-  });
-
-relay
-  .command("token-rotate <agent-name>")
-  .description("轮换 Agent 的 access token（旧 token 立即失效）")
-  .action(async (agentName: string) => {
-    await relayTokenRotate(agentName);
-  });
-
 // provider 子命令 - Provider/Model 管理
 const provider = program
   .command("provider")
@@ -632,17 +401,6 @@ provider
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerAuth();
-  });
-
-// reset 子命令 - 不需要选择语言
-program
-  .command("reset")
-  .description("重置配置为默认")
-  .action(async () => {
-    checkPlatform();
-    // reset 使用默认中文
-    setLanguage("zh");
-    await resetRegistry();
   });
 
 // web 子命令 - 启动 Web UI

@@ -5,6 +5,7 @@ import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { checkCodexOAuth } from "../auth";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const CODEX_DIR = path.join(os.homedir(), ".codex");
 const CODEX_CONFIG_PATH = path.join(CODEX_DIR, "config.toml");
@@ -60,7 +61,7 @@ export class CodexAdapter extends BaseAdapter {
       // Remove OPENAI_API_KEY from auth.json but PRESERVE OAuth tokens so
       // the subscription stays logged in.
       await removeApiKeyFromAuthJson(CODEX_AUTH_PATH);
-      await fs.writeFile(CODEX_CONFIG_PATH, toml);
+      await atomicWrite(CODEX_CONFIG_PATH, toml);
     } else {
       const providerId = getCodexProviderId(provider);
       const openAIEndpoint = getProviderEndpoint(provider, "openai");
@@ -88,7 +89,7 @@ export class CodexAdapter extends BaseAdapter {
       ]);
 
       if (apiKey) await upsertAuthJson(CODEX_AUTH_PATH, apiKey);
-      await fs.writeFile(CODEX_CONFIG_PATH, toml);
+      await atomicWrite(CODEX_CONFIG_PATH, toml);
 
       // Generate model-catalogs.json so the user can switch between this
       // provider's models via `/model` inside Codex CLI.
@@ -159,12 +160,12 @@ async function writeModelCatalog(provider: Provider): Promise<void> {
   }));
 
   await fs.ensureDir(MODEL_CATALOG_DIR);
-  await fs.writeFile(MODEL_CATALOG_PATH, JSON.stringify({ models: entries }, null, 2));
+  await atomicWriteJSON(MODEL_CATALOG_PATH, { models: entries });
 
   // Add the catalog pointer to config.toml (idempotent upsert).
   let toml = await fs.readFile(CODEX_CONFIG_PATH, "utf-8");
   toml = upsertTopLevelTomlKey(toml, "model_catalog_json", tomlString(MODEL_CATALOG_REF));
-  await fs.writeFile(CODEX_CONFIG_PATH, toml);
+  await atomicWrite(CODEX_CONFIG_PATH, toml);
 }
 
 // Append /v1 for origin-only base URLs (no path after host), preserve URLs that
@@ -267,7 +268,7 @@ async function upsertAuthJson(authPath: string, apiKey: string): Promise<void> {
     }
   }
   auth["OPENAI_API_KEY"] = apiKey;
-  await fs.writeFile(authPath, JSON.stringify(auth, null, 2));
+  await atomicWriteJSON(authPath, auth);
 }
 
 // Remove OPENAI_API_KEY from auth.json, preserving OAuth tokens and any other
@@ -283,7 +284,7 @@ async function removeApiKeyFromAuthJson(authPath: string): Promise<void> {
   }
   if ("OPENAI_API_KEY" in auth) {
     delete auth["OPENAI_API_KEY"];
-    await fs.writeFile(authPath, JSON.stringify(auth, null, 2));
+    await atomicWriteJSON(authPath, auth);
   }
 }
 

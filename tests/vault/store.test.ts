@@ -1,27 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { VaultStore } from '../../src/vault/store';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'fs-extra';
+import os from 'os';
+import path from 'path';
 
-describe('VaultStore.parseKeyAlias', () => {
-  it('parses simple key with default alias', () => {
-    expect(VaultStore.parseKeyAlias('KEY')).toEqual({ key: 'KEY', alias: 'default' });
+describe('VaultStore descriptions', () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.doUnmock('os');
+    vi.doUnmock('../../src/config/backup');
   });
 
-  it('parses KEY/alias format', () => {
-    expect(VaultStore.parseKeyAlias('GITHUB_TOKEN/company')).toEqual({
-      key: 'GITHUB_TOKEN',
-      alias: 'company',
-    });
-  });
+  it('persists and updates an optional description for one key', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'okit-vault-desc-'));
+    const actualOs = await vi.importActual<typeof import('os')>('os');
+    vi.doMock('os', () => ({
+      ...actualOs,
+      default: { ...actualOs, homedir: () => tmp },
+      homedir: () => tmp,
+    }));
+    vi.doMock('../../src/config/backup', () => ({ backupImportantData: vi.fn() }));
 
-  it('parses key with slash in alias', () => {
-    expect(VaultStore.parseKeyAlias('KEY/a/b')).toEqual({ key: 'KEY', alias: 'a/b' });
-  });
+    const { VaultStore } = await import('../../src/vault/store');
+    const store = new VaultStore();
+    await store.set('SERVICE_KEY', 'secret-value', 'AI', undefined, '生产环境');
+    await store.set('SERVICE_KEY', 'new-value', 'AI', undefined, '团队共享');
 
-  it('handles empty string', () => {
-    expect(VaultStore.parseKeyAlias('')).toEqual({ key: '', alias: 'default' });
-  });
-
-  it('handles trailing slash', () => {
-    expect(VaultStore.parseKeyAlias('KEY/')).toEqual({ key: 'KEY', alias: '' });
+    expect(await store.list()).toEqual([
+      expect.objectContaining({ key: 'SERVICE_KEY', desc: '团队共享', group: 'AI' }),
+    ]);
+    expect(await store.get('SERVICE_KEY')).toBe('new-value');
+    await fs.remove(tmp);
   });
 });

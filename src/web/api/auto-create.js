@@ -58,9 +58,63 @@ async function createCloudflareToken({ parentToken, tokenName }) {
 
 // Selectors derived from the proven Playwright script (src/scripts/auto-create-key.mjs).
 const ZHIPU_URL = 'https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys';
-const ZHIPU_CREATE_TEXTS = ['新建API Key', '添加新的', '创建新', '新建'];
-const ZHIPU_CONFIRM_TEXTS = ['确定', '确认', '创建', '保存'];
-const ZHIPU_NAME_SELECTORS = 'input[placeholder*="名称"],input[placeholder*="描述"],input[id*="name"]';
+// Only exact bilingual API-Key phrases: generic "Add/新建/创建新/添加新的" labels
+// are far too broad to safely trigger credential creation and must never match.
+const ZHIPU_CREATE_TEXTS = [
+  '新建API Key',
+  '新建 API Key',
+  '创建API Key',
+  '创建 API Key',
+  'Create API Key',
+  'Create Key',
+  'New API Key',
+];
+const ZHIPU_CONFIRM_TEXTS = ['确定', '确认', '创建', '保存', 'OK', 'Confirm', 'Create', 'Save'];
+const ZHIPU_NAME_SELECTORS = 'input[placeholder*="名称"],input[placeholder*="描述"],input[id*="name"],input[placeholder*="name" i],input[placeholder*="Name" i]';
+
+/** Validate a full zhipu API key: exactly 32 lowercase hex chars, a single
+ *  dot, then at least 6 ASCII alphanumerics. Masked or elided values
+ *  (asterisks, underscore-run ellipses, single-character ellipsis) are always
+ *  rejected so a partial/redacted capture can never be saved as a key. */
+function isValidZhipuApiKey(value) {
+  if (typeof value !== 'string') return false;
+  if (/[*…]|\.{3}/.test(value)) return false;
+  return /^[a-f0-9]{32}\.[a-zA-Z0-9]{6,}$/.test(value);
+}
+
+/** Gate a captured candidate value for the platform's key shape. Zhipu is the
+ *  only platform that requires the full id.secret format; everything else is
+ *  accepted exactly as before once the ordinary asset/masked checks pass. */
+function isValidExtractionForPlatform(value, platform) {
+  if (!value || isAssetData(value)) return null;
+  if (platform === 'zhipu') return isValidZhipuApiKey(value) ? value : null;
+  return value;
+}
+
+/** Classify a Xiaomi MiMo Token Plan masked-row action icon from its SVG
+ *  shape. The provider's Copy icon is a 20×20 viewBox containing two paths;
+ *  Reset is 18×18 with one path. viewBox whitespace is normalized before
+ *  comparison. Any other shape is unknown and must never be treated as Copy. */
+function classifyXiaomiTokenPlanIcon({ viewBox, pathCount }) {
+  const vb = String(viewBox == null ? '' : viewBox).replace(/\s+/g, ' ').trim();
+  const count = Number(pathCount);
+  if (vb === '0 0 20 20' && count === 2) return 'copy';
+  if (vb === '0 0 18 18' && count === 1) return 'reset';
+  return 'unknown';
+}
+
+// Browser-side equivalent of classifyXiaomiTokenPlanIcon, injected into the
+// automation tab so icon-only masked-row buttons are classified by SVG shape
+// instead of by document order. See classifyXiaomiTokenPlanIcon.
+const XIAOMI_ICON_CLASSIFY_JS = `(btn) => {
+  const svg = btn.querySelector('svg');
+  if (!svg) return 'unknown';
+  const vb = (svg.getAttribute('viewBox') || '').replace(/\\s+/g, ' ').trim();
+  const paths = svg.querySelectorAll('path').length;
+  if (vb === '0 0 20 20' && paths === 2) return 'copy';
+  if (vb === '0 0 18 18' && paths === 1) return 'reset';
+  return 'unknown';
+}`;
 
 /** Sleep helper that keeps the extension SW alive during long waits.
  *  MV3 service workers are killed after ~30s of inactivity. During long SPA
@@ -275,12 +329,13 @@ function extractKeyFromCaptures(entries, platform) {
       'secret_key', 'secretkey', 'signature_secret', 'signaturesecret', 'secret',
     ]);
     if (keyId && secret && !isAssetData(keyId) && !isAssetData(secret)) {
-      return keyId + '.' + secret;
+      const joined = isValidExtractionForPlatform(keyId + '.' + secret, platform);
+      if (joined) return joined;
     }
 
     // Generic: single key-like field
-    const found = findKeyField(data);
-    if (found && !isAssetData(found)) return found;
+    const found = isValidExtractionForPlatform(findKeyField(data), platform);
+    if (found) return found;
 
     // Z.AI may return the complete API key in a provider-specific field rather
     // than a field literally named key or secret. Inspect only JSON string
@@ -295,21 +350,25 @@ function extractKeyFromCaptures(entries, platform) {
   // 2. Regex fallback over raw bodies (catches embedded JSON or JWTs)
   for (const c of candidates) {
     const m = c.body.match(/"(?:key|api_key|apiKey|token|value|secret)"\s*:\s*"([^"]{20,})"/);
-    if (m && !isAssetData(m[1])) return m[1];
+    const quotedKey = isValidExtractionForPlatform(m && m[1], platform);
+    if (quotedKey) return quotedKey;
   }
   for (const c of candidates) {
     const m = c.body.match(/eyJ[a-zA-Z0-9\-_]{50,}/);
-    if (m && !isAssetData(m[0])) return m[0];
+    const jwtKey = isValidExtractionForPlatform(m && m[0], platform);
+    if (jwtKey) return jwtKey;
   }
   // zhipu: full key format is 32-hex-dot-alphanumeric (e.g. xxxx.i2IC1jQ...)
   for (const c of candidates) {
-    const m = c.body.match(/\b([a-f0-9]{32}\.[a-zA-Z0-9]{8,})\b/);
-    if (m && !isAssetData(m[1])) return m[1];
+    const m = c.body.match(/\b([a-f0-9]{32}\.[a-zA-Z0-9]{6,})\b/);
+    const zhipuKey = isValidExtractionForPlatform(m && m[1], platform);
+    if (zhipuKey) return zhipuKey;
   }
   for (const c of candidates) {
     // zhipu captured example: 32-char hex like a7cb939127954e91bd78d1cac4a1ee8f
     const m = c.body.match(/\b([a-f0-9]{32})\b/);
-    if (m && !isAssetData(m[1])) return m[1];
+    const hexKey = isValidExtractionForPlatform(m && m[1], platform);
+    if (hexKey) return hexKey;
   }
 
   return null;
@@ -533,9 +592,12 @@ async function createZhipuKey({ tokenName }) {
   console.log('[auto-create] zhipu: capture armed');
 
   // 3. Wait for SPA to render the key management page, then dismiss modals.
-  //    Poll for the create button to appear (up to 15s) — zhipu's SPA load
-  //    time varies and a fixed sleep is unreliable.
-  let createResult = '{}';
+  //    Poll for the create action to appear (up to 15s) — zhipu's SPA load
+  //    time varies and a fixed sleep is unreliable. Each pass uses the shared
+  //    two-phase clickCreateAction flow. A merely missing create button keeps
+  //    polling; ambiguous or live-drifted results are fatal and never clicked.
+  let createResult = null;
+  let createFatal = false;
   for (let wait = 0; wait < 15; wait++) {
     await sleep(1000);
     // Dismiss leftover modals each iteration
@@ -548,36 +610,22 @@ async function createZhipuKey({ tokenName }) {
       }
     })()`).catch(() => {});
 
-    // Check if the create button has appeared
-    createResult = await execJs(`(() => {
-      const texts = ${JSON.stringify(ZHIPU_CREATE_TEXTS)};
-      const els = [...document.querySelectorAll('button, a, [role="button"]')];
-      const visible = els.filter(e => {
-        const r = e.getBoundingClientRect();
-        return r.width > 0 && r.height > 0 && !e.disabled;
-      });
-      const btn = visible.find(e => texts.some(t => (e.textContent || '').includes(t)));
-      if (!btn) return JSON.stringify({ error: 'not-found' });
-      btn.click();
-      return JSON.stringify({ ok: true, text: btn.textContent.slice(0, 30) });
-    })()`).catch(e => JSON.stringify({ error: e.message }));
-    const obj = JSON.parse(createResult || '{}');
-    if (obj.ok) break;
-    if (wait === 14) {
-      // Last attempt — include button candidates for diagnostics
-      createResult = await execJs(`(() => {
-        const els = [...document.querySelectorAll('button, a, [role="button"]')];
-        const visible = els.filter(e => {
-          const r = e.getBoundingClientRect();
-          return r.width > 0 && r.height > 0 && !e.disabled;
-        });
-        return JSON.stringify({ error: 'not-found', url: location.href, candidates: visible.slice(0, 10).map(e => e.textContent.slice(0, 25)) });
-      })()`).catch(e => JSON.stringify({ error: e.message }));
+    // Two-phase create click (read-only collect → Node resolve → fingerprint
+    // recheck → click) against the exact bilingual API-Key phrases.
+    createResult = await clickCreateAction({ createTexts: ZHIPU_CREATE_TEXTS });
+    if (createResult.ok) break;
+    if (createResult.error === 'create-ambiguous' || createResult.error === 'create-mismatch') {
+      createFatal = true;
+      break;
     }
   }
-  const createObj = JSON.parse(createResult || '{}');
   console.log('[auto-create] zhipu: create →', createResult);
-  if (createObj.error) throw new Error(`创建按钮未找到。页面按钮: ${JSON.stringify(createObj.candidates || [])}`);
+  if (!createResult.ok) {
+    if (createFatal) {
+      throw new Error(`创建按钮候选不唯一或点击前已变化，为避免误点已停止。页面按钮: ${JSON.stringify(createResult.buttons || [])}`);
+    }
+    throw new Error(`创建按钮未找到。页面按钮: ${JSON.stringify(createResult.buttons || [])}`);
+  }
 
   // 5. Wait for dialog, fill name — scoped to modal if one exists
   await sleep(1000);
@@ -610,108 +658,20 @@ async function createZhipuKey({ tokenName }) {
   console.log('[auto-create] zhipu: fill →', fillResult);
   if (fillObj.error) throw new Error('名称输入框未找到(创建对话框可能未打开)');
 
-  // 6. Click confirm. zhipu uses a custom dialog (not ant-modal), so we search
-  //    broadly: find the name input's closest dialog ancestor, then look for a
-  //    primary/confirm button within it.
+  // 6. Confirm via the shared two-phase helper scoped to the name dialog/form.
+  //    Read-only collect → Node resolve with ZHIPU_CONFIRM_TEXTS (generics
+  //    allowed inside that scope, button[type=submit] as selector evidence) →
+  //    fingerprint/scope/selector recheck → click. Missing, disabled or
+  //    ambiguous results fail closed: an error is returned and nothing clicks.
   await sleep(500);
-  const confirmResult = await execJs(`(() => {
-    const inp = document.querySelector(${JSON.stringify(ZHIPU_NAME_SELECTORS)});
-    if (!inp) return JSON.stringify({ error: 'no-input' });
-
-    // Walk up from the input to find the dialog container
-    let dialog = inp.closest('.ant-modal-content, .ant-modal, [role="dialog"], .el-dialog, .el-dialog__wrapper, .modal-content, .dialog-content, [class*="dialog"], [class*="modal"], [class*="popup"]');
-    if (!dialog) {
-      dialog = inp.parentElement;
-      for (let i = 0; i < 5 && dialog && dialog !== document.body; i++) {
-        const btns = dialog.querySelectorAll('button');
-        if (btns.length >= 2) break;
-        dialog = dialog.parentElement;
-      }
+  const confirmState = await clickZhipuConfirm();
+  console.log('[auto-create] zhipu: confirm →', confirmState);
+  if (confirmState.error) {
+    if (confirmState.error === 'confirm-ambiguous') {
+      throw new Error(`确认按钮存在多个候选且无法安全区分，为避免误点已停止。候选: ${(confirmState.buttons || []).join('、') || '无'}`);
     }
-
-    const searchIn = dialog || document;
-    // Get ALL buttons including disabled ones (to diagnose why confirm is disabled)
-    const allBtns = [...searchIn.querySelectorAll('button')].filter(b => {
-      const r = b.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    });
-    const enabledBtns = allBtns.filter(b => !b.disabled);
-
-    const excludePattern = /创建.*Key|新建.*Key|取消|关闭|上一步|下一步|返回/;
-    // Try enabled confirm buttons first
-    let confirmBtn = enabledBtns.find(b => {
-      const t = b.textContent.trim();
-      return /确定|确认|保存|提交|OK|Confirm|Submit/.test(t) && !excludePattern.test(t);
-    });
-
-    // If no enabled confirm button, check if there's a disabled one
-    if (!confirmBtn) {
-      const disabledConfirm = allBtns.find(b => {
-        const t = b.textContent.trim();
-        return b.disabled && /确定|确认|保存|提交/.test(t);
-      });
-      if (disabledConfirm) {
-        // The confirm button is disabled — likely because the name value
-        // wasn't accepted by the framework. Try re-filling and re-checking.
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeSetter.call(inp, ${JSON.stringify(uniqueName)});
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.dispatchEvent(new Event('change', { bubbles: true }));
-        // Wait a tick for the framework to re-validate
-        return JSON.stringify({ error: 'confirm-disabled', inputValue: inp.value, btnStates: allBtns.map(b => ({ text: b.textContent.slice(0, 15).trim(), disabled: b.disabled })) });
-      }
-    }
-
-    if (confirmBtn) {
-      confirmBtn.click();
-      return JSON.stringify({ ok: true, text: confirmBtn.textContent.slice(0, 20), btnCount: enabledBtns.length });
-    }
-
-    // Fallback: last enabled button
-    const lastBtn = enabledBtns[enabledBtns.length - 1];
-    if (lastBtn && !excludePattern.test(lastBtn.textContent)) {
-      lastBtn.click();
-      return JSON.stringify({ ok: true, fallback: 'last-btn', text: lastBtn.textContent.slice(0, 20) });
-    }
-
-    // Fallback: Enter key
-    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-    inp.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', keyCode: 13, bubbles: true }));
-    inp.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, bubbles: true }));
-    return JSON.stringify({ ok: true, fallback: 'enter', btnCount: enabledBtns.length, btnTexts: enabledBtns.map(b => b.textContent.slice(0, 15)) });
-  })()`).catch(e => JSON.stringify({ error: e.message }));
-  const confirmObj = JSON.parse(confirmResult || '{}');
-  console.log('[auto-create] zhipu: confirm →', confirmResult);
-  if (confirmObj.error === 'confirm-disabled') {
-    // Confirm button is disabled — the name wasn't accepted. Retry fill + confirm.
-    console.log('[auto-create] zhipu: confirm disabled, retrying fill...', confirmObj.btnStates);
-    await sleep(500);
-    // Use CDP Input.insertText as a more reliable alternative to value setter
-    await sendCommand('cdp', {
-      cdpMethod: 'Input.insertText',
-      cdpParams: { text: uniqueName },
-      workspace: 'okit',
-    }, 5000).catch(() => {});
-    await sleep(500);
-    // Now try confirm again
-    const confirm2 = await execJs(`(() => {
-      const inp = document.querySelector(${JSON.stringify(ZHIPU_NAME_SELECTORS)});
-      let dialog = inp ? inp.closest('[class*="popup"], [class*="dialog"], [class*="modal"], .ant-modal-content') : null;
-      if (!dialog) dialog = document;
-      const btns = [...dialog.querySelectorAll('button')].filter(b => {
-        const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !b.disabled;
-      });
-      const btn = btns.find(b => /确定|确认|保存|提交/.test(b.textContent.trim()));
-      if (btn) { btn.click(); return JSON.stringify({ ok: true, retry: true, text: btn.textContent.slice(0, 15) }); }
-      if (inp) {
-        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-        return JSON.stringify({ ok: true, retry: true, fallback: 'enter' });
-      }
-      return JSON.stringify({ error: 'still-failed' });
-    })()`).catch(e => JSON.stringify({ error: e.message }));
-    console.log('[auto-create] zhipu: confirm retry →', confirm2);
+    throw new Error('确认按钮未找到或不可用(在 modal 内)，未执行点击');
   }
-  if (confirmObj.error) throw new Error('确认按钮未找到(在 modal 内)');
 
   // 7. IMMEDIATELY after confirm, check DOM for the full key. zhipu shows the
   //    complete "apiKey.secret" in a one-time success dialog that may close
@@ -720,26 +680,26 @@ async function createZhipuKey({ tokenName }) {
     // Look everywhere for the full "hex.secret" format
     const allText = document.body.innerText || '';
     // Strategy 1: full key in visible text
-    let m = allText.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/);
+    let m = allText.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/);
     if (m) return m[0];
     // Strategy 2: in input/textarea values (copy fields)
     for (const el of document.querySelectorAll('input, textarea')) {
-      if (el.value && /[a-f0-9]{32}\./.test(el.value)) return el.value.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/)[0];
+      if (el.value && /[a-f0-9]{32}\./.test(el.value)) return el.value.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/)[0];
     }
     // Strategy 3: in data attributes / clipboard attributes
     for (const el of document.querySelectorAll('[data-clipboard-text], [data-copy], [data-key]')) {
       const val = el.getAttribute('data-clipboard-text') || el.getAttribute('data-copy') || el.getAttribute('data-key') || '';
-      m = val.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/);
+      m = val.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/);
       if (m) return m[0];
     }
     // Strategy 4: in any element's text content (dialogs, code blocks, spans)
     for (const el of document.querySelectorAll('[class*="key"], [class*="secret"], [class*="copy"], code, pre, .api-key')) {
-      m = (el.textContent || '').match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/);
+      m = (el.textContent || '').match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/);
       if (m) return m[0];
     }
     return '';
   })()`).catch(() => '');
-  if (immediateKey && !isAssetData(immediateKey)) {
+  if (isValidZhipuApiKey(immediateKey)) {
     console.log('[auto-create] zhipu: found full key immediately after confirm');
     await closeAutomationWindow();
     return { value: immediateKey, name: uniqueName };
@@ -749,16 +709,16 @@ async function createZhipuKey({ tokenName }) {
   await sleep(1500);
   const delayedKey = await execJs(`(() => {
     const allText = document.body.innerText || '';
-    let m = allText.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/);
+    let m = allText.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/);
     if (m) return m[0];
     for (const el of document.querySelectorAll('input, textarea, [data-clipboard-text], [data-key]')) {
       const val = el.value || el.getAttribute('data-clipboard-text') || el.getAttribute('data-key') || '';
-      m = val.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/);
+      m = val.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/);
       if (m) return m[0];
     }
     return '';
   })()`).catch(() => '');
-  if (delayedKey && !isAssetData(delayedKey)) {
+  if (isValidZhipuApiKey(delayedKey)) {
     console.log('[auto-create] zhipu: found full key after delay');
     await closeAutomationWindow();
     return { value: delayedKey, name: uniqueName };
@@ -782,24 +742,12 @@ async function createZhipuKey({ tokenName }) {
     key = extractKeyFromCaptures(entries, 'zhipu');
     if (key) break;
 
-    // If no key yet and this is the last retry, also check if the modal is
-    // still open (confirm click may not have worked)
+    // If no key yet and this is the last retry, try the shared two-phase
+    // confirm flow again in case the dialog is still open; it fails closed
+    // (no click) when nothing confirmable is present.
     if (retry === 1) {
-      const modalCheck = await execJs(`(() => {
-        const modals = [...document.querySelectorAll('.ant-modal-content, [role="dialog"]')]
-          .filter(m => m.getBoundingClientRect().width > 0);
-        if (modals.length > 0) {
-          // Modal still open — try clicking confirm again
-          const btns = [...modals[0].querySelectorAll('button')].filter(b => {
-            const r = b.getBoundingClientRect(); return r.width > 0 && !b.disabled;
-          });
-          const btn = btns.find(b => /确定|确认|保存/.test(b.textContent));
-          if (btn) { btn.click(); return 're-clicked-confirm'; }
-          return 'modal-open-no-confirm';
-        }
-        return 'modal-closed';
-      })()`).catch(() => 'check-failed');
-      console.log('[auto-create] zhipu: retry modal check →', modalCheck);
+      const retryConfirm = await clickZhipuConfirm().catch(() => ({ error: 'confirm-not-found' }));
+      console.log('[auto-create] zhipu: retry confirm check →', retryConfirm.ok ? 're-clicked-confirm' : retryConfirm.error);
     }
   }
 
@@ -862,7 +810,7 @@ async function createZhipuKey({ tokenName }) {
     await sleep(1000);
     const capturedKey = await execJs('window.__okitCapturedKey || ""').catch(() => '');
     console.log('[auto-create] zhipu: clipboard capture', capturedKey ? 'received' : 'empty');
-    if (capturedKey && capturedKey.includes('.')) {
+    if (isValidZhipuApiKey(capturedKey)) {
       await closeAutomationWindow();
       return { value: capturedKey, name: uniqueName };
     }
@@ -880,7 +828,7 @@ async function createZhipuKey({ tokenName }) {
   const domDiag = await execJs(`(() => {
     const text = document.body.innerText || '';
     // Find all hex-dot-alphanumeric patterns
-    const fullKeys = text.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{4,}/g) || [];
+    const fullKeys = text.match(/[a-f0-9]{32}\.[a-zA-Z0-9]{6,}/g) || [];
     // Find all 32-hex patterns
     const hexKeys = text.match(/[a-f0-9]{32}/g) || [];
     return JSON.stringify({ full: fullKeys.length, partial: hexKeys.length });
@@ -923,22 +871,20 @@ async function createZhipuKey({ tokenName }) {
 
       return '';
     })()`).catch(() => '');
-    if (fullKey && !isAssetData(fullKey)) {
+    if (isValidZhipuApiKey(fullKey)) {
       console.log('[auto-create] zhipu: found full key (with secret) from DOM');
       key = fullKey;
     }
   }
 
-  // 9. If still no key, try DOM-only extraction (full key format or partial)
+  // 9. If still no key, try DOM-only extraction of the full key format.
   if (!key) {
     const domKey = await execJs(`(() => {
       const text = document.body.innerText || '';
       const fullMatch = text.match(/([a-f0-9]{32}\\.[a-zA-Z0-9]{6,})/);
-      if (fullMatch) return fullMatch[1];
-      const m = text.match(/\\b([a-f0-9]{32})\\b/) || text.match(/(eyJ[a-zA-Z0-9\\-_]{50,})/);
-      return m ? m[1] : '';
+      return fullMatch ? fullMatch[1] : '';
     })()`).catch(() => '');
-    if (domKey && !isAssetData(domKey)) key = domKey;
+    if (isValidZhipuApiKey(domKey)) key = domKey;
   }
 
   if (!key) {
@@ -950,8 +896,138 @@ async function createZhipuKey({ tokenName }) {
     throw new Error(`未捕获到 key (抓包 ${entries.length} 条,API 相关:\n  ${apiUrls || '(无)'})`);
   }
 
+  // The full zhipu key is "32-hex.secret-alnum". A masked or partial capture
+  // (bare id, truncated secret, asterisks, or ellipses) must never be saved.
+  if (!isValidZhipuApiKey(key)) {
+    throw new Error('未读到完整有效的智谱 API Key(应形如 32 位小写十六进制 + "." + 至少 6 位字母数字),为避免保存被掩码的值已停止写入。');
+  }
+
   await closeAutomationWindow();
   return { value: key, name: uniqueName };
+}
+
+/** Two-phase confirm for the zhipu name dialog/form, shared by the initial
+ *  confirm and by re-confirming while the one-time key dialog may still be
+ *  open. Phase 1 is read-only: the browser lists visible enabled controls
+ *  scoped to the name input's form/dialog and flags button[type=submit]
+ *  selector evidence; Node resolves a single target with ZHIPU_CONFIRM_TEXTS
+ *  (generic labels allowed only inside that scope). Phase 2 recomputes the
+ *  scope and rechecks the same index, its fingerprint, and that the scope
+ *  still contains the target plus the selector evidence before clicking.
+ *  Missing, disabled or ambiguous targets fail closed: an error object is
+ *  returned and nothing is clicked. */
+async function clickZhipuConfirm() {
+  const options = {
+    phrases: ZHIPU_CONFIRM_TEXTS,
+    allowGenericInsideScope: true,
+  };
+  const collectRaw = await execJs(`(() => {
+    const nameSelector = ${JSON.stringify(ZHIPU_NAME_SELECTORS)};
+    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="popup"]';
+    const visible = el => {
+      const r = el?.getBoundingClientRect?.();
+      const style = el ? getComputedStyle(el) : null;
+      return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
+    };
+    const visibleEnabled = el => visible(el) && !el.disabled;
+    const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+
+    const nameInputCandidate = document.querySelector(nameSelector);
+    const nameInput = visible(nameInputCandidate) ? nameInputCandidate : null;
+    // Scope to the form/dialog that holds the name input, else any visible
+    // dialog. Zhipu ships no explicit confirmSelectors, so document-wide
+    // scope is never acceptable.
+    let scope = null;
+    if (nameInput) scope = nameInput.closest('form') || nameInput.closest(dialogSelectors);
+    const hasScope = Boolean(scope);
+    const inScopeOf = el => hasScope && (scope === document || scope === el || scope.contains(el));
+
+    const controls = [...document.querySelectorAll('button, [role="button"]')].filter(visibleEnabled);
+    const descriptors = controls.map((el, index) => {
+      let selectorMatch = false;
+      try { if (el.matches('button[type="submit"]')) selectorMatch = true; } catch { /* unselectable selector */ }
+      selectorMatch = selectorMatch && inScopeOf(el);
+      return {
+        index,
+        text: (el.textContent || '').trim().slice(0, 120),
+        ariaLabel: (el.getAttribute('aria-label') || '').trim().slice(0, 120),
+        title: (el.title || '').trim().slice(0, 120),
+        inVerifiedScope: inScopeOf(el),
+        selectorMatch,
+      };
+    });
+    return JSON.stringify({
+      hasScope,
+      nameFound: Boolean(nameInput),
+      descriptors,
+      buttons: controls.map(el => (el.textContent || '').trim().slice(0, 40)).filter(Boolean).slice(-16),
+    });
+  })()`);
+  let collect = {};
+  try { collect = JSON.parse(collectRaw || '{}'); } catch { collect = {}; }
+
+  if (!collect.hasScope) {
+    return { error: 'confirm-not-found', buttons: collect.buttons || [] };
+  }
+  const scopedCandidates = (collect.descriptors || []).filter(d => d.inVerifiedScope);
+  const selected = resolveActionCandidate(scopedCandidates, options);
+  if (!selected) {
+    const scored = scopedCandidates
+      .map(c => ({ raw: (c.text || '').slice(0, 40), score: scoreActionCandidate(c, options) }))
+      .filter(entry => entry.score >= CREATE_ACTION_SCORE_THRESHOLD);
+    return {
+      error: scored.length === 0 ? 'confirm-not-found' : 'confirm-ambiguous',
+      buttons: collect.buttons || [],
+      scores: scored,
+    };
+  }
+
+  const fingerprint = descriptorFingerprint(selected);
+  const expectSelector = Boolean(selected.selectorMatch);
+  const clickRaw = await execJs(`(() => {
+    const nameSelector = ${JSON.stringify(ZHIPU_NAME_SELECTORS)};
+    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="popup"]';
+    const visible = el => {
+      const r = el?.getBoundingClientRect?.();
+      const style = el ? getComputedStyle(el) : null;
+      return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
+    };
+    const visibleEnabled = el => visible(el) && !el.disabled;
+    const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+    const slice = value => String(value == null ? '' : value).trim().slice(0, 120);
+
+    const nameInputCandidate = document.querySelector(nameSelector);
+    const nameInput = visible(nameInputCandidate) ? nameInputCandidate : null;
+    let scope = null;
+    if (nameInput) scope = nameInput.closest('form') || nameInput.closest(dialogSelectors);
+    // Abort unless a scope around the name input still exists.
+    if (!scope) return JSON.stringify({ error: 'confirm-mismatch', reason: 'scope-gone' });
+
+    const targetIndex = ${selected.index};
+    const expected = ${JSON.stringify(fingerprint)};
+    const controls = [...document.querySelectorAll('button, [role="button"]')].filter(visibleEnabled);
+    const target = controls[targetIndex];
+    if (!target) return JSON.stringify({ error: 'confirm-mismatch', reason: 'index-gone' });
+    // The recomputed scope must still contain the approved target.
+    if (scope !== document && !scope.contains(target)) return JSON.stringify({ error: 'confirm-mismatch', reason: 'scope-changed' });
+    const actual = [slice(target.textContent), slice(target.getAttribute('aria-label')), slice(target.title)]
+      .map(normalize).join('|');
+    if (actual !== expected) return JSON.stringify({ error: 'confirm-mismatch', reason: 'fingerprint-changed' });
+    // Selector evidence must still hold when it chose the target.
+    if (${expectSelector}) {
+      let stillMatches = false;
+      try { if (target.matches('button[type="submit"]')) stillMatches = true; } catch {}
+      if (!stillMatches) return JSON.stringify({ error: 'confirm-mismatch', reason: 'selector-gone' });
+    }
+    target.click();
+    return JSON.stringify({ ok: true, text: (target.textContent || '').trim().slice(0, 20) });
+  })()`);
+  let clickState = {};
+  try { clickState = JSON.parse(clickRaw || '{}'); } catch { clickState = {}; }
+  if (!clickState.ok) {
+    return { error: 'confirm-mismatch', reason: clickState.reason, buttons: collect.buttons || [] };
+  }
+  return { ok: true, text: clickState.text };
 }
 
 // ─── Volcengine Ark (火山方舟) — atomic-capability orchestration ──
@@ -1277,10 +1353,10 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified in the authenticated Platform console: the name field is
   // "My Test Key", and the dialog ends with "Create secret key".
   { id: 'openai', label: 'OpenAI', keyHint: 'OPENAI_API_KEY', groupHint: 'OpenAI', mode: 'browser', url: 'https://platform.openai.com/api-keys', createTexts: ['Create new secret key'], nameSelectors: ['input[placeholder="My Test Key"]'], confirmTexts: ['Create secret key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-(?:proj-)?[A-Za-z0-9_-]{20,}'] },
-  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://platform.claude.com/settings/workspaces/default/keys', createTexts: ['Create Key', 'Create API Key', 'Create key'], formReadyAttempts: 8, nameSelectors: ['input[placeholder*="key name" i]', 'input[placeholder*="name" i]', 'input[aria-label*="key name" i]', 'input[aria-label="Name" i]', 'input[name*="name" i]', 'input[id*="name" i]'], requireNameInput: true, allowDialogTextInputFallback: true, preConfirmSelectDefaults: [{ triggerTexts: ['Select an expiration', '3 hours', '1 day', '7 days', '30 days'], optionTexts: ['Never', 'No expiration'], optional: true }], confirmTexts: ['Add', 'Create key', 'Create Key', 'Create'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
+  { id: 'anthropic', label: 'Anthropic', keyHint: 'ANTHROPIC_API_KEY', groupHint: 'Anthropic', mode: 'browser', url: 'https://platform.claude.com/settings/workspaces/default/keys', createTexts: ['Create Key', 'Create API Key', 'Create key', '创建 API Key', '创建密钥', '新建 API Key'], formReadyAttempts: 8, nameSelectors: ['input[placeholder*="key name" i]', 'input[placeholder*="name" i]', 'input[aria-label*="key name" i]', 'input[aria-label="Name" i]', 'input[name*="name" i]', 'input[id*="name" i]', 'input[placeholder*="密钥名" i]', 'input[aria-label*="密钥名" i]'], requireNameInput: true, allowDialogTextInputFallback: true, preConfirmSelectDefaults: [{ triggerTexts: ['Select an expiration', '3 hours', '1 day', '7 days', '30 days', '选择到期时间', '3 小时', '1 天', '7 天', '30 天'], optionTexts: ['Never', 'No expiration', '永不过期'], optional: true }], confirmTexts: ['Add', 'Create key', 'Create Key', 'Create', '添加', '创建密钥', '创建'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value*="sk-ant"]', 'code', 'span.font-mono', 'div.font-mono'], postCreateCopyTexts: ['Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-ant-api[a-zA-Z0-9_-]{16,}'] },
   // Verified in the signed-in Chinese AI Studio UI: the key is named through
   // its aria-labelled input and finalized with "创建密钥".
-  { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AQ\\.[0-9A-Za-z_-]{20,}', 'AIza[0-9A-Za-z_-]{20,}'] },
+  { id: 'google', label: 'Google Gemini', keyHint: 'GEMINI_API_KEY', groupHint: 'Google', mode: 'browser', url: 'https://aistudio.google.com/app/apikey', createTexts: ['创建 API 密钥', 'Create API key', 'Create API Key'], nameSelectors: ['input[aria-label="为密钥命名"]', 'input[aria-label="Name your key"]'], formBlockers: [{ text: 'No Cloud Projects Available', message: 'Gemini 需要先在 Google AI Studio 导入或创建一个 Google Cloud 项目，才能创建 API 密钥。' }], confirmTexts: ['创建密钥', 'Create key'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['AQ\\.[0-9A-Za-z_-]{20,}', 'AIza[0-9A-Za-z_-]{20,}'] },
   { id: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_API_KEY', groupHint: '火山引擎', mode: 'browser' },
   { id: 'volcengine-agent', label: '火山引擎 Agent Plan', keyHint: 'VOLCENGINE_AGENT_PLAN_API_KEY', groupHint: '火山引擎 Agent Plan', mode: 'browser', url: VOLC_AGENT_PLAN_URL },
   // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
@@ -1335,11 +1411,11 @@ const AUTO_CREATE_PLATFORMS = [
   // signed-in API key screen is this exact Console route.
   // Verified on the signed-in MiMo Console: "Create API Key" opens a dialog
   // that requires its name input before the English "Confirm" button can run.
-  { id: 'xiaomi', label: '小米 MiMo', keyHint: 'XIAOMI_MIMO_API_KEY', groupHint: '小米 MiMo', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/api-keys', createTexts: ['Create API Key'], nameSelectors: ['input#apiKeyName', 'input[placeholder="Please enter"]'], confirmTexts: ['Confirm'], postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'xiaomi', label: '小米 MiMo', keyHint: 'XIAOMI_MIMO_API_KEY', groupHint: '小米 MiMo', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/api-keys', createTexts: ['Create API Key', '创建 API Key'], nameSelectors: ['input#apiKeyName', 'input[placeholder="Please enter"]', 'input[placeholder*="请输入"]'], confirmTexts: ['Confirm', '确认', '确定'], postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Token Plan keys are managed on MiMo's separate subscription page. The
   // page creates the dedicated key without a name field, then reveals it only
   // in a one-time dialog whose verified "复制/Copy" action must be used.
-  { id: 'xiaomi-coding', label: '小米 MiMo Token Plan', keyHint: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY', groupHint: '小米 MiMo Token Plan', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/plan-manage', createTexts: ['创建 API Key', 'Create API Key'], creationActionOnly: true, reuseExistingMaskedKey: true, existingMaskedKeyPrefix: 'tp-', existingMaskedCopyFailureMessage: '小米 MiMo Token Plan 已存在 API Key，但复制控件没有返回可保存的明文；为避免重复创建，请在订阅管理页面手动点击复制后重试。', postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'tp-', postCreateCopyAttempts: 8, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['tp-[A-Za-z0-9_-]{5,}'], postCreateCopyFailureMessage: '小米 MiMo Token Plan 已创建，但复制控件没有返回可保存的明文；为避免保存掩码，请在订阅管理页面手动点击复制后重试。' },
+  { id: 'xiaomi-coding', label: '小米 MiMo Token Plan', keyHint: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY', groupHint: '小米 MiMo Token Plan', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/plan-manage', createTexts: ['创建 API Key', 'Create API Key'], creationActionOnly: true, reuseExistingMaskedKey: true, existingMaskedKeyPrefix: 'tp-', existingMaskedCopyFailureMessage: '小米 MiMo Token Plan 已存在 API Key，但复制控件没有返回可保存的明文；为避免重复创建，请在订阅管理页面手动点击复制后重试。An existing Token Plan API Key was found, but its Copy control returned no storable plaintext; to avoid a duplicate, copy it manually on the plan page and retry.', postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'tp-', postCreateCopyAttempts: 8, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['tp-[A-Za-z0-9_-]{5,}'], postCreateCopyFailureMessage: '小米 MiMo Token Plan 已创建，但复制控件没有返回可保存的明文；为避免保存掩码，请在订阅管理页面手动点击复制后重试。The Token Plan API Key was created, but its Copy control returned no storable plaintext; to avoid saving a mask, copy it manually on the plan page and retry.' },
   // Verified on the signed-in interface-key page: creation requires a name in
   // the "最多输入20个字" field before the "确认" action becomes enabled.
   { id: 'stepfun', label: '阶跃星辰（StepFun）', keyHint: 'STEPFUN_API_KEY', groupHint: 'StepFun', mode: 'browser', url: 'https://platform.stepfun.com/interface-key', createTexts: ['创建新的密钥'], nameSelectors: ['input[placeholder*="最多输入20"]'], confirmTexts: ['确认'], postCreateReadAttempts: 5, keyPatterns: ['[A-Za-z0-9_-]{32,}'] },
@@ -1393,27 +1469,84 @@ function keyFromText(text, platform) {
 }
 
 async function clickCreateAction(platform) {
-  const raw = await execJs(`(() => {
-    const texts = ${JSON.stringify(platform.createTexts || [])};
-    const normalize = value => String(value || '').replace(/\\s+/g, '').toLowerCase();
-    const pageText = (document.body?.innerText || '').slice(0, 16000);
-    const workspaceKeys = /\\/workspaces\\/[^/]+\\/keys(?:[/?#]|$)/.test(location.pathname);
-    const keyInterface = /API Keys|Create (?:API )?Key|Key Management/i.test(pageText);
-    const candidates = [...document.querySelectorAll('button, a, [role="button"]')].filter(el => {
+  const createTexts = platform.createTexts || CREATE_ACTION_STRONG_PHRASES;
+  // Phase 1: read-only. The browser only describes visible, enabled controls
+  // and their stable page index; it never scores or clicks. All matching is
+  // decided in Node by resolveActionCandidate against platform.createTexts.
+  const collectRaw = await execJs(`(() => {
+    const phrases = ${JSON.stringify(createTexts)};
+    const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+    const visibleEnabled = el => {
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 && !el.disabled;
+      const style = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none' && !el.disabled;
+    };
+    const controls = [...document.querySelectorAll('button, a, [role="button"]')].filter(visibleEnabled);
+    const descriptors = controls.map((el, index) => {
+      const label = normalize((el.textContent || '').trim());
+      return {
+        index,
+        text: (el.textContent || '').trim().slice(0, 120),
+        ariaLabel: (el.getAttribute('aria-label') || '').trim().slice(0, 120),
+        title: (el.title || '').trim().slice(0, 120),
+        exactPhraseMatch: Array.isArray(phrases) && phrases.some(phrase => label === normalize(phrase)),
+      };
     });
-    const target = candidates.find(el => texts.some(text => normalize(el.textContent).includes(normalize(text))));
-    if (!target) return JSON.stringify({
-      error: 'create-not-found',
-      buttons: candidates.slice(0, 12).map(el => (el.textContent || '').trim().slice(0, 40)),
-      workspaceKeys,
-      keyInterface,
+    return JSON.stringify({
+      descriptors,
+      buttons: controls.map(el => (el.textContent || '').trim().slice(0, 40)).slice(0, 12),
+      workspaceKeys: /\\/workspaces\\/[^/]+\\/keys(?:[/?#]|$)/.test(location.pathname),
+      keyInterface: /API Keys|Create (?:API )?Key|Key Management/i.test((document.body?.innerText || '').slice(0, 16000)),
     });
+  })()`);
+  let collect = {};
+  try { collect = JSON.parse(collectRaw || '{}'); } catch { collect = {}; }
+
+  const descriptors = Array.isArray(collect.descriptors) ? collect.descriptors : [];
+  const options = { phrases: createTexts };
+  const selected = resolveActionCandidate(descriptors, options);
+  if (!selected) {
+    const scored = descriptors
+      .map(c => ({ text: (c.text || '').slice(0, 40), score: scoreActionCandidate(c, options) }))
+      .filter(entry => entry.score >= CREATE_ACTION_SCORE_THRESHOLD);
+    return {
+      error: scored.length === 0 ? 'create-not-found' : 'create-ambiguous',
+      buttons: collect.buttons || [],
+      workspaceKeys: collect.workspaceKeys,
+      keyInterface: collect.keyInterface,
+      scores: scored,
+    };
+  }
+
+  // Phase 2: re-collect and click the SAME index only after the live element's
+  // normalized text/aria/title fingerprint still matches the descriptor that
+  // Node approved. Anything moved between the two passes aborts the click.
+  const fingerprint = descriptorFingerprint(selected);
+  const clickRaw = await execJs(`(() => {
+    const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+    const slice = value => String(value == null ? '' : value).trim().slice(0, 120);
+    const visibleEnabled = el => {
+      const r = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && style.visibility !== 'hidden' && style.display !== 'none' && !el.disabled;
+    };
+    const targetIndex = ${selected.index};
+    const expected = ${JSON.stringify(fingerprint)};
+    const controls = [...document.querySelectorAll('button, a, [role="button"]')].filter(visibleEnabled);
+    const target = controls[targetIndex];
+    if (!target) return JSON.stringify({ error: 'create-mismatch', reason: 'index-gone' });
+    const actual = [slice(target.textContent), slice(target.getAttribute('aria-label')), slice(target.title)]
+      .map(normalize).join('|');
+    if (actual !== expected) return JSON.stringify({ error: 'create-mismatch', reason: 'fingerprint-changed' });
     target.click();
     return JSON.stringify({ ok: true, text: (target.textContent || '').trim().slice(0, 60) });
   })()`);
-  try { return JSON.parse(raw || '{}'); } catch { return {}; }
+  let clickState = {};
+  try { clickState = JSON.parse(clickRaw || '{}'); } catch { clickState = {}; }
+  if (!clickState.ok) {
+    return { error: 'create-mismatch', buttons: collect.buttons || [], workspaceKeys: collect.workspaceKeys, keyInterface: collect.keyInterface };
+  }
+  return { ok: true, text: clickState.text };
 }
 
 async function createGenericBrowserKey({ tokenName, platform }) {
@@ -1501,8 +1634,8 @@ async function createGenericBrowserKey({ tokenName, platform }) {
 
   // MiMo Token Plan shows only Copy and Reset once a key already exists. In
   // that state there is deliberately no Create API Key button. Reuse the
-  // existing key by clicking only the first icon in the masked-key row; never
-  // click Reset and never create a duplicate credential.
+  // existing key by clicking only the row's classified Copy icon; never click
+  // Reset and never create a duplicate credential.
   if (platform.reuseExistingMaskedKey) {
     const existingRaw = await execJs(`(() => {
       const prefix = ${JSON.stringify(platform.existingMaskedKeyPrefix || '')};
@@ -1516,12 +1649,19 @@ async function createGenericBrowserKey({ tokenName, platform }) {
         .map(el => ({ el, text: String(el.value || el.textContent || '').trim() }))
         .filter(item => item.text.startsWith(prefix) && /(\\*{3,}|\.{3,}|…)/.test(item.text.slice(prefix.length)))
         .sort((a, b) => a.text.length - b.text.length)[0]?.el;
+      const classifyIcon = ${XIAOMI_ICON_CLASSIFY_JS};
       let row = keyNode;
       for (let depth = 0; row && depth < 5; depth += 1, row = row.parentElement) {
         const buttons = [...row.querySelectorAll('button, a, [role="button"]')].filter(visible);
         if (!buttons.length) continue;
-        const rect = buttons[0].getBoundingClientRect();
-        return JSON.stringify({ found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, buttonCount: buttons.length });
+        const copyButtons = buttons.filter(btn => classifyIcon(btn) === 'copy');
+        // Only a single classified Copy icon is safe to invoke. Zero or more
+        // than one means the row is ambiguous — never click anything.
+        if (copyButtons.length === 1) {
+          const rect = copyButtons[0].getBoundingClientRect();
+          return JSON.stringify({ found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, buttonCount: buttons.length });
+        }
+        if (copyButtons.length > 1) break;
       }
       return JSON.stringify({ found: false });
     })()`).catch(() => '{"found":false}');
@@ -1900,78 +2040,147 @@ async function createGenericBrowserKey({ tokenName, platform }) {
 	    })()`).catch(() => 'capture-arm-failed');
 	  }
 	  if (!platform.creationActionOnly) {
-    const confirmResult = await execJs(`(() => {
-	    const confirmTexts = ${JSON.stringify(platform.confirmTexts || ['确定', '确认', '创建', '保存', 'Create', 'Confirm', 'Save', 'Generate'])};
-	    const createTexts = ${JSON.stringify(platform.createTexts || [])};
-	    const confirmSelectors = ${JSON.stringify(platform.confirmSelectors || [])};
-	    const nameSelectors = ${JSON.stringify(platform.nameSelectors || [])};
-	    const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
-	    const visible = el => {
-	      const r = el?.getBoundingClientRect?.();
-	      const style = el ? getComputedStyle(el) : null;
-	      return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
-	    };
-	    const nameInput = nameSelectors.map(selector => document.querySelector(selector)).find(visible);
-	    const formScope = nameInput?.closest('form');
-	    const scope = formScope
-	      || nameInput?.closest(dialogSelectors)
-	      || [...document.querySelectorAll(dialogSelectors)].find(visible)
-	      || document;
-	    const visibleButtons = (root) => [...root.querySelectorAll('button, [role="button"]')].filter(el => {
-	      return visible(el) && !el.disabled;
-    });
-    // 优先在弹窗内找确认按钮(避免匹配到列表页的创建按钮)。
-    // 弹窗没找到时才搜全页面作为 fallback。
-    const scopedCandidates = scope ? visibleButtons(scope) : [];
-    const allCandidates = visibleButtons(document);
-    const candidates = scopedCandidates.length ? scopedCandidates : allCandidates;
-	    const matchingCandidates = candidates.filter(el => {
-      const label = (el.textContent || '').trim();
-      // Ant Design may render Chinese labels with layout whitespace, e.g.
-      // "确 定" instead of "确定". Match by the visible words, not spacing.
-      const normalizedLabel = label.replace(/\\s+/g, '').toLowerCase();
-      return confirmTexts.some(text => {
-        const normalizedText = text.replace(/\\s+/g, '').toLowerCase();
-        return normalizedLabel === normalizedText || normalizedLabel.includes(normalizedText);
-      }) && (${Boolean(platform.allowConfirmCreateText)} || !createTexts.some(text => normalizedLabel.includes(text.replace(/\\s+/g, '').toLowerCase())));
-	    });
-	    const selectorTarget = confirmSelectors
-	      .map(selector => scope.querySelector(selector))
-	      .find(el => visible(el) && !el.disabled);
-	    let target = selectorTarget || matchingCandidates[0];
-    if (${Boolean(platform.confirmAfterNameInput)} && nameInput && matchingCandidates.length > 1) {
-      const inputRect = nameInput.getBoundingClientRect();
-      const belowInput = matchingCandidates
-        .filter(el => el.getBoundingClientRect().top >= inputRect.bottom - 4)
-        .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
-      target = belowInput[0] || matchingCandidates[matchingCandidates.length - 1];
-    }
-    if (!target) {
-      // 诊断:列出每个按钮的 normalized 文本和匹配结果
-      const diag = candidates.map(el => {
-        const label = (el.textContent || '').trim();
-        const normalizedLabel = label.replace(/\\s+/g, '').toLowerCase();
-        const matchedConfirm = confirmTexts.some(text => { const nt = text.replace(/\\s+/g, '').toLowerCase(); return normalizedLabel === nt || normalizedLabel.includes(nt); });
-        const blockedByCreate = createTexts.some(text => normalizedLabel.includes(text.replace(/\\s+/g, '').toLowerCase()));
-        return { raw: label.slice(0, 40), normalized: normalizedLabel.slice(0, 40), matchedConfirm, blockedByCreate, allowConfirm: ${Boolean(platform.allowConfirmCreateText)} };
-      }).filter(d => d.matchedConfirm || d.blockedByCreate);
-      return JSON.stringify({ error: 'confirm-not-found', buttons: candidates.map(el => (el.textContent || '').trim().slice(0, 40)), diag });
-    }
-	    if (${Boolean(platform.confirmNeedsForeground)}) {
-	      const rect = target.getBoundingClientRect();
-	      return JSON.stringify({ ok: true, foreground: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-	    }
-	    target.click();
-	    return JSON.stringify({ ok: true, foreground: false });
-	  })()`);
-	  let confirmState = {};
-	  try { confirmState = JSON.parse(confirmResult || '{}'); } catch {}
-	    if (confirmState.error) throw new Error(`创建对话框需要补充项目、计费或权限设置后再确认：${(confirmState.buttons || []).join('、')}`);
-	    if (confirmState.foreground) {
-	      const clicked = await foregroundClick({ x: confirmState.x, y: confirmState.y, tabId });
-	      if (!clicked) throw new Error('无法点击创建对话框中的确认按钮');
-	    }
-	  }
+    const confirmOptions = {
+          phrases: platform.confirmTexts || ['确定', '确认', '创建', '保存', 'Create', 'Confirm', 'Save', 'Generate'],
+          allowGenericInsideScope: true,
+          belowNameInputBonus: Boolean(platform.confirmAfterNameInput),
+        };
+        const confirmCollectRaw = await execJs(`(() => {
+          const confirmSelectors = ${JSON.stringify(platform.confirmSelectors || [])};
+          const nameSelectors = ${JSON.stringify(platform.nameSelectors || [])};
+          const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
+          const visible = el => {
+            const r = el?.getBoundingClientRect?.();
+            const style = el ? getComputedStyle(el) : null;
+            return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
+          };
+          const visibleEnabled = el => visible(el) && !el.disabled;
+          const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+
+          const nameInput = nameSelectors.map(selector => document.querySelector(selector)).find(visible);
+          const nameRect = nameInput ? nameInput.getBoundingClientRect() : null;
+
+          // Verified scope: the form around the name input, else the dialog holding
+          // it, else a visible dialog. The whole document is only acceptable when
+          // the platform ships explicit confirm selectors to pin the target down.
+          let scope = null;
+          if (nameInput) {
+            scope = nameInput.closest('form') || nameInput.closest(dialogSelectors);
+          }
+          if (!scope) {
+            scope = [...document.querySelectorAll(dialogSelectors)].find(visible) || null;
+          }
+          if (!scope && confirmSelectors.length) scope = document;
+          const hasScope = Boolean(scope);
+
+          const matchSelectors = [...confirmSelectors, 'button[type="submit"]'];
+          const controls = [...document.querySelectorAll('button, [role="button"]')].filter(visibleEnabled);
+          const descriptors = controls.map((el, index) => {
+            const rect = el.getBoundingClientRect();
+            const inScope = hasScope && (scope === document || scope === el || scope.contains(el));
+            let selectorMatch = false;
+            for (const selector of matchSelectors) {
+              try { if (el.matches(selector)) { selectorMatch = true; break; } } catch { /* unselectable selector */ }
+            }
+            selectorMatch = selectorMatch && inScope;
+            return {
+              index,
+              text: (el.textContent || '').trim().slice(0, 120),
+              ariaLabel: (el.getAttribute('aria-label') || '').trim().slice(0, 120),
+              title: (el.title || '').trim().slice(0, 120),
+              inVerifiedScope: inScope,
+              selectorMatch,
+              belowNameInput: Boolean(nameRect && rect.top >= nameRect.bottom - 4),
+            };
+          });
+          return JSON.stringify({
+            hasScope,
+            nameFound: Boolean(nameInput),
+            descriptors,
+            buttons: controls.map(el => (el.textContent || '').trim().slice(0, 40)).filter(Boolean).slice(-16),
+          });
+        })()`);
+        let confirmCollect = {};
+        try { confirmCollect = JSON.parse(confirmCollectRaw || '{}'); } catch { confirmCollect = {}; }
+
+        // Fail closed unless a verified scope exists. Without a scope the browser
+        // never guessed at a confirm target, so nothing may be clicked.
+        if (!confirmCollect.hasScope) {
+          throw new Error('创建对话框需要补充项目、计费或权限设置后再确认：没有定位到表单或弹窗作用域');
+        }
+        const scopedCandidates = (confirmCollect.descriptors || []).filter(d => d.inVerifiedScope);
+        const confirmSelected = resolveActionCandidate(scopedCandidates, confirmOptions);
+        if (!confirmSelected) {
+          const scored = scopedCandidates
+            .map(c => ({ raw: (c.text || '').slice(0, 40), score: scoreActionCandidate(c, confirmOptions) }))
+            .filter(entry => entry.score >= CREATE_ACTION_SCORE_THRESHOLD);
+          throw new Error(`创建对话框需要补充项目、计费或权限设置后再确认：${(confirmCollect.buttons || []).join('、') || '未找到可确认的目标'}${scored.length ? `（${scored.map(e => `${e.raw}(${e.score})`).join('、')}）` : ''}`);
+        }
+
+        // Re-find the same control within the verified scope by index only after
+        // its normalized text/aria/title fingerprint is unchanged. The scope is
+        // recomputed and must still exist and contain the target — document-wide
+        // scope is acceptable only because explicit confirmSelectors exist. When
+        // the Node-selected descriptor relied on selector evidence, the live
+        // element must still match a configured confirm selector or
+        // button[type=submit]. Any drift aborts without clicking.
+        const confirmFingerprint = descriptorFingerprint(confirmSelected);
+        const expectConfirmSelector = Boolean(confirmSelected.selectorMatch);
+        const confirmClickRaw = await execJs(`(() => {
+          const confirmSelectors = ${JSON.stringify(platform.confirmSelectors || [])};
+          const nameSelectors = ${JSON.stringify(platform.nameSelectors || [])};
+          const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"], [class*="sheet"]';
+          const visible = el => {
+            const r = el?.getBoundingClientRect?.();
+            const style = el ? getComputedStyle(el) : null;
+            return Boolean(r && r.width > 0 && r.height > 0 && style?.visibility !== 'hidden' && style?.display !== 'none');
+          };
+          const visibleEnabled = el => visible(el) && !el.disabled;
+          const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+          const slice = value => String(value == null ? '' : value).trim().slice(0, 120);
+          const nameInput = nameSelectors.map(selector => document.querySelector(selector)).find(visible);
+          let scope = null;
+          if (nameInput) scope = nameInput.closest('form') || nameInput.closest(dialogSelectors);
+          if (!scope) scope = [...document.querySelectorAll(dialogSelectors)].find(visible) || null;
+          if (!scope && confirmSelectors.length) scope = document;
+          // Abort unless a scope exists. document scope is only ever assigned
+          // above when explicit confirmSelectors exist, which is the only case
+          // where a document-wide click is acceptable.
+          if (!scope) return JSON.stringify({ error: 'confirm-mismatch', reason: 'scope-gone' });
+
+          const controls = [...document.querySelectorAll('button, [role="button"]')].filter(visibleEnabled);
+          const targetIndex = ${confirmSelected.index};
+          const expected = ${JSON.stringify(confirmFingerprint)};
+          const target = controls[targetIndex];
+          if (!target) return JSON.stringify({ error: 'confirm-mismatch', reason: 'index-gone' });
+          // The recomputed scope must still contain the approved target.
+          if (scope !== document && !scope.contains(target)) return JSON.stringify({ error: 'confirm-mismatch', reason: 'scope-changed' });
+          const actual = [slice(target.textContent), slice(target.getAttribute('aria-label')), slice(target.title)]
+            .map(normalize).join('|');
+          if (actual !== expected) return JSON.stringify({ error: 'confirm-mismatch', reason: 'fingerprint-changed' });
+          // Selector evidence must still hold when it chose the target.
+          if (${expectConfirmSelector}) {
+            let stillMatches = false;
+            for (const selector of [...confirmSelectors, 'button[type="submit"]']) {
+              try { if (target.matches(selector)) { stillMatches = true; break; } } catch { /* unselectable selector */ }
+            }
+            if (!stillMatches) return JSON.stringify({ error: 'confirm-mismatch', reason: 'selector-gone' });
+          }
+          if (${Boolean(platform.confirmNeedsForeground)}) {
+            const rect = target.getBoundingClientRect();
+            return JSON.stringify({ ok: true, foreground: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+          }
+          target.click();
+          return JSON.stringify({ ok: true, foreground: false });
+        })()`);
+        let confirmState = {};
+        try { confirmState = JSON.parse(confirmClickRaw || '{}'); } catch { confirmState = {}; }
+        if (confirmState.error) throw new Error('创建对话框需要补充项目、计费或权限设置后再确认：确认按钮在点击前发生变化');
+        if (confirmState.foreground) {
+          const clicked = await foregroundClick({ x: confirmState.x, y: confirmState.y, tabId });
+          if (!clicked) throw new Error('无法点击创建对话框中的确认按钮');
+        }
+  }
 
 	  if (platform.captureBeforeConfirm) {
 	    await sleep(300);
@@ -2173,9 +2382,10 @@ async function createGenericBrowserKey({ tokenName, platform }) {
         copyAction = copyIcon?.closest('button, a, [role="button"]') || copyIcon || null;
       } else if (maskedKeyPrefix) {
         // Xiaomi's Token Plan list shows the newly-created key in a masked
-        // paragraph and exposes two icon-only buttons in the same row. The
-        // first button is the provider's Copy action; the second resets the
-        // key and must never be clicked automatically.
+        // paragraph and exposes two icon-only buttons in the same row. Only
+        // the row's classified Copy icon may be clicked; the Reset button must
+        // never be clicked automatically, and an ambiguous or iconless row is
+        // left untouched.
         // The configured prefix is a literal provider marker (currently
         // tp-), so it is intentionally not treated as a regular expression.
         const escapedPrefix = maskedKeyPrefix;
@@ -2185,13 +2395,17 @@ async function createGenericBrowserKey({ tokenName, platform }) {
           .map(el => ({ el, text: (el.textContent || '').trim() }))
           .filter(item => maskedPattern.test(item.text))
           .sort((a, b) => a.text.length - b.text.length)[0]?.el;
+        const classifyIcon = ${XIAOMI_ICON_CLASSIFY_JS};
         let row = keyNode;
         for (let depth = 0; row && depth < 5; depth += 1, row = row.parentElement) {
           const buttons = [...row.querySelectorAll('button, a, [role="button"]')].filter(visible);
-          if (buttons.length) {
-            copyAction = buttons[0];
+          if (!buttons.length) continue;
+          const copyButtons = buttons.filter(btn => classifyIcon(btn) === 'copy');
+          if (copyButtons.length === 1) {
+            copyAction = copyButtons[0];
             break;
           }
+          if (copyButtons.length > 1) break;
         }
       } else {
         copyAction = [...document.querySelectorAll('button, a, [role="button"]')]
@@ -2696,6 +2910,172 @@ function extractKeyFromHtml(html, platform) {
   return filtered[0] || null;
 }
 
+// ─── Bilingual action resolution ────────────────────────────────────
+// Pure, side-effect-free helpers that pick the safest "create credential"
+// control from a set of DOM candidates. English and Simplified Chinese only.
+
+const CREATE_ACTION_STRONG_PHRASES = [
+  'create api key', 'create key', 'add', 'new api key',
+  '创建 api 密钥', '新建 api key', '确定',
+];
+
+const CREATE_ACTION_GENERIC_PHRASES = ['create', 'new', '创建', '新建'];
+
+// These must never be chosen as a create action, even when a strong create
+// phrase also appears (e.g. "确定重置" or "Delete API key").
+const CREATE_ACTION_REJECT_PHRASES = [
+  'delete', 'remove', 'revoke', 'reset', 'regenerate',
+  '删除', '移除', '撤销', '重置', '重新生成',
+];
+
+const CREATE_ACTION_SCORE_THRESHOLD = 70;
+const CREATE_ACTION_SAFETY_MARGIN = 10;
+const CREATE_ACTION_SELECTOR_BONUS = 12;
+const CREATE_ACTION_BELOW_NAME_BONUS = 10;
+// Safe base for a candidate chosen purely by verified selector evidence
+// (button[type=submit] or a configured confirm selector) with no phrase text.
+// Two such candidates stay ambiguous through the safety margin above.
+const CREATE_ACTION_SELECTOR_ONLY_SCORE = 90;
+
+/** Normalize action text for match purposes (lowercase, single spaces). */
+function normalizeActionText(text) {
+  return String(text == null ? '' : text)
+    .replace(/[\s\u3000]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/** True when `source` contains `phrase`. ASCII phrases need word boundaries
+ *  so "create" never matches inside "creates"; CJK is matched literally. */
+function textHasPhrase(source, phrase) {
+  if (!source || !phrase) return false;
+  if (/^[\u4e00-\u9fff]/.test(phrase)) return source.includes(phrase);
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`).test(source);
+}
+
+/** Match strength of a normalized source against one phrase:
+ *  2 = exact phrase, 1 = contains the phrase, 0 = no match. */
+function phraseMatchStrength(source, phrase) {
+  if (!source || !phrase) return 0;
+  if (source === phrase) return 2;
+  if (source.includes(phrase)) return 1;
+  return 0;
+}
+
+/** Score a single action candidate. Candidate fields:
+ *  text, ariaLabel, title, selectorMatch, inVerifiedScope, belowNameInput,
+ *  visible, disabled. Options:
+ *   phrases — the platform's exact configured phrases (defaults to the safe
+ *             built-in strong list). A generic Create/New/创建/新建 phrase
+ *             configured here only scores at all when options.
+ *             allowGenericInsideScope is set AND the candidate is inside a
+ *             verified form/dialog (inVerifiedScope) or matched a selector.
+ *   belowNameInputBonus — award a fixed bonus to candidates flagged
+ *             belowNameInput; preserves platform.confirmAfterNameInput without
+ *             resorting to first/last matching hacks.
+ *  Returns 0 when the candidate must never be chosen. */
+function scoreActionCandidate(candidate, options = {}) {
+  if (!candidate || typeof candidate !== 'object') return 0;
+  if (candidate.disabled || candidate.visible === false) return 0;
+
+  const phrases = Array.isArray(options.phrases) && options.phrases.length
+    ? options.phrases
+    : CREATE_ACTION_STRONG_PHRASES;
+  const allowGenericInsideScope = Boolean(options.allowGenericInsideScope);
+
+  const text = normalizeActionText(candidate.text);
+  const aria = normalizeActionText(candidate.ariaLabel);
+  const title = normalizeActionText(candidate.title);
+  const sources = [text, aria, title];
+
+  // Destructive labels must never be read as create/confirm actions, even when
+  // a strong phrase also appears (e.g. "确定重置" or "Delete API key").
+  for (const phrase of CREATE_ACTION_REJECT_PHRASES) {
+    for (const source of sources) {
+      if (source && textHasPhrase(source, phrase)) return 0;
+    }
+  }
+
+  const inVerifiedScope = Boolean(candidate.inVerifiedScope || candidate.selectorMatch);
+
+  let score = 0;
+  for (const phrase of phrases) {
+    const normalizedPhrase = normalizeActionText(phrase);
+    if (!normalizedPhrase) continue;
+    // Generic Create/New/创建/新建 never stand alone: they only score when the
+    // platform explicitly configured them AND the candidate is inside a
+    // verified form/dialog or matched a selector.
+    const isGeneric = CREATE_ACTION_GENERIC_PHRASES.includes(normalizedPhrase);
+    if (isGeneric && !(allowGenericInsideScope && inVerifiedScope)) continue;
+
+    for (let i = 0; i < sources.length; i += 1) {
+      const strength = phraseMatchStrength(sources[i], normalizedPhrase);
+      if (!strength) continue;
+      // Visible text carries full weight; aria/title are weaker supporting
+      // evidence. An exact configured phrase must score; a phrase merely
+      // contained in a longer label always scores lower.
+      const weight = i === 0 ? 1 : 0.75;
+      const base = isGeneric ? 85 : 100;
+      const value = (strength === 2 ? base : base - 25) * weight;
+      if (value > score) score = value;
+    }
+  }
+  const hadPhraseScore = score > 0;
+
+  // Stable selector evidence: a visible, enabled, non-dangerous candidate that
+  // matched a verified selector (button[type=submit] or a configured confirm
+  // selector) establishes a safe base score even with no phrase text. Several
+  // such candidates stay ambiguous because resolveActionCandidate requires the
+  // safety margin. The reject loop above already zeroed destructive labels.
+  if (!hadPhraseScore && candidate.selectorMatch) {
+    score = CREATE_ACTION_SELECTOR_ONLY_SCORE;
+  }
+
+  // A verified selector match, or a candidate below the name input when the
+  // platform gates confirmation on it (confirmAfterNameInput), each add a
+  // modest confidence bonus on top of a phrase score. Selector-only candidates
+  // already carry their full safe base score, so no bonus stacks on top and
+  // multiple selector-only candidates remain ambiguous via the safety margin.
+  if (hadPhraseScore && candidate.selectorMatch) score += CREATE_ACTION_SELECTOR_BONUS;
+  if (score > 0 && options.belowNameInputBonus && candidate.belowNameInput) score += CREATE_ACTION_BELOW_NAME_BONUS;
+
+  return Math.round(score);
+}
+
+/** Stable fingerprint of a candidate's text/aria/title so a later re-scan can
+ *  verify the same control is still at the same index before any click. */
+function descriptorFingerprint(candidate) {
+  return [candidate.text, candidate.ariaLabel, candidate.title]
+    .map(normalizeActionText)
+    .join('|');
+}
+
+/** Choose the best action candidate, or null when every candidate is too weak
+ *  or the top two scored candidates are too close (ambiguous — never click).
+ *  options.threshold and options.margin may override the safe defaults. */
+function resolveActionCandidate(candidates, options = {}) {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const threshold = Number.isFinite(Number(options.threshold))
+    ? Number(options.threshold)
+    : CREATE_ACTION_SCORE_THRESHOLD;
+  const margin = Number.isFinite(Number(options.margin))
+    ? Number(options.margin)
+    : CREATE_ACTION_SAFETY_MARGIN;
+
+  const ranked = candidates
+    .map((candidate, index) => ({ candidate, index, score: scoreActionCandidate(candidate, options) }))
+    .filter(entry => entry.score >= threshold)
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+
+  if (ranked.length === 0) return null;
+  const top = ranked[0];
+  const runnerUp = ranked[1];
+  if (runnerUp && top.score - runnerUp.score < margin) return null;
+  return top.candidate;
+}
+
 /** GET /api/vault/cdp-status — check if Chrome Extension is connected */
 async function cdpStatus(req, res) {
   const { getExtensionVersion, getExtensionProtocol } = require('./ws-extension');
@@ -2722,4 +3102,11 @@ module.exports = {
   describeCapturedSecretFields,
   capturesContainMaskedSecret,
   isAssetData,
+  normalizeActionText,
+  scoreActionCandidate,
+  resolveActionCandidate,
+  isValidZhipuApiKey,
+  classifyXiaomiTokenPlanIcon,
+  ZHIPU_CREATE_TEXTS,
+  ZHIPU_CONFIRM_TEXTS,
 };

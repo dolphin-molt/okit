@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     pathExists: vi.fn(async function(p: string) { return files.has(p); }),
     readFile: vi.fn(async function(p: string) { return files.get(p) ?? ''; }),
     writeFile: vi.fn(async function(p: string, c: string) { files.set(p, c); }),
+    rename: vi.fn(async function(oldPath: string, newPath: string) { const c = files.get(oldPath); if (c !== undefined) files.set(newPath, c); }),
     ensureDir: vi.fn(async function() {}),
   };
 });
@@ -28,19 +29,8 @@ vi.mock('../../../src/config/user', () => ({
 }));
 
 vi.mock('../../../src/vault/store', () => ({
-  VaultStore: Object.assign(vi.fn().mockImplementation(function(this: any) {
+  VaultStore: vi.fn().mockImplementation(function(this: any) {
     this.get = vi.fn(async function(key: string) { return key === 'CODEX_API_KEY' ? 'sk-codex-456' : undefined; });
-    this.resolve = vi.fn(async function(key: string, alias?: string) {
-      if (key === 'CODEX_API_KEY' && alias === 'team') return 'sk-codex-team';
-      if (key === 'CODEX_API_KEY') return 'sk-codex-456';
-      return undefined;
-    });
-  }), {
-    parseKeyAlias(input: string) {
-      const slashIdx = input.indexOf('/');
-      if (slashIdx === -1) return { key: input, alias: 'default' };
-      return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
-    },
   }),
 }));
 
@@ -73,11 +63,6 @@ const customProvider = {
   vaultKey: 'CODEX_API_KEY',
   authMode: 'api_key' as const,
   models: [{ id: 'my-model' }],
-};
-
-const customAliasProvider = {
-  ...openaiProvider,
-  vaultKey: 'CODEX_API_KEY/team',
 };
 
 beforeEach(() => {
@@ -121,14 +106,6 @@ describe('CodexAdapter.applyConfig', () => {
     expect(toml).not.toContain('[model_providers');
     // No OPENAI_API_KEY written — Codex uses its native OAuth tokens instead.
     expect(mocks.files.has(CODEX_AUTH)).toBe(false);
-  });
-
-  it('resolves explicit vault aliases for third-party providers writing auth.json', async () => {
-    const adapter = new CodexAdapter();
-    await adapter.applyConfig({ ...customAliasProvider, id: 'custom-alias' }, 'gpt-5.5');
-
-    const auth = JSON.parse(mocks.files.get(CODEX_AUTH)!);
-    expect(auth.OPENAI_API_KEY).toBe('sk-codex-team');
   });
 
   it('writes base_url under [model_providers.X] for non-official endpoints (not top-level api_base)', async () => {

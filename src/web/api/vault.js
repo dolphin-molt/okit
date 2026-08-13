@@ -156,19 +156,11 @@ async function listVault(req, res) {
       store.getBindings(),
     ]);
 
-    // Group secrets by key
-    const groups = new Map();
-    for (const e of entries) {
-      if (!groups.has(e.key)) groups.set(e.key, []);
-      groups.get(e.key).push(e);
-    }
-
     // Attach bindings to each key
-    const secrets = [];
-    for (const [key, aliases] of groups) {
-      const keyBindings = bindings.filter(b => b.key === key);
-      secrets.push({ key, aliases, group: aliases[0]?.group || '', expiresAt: aliases[0]?.expiresAt || '', bindings: keyBindings });
-    }
+    const secrets = entries.map(entry => ({
+      ...entry,
+      bindings: bindings.filter(binding => binding.key === entry.key),
+    }));
 
     res.json({ secrets, totalBindings: bindings.length });
   } catch (error) {
@@ -179,39 +171,35 @@ async function listVault(req, res) {
 
 async function setVault(req, res) {
   try {
-    const { key, alias, value, group, expiresAt, originalKey, originalAlias } = req.body;
+    const { key, value, desc, group, expiresAt, originalKey } = req.body;
     if (!key || !value) {
       return res.status(400).json({ error: 'key and value are required' });
     }
-    const keyAlias = alias && alias !== 'default' ? `${key}/${alias}` : key;
-    const oldKeyAlias = originalKey
-      ? (originalAlias && originalAlias !== 'default' ? `${originalKey}/${originalAlias}` : originalKey)
-      : keyAlias;
-    const isEditMove = originalKey && oldKeyAlias !== keyAlias;
+    const isEditMove = originalKey && originalKey !== key;
 
     if (isEditMove) {
-      const oldValue = await store.get(oldKeyAlias);
+      const oldValue = await store.get(originalKey);
       if (oldValue === null) {
         return res.status(404).json({ error: 'Original secret not found' });
       }
 
-      const existingTarget = await store.get(keyAlias);
+      const existingTarget = await store.get(key);
       if (existingTarget !== null) {
         return res.status(409).json({ error: 'Target secret already exists' });
       }
     }
 
-    await store.set(keyAlias, value, group, expiresAt);
+    await store.set(key, value, group, expiresAt, desc);
     if (isEditMove) {
-      await store.delete(oldKeyAlias);
+      await store.delete(originalKey);
       touchOkitEnvFiles(originalKey);
     }
     touchOkitEnvFiles(key);
-    appendVaultLog('vault-set', keyAlias, true);
-    res.json({ success: true, key, alias: alias || 'default' });
+    appendVaultLog('vault-set', key, true);
+    res.json({ success: true, key, desc: desc || '' });
 
     // Auto-sync to enabled platforms (fire-and-forget)
-    autoSyncToPlatforms(key, value);
+    autoSyncToPlatforms(key);
   } catch (error) {
     console.error('Error setting vault:', error);
     appendVaultLog('vault-set', req.body.key || '', false, error.message);
@@ -221,13 +209,12 @@ async function setVault(req, res) {
 
 async function deleteVault(req, res) {
   try {
-    const { key, alias } = req.body;
+    const { key } = req.body;
     if (!key) return res.status(400).json({ error: 'key is required' });
-    const keyAlias = alias && alias !== 'default' ? `${key}/${alias}` : key;
-    const deleted = await store.delete(keyAlias);
+    const deleted = await store.delete(key);
     if (deleted) {
       removeKeyFromOkitEnvFiles(key);
-      appendVaultLog('vault-delete', keyAlias, true);
+      appendVaultLog('vault-delete', key, true);
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'Secret not found' });
@@ -274,11 +261,10 @@ async function importVault(req, res) {
     let skipped = 0;
     for (const s of secrets) {
       if (!s.key) { skipped++; continue; }
-      const keyAlias = s.alias && s.alias !== 'default' ? `${s.key}/${s.alias}` : s.key;
-      const existing = await store.get(keyAlias);
+      const existing = await store.get(s.key);
       if (existing) { skipped++; continue; }
       if (s.value) {
-        await store.set(keyAlias, s.value, s.group, s.expiresAt);
+        await store.set(s.key, s.value, s.group, s.expiresAt, s.desc);
         imported++;
       } else {
         skipped++;
@@ -293,10 +279,9 @@ async function importVault(req, res) {
 
 async function getVaultValue(req, res) {
   try {
-    const { key, alias } = req.query;
+    const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key is required' });
-    const keyAlias = alias && alias !== 'default' ? `${key}/${alias}` : key;
-    const value = await store.get(keyAlias);
+    const value = await store.get(key);
     if (value === null) return res.status(404).json({ error: 'Secret not found' });
     res.json({ value });
   } catch (error) {
@@ -334,19 +319,14 @@ async function syncVaultToProject(req, res) {
 
     const results = [];
     for (const item of keys) {
-      const keyAlias = item.alias && item.alias !== 'default' ? `${item.key}/${item.alias}` : item.key;
-      const value = await store.get(keyAlias);
+      const value = await store.get(item.key);
       if (value === null) {
         results.push({ key: item.key, success: false, error: '密钥不存在' });
         continue;
       }
       const envKey = item.key;
       if (!existingKeys.has(envKey)) {
-        if (item.alias && item.alias !== 'default') {
-          content = content.trimEnd() + (content.length > 0 ? '\n' : '') + `${envKey}: ${keyAlias}\n`;
-        } else {
-          content = content.trimEnd() + (content.length > 0 ? '\n' : '') + `${envKey}\n`;
-        }
+        content = content.trimEnd() + (content.length > 0 ? '\n' : '') + `${envKey}\n`;
       }
       results.push({ key: item.key, success: true });
     }
@@ -459,9 +439,7 @@ async function listVaultWithProjects(req, res) {
               const colonIdx = line.indexOf(':');
               const envName = colonIdx > 0 ? line.slice(0, colonIdx).trim() : line;
               const source = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : line;
-              // Extract vault key from source (strip alias)
-              const slashIdx = source.indexOf('/');
-              const vaultKey = slashIdx > 0 ? source.slice(0, slashIdx) : source;
+              const vaultKey = source;
               // Match by envName or vaultKey
               for (const k of [envName, vaultKey]) {
                 if (!keyProjects[k]) keyProjects[k] = [];
@@ -475,23 +453,10 @@ async function listVaultWithProjects(req, res) {
       }
     } catch {}
 
-    // Group secrets by key and attach projects
-    const groups = new Map();
-    for (const e of entries) {
-      if (!groups.has(e.key)) groups.set(e.key, []);
-      groups.get(e.key).push(e);
-    }
-
-    const secrets = [];
-    for (const [key, aliases] of groups) {
-      secrets.push({
-        key,
-        aliases,
-        group: aliases[0]?.group || '',
-        expiresAt: aliases[0]?.expiresAt || '',
-        projects: keyProjects[key] || [],
-      });
-    }
+    const secrets = entries.map(entry => ({
+      ...entry,
+      projects: keyProjects[entry.key] || [],
+    }));
 
     res.json({ secrets, totalBindings: bindings.length });
   } catch (error) {
@@ -500,25 +465,26 @@ async function listVaultWithProjects(req, res) {
   }
 }
 
-async function autoSyncToPlatforms(key, value) {
+async function autoSyncToPlatforms(key) {
   try {
     const configPath = path.join(os.homedir(), '.okit', 'user.json');
     if (!fs.existsSync(configPath)) return;
     const config = await fs.readJson(configPath);
     const sync = config.sync;
     if (!sync?.autoSync || !sync.platforms) return;
+    const { pushSecrets } = require('./cloud-sync-core');
 
-    const secret = { key, value };
     for (const [platformId, platConfig] of Object.entries(sync.platforms)) {
       if (!platConfig.enabled) continue;
       try {
-        const adapter = require(`./platform-adapters/${platformId}`);
-        const results = await adapter.syncSecrets(platConfig, [secret]);
+        // Reuse the same path as manual cloud sync so vault-backed platform
+        // credentials are resolved before an adapter receives its config.
+        const results = await pushSecrets(platformId, [key]);
         const failed = results.filter(r => !r.success);
         if (failed.length === 0) {
-          appendVaultLog('auto-sync', `${key} → ${adapter.name}`, true);
+          appendVaultLog('auto-sync', `${key} → ${platformId}`, true);
         } else {
-          appendVaultLog('auto-sync', `${key} → ${adapter.name}`, false, failed.map(r => r.error).join('; '));
+          appendVaultLog('auto-sync', `${key} → ${platformId}`, false, failed.map(r => r.error).join('; '));
         }
       } catch (error) {
         appendVaultLog('auto-sync', `${key} → ${platformId}`, false, error.message);
@@ -537,7 +503,7 @@ async function testApiKey(req, res) {
   if (!resolvedKey && vaultKey) {
     try {
       await store.reload();
-      resolvedKey = await store.resolve(vaultKey);
+      resolvedKey = await store.get(vaultKey);
     } catch (err) {
       console.error('resolveVaultKey error:', err);
     }
@@ -829,13 +795,10 @@ function httpRequest(url, options) {
 
 // ── Vault group migration ────────────────────────────────────
 // Remaps freeform group names to canonical "{平台} · {地域}" format.
-// Matching is based on key name prefix + alias hints for 国内/国际 split.
+// Matching is based on key name prefixes for 国内/国际 split.
 
-function resolveCanonicalGroup(key, alias) {
+function resolveCanonicalGroup(key) {
   const k = String(key || '').toUpperCase();
-  const a = String(alias || '');
-  const aLower = a.toLowerCase();
-  const aHasGlobal = /国际|global|overseas|international/i.test(a);
 
   // ── 国际大厂 ──
   if (k.startsWith('OPENAI_API_KEY') || k === 'OPENAI_API_KEY') return 'OpenAI';
@@ -853,7 +816,8 @@ function resolveCanonicalGroup(key, alias) {
   if (k.startsWith('MINIMAX_') || k.startsWith('OKIT-MINIMAX')) return 'MiniMax · 国内';
 
   // ── Kimi / Moonshot (国内国际分站) ──
-  if (k.startsWith('MOONSHOT_')) return aHasGlobal ? 'Kimi · 国际' : 'Kimi · 国内';
+  if (k.startsWith('MOONSHOT_GLOBAL')) return 'Kimi · 国际';
+  if (k.startsWith('MOONSHOT_')) return 'Kimi · 国内';
   if (k.startsWith('KIMI_')) return 'Kimi · 国内';
 
   // ── 仅国内 ──
@@ -885,11 +849,11 @@ async function migrateGroups(req, res) {
     let migrated = 0;
 
     for (const s of data.secrets) {
-      const canonical = resolveCanonicalGroup(s.key, s.alias);
+      const canonical = resolveCanonicalGroup(s.key);
       if (canonical && canonical !== s.group) {
         const from = s.group || '(ungrouped)';
         s.group = canonical;
-        changes.push({ key: s.key + (s.alias !== 'default' ? '/' + s.alias : ''), from, to: canonical });
+        changes.push({ key: s.key, from, to: canonical });
         migrated++;
       }
     }
@@ -906,4 +870,4 @@ async function migrateGroups(req, res) {
   }
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups };
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups, autoSyncToPlatforms };

@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const HERMES_CONFIG_PATH = path.join(os.homedir(), ".hermes", "config.json");
 
@@ -62,7 +63,7 @@ export class HermesAdapter extends BaseAdapter {
     }
     data.agents.defaults.model = { primary: `${provider.id}/${modelId}`, fallbacks: [] };
 
-    await fs.writeFile(HERMES_CONFIG_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(HERMES_CONFIG_PATH, data);
     await updateUserConfig({
       providers: { hermes: { providerId: provider.id, modelId } },
     } as any);

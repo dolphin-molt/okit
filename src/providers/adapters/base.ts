@@ -15,9 +15,6 @@ export abstract class BaseAdapter implements AgentAdapter {
         const store = new VaultStore();
         const value = await store.get(provider.vaultKey);
         if (value) return value;
-        const parsed = VaultStore.parseKeyAlias(provider.vaultKey);
-        const resolved = await store.resolve(parsed.key, parsed.alias);
-        if (resolved) return resolved;
       } catch {}
     }
     return undefined;

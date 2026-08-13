@@ -8,25 +8,24 @@ import { PREDEFINED_GROUPS } from '../../data/vault-groups';
 interface VaultFormModalProps {
   groups: string[];
   initialSecret?: VaultSecret;
-  initialAlias?: string;
-  onBeforeSave?: (next: { key: string; alias: string; group?: string }) => Promise<boolean>;
+  onBeforeSave?: (next: { key: string; desc?: string; group?: string }) => Promise<boolean>;
   onClose: () => void;
   onSaved: (key: string) => void;
 }
 
-export default function VaultFormModal({ groups, initialSecret, initialAlias, onBeforeSave, onClose, onSaved }: VaultFormModalProps) {
+export default function VaultFormModal({ groups, initialSecret, onBeforeSave, onClose, onSaved }: VaultFormModalProps) {
   const { t } = useI18n();
   const isEdit = !!initialSecret;
-  const activeAlias = initialAlias || initialSecret?.aliases[0]?.alias || 'default';
-  const activeAliasMeta = initialSecret?.aliases.find(a => a.alias === activeAlias) || initialSecret?.aliases[0];
-  const initialGroup = activeAliasMeta?.group || initialSecret?.group || '';
+  const initialGroup = initialSecret?.group || '';
   const [formKey, setFormKey] = useState(initialSecret?.key || '');
   const [formValue, setFormValue] = useState('');
+  const [formDesc, setFormDesc] = useState(initialSecret?.desc || '');
   const [formGroup, setFormGroup] = useState(initialGroup && groups.includes(initialGroup) ? initialGroup : (initialGroup ? '__custom__' : ''));
   const [formGroupCustom, setFormGroupCustom] = useState(initialGroup && groups.includes(initialGroup) ? '' : initialGroup);
   const [showValue, setShowValue] = useState(false);
   const [loadingValue, setLoadingValue] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Auto-create state
   const [showAutoCreate, setShowAutoCreate] = useState(false);
@@ -44,7 +43,7 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
     if (!initialSecret) return;
 
     setLoadingValue(true);
-    getVaultValue(initialSecret.key, activeAlias)
+    getVaultValue(initialSecret.key)
       .then(data => {
         if (!cancelled) setFormValue(data.value);
       })
@@ -54,7 +53,7 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
       });
 
     return () => { cancelled = true; };
-  }, [initialSecret?.key, activeAlias]);
+  }, [initialSecret?.key]);
 
   useEffect(() => {
     if (!showAutoCreate || isEdit || autoPlatforms.length) return;
@@ -67,24 +66,32 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
     return () => { cancelled = true; };
   }, [showAutoCreate, isEdit, autoPlatforms.length, t]);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   async function handleSave() {
     if (!formKey || !formValue) return;
     const group = formGroup === '__custom__' ? formGroupCustom : formGroup;
-    if (onBeforeSave && !(await onBeforeSave({ key: formKey, alias: activeAlias, group: group || undefined }))) return;
+    if (onBeforeSave && !(await onBeforeSave({ key: formKey, desc: formDesc.trim() || undefined, group: group || undefined }))) return;
 
     setSaving(true);
+    setSaveError('');
     try {
       await setVault({
         key: formKey,
         value: formValue,
-        alias: activeAlias,
+        desc: formDesc.trim() || undefined,
         group: group || undefined,
         originalKey: initialSecret?.key,
-        originalAlias: isEdit ? activeAlias : undefined,
       });
       onSaved(formKey);
-    } catch {
-      onSaved('');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : t('vault.saveFail'));
     } finally {
       setSaving(false);
     }
@@ -135,7 +142,9 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
         setAutoPlatform('');
         setParentToken('');
         if (Number(result.readyAfterMs) > 0) {
-          setAutoNotice(`密钥已创建。该平台正在生效，请等待约 ${Math.ceil(Number(result.readyAfterMs) / 1000)} 秒后再测试连接。`);
+          setAutoNotice(t('vault.autoCreateReadyDelay', { seconds: Math.ceil(Number(result.readyAfterMs) / 1000) }));
+        } else {
+          setAutoNotice(t('vault.autoCreateReady'));
         }
       } else if (result.loginRequired) {
         setLoginHandoff({
@@ -155,127 +164,154 @@ export default function VaultFormModal({ groups, initialSecret, initialAlias, on
 
   const selectedPlatform = autoPlatforms.find(p => p.id === autoPlatform);
 
+  function selectManualMode() {
+    setShowAutoCreate(false);
+    setAutoError('');
+    setLoginHandoff(null);
+  }
+
+  function selectAutoMode() {
+    setShowAutoCreate(true);
+    setAutoError('');
+    setLoginHandoff(null);
+  }
+
   return (
-    <div className="auth-overlay" style={{ display: '' }}>
-      <div className="vault-form-panel">
-        <div className="progress-header">
-          <span className="progress-title">{isEdit ? t('vault.editKey') : t('vault.newKey')}</span>
-          <button className="progress-close" onClick={onClose}>&times;</button>
-        </div>
-        <div className="vault-form-body">
-          {/* Auto-create section (only for new keys, not edit) */}
+    <div className="auth-overlay vault-form-overlay" style={{ display: '' }} role="presentation">
+      <div className="vault-form-panel vault-entry-card" role="dialog" aria-modal="true" aria-labelledby="vault-entry-title">
+        <button className="vault-entry-close" onClick={onClose} type="button" aria-label={t('common.close')}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M4 4l10 10M14 4L4 14" />
+          </svg>
+        </button>
+
+        <div className="vault-entry-workspace">
+          <header className="vault-entry-header">
+            <div>
+              <h2 id="vault-entry-title">{isEdit ? t('vault.editKey') : t('vault.newKey')}</h2>
+            </div>
+          </header>
+
           {!isEdit && (
-            <div className="vault-auto-create-section">
-              {!showAutoCreate ? (
-                <button
-                  className="vault-auto-create-trigger"
-                  onClick={() => setShowAutoCreate(true)}
-                  type="button"
-                >
-                  ⚡ {t('vault.autoCreate') || '自动创建密钥'}
-                </button>
-              ) : (
-                <div className="vault-auto-create-panel">
-                  <div className="vault-auto-create-header">
-                    <span>{t('vault.autoCreateTitle') || '自动创建密钥'}</span>
-                    <button className="vault-auto-create-close" onClick={() => { setShowAutoCreate(false); setAutoError(''); setLoginHandoff(null); }} type="button">&times;</button>
-                  </div>
-                  <div className="vault-form-field">
-                    <label>{t('vault.autoCreatePlatform') || '选择平台'}</label>
-                    <CustomSelect
-                      value={autoPlatform}
-                      onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); }}
-                      placeholder={t('vault.autoCreateSelectPlatform') || '选择平台...'}
-                      options={autoPlatforms.map(p => ({
-                        value: p.id,
-                        label: `${p.label}${p.mode === 'api' ? ' (API)' : ' (浏览器)'}`,
-                      }))}
-                    />
-                  </div>
-                  {selectedPlatform?.mode === 'api' && (
-                    <div className="vault-form-field">
-                      <label>{t('vault.autoCreateParentToken') || '父级 API Token'}</label>
-                      <input
-                        type="password"
-                        className="vault-input"
-                        placeholder={t('vault.autoCreateParentTokenHint') || '用于创建子 Token 的父级凭证'}
-                        value={parentToken}
-                        onChange={e => setParentToken(e.target.value)}
-                      />
-                      <p style={{ fontSize: '11px', color: 'var(--ink-muted)', marginTop: '4px' }}>
-                        使用 Cloudflare Global API Key 或已有的 API Token（需含 API Tokens Write 权限）
-                      </p>
-                    </div>
-                  )}
-                  {selectedPlatform?.mode === 'browser' && (
-                    <p className="vault-auto-create-hint">
-                      {t('vault.autoCreateBrowserHint') || '将打开浏览器窗口自动创建密钥。请确保你已在对应平台登录。'}
-                    </p>
-                  )}
-                  {loginHandoff && (
-                    <div className="vault-auto-create-login" role="alert">
-                      <strong>{t('vault.autoCreateLoginRequired') || '需要登录此平台'}: {loginHandoff.platformLabel}</strong>
-                      <p>
-                        {loginHandoff.browserFocused
-                          ? (t('vault.autoCreateLoginFocused') || '已将自动化浏览器窗口置前。请完成登录后回到这里重试。')
-                          : (t('vault.autoCreateLoginOpenBrowser') || '请切换到 Chrome 的 OKIT 自动化窗口完成登录，然后回到这里重试。')}
-                      </p>
-                      {loginHandoff.loginUrl && <span className="vault-auto-create-login-url">{loginHandoff.loginUrl}</span>}
-                      <button className="btn-save" onClick={handleAutoCreate} disabled={autoCreating} type="button">
-                        {t('vault.autoCreateRetry') || '登录完成，重试创建'}
-                      </button>
-                    </div>
-                  )}
-                  {autoError && <p className="vault-auto-create-error">{autoError}</p>}
-                  <div className="vault-auto-create-actions">
-                    <button className="btn-cancel" onClick={() => { setShowAutoCreate(false); setAutoError(''); setLoginHandoff(null); }} type="button">
-                      {t('common.cancel')}
-                    </button>
-                    <button
-                      className="btn-save"
-                      onClick={handleAutoCreate}
-                      disabled={autoCreating || loadingPlatforms || !autoPlatform}
-                      type="button"
-                    >
-                      {autoCreating ? t('vault.autoCreating') || '创建中...' : t('vault.autoCreateStart') || '开始创建'}
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="vault-entry-modes" role="tablist" aria-label={t('vault.addMode')}>
+              <button className={!showAutoCreate ? 'is-active' : ''} onClick={selectManualMode} type="button" role="tab" aria-selected={!showAutoCreate}>
+                <span className="vault-entry-mode-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 14.5h12M5 11.5l7.8-7.8 1.5 1.5L6.5 13H5v-1.5z" /></svg>
+                </span>
+                <strong>{t('vault.manualMode')}</strong>
+              </button>
+              <button className={showAutoCreate ? 'is-active' : ''} onClick={selectAutoMode} type="button" role="tab" aria-selected={showAutoCreate}>
+                <span className="vault-entry-mode-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.5 2.5L4 10h5l-1 5.5L14 8h-5l1.5-5.5z" /></svg>
+                </span>
+                <strong>{t('vault.autoMode')}</strong>
+              </button>
             </div>
           )}
-          {autoNotice && <p className="vault-auto-create-notice" role="status">{autoNotice}</p>}
 
-          <div className="vault-form-field">
-            <label>Key</label>
-            <input type="text" className="vault-input" placeholder={t('vault.keyExample')} value={formKey}
-              onChange={e => setFormKey(e.target.value)} />
-          </div>
-          <div className="vault-form-field">
-            <label>{t('common.group')}</label>
-            <CustomSelect
-              value={formGroup}
-              onChange={v => setFormGroup(v)}
-              placeholder={t('common.selectGroup')}
-              options={[
-                ...PREDEFINED_GROUPS.map(g => ({ value: g, label: g })),
-                ...groups.filter(g => !PREDEFINED_GROUPS.includes(g)).map(g => ({ value: g, label: g })),
-                { value: '__custom__', label: t('common.manualInput') },
-              ]}
-            />
-            {formGroup === '__custom__' && (
-              <input type="text" className="vault-input" style={{ marginTop: 4 }} placeholder={t('common.enterGroup')} value={formGroupCustom} onChange={e => setFormGroupCustom(e.target.value)} />
+          <div className="vault-form-body">
+            {autoNotice && <p className="vault-auto-create-notice" role="status">{autoNotice}</p>}
+
+            {showAutoCreate && !isEdit ? (
+              <div className="vault-auto-create-panel" role="tabpanel">
+                <div className="vault-form-field">
+                  <div className="vault-field-heading">
+                    <label>{t('vault.autoCreatePlatform')}</label>
+                  </div>
+                  <CustomSelect
+                    value={autoPlatform}
+                    onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); }}
+                    placeholder={loadingPlatforms ? t('common.loading') : t('vault.autoCreateSelectPlatform')}
+                    options={autoPlatforms.map(p => ({
+                      value: p.id,
+                      label: `${p.label}${p.mode === 'api' ? ' (API)' : ` (${t('vault.browserMode')})`}`,
+                    }))}
+                  />
+                </div>
+                <div className="vault-form-field">
+                  <div className="vault-field-heading">
+                    <label htmlFor="vault-auto-key-name">{t('vault.keyNameLabel')}</label>
+                  </div>
+                  <input id="vault-auto-key-name" type="text" className="vault-input" placeholder={selectedPlatform?.keyHint || t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} />
+                </div>
+                <div className="vault-form-field">
+                  <div className="vault-field-heading"><label htmlFor="vault-auto-key-desc">{t('vault.descriptionLabel')}</label></div>
+                  <input id="vault-auto-key-desc" type="text" className="vault-input" maxLength={120} placeholder={t('vault.descriptionPlaceholder')} value={formDesc} onChange={e => setFormDesc(e.target.value)} />
+                </div>
+                {selectedPlatform?.mode === 'api' && (
+                  <div className="vault-form-field">
+                    <div className="vault-field-heading"><label htmlFor="vault-parent-token">{t('vault.autoCreateParentToken')}</label></div>
+                    <input id="vault-parent-token" type="password" className="vault-input" placeholder={t('vault.autoCreateParentTokenHint')} value={parentToken} onChange={e => setParentToken(e.target.value)} />
+                    <small className="vault-field-hint">{t('vault.parentTokenPermissionHint')}</small>
+                  </div>
+                )}
+                {selectedPlatform?.mode === 'browser' && <p className="vault-auto-create-hint">{t('vault.autoCreateBrowserHint')}</p>}
+                {loginHandoff && (
+                  <div className="vault-auto-create-login" role="alert">
+                    <strong>{t('vault.autoCreateLoginRequired')}: {loginHandoff.platformLabel}</strong>
+                    <p>{loginHandoff.browserFocused ? t('vault.autoCreateLoginFocused') : t('vault.autoCreateLoginOpenBrowser')}</p>
+                    {loginHandoff.loginUrl && <span className="vault-auto-create-login-url">{loginHandoff.loginUrl}</span>}
+                    <button className="btn-save" onClick={handleAutoCreate} disabled={autoCreating} type="button">{t('vault.autoCreateRetry')}</button>
+                  </div>
+                )}
+                {autoError && <p className="vault-auto-create-error" role="alert">{autoError}</p>}
+                <div className="vault-auto-create-actions">
+                  <button className="btn-save vault-auto-create-primary" onClick={handleAutoCreate} disabled={autoCreating || loadingPlatforms || !autoPlatform} type="button">
+                    {autoCreating ? t('vault.autoCreating') : t('vault.autoCreateStart')}
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M3 7.5h9M8.5 4l3.5 3.5L8.5 11" /></svg>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="vault-entry-manual" role="tabpanel">
+                <div className="vault-entry-field-grid">
+                  <div className="vault-form-field">
+                    <div className="vault-field-heading"><label htmlFor="vault-key-name">{t('vault.keyNameLabel')}</label></div>
+                    <input id="vault-key-name" type="text" className="vault-input" placeholder={t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} autoFocus={!isEdit} />
+                  </div>
+                  <div className="vault-form-field">
+                    <div className="vault-field-heading"><label>{t('common.group')}</label></div>
+                    <CustomSelect
+                      value={formGroup}
+                      onChange={v => setFormGroup(v)}
+                      placeholder={t('common.selectGroup')}
+                      options={[
+                        { value: '__custom__', label: t('vault.newGroup') },
+                        ...PREDEFINED_GROUPS.map(g => ({ value: g, label: g })),
+                        ...groups.filter(g => !PREDEFINED_GROUPS.includes(g)).map(g => ({ value: g, label: g })),
+                      ]}
+                    />
+                    {formGroup === '__custom__' && <input type="text" className="vault-input vault-custom-group-input" placeholder={t('common.enterGroup')} value={formGroupCustom} onChange={e => setFormGroupCustom(e.target.value)} />}
+                  </div>
+                </div>
+                <div className="vault-form-field vault-form-field--description">
+                  <div className="vault-field-heading"><label htmlFor="vault-key-desc">{t('vault.descriptionLabel')}</label></div>
+                  <input id="vault-key-desc" type="text" className="vault-input" maxLength={120} placeholder={t('vault.descriptionPlaceholder')} value={formDesc} onChange={e => setFormDesc(e.target.value)} />
+                </div>
+                <div className="vault-form-field vault-form-field--value">
+                  <div className="vault-field-heading"><label htmlFor="vault-secret-value">{t('vault.secretValueLabel')}</label></div>
+                  <div className="vault-secret-input-wrap">
+                    <input id="vault-secret-value" type={showValue ? 'text' : 'password'} className="vault-input" placeholder={loadingValue ? t('common.loading') : t('vault.keyValue')} value={formValue} onChange={e => setFormValue(e.target.value)} disabled={loadingValue} />
+                    <button type="button" className="btn-toggle-vis" onClick={() => setShowValue(!showValue)} aria-label={showValue ? t('common.hide') : t('common.show')}>{showValue ? t('common.hide') : t('common.show')}</button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-          <div className="vault-form-field vault-form-field--value">
-            <label>Value</label>
-            <input type={showValue ? 'text' : 'password'} className="vault-input" placeholder={loadingValue ? t('common.loading') : t('vault.keyValue')} value={formValue} onChange={e => setFormValue(e.target.value)} disabled={loadingValue} />
-            <button type="button" className="btn-toggle-vis" onClick={() => setShowValue(!showValue)}>{showValue ? t('common.hide') : t('common.show')}</button>
-          </div>
-        </div>
-        <div className="vault-form-actions">
-          <button className="btn-cancel" onClick={onClose}>{t('common.cancel')}</button>
-          <button className="btn-save" onClick={handleSave} disabled={saving || loadingValue || !formKey || !formValue}>{saving ? t('common.saving') : t('common.save')}</button>
+
+          <footer className="vault-form-actions">
+            <div className="vault-entry-security-inline">
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 2.5l5 2v3.8c0 3.2-2.1 5.8-5 7.2-2.9-1.4-5-4-5-7.2V4.5l5-2z" /><path d="M6.8 9l1.4 1.4 3-3" />
+              </svg>
+              <div><strong>{t('vault.securityTitle')}</strong><span>{t('vault.securityDesc')}</span></div>
+            </div>
+            <div className="vault-entry-action-buttons">
+              {saveError && <span className="vault-save-error" role="alert">{saveError}</span>}
+              <button className="btn-cancel" onClick={onClose} type="button">{t('common.cancel')}</button>
+              {(!showAutoCreate || isEdit) && <button className="btn-save" onClick={handleSave} disabled={saving || loadingValue || !formKey || !formValue} type="button">{saving ? t('common.saving') : (isEdit ? t('vault.saveChanges') : t('vault.saveKey'))}</button>}
+            </div>
+          </footer>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const WORKBUDDY_DIR = path.join(os.homedir(), ".workbuddy");
 const WORKBUDDY_MODELS_PATH = path.join(WORKBUDDY_DIR, "models.json");
@@ -69,7 +70,7 @@ export class WorkBuddyAdapter extends BaseAdapter {
       data.availableModels.push(modelId);
     }
 
-    await fs.writeFile(WORKBUDDY_MODELS_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(WORKBUDDY_MODELS_PATH, data);
     await updateUserConfig({
       providers: { workbuddy: { providerId: provider.id, modelId } },
     } as any);

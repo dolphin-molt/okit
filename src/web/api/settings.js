@@ -106,11 +106,7 @@ async function resolveAgentConfigFromProvider(agentConfig) {
 
 async function resolveVaultValue(store, keyAlias) {
   if (!keyAlias) return null;
-  let value = await store.get(keyAlias);
-  if (value) return value;
-  const { VaultStore } = require('../../vault/store');
-  const parsed = VaultStore.parseKeyAlias(keyAlias);
-  return await store.resolve(parsed.key, parsed.alias);
+  return await store.get(keyAlias);
 }
 
 async function getSettings(req, res) {
@@ -172,11 +168,7 @@ async function resolveVaultRefs(platConfig) {
   for (const [key, value] of Object.entries(resolved)) {
     if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
       if (!VAULT_KEY_PATTERN.test(value)) continue;
-      let actual = await store.get(value);
-      if (!actual) {
-        const aliases = await store.getAliases(value);
-        if (aliases.length > 0) actual = await store.get(value + '/' + aliases[0]);
-      }
+      const actual = await store.get(value);
       if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
       resolved[key] = actual;
     }

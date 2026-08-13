@@ -3,6 +3,7 @@ import path from "path";
 import os from "os";
 import { OKIT_DIR } from "./registry";
 import { backupImportantData } from "./backup";
+import { atomicWrite, atomicWriteJSON } from "../utils/atomicWrite";
 
 type Language = "zh" | "en";
 
@@ -36,10 +37,6 @@ export type UserConfig = {
       username?: string;
       token?: string;
     };
-  };
-  relay?: {
-    url?: string;
-    token?: string;
   };
   providers?: Record<string, {
     providerId?: string;
@@ -75,6 +72,15 @@ export type UserConfig = {
       'cloudflare-kv'?: {
         enabled?: boolean;
         apiToken?: string;
+      };
+      webdav?: {
+        enabled?: boolean;
+        url?: string;
+        username?: string;
+        password?: string;
+      };
+      icloud?: {
+        enabled?: boolean;
       };
     };
   };
@@ -128,7 +134,7 @@ export async function loadUserConfig(): Promise<UserConfig> {
 export async function saveUserConfig(config: UserConfig): Promise<void> {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData("user");
-  await fs.writeFile(USER_CONFIG_PATH, JSON.stringify(config, null, 2));
+  await atomicWriteJSON(USER_CONFIG_PATH, config);
 }
 
 export async function updateUserConfig(patch: Partial<UserConfig>): Promise<UserConfig> {
@@ -139,7 +145,6 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     claude: patch.claude ? { ...current.claude, ...patch.claude } : current.claude,
     hints: patch.hints ? { ...current.hints, ...patch.hints } : current.hints,
     git: patch.git ? { ...current.git, ...patch.git } : current.git,
-    relay: patch.relay ? { ...current.relay, ...patch.relay } : current.relay,
     providers: patch.providers ? { ...current.providers, ...patch.providers } : current.providers,
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
     // Arrays are replaced wholesale — callers read-modify-write the full list

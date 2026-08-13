@@ -1,9 +1,7 @@
 @import './base.css';
 @import './components.css';
 @import './home.css';
-@import './tools.css';
 @import './vault.css';
-@import './auth.css';
 @import './modals.css';
 @import './monitor.css';
 @import './agent.css';

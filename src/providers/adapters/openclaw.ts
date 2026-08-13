@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const OPENCLAW_CONFIG_PATH = path.join(os.homedir(), ".openclaw", "openclaw.json");
 
@@ -74,7 +75,7 @@ export class OpenClawAdapter extends BaseAdapter {
       fallbacks: [],
     };
 
-    await fs.writeFile(OPENCLAW_CONFIG_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(OPENCLAW_CONFIG_PATH, data);
     await updateUserConfig({
       providers: { openclaw: { providerId: provider.id, modelId } },
     } as any);

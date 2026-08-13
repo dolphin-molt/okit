@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const GEMINI_DIR = path.join(os.homedir(), ".gemini");
 
@@ -42,12 +43,12 @@ export class GeminiAdapter extends BaseAdapter {
       if (!isOfficialGoogle) {
         lines.push(`GOOGLE_GEMINI_BASE_URL=${provider.baseUrl}`);
       }
-      await fs.writeFile(envPath, lines.join("\n") + "\n");
+      await atomicWrite(envPath, lines.join("\n") + "\n");
       await writeGeminiSelectedType(settingsPath, "gemini-api-key");
     } else if (isOfficialGoogle) {
       // OAuth mode for official Google: clear any stale API key so Gemini CLI
       // falls back to its own OAuth login. selectedType = oauth-personal.
-      await fs.writeFile(envPath, "");
+      await atomicWrite(envPath, "");
       await writeGeminiSelectedType(settingsPath, "oauth-personal");
     }
 
@@ -74,5 +75,5 @@ async function writeGeminiSelectedType(settingsPath: string, selectedType: strin
   if (typeof data.security !== "object" || data.security === null) data.security = {};
   if (typeof data.security.auth !== "object" || data.security.auth === null) data.security.auth = {};
   data.security.auth.selectedType = selectedType;
-  await fs.writeFile(settingsPath, JSON.stringify(data, null, 2));
+  await atomicWriteJSON(settingsPath, data);
 }

@@ -25,15 +25,11 @@ After frontend changes: `cd src/web/frontend && npx vite build` then from projec
 
 ## Architecture
 
-OKIT is a CLI + Web Dashboard for managing AI agent infrastructure: tool installation, API key vault, provider/model management, and relay tunneling.
+OKIT is a CLI + Web Dashboard for managing AI agent infrastructure: API key vault, provider/model management.
 
 ### CLI (Commander.js)
 
 Entry: `src/main.ts` registers all commands. Each command lives in `src/commands/`.
-
-### Tool Registry
-
-YAML definitions in `src/config/tools/` define install/upgrade/uninstall/check commands per tool, with platform-specific variants (`darwin`/`linux`/`win32`). `src/executor/runner.ts` handles dependency resolution and execution.
 
 ### Provider System
 
@@ -48,18 +44,14 @@ YAML definitions in `src/config/tools/` define install/upgrade/uninstall/check c
 
 AES-256-GCM encrypted key storage in `src/vault/store.ts`. Machine-specific key derivation. Vault entries can be bound to projects (auto-inject into `.env`). Supports cloud sync.
 
-### Relay
-
-WebSocket tunneling in `src/relay/`. Three adapter types (OpenClaw, Codex, Codex). Supports background daemon mode and token rotation.
-
 ### Web UI
 
 - **Backend**: `src/web/server.js` (Express) + `src/web/api/*.js` — pure CommonJS, no TypeScript
 - **Frontend**: `src/web/frontend/` — React + TypeScript, Vite build
-  - Components organized by feature: `components/{tools,vault,models,agents,logs,monitor,settings}/`
+  - Components organized by feature: `components/{vault,models,agents,logs,monitor,settings}/`
   - Shared sidebar layout: `.page-with-sidebar` + `.page-sidebar` classes (defined in `components.css`)
   - Design system: "Paper Cutout Collage" style using CSS variables (`--paper`, `--kraft`, `--kraft-dark`, `--ink`, `--ink-muted`), dashed borders, `1.5px solid` borders, `2px 2px 0 rgba(0,0,0,0.06)` shadows
-  - All CSS files in `src/web/frontend/src/styles/` — `base.css` (variables/layout), `components.css` (shared), `tools.css`, `providers.css`, `vault.css`, etc.
+  - All CSS files in `src/web/frontend/src/styles/` — `base.css` (variables/layout), `components.css` (shared), `providers.css`, `vault.css`, etc.
 
 ### Config & i18n
 

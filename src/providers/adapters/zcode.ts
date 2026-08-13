@@ -4,6 +4,7 @@ import os from "os";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
+import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 
 const ZCODE_CONFIG_PATH = path.join(os.homedir(), ".zcode", "config.json");
 
@@ -64,7 +65,7 @@ export class ZCodeAdapter extends BaseAdapter {
     }
     data.agents.defaults.model = { primary: `${provider.id}/${modelId}`, fallbacks: [] };
 
-    await fs.writeFile(ZCODE_CONFIG_PATH, JSON.stringify(data, null, 2));
+    await atomicWriteJSON(ZCODE_CONFIG_PATH, data);
     await updateUserConfig({
       providers: { zcode: { providerId: provider.id, modelId } },
     } as any);

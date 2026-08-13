@@ -28,6 +28,7 @@ vi.mock('fs-extra', () => ({
     pathExists: vi.fn(async (p: string) => memFiles.has(p)),
     readFile: vi.fn(async (p: string) => memFiles.get(p) ?? ''),
     writeFile: vi.fn(async (p: string, c: string) => { memFiles.set(p, c); }),
+    rename: vi.fn(async (oldPath: string, newPath: string) => { const c = memFiles.get(oldPath); if (c !== undefined) memFiles.set(newPath, c); }),
     ensureDir: vi.fn(async () => {}),
   },
 }));

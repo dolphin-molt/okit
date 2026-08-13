@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const { getTools, toolAction, submitAuthCode, openApp } = require('./api/tools');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups } = require('./api/vault');
 const { autoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
@@ -9,7 +8,7 @@ const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getC
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders } = require('./api/usage');
 
 function createServer(port = 3780) {
@@ -23,10 +22,6 @@ function createServer(port = 3780) {
   } }));
 
   // API Routes
-  app.get('/api/tools', getTools);
-  app.post('/api/tools/action', toolAction);
-  app.post('/api/tools/auth-code', submitAuthCode);
-  app.post('/api/tools/open', openApp);
   app.get('/api/logs', getLogs);
   app.get('/api/vault', listVaultWithProjects);
   app.get('/api/vault/list', listVault);
@@ -128,6 +123,8 @@ function createServer(port = 3780) {
   app.get('/api/providers/auth', getAuthStatus);
   app.post('/api/providers/auth/login', triggerOAuthLogin);
   app.post('/api/providers/fetch-models', fetchModels);
+  app.post('/api/providers/export-code', exportProviderCode);
+  app.post('/api/providers/import-code', importProviderCode);
 
   // Usage / quota routes
   app.get('/api/usage/supported', getSupportedUsageProviders);

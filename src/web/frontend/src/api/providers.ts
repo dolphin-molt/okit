@@ -277,3 +277,19 @@ export async function getSupportedUsageProviders(): Promise<{ providers: string[
 export async function getUsage(providerId: string): Promise<UsageResult> {
   return api(`/api/usage/${encodeURIComponent(providerId)}`);
 }
+
+// ─── Deep Link: Provider export / import ───
+
+export async function exportProviderCode(id: string, password?: string): Promise<{ success: boolean; code: string }> {
+  return api('/api/providers/export-code', {
+    method: 'POST',
+    body: JSON.stringify({ id, password }),
+  });
+}
+
+export async function importProviderCode(code: string, password?: string): Promise<{ success: boolean; provider: Provider; created: boolean }> {
+  return api('/api/providers/import-code', {
+    method: 'POST',
+    body: JSON.stringify({ code, password }),
+  });
+}

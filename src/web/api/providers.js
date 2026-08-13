@@ -1447,6 +1447,122 @@ function httpReq(url, options) {
   });
 }
 
+// ─── Deep Link: Provider Export / Import ───
+
+const PROVIDER_CODE_PREFIX = 'okit-provider:';
+const PROVIDER_CODE_SALT = 'okit-provider-salt';
+
+function deriveProviderCodeKey(password) {
+  const crypto = require('crypto');
+  return crypto.pbkdf2Sync(password, PROVIDER_CODE_SALT, 100000, 32, 'sha256');
+}
+
+function encryptProviderPayload(payload, password) {
+  const crypto = require('crypto');
+  const json = JSON.stringify(payload);
+  // No password = plain base64url (for public preset-style links without secrets)
+  if (!password) {
+    return `${PROVIDER_CODE_PREFIX}${Buffer.from(json).toString('base64url')}`;
+  }
+  const key = deriveProviderCodeKey(password);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(json, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${PROVIDER_CODE_PREFIX}${Buffer.from(JSON.stringify({
+    v: 1, encrypted: true,
+    nonce: iv.toString('hex'),
+    ciphertext: encrypted.toString('hex'),
+    tag: tag.toString('hex'),
+  })).toString('base64url')}`;
+}
+
+function decryptProviderPayload(code, password) {
+  const crypto = require('crypto');
+  const raw = String(code || '').trim();
+  if (!raw.startsWith(PROVIDER_CODE_PREFIX)) throw new Error('Provider 码格式不正确');
+  const encoded = raw.slice(PROVIDER_CODE_PREFIX.length);
+  const decoded = Buffer.from(encoded, 'base64url').toString('utf8');
+  let blob;
+  try { blob = JSON.parse(decoded); } catch {
+    throw new Error('Provider 码格式不正确');
+  }
+  // Plain (unencrypted) payload
+  if (!blob.encrypted) return blob;
+  // Encrypted payload — require password
+  if (!password) throw new Error('此 Provider 码需要密码才能导入');
+  const key = deriveProviderCodeKey(password);
+  const iv = Buffer.from(blob.nonce, 'hex');
+  const tag = Buffer.from(blob.tag, 'hex');
+  const ciphertext = Buffer.from(blob.ciphertext, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  try {
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return JSON.parse(decrypted.toString('utf8'));
+  } catch {
+    throw new Error('密码不正确，无法解密 Provider 码');
+  }
+}
+
+async function exportProviderCode(req, res) {
+  try {
+    const { id, password } = req.body || {};
+    if (!id) return res.status(400).json({ error: '请指定要导出的 provider id' });
+    const providers = await loadProviders();
+    const provider = providers.find(p => p.id === id);
+    if (!provider) return res.status(404).json({ error: `未找到 provider: ${id}` });
+
+    // Strip vault-resolved secrets; keep vaultKey reference only
+    const safe = {
+      id: provider.id,
+      name: provider.name,
+      type: provider.type,
+      baseUrl: provider.baseUrl,
+      endpoints: provider.endpoints,
+      vaultKey: provider.vaultKey,
+      authMode: provider.authMode,
+      models: provider.models,
+    };
+    const code = encryptProviderPayload(safe, password);
+    res.json({ success: true, code });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function importProviderCode(req, res) {
+  try {
+    const { code, password } = req.body || {};
+    if (!code) return res.status(400).json({ error: 'Provider 码不能为空' });
+    const provider = decryptProviderPayload(code, password);
+    if (!provider.id || !provider.name) {
+      return res.status(400).json({ error: 'Provider 码内容无效：缺少 id 或 name' });
+    }
+    // Upsert into providers.json (same logic as createProvider)
+    const providers = await loadProviders();
+    const idx = providers.findIndex(p => p.id === provider.id);
+    const existed = idx >= 0;
+    const full = {
+      id: provider.id,
+      name: provider.name,
+      type: provider.type || (provider.endpoints && provider.endpoints[0] ? provider.endpoints[0].type : 'openai'),
+      baseUrl: provider.baseUrl || (provider.endpoints && provider.endpoints[0] ? provider.endpoints[0].baseUrl : ''),
+      endpoints: provider.endpoints || undefined,
+      vaultKey: provider.vaultKey || undefined,
+      authMode: provider.authMode || 'api_key',
+      models: provider.models || [],
+    };
+    if (idx >= 0) providers[idx] = full;
+    else providers.push(full);
+    await saveProviders(providers);
+    res.json({ success: true, provider: full, created: !existed });
+  } catch (err) {
+    const status = err.message?.includes('密码不正确') || err.message?.includes('格式不正确') || err.message?.includes('需要密码') ? 400 : 500;
+    res.status(status).json({ error: err.message });
+  }
+}
+
 module.exports = {
   listProviders,
   getAdaptersList,
@@ -1469,4 +1585,6 @@ module.exports = {
   getAuthStatus,
   triggerOAuthLogin,
   fetchModels,
+  exportProviderCode,
+  importProviderCode,
 };

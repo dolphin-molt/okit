@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     pathExists: vi.fn(async function(p: string) { return files.has(p); }),
     readFile: vi.fn(async function(p: string) { return files.get(p) ?? ''; }),
     writeFile: vi.fn(async function(p: string, c: string) { files.set(p, c); }),
+    rename: vi.fn(async function(oldPath: string, newPath: string) { const c = files.get(oldPath); if (c !== undefined) files.set(newPath, c); }),
     ensureDir: vi.fn(async function() {}),
   };
 });

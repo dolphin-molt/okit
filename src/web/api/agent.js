@@ -249,74 +249,6 @@ async function resolveVaultValue(store, keyAlias) {
   return await store.resolve(parsed.key, parsed.alias);
 }
 
-async function listToolsImpl(filter) {
-  const toolsApi = require('./tools');
-  const { loadRegistry, resolveCmd } = require('../../config/registry');
-
-  const registry = await loadRegistry();
-  const steps = registry.steps || [];
-
-  // Try to use cached tool data from disk cache
-  const CACHE_FILE = path.join(os.homedir(), '.okit', 'cache', 'tools.json');
-  let cached = null;
-  try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const raw = fs.readFileSync(CACHE_FILE, 'utf-8');
-      const data = JSON.parse(raw);
-      if (data?.tools && Date.now() - (data._cacheTime || 0) < 30 * 60 * 1000) {
-        cached = data.tools;
-      }
-    }
-  } catch {}
-
-  if (!cached) {
-    // Quick check — just return registry info without full status check
-    return JSON.stringify(steps.map(s => ({
-      name: s.name,
-      category: s.category || 'other',
-      description: s.description || s.detail || '',
-      install: resolveCmd(s.install) || null,
-      homepage: s.homepage || null,
-    })));
-  }
-
-  let filtered = cached;
-  if (filter === 'installed') filtered = cached.filter(t => t.installed);
-  else if (filter === 'not_installed') filtered = cached.filter(t => !t.installed);
-  else if (filter === 'unauthorized') filtered = cached.filter(t => t.authStatus === 'unauthorized');
-
-  return JSON.stringify(filtered.map(t => ({
-    name: t.name,
-    category: t.category,
-    installed: t.installed,
-    version: t.version,
-    authStatus: t.authStatus,
-    description: t.description || t.detail || '',
-    hasUpgrade: t.hasUpgrade,
-  })));
-}
-
-// ─── Tool: Execute Tool Action ───
-
-async function executeToolAction(toolName, action) {
-  const { loadRegistry, resolveCmd } = require('../../config/registry');
-  const registry = await loadRegistry();
-  const step = registry.steps?.find(s => s.name === toolName);
-  if (!step) return JSON.stringify({ error: `未找到工具: ${toolName}` });
-
-  const cmdField = step[action];
-  const cmd = resolveCmd(cmdField);
-  if (!cmd) return JSON.stringify({ error: `${toolName} 不支持 ${action} 操作` });
-
-  try {
-    const { stdout, stderr } = await execa.command(cmd, { shell: true, timeout: 300000, reject: false });
-    const output = (stdout || '') + (stderr || '');
-    return JSON.stringify({ success: true, output: output.substring(0, 1000) });
-  } catch (err) {
-    return JSON.stringify({ success: false, error: err.message });
-  }
-}
-
 // ─── Agent Chat (SSE) ───
 
 async function agentChat(req, res) {
@@ -355,58 +287,7 @@ async function agentChat(req, res) {
     const platform = os.platform();
 
     const tools = {
-      // ─── 工具管理 ───
-      list_tools: {
-        description: '列出所有开发工具及其安装/授权状态',
-        parameters: z.object({
-          filter: z.enum(['all', 'installed', 'not_installed', 'unauthorized']).optional().describe('筛选条件'),
-        }),
-        execute: async ({ filter }) => {
-          return await listToolsImpl(filter || 'all');
-        },
-      },
-      install_tool: {
-        description: '安装指定工具（需要用户确认）',
-        parameters: z.object({
-          name: z.string().describe('工具名称'),
-        }),
-        execute: async ({ name }) => {
-          sendEvent('confirm_required', { sessionId, action: '安装', target: name, reason: `即将安装 ${name}` });
-          const approved = await new Promise((resolve) => {
-            agentSessions.set(sessionId, { confirmResolve: resolve });
-          });
-          if (!approved) return JSON.stringify({ cancelled: true, reason: '用户拒绝' });
-          return await executeToolAction(name, 'install');
-        },
-      },
-      upgrade_tool: {
-        description: '升级指定工具（需要用户确认）',
-        parameters: z.object({
-          name: z.string().describe('工具名称'),
-        }),
-        execute: async ({ name }) => {
-          sendEvent('confirm_required', { sessionId, action: '升级', target: name, reason: `即将升级 ${name}` });
-          const approved = await new Promise((resolve) => {
-            agentSessions.set(sessionId, { confirmResolve: resolve });
-          });
-          if (!approved) return JSON.stringify({ cancelled: true });
-          return await executeToolAction(name, 'upgrade');
-        },
-      },
-      uninstall_tool: {
-        description: '卸载指定工具（需要用户确认）',
-        parameters: z.object({
-          name: z.string().describe('工具名称'),
-        }),
-        execute: async ({ name }) => {
-          sendEvent('confirm_required', { sessionId, action: '卸载', target: name, reason: `即将卸载 ${name}` });
-          const approved = await new Promise((resolve) => {
-            agentSessions.set(sessionId, { confirmResolve: resolve });
-          });
-          if (!approved) return JSON.stringify({ cancelled: true });
-          return await executeToolAction(name, 'uninstall');
-        },
-      },
+      // ─── 应用管理 ───
       open_app: {
         description: '打开应用程序',
         parameters: z.object({
@@ -744,7 +625,7 @@ async function agentChat(req, res) {
     const systemPrompt = `你是 OKIT 智能助手，一个全能的 AI Agent，可以帮助用户管理开发工具、密钥和系统资源。
 
 你可以使用以下功能：
-- 工具管理：list_tools（查看工具列表）、install_tool（安装）、upgrade_tool（升级）、uninstall_tool（卸载）、open_app（打开应用）
+- 应用管理：open_app（打开应用程序）
 - 密钥管理：list_vault_keys（列出密钥）、get_vault_value（查看值）、set_vault_key（设置）、delete_vault_key（删除）
 - API Key 自动创建：create_api_key（支持 cloudflare/volcengine/zhipu/minimax，需 Chrome 扩展连接。创建后自动存入 Vault）
 - 密钥绑定项目：bind_key_to_project（将密钥写入项目 .okitenv 文件，实现项目级密钥注入）
@@ -766,7 +647,7 @@ async function agentChat(req, res) {
 - 密钥值在展示时已自动脱敏
 - 用中文回复
 - 回复简洁明了，使用 markdown 格式
-- 不要捏造不存在的工具，先 list_tools 查看有哪些${buildSkillsPrompt()}`;
+- 不要捏造不存在的应用名称${buildSkillsPrompt()}`;
 
     try {
       // ─── Pi Agent Kernel ───

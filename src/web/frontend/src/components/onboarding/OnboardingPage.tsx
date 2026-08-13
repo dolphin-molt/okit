@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOnboarding, getPresets, dismissOnboarding, resetOnboarding } from '../../api/settings';
 import { setVault } from '../../api/vault';
-import { executeAction } from '../../api/tools';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
@@ -18,7 +17,6 @@ interface Preset {
   desc: string;
   icon: string;
   color: string;
-  tools: string[];
   requiredKeys: PresetKey[];
 }
 
@@ -75,22 +73,11 @@ export default function OnboardingPage() {
       } catch {}
     }
 
-    // 2. Install tools sequentially
-    let toolsOk = 0;
-    for (const toolName of selectedPreset.tools) {
-      try {
-        for await (const event of executeAction(toolName, 'install')) {
-          if (event.type === 'output') setProgress(prev => prev + event.message + '\n');
-          if (event.type === 'success') toolsOk++;
-        }
-      } catch {}
-    }
-
     setExecuting(false);
     setSelectedPreset(null);
     await dismissOnboardingAction();
-    showToast(t('onboarding.result', { tools: toolsOk, keys: keysOk }));
-    navigate('/tools');
+    showToast(t('onboarding.result', { keys: keysOk }));
+    navigate('/');
   }
 
   async function dismissOnboardingAction() {
@@ -131,7 +118,6 @@ export default function OnboardingPage() {
             <div className="quick-start-card-name">{p.name}</div>
             <div className="quick-start-card-desc">{p.desc}</div>
             <div className="quick-start-card-meta">
-              <span>{t('onboarding.toolsCount', { n: p.tools.length })}</span>
               <span>{t('onboarding.keysCount', { n: p.requiredKeys.length })}</span>
             </div>
           </div>
@@ -150,12 +136,6 @@ export default function OnboardingPage() {
               <button className="progress-close" onClick={() => setSelectedPreset(null)}>&times;</button>
             </div>
             <div className="preset-body">
-              <div className="preset-tools-preview">
-                {selectedPreset.tools.map(t => (
-                  <span key={t} className="preset-tool-tag">{t}</span>
-                ))}
-                <span style={{ fontSize: 11, color: 'var(--ink-muted)' }}>{t('onboarding.willInstall')}</span>
-              </div>
               {selectedPreset.requiredKeys.map(k => (
                 <div key={k.key} className="settings-field" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <label style={{ minWidth: 'auto', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{k.label}</label>

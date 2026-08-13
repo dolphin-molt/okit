@@ -27,6 +27,10 @@
       "type": "anthropic",
       "baseUrl": "https://api.anthropic.com",
       "authMode": "oauth",
+      "executionMode": "agent_native",
+      "nativeAgentIds": [
+        "claude"
+      ],
       "models": [
         {
           "id": "claude-opus-4-7",
@@ -77,6 +81,10 @@
       "type": "openai",
       "baseUrl": "https://chatgpt.com/backend-api/codex",
       "authMode": "oauth",
+      "executionMode": "agent_native",
+      "nativeAgentIds": [
+        "codex"
+      ],
       "models": [
         {
           "id": "codex-1",
@@ -125,6 +133,10 @@
       "type": "google",
       "baseUrl": "https://generativelanguage.googleapis.com",
       "authMode": "oauth",
+      "executionMode": "agent_native",
+      "nativeAgentIds": [
+        "gemini"
+      ],
       "cliOnly": true,
       "models": [
         {
@@ -591,7 +603,7 @@
         },
         {
           "type": "anthropic",
-          "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+          "baseUrl": "https://dashscope.aliyuncs.com/apps/anthropic"
         }
       ],
       "authMode": "api_key",
@@ -626,17 +638,17 @@
       "id": "qwen-coding",
       "name": "阿里云百炼 Coding Plan",
       "type": "openai",
-      "baseUrl": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
       "endpoints": [
         {
           "type": "openai",
           "protocol": "chat",
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
           "plan": "coding"
         },
         {
           "type": "anthropic",
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
           "plan": "coding"
         }
       ],
@@ -994,6 +1006,8 @@
       "type": "openai",
       "baseUrl": "https://grok.com",
       "authMode": "oauth",
+      "executionMode": "agent_native",
+      "nativeAgentIds": [],
       "cliOnly": true,
       "models": [
         {
@@ -1008,6 +1022,8 @@
       "type": "openai",
       "baseUrl": "https://github.com/features/copilot",
       "authMode": "oauth",
+      "executionMode": "agent_native",
+      "nativeAgentIds": [],
       "cliOnly": true,
       "models": [
         {
@@ -1318,7 +1334,7 @@
       "name": "Ollama (本地)",
       "type": "openai",
       "baseUrl": "http://127.0.0.1:11434/v1",
-      "authMode": "api_key",
+      "authMode": "none",
       "models": []
     },
     {
@@ -1326,7 +1342,7 @@
       "name": "LiteLLM (本地)",
       "type": "openai",
       "baseUrl": "http://localhost:4000",
-      "authMode": "api_key",
+      "authMode": "none",
       "models": []
     }
   ],
@@ -1345,22 +1361,25 @@
           "label": "API 平台",
           "providerId": "anthropic",
           "endpointIds": [
-            "anthropic:endpoint:0"
+            "anthropic:endpoint:1rccnhn"
           ],
           "authMethodIds": [
             "anthropic:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "anthropic-agent",
           "type": "agent_subscription",
           "label": "Agent 订阅",
           "providerId": "anthropic-agent",
-          "endpointIds": [
-            "anthropic-agent:endpoint:0"
-          ],
+          "endpointIds": [],
           "authMethodIds": [
             "anthropic-agent:oauth"
+          ],
+          "executionMode": "agent_native",
+          "nativeAgentIds": [
+            "claude"
           ],
           "entitlement": {
             "type": "subscription_included",
@@ -1386,7 +1405,7 @@
       ],
       "endpoints": [
         {
-          "id": "anthropic:endpoint:0",
+          "id": "anthropic:endpoint:1rccnhn",
           "name": "ANTHROPIC",
           "offeringId": "anthropic",
           "baseUrl": "https://api.anthropic.com",
@@ -1396,23 +1415,6 @@
           },
           "authMethodIds": [
             "anthropic:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "anthropic-agent:endpoint:0",
-          "name": "ANTHROPIC",
-          "offeringId": "anthropic-agent",
-          "baseUrl": "https://api.anthropic.com",
-          "protocol": {
-            "family": "anthropic",
-            "mode": "messages"
-          },
-          "authMethodIds": [
-            "anthropic-agent:oauth"
           ],
           "modelDiscovery": {
             "type": "remote",
@@ -1428,16 +1430,19 @@
             {
               "offeringId": "anthropic",
               "endpointIds": [
-                "anthropic:endpoint:0"
+                "anthropic:endpoint:1rccnhn"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "claude-opus-4-7",
               "status": "available",
               "source": "static"
             },
             {
               "offeringId": "anthropic-agent",
-              "endpointIds": [
-                "anthropic-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "claude"
               ],
               "remoteModelId": "claude-opus-4-7",
               "status": "available",
@@ -1452,16 +1457,19 @@
             {
               "offeringId": "anthropic",
               "endpointIds": [
-                "anthropic:endpoint:0"
+                "anthropic:endpoint:1rccnhn"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "claude-sonnet-4-6",
               "status": "available",
               "source": "static"
             },
             {
               "offeringId": "anthropic-agent",
-              "endpointIds": [
-                "anthropic-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "claude"
               ],
               "remoteModelId": "claude-sonnet-4-6",
               "status": "available",
@@ -1476,16 +1484,19 @@
             {
               "offeringId": "anthropic",
               "endpointIds": [
-                "anthropic:endpoint:0"
+                "anthropic:endpoint:1rccnhn"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "claude-haiku-4-5",
               "status": "available",
               "source": "static"
             },
             {
               "offeringId": "anthropic-agent",
-              "endpointIds": [
-                "anthropic-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "claude"
               ],
               "remoteModelId": "claude-haiku-4-5",
               "status": "available",
@@ -1509,12 +1520,13 @@
           "label": "API 平台",
           "providerId": "qwen",
           "endpointIds": [
-            "qwen:endpoint:0",
-            "qwen:endpoint:1"
+            "qwen:endpoint:1psp4fo",
+            "qwen:endpoint:q73kct"
           ],
           "authMethodIds": [
             "qwen:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "qwen-coding",
@@ -1522,12 +1534,13 @@
           "label": "Coding Plan",
           "providerId": "qwen-coding",
           "endpointIds": [
-            "qwen-coding:endpoint:0",
-            "qwen-coding:endpoint:1"
+            "qwen-coding:endpoint:n2f2u3",
+            "qwen-coding:endpoint:1k8mtdz"
           ],
           "authMethodIds": [
             "qwen-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -1548,7 +1561,7 @@
       ],
       "endpoints": [
         {
-          "id": "qwen:endpoint:0",
+          "id": "qwen:endpoint:1psp4fo",
           "name": "OPENAI",
           "offeringId": "qwen",
           "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -1565,10 +1578,10 @@
           }
         },
         {
-          "id": "qwen:endpoint:1",
+          "id": "qwen:endpoint:q73kct",
           "name": "ANTHROPIC",
           "offeringId": "qwen",
-          "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "baseUrl": "https://dashscope.aliyuncs.com/apps/anthropic",
           "protocol": {
             "family": "anthropic",
             "mode": "messages"
@@ -1582,10 +1595,10 @@
           }
         },
         {
-          "id": "qwen-coding:endpoint:0",
+          "id": "qwen-coding:endpoint:n2f2u3",
           "name": "OPENAI chat",
           "offeringId": "qwen-coding",
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
           "protocol": {
             "family": "openai",
             "mode": "chat"
@@ -1599,10 +1612,10 @@
           }
         },
         {
-          "id": "qwen-coding:endpoint:1",
+          "id": "qwen-coding:endpoint:1k8mtdz",
           "name": "ANTHROPIC",
           "offeringId": "qwen-coding",
-          "baseUrl": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+          "baseUrl": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
           "protocol": {
             "family": "anthropic",
             "mode": "messages"
@@ -1623,13 +1636,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.6-max-preview",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1639,13 +1650,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen-max",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1655,13 +1664,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen-plus",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1671,13 +1678,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1687,13 +1692,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3-235b",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1703,13 +1706,11 @@
           "availability": [
             {
               "offeringId": "qwen",
-              "endpointIds": [
-                "qwen:endpoint:0",
-                "qwen:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3-32b",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1719,13 +1720,11 @@
           "availability": [
             {
               "offeringId": "qwen-coding",
-              "endpointIds": [
-                "qwen-coding:endpoint:0",
-                "qwen-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3-coder-plus",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1735,13 +1734,11 @@
           "availability": [
             {
               "offeringId": "qwen-coding",
-              "endpointIds": [
-                "qwen-coding:endpoint:0",
-                "qwen-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1751,13 +1748,11 @@
           "availability": [
             {
               "offeringId": "qwen-coding",
-              "endpointIds": [
-                "qwen-coding:endpoint:0",
-                "qwen-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -1767,13 +1762,11 @@
           "availability": [
             {
               "offeringId": "qwen-coding",
-              "endpointIds": [
-                "qwen-coding:endpoint:0",
-                "qwen-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -1793,22 +1786,25 @@
           "label": "API Key",
           "providerId": "openai",
           "endpointIds": [
-            "openai:endpoint:0"
+            "openai:endpoint:1g101dj"
           ],
           "authMethodIds": [
             "openai:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "openai-codex",
           "type": "agent_subscription",
           "label": "Agent 订阅",
           "providerId": "openai-codex",
-          "endpointIds": [
-            "openai-codex:endpoint:0"
-          ],
+          "endpointIds": [],
           "authMethodIds": [
             "openai-codex:oauth"
+          ],
+          "executionMode": "agent_native",
+          "nativeAgentIds": [
+            "codex"
           ],
           "entitlement": {
             "type": "subscription_included",
@@ -1834,7 +1830,7 @@
       ],
       "endpoints": [
         {
-          "id": "openai:endpoint:0",
+          "id": "openai:endpoint:1g101dj",
           "name": "OPENAI",
           "offeringId": "openai",
           "baseUrl": "https://api.openai.com/v1",
@@ -1844,23 +1840,6 @@
           },
           "authMethodIds": [
             "openai:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "openai-codex:endpoint:0",
-          "name": "OPENAI",
-          "offeringId": "openai-codex",
-          "baseUrl": "https://chatgpt.com/backend-api/codex",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "openai-codex:oauth"
           ],
           "modelDiscovery": {
             "type": "remote",
@@ -1876,8 +1855,9 @@
             {
               "offeringId": "openai",
               "endpointIds": [
-                "openai:endpoint:0"
+                "openai:endpoint:1g101dj"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.5",
               "status": "available",
               "source": "static"
@@ -1891,8 +1871,9 @@
             {
               "offeringId": "openai",
               "endpointIds": [
-                "openai:endpoint:0"
+                "openai:endpoint:1g101dj"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.4-mini",
               "status": "available",
               "source": "static"
@@ -1906,8 +1887,9 @@
             {
               "offeringId": "openai",
               "endpointIds": [
-                "openai:endpoint:0"
+                "openai:endpoint:1g101dj"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "o3",
               "status": "available",
               "source": "static"
@@ -1921,8 +1903,9 @@
             {
               "offeringId": "openai",
               "endpointIds": [
-                "openai:endpoint:0"
+                "openai:endpoint:1g101dj"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "o4-mini",
               "status": "available",
               "source": "static"
@@ -1936,8 +1919,9 @@
             {
               "offeringId": "openai",
               "endpointIds": [
-                "openai:endpoint:0"
+                "openai:endpoint:1g101dj"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gpt-4.1",
               "status": "available",
               "source": "static"
@@ -1950,8 +1934,10 @@
           "availability": [
             {
               "offeringId": "openai-codex",
-              "endpointIds": [
-                "openai-codex:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "codex"
               ],
               "remoteModelId": "codex-1",
               "status": "available",
@@ -1975,12 +1961,13 @@
           "label": "API 平台",
           "providerId": "google",
           "endpointIds": [
-            "google:endpoint:0",
-            "google:endpoint:1"
+            "google:endpoint:jwii2c",
+            "google:endpoint:yn3vp8"
           ],
           "authMethodIds": [
             "google:api-key"
           ],
+          "executionMode": "http_endpoint",
           "entitlement": {
             "type": "pay_as_you_go"
           }
@@ -1990,11 +1977,13 @@
           "type": "agent_subscription",
           "label": "Agent 订阅",
           "providerId": "google-agent",
-          "endpointIds": [
-            "google-agent:endpoint:0"
-          ],
+          "endpointIds": [],
           "authMethodIds": [
             "google-agent:oauth"
+          ],
+          "executionMode": "agent_native",
+          "nativeAgentIds": [
+            "gemini"
           ],
           "entitlement": {
             "type": "subscription_included",
@@ -2020,7 +2009,7 @@
       ],
       "endpoints": [
         {
-          "id": "google:endpoint:0",
+          "id": "google:endpoint:jwii2c",
           "name": "GOOGLE",
           "offeringId": "google",
           "baseUrl": "https://generativelanguage.googleapis.com",
@@ -2037,7 +2026,7 @@
           }
         },
         {
-          "id": "google:endpoint:1",
+          "id": "google:endpoint:yn3vp8",
           "name": "OPENAI",
           "offeringId": "google",
           "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -2052,23 +2041,6 @@
             "type": "remote",
             "path": "/models"
           }
-        },
-        {
-          "id": "google-agent:endpoint:0",
-          "name": "GOOGLE",
-          "offeringId": "google-agent",
-          "baseUrl": "https://generativelanguage.googleapis.com",
-          "protocol": {
-            "family": "google",
-            "mode": "generate-content"
-          },
-          "authMethodIds": [
-            "google-agent:oauth"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
         }
       ],
       "models": [
@@ -2078,18 +2050,18 @@
           "availability": [
             {
               "offeringId": "google",
-              "endpointIds": [
-                "google:endpoint:0",
-                "google:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gemini-3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "google-agent",
-              "endpointIds": [
-                "google-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "gemini"
               ],
               "remoteModelId": "gemini-3",
               "status": "available",
@@ -2103,18 +2075,18 @@
           "availability": [
             {
               "offeringId": "google",
-              "endpointIds": [
-                "google:endpoint:0",
-                "google:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gemini-2.5-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "google-agent",
-              "endpointIds": [
-                "google-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "gemini"
               ],
               "remoteModelId": "gemini-2.5-pro",
               "status": "available",
@@ -2128,18 +2100,18 @@
           "availability": [
             {
               "offeringId": "google",
-              "endpointIds": [
-                "google:endpoint:0",
-                "google:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gemini-2.5-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "google-agent",
-              "endpointIds": [
-                "google-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "gemini"
               ],
               "remoteModelId": "gemini-2.5-flash",
               "status": "available",
@@ -2153,18 +2125,18 @@
           "availability": [
             {
               "offeringId": "google",
-              "endpointIds": [
-                "google:endpoint:0",
-                "google:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gemini-2.5-flash-lite",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "google-agent",
-              "endpointIds": [
-                "google-agent:endpoint:0"
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [
+                "gemini"
               ],
               "remoteModelId": "gemini-2.5-flash-lite",
               "status": "available",
@@ -2188,23 +2160,24 @@
           "label": "API Key",
           "providerId": "xai",
           "endpointIds": [
-            "xai:endpoint:0"
+            "xai:endpoint:1gp6of8"
           ],
           "authMethodIds": [
             "xai:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "xai-grok-build",
           "type": "agent_subscription",
           "label": "Agent 订阅",
           "providerId": "xai-grok-build",
-          "endpointIds": [
-            "xai-grok-build:endpoint:0"
-          ],
+          "endpointIds": [],
           "authMethodIds": [
             "xai-grok-build:oauth"
           ],
+          "executionMode": "agent_native",
+          "nativeAgentIds": [],
           "entitlement": {
             "type": "subscription_included",
             "product": "Grok / X"
@@ -2229,7 +2202,7 @@
       ],
       "endpoints": [
         {
-          "id": "xai:endpoint:0",
+          "id": "xai:endpoint:1gp6of8",
           "name": "OPENAI",
           "offeringId": "xai",
           "baseUrl": "https://api.x.ai/v1",
@@ -2239,23 +2212,6 @@
           },
           "authMethodIds": [
             "xai:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "xai-grok-build:endpoint:0",
-          "name": "OPENAI",
-          "offeringId": "xai-grok-build",
-          "baseUrl": "https://grok.com",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "xai-grok-build:oauth"
           ],
           "modelDiscovery": {
             "type": "remote",
@@ -2271,17 +2227,18 @@
             {
               "offeringId": "xai",
               "endpointIds": [
-                "xai:endpoint:0"
+                "xai:endpoint:1gp6of8"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.5",
               "status": "available",
               "source": "static"
             },
             {
               "offeringId": "xai-grok-build",
-              "endpointIds": [
-                "xai-grok-build:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "grok-4.5",
               "status": "available",
               "source": "static"
@@ -2295,8 +2252,9 @@
             {
               "offeringId": "xai",
               "endpointIds": [
-                "xai:endpoint:0"
+                "xai:endpoint:1gp6of8"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.20-0309-reasoning",
               "status": "available",
               "source": "static"
@@ -2310,8 +2268,9 @@
             {
               "offeringId": "xai",
               "endpointIds": [
-                "xai:endpoint:0"
+                "xai:endpoint:1gp6of8"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.20-0309-non-reasoning",
               "status": "available",
               "source": "static"
@@ -2325,8 +2284,9 @@
             {
               "offeringId": "xai",
               "endpointIds": [
-                "xai:endpoint:0"
+                "xai:endpoint:1gp6of8"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4-1-fast-reasoning",
               "status": "available",
               "source": "static"
@@ -2340,8 +2300,9 @@
             {
               "offeringId": "xai",
               "endpointIds": [
-                "xai:endpoint:0"
+                "xai:endpoint:1gp6of8"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4-1-fast-non-reasoning",
               "status": "available",
               "source": "static"
@@ -2362,12 +2323,12 @@
           "type": "agent_subscription",
           "label": "Agent 订阅",
           "providerId": "github-copilot",
-          "endpointIds": [
-            "github-copilot:endpoint:0"
-          ],
+          "endpointIds": [],
           "authMethodIds": [
             "github-copilot:oauth"
           ],
+          "executionMode": "agent_native",
+          "nativeAgentIds": [],
           "entitlement": {
             "type": "subscription_included",
             "product": "GitHub Copilot"
@@ -2383,25 +2344,7 @@
           "status": "unconfigured"
         }
       ],
-      "endpoints": [
-        {
-          "id": "github-copilot:endpoint:0",
-          "name": "OPENAI",
-          "offeringId": "github-copilot",
-          "baseUrl": "https://github.com/features/copilot",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "github-copilot:oauth"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        }
-      ],
+      "endpoints": [],
       "models": [
         {
           "id": "claude-sonnet-4.6",
@@ -2409,9 +2352,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "claude-sonnet-4.6",
               "status": "available",
               "source": "static"
@@ -2424,9 +2367,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "gpt-5.4",
               "status": "available",
               "source": "static"
@@ -2439,9 +2382,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "claude-haiku-4.5",
               "status": "available",
               "source": "static"
@@ -2454,9 +2397,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "gpt-5.3-codex",
               "status": "available",
               "source": "static"
@@ -2469,9 +2412,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "gemini-3.1-pro-preview",
               "status": "available",
               "source": "static"
@@ -2484,9 +2427,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "gemini-3.5-flash",
               "status": "available",
               "source": "static"
@@ -2499,9 +2442,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "gemini-3.6-flash",
               "status": "available",
               "source": "static"
@@ -2514,9 +2457,9 @@
           "availability": [
             {
               "offeringId": "github-copilot",
-              "endpointIds": [
-                "github-copilot:endpoint:0"
-              ],
+              "endpointIds": [],
+              "executionMode": "agent_native",
+              "nativeAgentIds": [],
               "remoteModelId": "mai-code-1-flash",
               "status": "available",
               "source": "static"
@@ -2539,12 +2482,13 @@
           "label": "API 平台",
           "providerId": "zai",
           "endpointIds": [
-            "zai:endpoint:0",
-            "zai:endpoint:1"
+            "zai:endpoint:1hyue1o",
+            "zai:endpoint:vkjdgq"
           ],
           "authMethodIds": [
             "zai:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "glm-coding",
@@ -2552,12 +2496,13 @@
           "label": "Coding Plan",
           "providerId": "glm-coding",
           "endpointIds": [
-            "glm-coding:endpoint:0",
-            "glm-coding:endpoint:1"
+            "glm-coding:endpoint:1ha0sot",
+            "glm-coding:endpoint:hq5nck"
           ],
           "authMethodIds": [
             "glm-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -2578,7 +2523,7 @@
       ],
       "endpoints": [
         {
-          "id": "zai:endpoint:0",
+          "id": "zai:endpoint:1hyue1o",
           "name": "OPENAI",
           "offeringId": "zai",
           "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
@@ -2595,7 +2540,7 @@
           }
         },
         {
-          "id": "zai:endpoint:1",
+          "id": "zai:endpoint:vkjdgq",
           "name": "ANTHROPIC",
           "offeringId": "zai",
           "baseUrl": "https://open.bigmodel.cn/api/anthropic",
@@ -2612,7 +2557,7 @@
           }
         },
         {
-          "id": "glm-coding:endpoint:0",
+          "id": "glm-coding:endpoint:1ha0sot",
           "name": "OPENAI chat",
           "offeringId": "glm-coding",
           "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
@@ -2629,7 +2574,7 @@
           }
         },
         {
-          "id": "glm-coding:endpoint:1",
+          "id": "glm-coding:endpoint:hq5nck",
           "name": "ANTHROPIC",
           "offeringId": "glm-coding",
           "baseUrl": "https://open.bigmodel.cn/api/anthropic",
@@ -2653,13 +2598,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2669,13 +2612,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2685,23 +2626,19 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "glm-coding",
-              "endpointIds": [
-                "glm-coding:endpoint:0",
-                "glm-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2711,13 +2648,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5v-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2727,23 +2662,19 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "glm-coding",
-              "endpointIds": [
-                "glm-coding:endpoint:0",
-                "glm-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2753,13 +2684,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2769,13 +2698,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.6",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2785,13 +2712,11 @@
           "availability": [
             {
               "offeringId": "zai",
-              "endpointIds": [
-                "zai:endpoint:0",
-                "zai:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-ocr",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2801,13 +2726,11 @@
           "availability": [
             {
               "offeringId": "glm-coding",
-              "endpointIds": [
-                "glm-coding:endpoint:0",
-                "glm-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -2827,12 +2750,13 @@
           "label": "API 平台",
           "providerId": "zai-global",
           "endpointIds": [
-            "zai-global:endpoint:0",
-            "zai-global:endpoint:1"
+            "zai-global:endpoint:w7g80o",
+            "zai-global:endpoint:zay73a"
           ],
           "authMethodIds": [
             "zai-global:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "zai-global-coding",
@@ -2840,12 +2764,13 @@
           "label": "Coding Plan",
           "providerId": "zai-global-coding",
           "endpointIds": [
-            "zai-global-coding:endpoint:0",
-            "zai-global-coding:endpoint:1"
+            "zai-global-coding:endpoint:zp52h5",
+            "zai-global-coding:endpoint:1a4mbm0"
           ],
           "authMethodIds": [
             "zai-global-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -2866,7 +2791,7 @@
       ],
       "endpoints": [
         {
-          "id": "zai-global:endpoint:0",
+          "id": "zai-global:endpoint:w7g80o",
           "name": "OPENAI",
           "offeringId": "zai-global",
           "baseUrl": "https://api.z.ai/api/paas/v4",
@@ -2883,7 +2808,7 @@
           }
         },
         {
-          "id": "zai-global:endpoint:1",
+          "id": "zai-global:endpoint:zay73a",
           "name": "ANTHROPIC",
           "offeringId": "zai-global",
           "baseUrl": "https://api.z.ai/api/anthropic",
@@ -2900,7 +2825,7 @@
           }
         },
         {
-          "id": "zai-global-coding:endpoint:0",
+          "id": "zai-global-coding:endpoint:zp52h5",
           "name": "OPENAI chat",
           "offeringId": "zai-global-coding",
           "baseUrl": "https://api.z.ai/api/coding/paas/v4",
@@ -2917,7 +2842,7 @@
           }
         },
         {
-          "id": "zai-global-coding:endpoint:1",
+          "id": "zai-global-coding:endpoint:1a4mbm0",
           "name": "ANTHROPIC",
           "offeringId": "zai-global-coding",
           "baseUrl": "https://api.z.ai/api/anthropic",
@@ -2941,23 +2866,19 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "zai-global-coding",
-              "endpointIds": [
-                "zai-global-coding:endpoint:0",
-                "zai-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2967,23 +2888,19 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "zai-global-coding",
-              "endpointIds": [
-                "zai-global-coding:endpoint:0",
-                "zai-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -2993,13 +2910,11 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3009,13 +2924,11 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5v-turbo",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3025,23 +2938,19 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "zai-global-coding",
-              "endpointIds": [
-                "zai-global-coding:endpoint:0",
-                "zai-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3051,13 +2960,11 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3067,13 +2974,11 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.6",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3083,13 +2988,11 @@
           "availability": [
             {
               "offeringId": "zai-global",
-              "endpointIds": [
-                "zai-global:endpoint:0",
-                "zai-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-ocr",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -3109,12 +3012,13 @@
           "label": "API 平台",
           "providerId": "minimax",
           "endpointIds": [
-            "minimax:endpoint:0",
-            "minimax:endpoint:1"
+            "minimax:endpoint:5xk5h7",
+            "minimax:endpoint:1bpwrg6"
           ],
           "authMethodIds": [
             "minimax:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "minimax-coding",
@@ -3122,12 +3026,13 @@
           "label": "Token Plan",
           "providerId": "minimax-coding",
           "endpointIds": [
-            "minimax-coding:endpoint:0",
-            "minimax-coding:endpoint:1"
+            "minimax-coding:endpoint:4w6z06",
+            "minimax-coding:endpoint:jlp2fv"
           ],
           "authMethodIds": [
             "minimax-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -3148,7 +3053,7 @@
       ],
       "endpoints": [
         {
-          "id": "minimax:endpoint:0",
+          "id": "minimax:endpoint:5xk5h7",
           "name": "OPENAI",
           "offeringId": "minimax",
           "baseUrl": "https://api.minimaxi.com/v1",
@@ -3165,7 +3070,7 @@
           }
         },
         {
-          "id": "minimax:endpoint:1",
+          "id": "minimax:endpoint:1bpwrg6",
           "name": "ANTHROPIC",
           "offeringId": "minimax",
           "baseUrl": "https://api.minimaxi.com/anthropic",
@@ -3182,7 +3087,7 @@
           }
         },
         {
-          "id": "minimax-coding:endpoint:0",
+          "id": "minimax-coding:endpoint:4w6z06",
           "name": "OPENAI chat",
           "offeringId": "minimax-coding",
           "baseUrl": "https://api.minimaxi.com/v1",
@@ -3199,7 +3104,7 @@
           }
         },
         {
-          "id": "minimax-coding:endpoint:1",
+          "id": "minimax-coding:endpoint:jlp2fv",
           "name": "ANTHROPIC",
           "offeringId": "minimax-coding",
           "baseUrl": "https://api.minimaxi.com/anthropic",
@@ -3223,23 +3128,19 @@
           "availability": [
             {
               "offeringId": "minimax",
-              "endpointIds": [
-                "minimax:endpoint:0",
-                "minimax:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "minimax-coding",
-              "endpointIds": [
-                "minimax-coding:endpoint:0",
-                "minimax-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3249,23 +3150,19 @@
           "availability": [
             {
               "offeringId": "minimax",
-              "endpointIds": [
-                "minimax:endpoint:0",
-                "minimax:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "minimax-coding",
-              "endpointIds": [
-                "minimax-coding:endpoint:0",
-                "minimax-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3275,13 +3172,11 @@
           "availability": [
             {
               "offeringId": "minimax",
-              "endpointIds": [
-                "minimax:endpoint:0",
-                "minimax:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3291,13 +3186,11 @@
           "availability": [
             {
               "offeringId": "minimax",
-              "endpointIds": [
-                "minimax:endpoint:0",
-                "minimax:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-Text-01",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3307,13 +3200,11 @@
           "availability": [
             {
               "offeringId": "minimax-coding",
-              "endpointIds": [
-                "minimax-coding:endpoint:0",
-                "minimax-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7-highspeed",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -3333,12 +3224,13 @@
           "label": "API 平台",
           "providerId": "minimax-global",
           "endpointIds": [
-            "minimax-global:endpoint:0",
-            "minimax-global:endpoint:1"
+            "minimax-global:endpoint:s7utfl",
+            "minimax-global:endpoint:3fuxl8"
           ],
           "authMethodIds": [
             "minimax-global:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "minimax-global-coding",
@@ -3346,12 +3238,13 @@
           "label": "Token Plan",
           "providerId": "minimax-global-coding",
           "endpointIds": [
-            "minimax-global-coding:endpoint:0",
-            "minimax-global-coding:endpoint:1"
+            "minimax-global-coding:endpoint:6ee1o4",
+            "minimax-global-coding:endpoint:1neodrx"
           ],
           "authMethodIds": [
             "minimax-global-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -3372,7 +3265,7 @@
       ],
       "endpoints": [
         {
-          "id": "minimax-global:endpoint:0",
+          "id": "minimax-global:endpoint:s7utfl",
           "name": "OPENAI",
           "offeringId": "minimax-global",
           "baseUrl": "https://api.minimax.io/v1",
@@ -3389,7 +3282,7 @@
           }
         },
         {
-          "id": "minimax-global:endpoint:1",
+          "id": "minimax-global:endpoint:3fuxl8",
           "name": "ANTHROPIC",
           "offeringId": "minimax-global",
           "baseUrl": "https://api.minimax.io/anthropic",
@@ -3406,7 +3299,7 @@
           }
         },
         {
-          "id": "minimax-global-coding:endpoint:0",
+          "id": "minimax-global-coding:endpoint:6ee1o4",
           "name": "OPENAI chat",
           "offeringId": "minimax-global-coding",
           "baseUrl": "https://api.minimax.io/v1",
@@ -3423,7 +3316,7 @@
           }
         },
         {
-          "id": "minimax-global-coding:endpoint:1",
+          "id": "minimax-global-coding:endpoint:1neodrx",
           "name": "ANTHROPIC",
           "offeringId": "minimax-global-coding",
           "baseUrl": "https://api.minimax.io/anthropic",
@@ -3447,23 +3340,19 @@
           "availability": [
             {
               "offeringId": "minimax-global",
-              "endpointIds": [
-                "minimax-global:endpoint:0",
-                "minimax-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "minimax-global-coding",
-              "endpointIds": [
-                "minimax-global-coding:endpoint:0",
-                "minimax-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3473,23 +3362,19 @@
           "availability": [
             {
               "offeringId": "minimax-global",
-              "endpointIds": [
-                "minimax-global:endpoint:0",
-                "minimax-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "minimax-global-coding",
-              "endpointIds": [
-                "minimax-global-coding:endpoint:0",
-                "minimax-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3499,13 +3384,11 @@
           "availability": [
             {
               "offeringId": "minimax-global",
-              "endpointIds": [
-                "minimax-global:endpoint:0",
-                "minimax-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3515,13 +3398,11 @@
           "availability": [
             {
               "offeringId": "minimax-global",
-              "endpointIds": [
-                "minimax-global:endpoint:0",
-                "minimax-global:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-Text-01",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3531,13 +3412,11 @@
           "availability": [
             {
               "offeringId": "minimax-global-coding",
-              "endpointIds": [
-                "minimax-global-coding:endpoint:0",
-                "minimax-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3547,13 +3426,11 @@
           "availability": [
             {
               "offeringId": "minimax-global-coding",
-              "endpointIds": [
-                "minimax-global-coding:endpoint:0",
-                "minimax-global-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiniMax-M2.7-highspeed",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -3561,51 +3438,24 @@
     },
     {
       "id": "moonshot",
-      "name": "Kimi / Moonshot",
+      "name": "Moonshot",
       "providerIds": [
-        "moonshot",
-        "kimi-coding",
-        "kimi-coding-plan"
+        "moonshot"
       ],
       "offerings": [
         {
           "id": "moonshot",
           "type": "api",
-          "label": "Moonshot（国际 API）",
+          "label": "API 平台",
           "providerId": "moonshot",
           "endpointIds": [
-            "moonshot:endpoint:0",
-            "moonshot:endpoint:1"
+            "moonshot:endpoint:1vsbanh",
+            "moonshot:endpoint:swslw0"
           ],
           "authMethodIds": [
             "moonshot:api-key"
-          ]
-        },
-        {
-          "id": "kimi-coding",
-          "type": "api",
-          "label": "Kimi（国内 API）",
-          "providerId": "kimi-coding",
-          "endpointIds": [
-            "kimi-coding:endpoint:0",
-            "kimi-coding:endpoint:1"
           ],
-          "authMethodIds": [
-            "kimi-coding:api-key"
-          ]
-        },
-        {
-          "id": "kimi-coding-plan",
-          "type": "coding_plan",
-          "label": "Coding Plan",
-          "providerId": "kimi-coding-plan",
-          "endpointIds": [
-            "kimi-coding-plan:endpoint:0",
-            "kimi-coding-plan:endpoint:1"
-          ],
-          "authMethodIds": [
-            "kimi-coding-plan:api-key"
-          ]
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -3615,7 +3465,141 @@
           "label": "API Key",
           "providerId": "moonshot",
           "status": "unconfigured"
+        }
+      ],
+      "endpoints": [
+        {
+          "id": "moonshot:endpoint:1vsbanh",
+          "name": "OPENAI",
+          "offeringId": "moonshot",
+          "baseUrl": "https://api.moonshot.ai/v1",
+          "protocol": {
+            "family": "openai",
+            "mode": "chat"
+          },
+          "authMethodIds": [
+            "moonshot:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
         },
+        {
+          "id": "moonshot:endpoint:swslw0",
+          "name": "ANTHROPIC",
+          "offeringId": "moonshot",
+          "baseUrl": "https://api.moonshot.ai/anthropic",
+          "protocol": {
+            "family": "anthropic",
+            "mode": "messages"
+          },
+          "authMethodIds": [
+            "moonshot:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        }
+      ],
+      "models": [
+        {
+          "id": "kimi-latest",
+          "name": "Kimi Latest",
+          "availability": [
+            {
+              "offeringId": "moonshot",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "kimi-latest",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "moonshot-v1-128k",
+          "name": "Moonshot V1 128K",
+          "availability": [
+            {
+              "offeringId": "moonshot",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "moonshot-v1-128k",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "moonshot-v1-32k",
+          "name": "Moonshot V1 32K",
+          "availability": [
+            {
+              "offeringId": "moonshot",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "moonshot-v1-32k",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "moonshot-v1-8k",
+          "name": "Moonshot V1 8K",
+          "availability": [
+            {
+              "offeringId": "moonshot",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "moonshot-v1-8k",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kimi-coding",
+      "name": "Kimi",
+      "providerIds": [
+        "kimi-coding",
+        "kimi-coding-plan"
+      ],
+      "offerings": [
+        {
+          "id": "kimi-coding",
+          "type": "api",
+          "label": "国内 API 平台",
+          "providerId": "kimi-coding",
+          "endpointIds": [
+            "kimi-coding:endpoint:7dhiqg",
+            "kimi-coding:endpoint:1cfowpf"
+          ],
+          "authMethodIds": [
+            "kimi-coding:api-key"
+          ],
+          "executionMode": "http_endpoint"
+        },
+        {
+          "id": "kimi-coding-plan",
+          "type": "coding_plan",
+          "label": "Coding Plan",
+          "providerId": "kimi-coding-plan",
+          "endpointIds": [
+            "kimi-coding-plan:endpoint:1lhgb9c",
+            "kimi-coding-plan:endpoint:1q7otr2"
+          ],
+          "authMethodIds": [
+            "kimi-coding-plan:api-key"
+          ],
+          "executionMode": "http_endpoint"
+        }
+      ],
+      "authMethods": [
         {
           "id": "kimi-coding:api-key",
           "type": "api_key",
@@ -3633,41 +3617,7 @@
       ],
       "endpoints": [
         {
-          "id": "moonshot:endpoint:0",
-          "name": "OPENAI",
-          "offeringId": "moonshot",
-          "baseUrl": "https://api.moonshot.ai/v1",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "moonshot:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "moonshot:endpoint:1",
-          "name": "ANTHROPIC",
-          "offeringId": "moonshot",
-          "baseUrl": "https://api.moonshot.ai/anthropic",
-          "protocol": {
-            "family": "anthropic",
-            "mode": "messages"
-          },
-          "authMethodIds": [
-            "moonshot:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "kimi-coding:endpoint:0",
+          "id": "kimi-coding:endpoint:7dhiqg",
           "name": "OPENAI",
           "offeringId": "kimi-coding",
           "baseUrl": "https://api.moonshot.cn/v1",
@@ -3684,7 +3634,7 @@
           }
         },
         {
-          "id": "kimi-coding:endpoint:1",
+          "id": "kimi-coding:endpoint:1cfowpf",
           "name": "ANTHROPIC",
           "offeringId": "kimi-coding",
           "baseUrl": "https://api.moonshot.cn/anthropic",
@@ -3701,7 +3651,7 @@
           }
         },
         {
-          "id": "kimi-coding-plan:endpoint:0",
+          "id": "kimi-coding-plan:endpoint:1lhgb9c",
           "name": "OPENAI chat",
           "offeringId": "kimi-coding-plan",
           "baseUrl": "https://api.kimi.com/coding/v1",
@@ -3718,7 +3668,7 @@
           }
         },
         {
-          "id": "kimi-coding-plan:endpoint:1",
+          "id": "kimi-coding-plan:endpoint:1q7otr2",
           "name": "ANTHROPIC",
           "offeringId": "kimi-coding-plan",
           "baseUrl": "https://api.kimi.com/coding",
@@ -3737,82 +3687,16 @@
       ],
       "models": [
         {
-          "id": "kimi-latest",
-          "name": "Kimi Latest",
-          "availability": [
-            {
-              "offeringId": "moonshot",
-              "endpointIds": [
-                "moonshot:endpoint:0",
-                "moonshot:endpoint:1"
-              ],
-              "remoteModelId": "kimi-latest",
-              "status": "available",
-              "source": "static"
-            }
-          ]
-        },
-        {
-          "id": "moonshot-v1-128k",
-          "name": "Moonshot V1 128K",
-          "availability": [
-            {
-              "offeringId": "moonshot",
-              "endpointIds": [
-                "moonshot:endpoint:0",
-                "moonshot:endpoint:1"
-              ],
-              "remoteModelId": "moonshot-v1-128k",
-              "status": "available",
-              "source": "static"
-            }
-          ]
-        },
-        {
-          "id": "moonshot-v1-32k",
-          "name": "Moonshot V1 32K",
-          "availability": [
-            {
-              "offeringId": "moonshot",
-              "endpointIds": [
-                "moonshot:endpoint:0",
-                "moonshot:endpoint:1"
-              ],
-              "remoteModelId": "moonshot-v1-32k",
-              "status": "available",
-              "source": "static"
-            }
-          ]
-        },
-        {
-          "id": "moonshot-v1-8k",
-          "name": "Moonshot V1 8K",
-          "availability": [
-            {
-              "offeringId": "moonshot",
-              "endpointIds": [
-                "moonshot:endpoint:0",
-                "moonshot:endpoint:1"
-              ],
-              "remoteModelId": "moonshot-v1-8k",
-              "status": "available",
-              "source": "static"
-            }
-          ]
-        },
-        {
           "id": "kimi-k2.5",
           "name": "Kimi K2.5",
           "availability": [
             {
               "offeringId": "kimi-coding",
-              "endpointIds": [
-                "kimi-coding:endpoint:0",
-                "kimi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3822,13 +3706,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding",
-              "endpointIds": [
-                "kimi-coding:endpoint:0",
-                "kimi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2-thinking",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3838,13 +3720,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding",
-              "endpointIds": [
-                "kimi-coding:endpoint:0",
-                "kimi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-code",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3854,13 +3734,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding-plan",
-              "endpointIds": [
-                "kimi-coding-plan:endpoint:0",
-                "kimi-coding-plan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "k3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3870,13 +3748,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding-plan",
-              "endpointIds": [
-                "kimi-coding-plan:endpoint:0",
-                "kimi-coding-plan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "k3-256k",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3886,13 +3762,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding-plan",
-              "endpointIds": [
-                "kimi-coding-plan:endpoint:0",
-                "kimi-coding-plan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-for-coding",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -3902,13 +3776,11 @@
           "availability": [
             {
               "offeringId": "kimi-coding-plan",
-              "endpointIds": [
-                "kimi-coding-plan:endpoint:0",
-                "kimi-coding-plan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-for-coding-highspeed",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -3929,12 +3801,13 @@
           "label": "API 平台",
           "providerId": "volcengine",
           "endpointIds": [
-            "volcengine:endpoint:0",
-            "volcengine:endpoint:1"
+            "volcengine:endpoint:p1crjk",
+            "volcengine:endpoint:9b8jnk"
           ],
           "authMethodIds": [
             "volcengine:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "volcengine-coding",
@@ -3942,12 +3815,13 @@
           "label": "Coding Plan",
           "providerId": "volcengine-coding",
           "endpointIds": [
-            "volcengine-coding:endpoint:0",
-            "volcengine-coding:endpoint:1"
+            "volcengine-coding:endpoint:1e098zt",
+            "volcengine-coding:endpoint:v3b18j"
           ],
           "authMethodIds": [
             "volcengine-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "volcengine-agent",
@@ -3955,12 +3829,13 @@
           "label": "Agent Plan",
           "providerId": "volcengine-agent",
           "endpointIds": [
-            "volcengine-agent:endpoint:0",
-            "volcengine-agent:endpoint:1"
+            "volcengine-agent:endpoint:1et1u4b",
+            "volcengine-agent:endpoint:xmrffp"
           ],
           "authMethodIds": [
             "volcengine-agent:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -3988,7 +3863,7 @@
       ],
       "endpoints": [
         {
-          "id": "volcengine:endpoint:0",
+          "id": "volcengine:endpoint:p1crjk",
           "name": "OPENAI",
           "offeringId": "volcengine",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
@@ -4005,7 +3880,7 @@
           }
         },
         {
-          "id": "volcengine:endpoint:1",
+          "id": "volcengine:endpoint:9b8jnk",
           "name": "ANTHROPIC",
           "offeringId": "volcengine",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
@@ -4022,7 +3897,7 @@
           }
         },
         {
-          "id": "volcengine-coding:endpoint:0",
+          "id": "volcengine-coding:endpoint:1e098zt",
           "name": "OPENAI chat",
           "offeringId": "volcengine-coding",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
@@ -4039,7 +3914,7 @@
           }
         },
         {
-          "id": "volcengine-coding:endpoint:1",
+          "id": "volcengine-coding:endpoint:v3b18j",
           "name": "ANTHROPIC",
           "offeringId": "volcengine-coding",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/coding",
@@ -4056,7 +3931,7 @@
           }
         },
         {
-          "id": "volcengine-agent:endpoint:0",
+          "id": "volcengine-agent:endpoint:1et1u4b",
           "name": "OPENAI chat",
           "offeringId": "volcengine-agent",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
@@ -4073,7 +3948,7 @@
           }
         },
         {
-          "id": "volcengine-agent:endpoint:1",
+          "id": "volcengine-agent:endpoint:xmrffp",
           "name": "ANTHROPIC",
           "offeringId": "volcengine-agent",
           "baseUrl": "https://ark.cn-beijing.volces.com/api/plan",
@@ -4097,33 +3972,27 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-2.0-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-coding",
-              "endpointIds": [
-                "volcengine-coding:endpoint:0",
-                "volcengine-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-2.0-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-agent",
-              "endpointIds": [
-                "volcengine-agent:endpoint:0",
-                "volcengine-agent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-2.0-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4133,13 +4002,11 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-1-8-251228",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4149,23 +4016,19 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-code-preview-251028",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-coding",
-              "endpointIds": [
-                "volcengine-coding:endpoint:0",
-                "volcengine-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-code-preview-251028",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4175,13 +4038,11 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-1-5-pro-32k-250115",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4191,23 +4052,19 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-coding",
-              "endpointIds": [
-                "volcengine-coding:endpoint:0",
-                "volcengine-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4217,13 +4074,11 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-4.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4233,23 +4088,19 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-coding",
-              "endpointIds": [
-                "volcengine-coding:endpoint:0",
-                "volcengine-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4259,23 +4110,19 @@
           "availability": [
             {
               "offeringId": "volcengine",
-              "endpointIds": [
-                "volcengine:endpoint:0",
-                "volcengine:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "volcengine-coding",
-              "endpointIds": [
-                "volcengine-coding:endpoint:0",
-                "volcengine-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4285,13 +4132,11 @@
           "availability": [
             {
               "offeringId": "volcengine-agent",
-              "endpointIds": [
-                "volcengine-agent:endpoint:0",
-                "volcengine-agent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "doubao-seed-evolving",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -4310,12 +4155,13 @@
           "label": "API 平台",
           "providerId": "tencent",
           "endpointIds": [
-            "tencent:endpoint:0",
-            "tencent:endpoint:1"
+            "tencent:endpoint:4640ke",
+            "tencent:endpoint:8h2p5y"
           ],
           "authMethodIds": [
             "tencent:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -4329,7 +4175,7 @@
       ],
       "endpoints": [
         {
-          "id": "tencent:endpoint:0",
+          "id": "tencent:endpoint:4640ke",
           "name": "OPENAI",
           "offeringId": "tencent",
           "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
@@ -4346,7 +4192,7 @@
           }
         },
         {
-          "id": "tencent:endpoint:1",
+          "id": "tencent:endpoint:8h2p5y",
           "name": "ANTHROPIC",
           "offeringId": "tencent",
           "baseUrl": "https://api.lkeap.cloud.tencent.com/api/anthropic",
@@ -4370,13 +4216,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4386,13 +4230,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4402,13 +4244,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-r1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4418,13 +4258,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "hy3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4434,13 +4272,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4450,13 +4286,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4466,13 +4300,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4482,13 +4314,11 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [
-                "tencent:endpoint:0",
-                "tencent:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "hunyuan-turbos",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -4508,12 +4338,13 @@
           "label": "API 平台",
           "providerId": "qianfan",
           "endpointIds": [
-            "qianfan:endpoint:0",
-            "qianfan:endpoint:1"
+            "qianfan:endpoint:k6m7rv",
+            "qianfan:endpoint:1sn1c5t"
           ],
           "authMethodIds": [
             "qianfan:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "qianfan-coding",
@@ -4521,12 +4352,13 @@
           "label": "Token Plan",
           "providerId": "qianfan-coding",
           "endpointIds": [
-            "qianfan-coding:endpoint:0",
-            "qianfan-coding:endpoint:1"
+            "qianfan-coding:endpoint:cvx59",
+            "qianfan-coding:endpoint:18jnqt2"
           ],
           "authMethodIds": [
             "qianfan-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -4547,7 +4379,7 @@
       ],
       "endpoints": [
         {
-          "id": "qianfan:endpoint:0",
+          "id": "qianfan:endpoint:k6m7rv",
           "name": "OPENAI",
           "offeringId": "qianfan",
           "baseUrl": "https://qianfan.baidubce.com/v2",
@@ -4564,7 +4396,7 @@
           }
         },
         {
-          "id": "qianfan:endpoint:1",
+          "id": "qianfan:endpoint:1sn1c5t",
           "name": "ANTHROPIC",
           "offeringId": "qianfan",
           "baseUrl": "https://qianfan.baidubce.com/anthropic",
@@ -4581,7 +4413,7 @@
           }
         },
         {
-          "id": "qianfan-coding:endpoint:0",
+          "id": "qianfan-coding:endpoint:cvx59",
           "name": "OPENAI chat",
           "offeringId": "qianfan-coding",
           "baseUrl": "https://qianfan.baidubce.com/v2/tokenplan/personal",
@@ -4598,7 +4430,7 @@
           }
         },
         {
-          "id": "qianfan-coding:endpoint:1",
+          "id": "qianfan-coding:endpoint:18jnqt2",
           "name": "ANTHROPIC",
           "offeringId": "qianfan-coding",
           "baseUrl": "https://qianfan.baidubce.com/anthropic/tokenplan/personal",
@@ -4622,13 +4454,11 @@
           "availability": [
             {
               "offeringId": "qianfan",
-              "endpointIds": [
-                "qianfan:endpoint:0",
-                "qianfan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "ernie-4.5-8k-preview",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4638,13 +4468,11 @@
           "availability": [
             {
               "offeringId": "qianfan",
-              "endpointIds": [
-                "qianfan:endpoint:0",
-                "qianfan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "ernie-4.0-8k",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4654,23 +4482,19 @@
           "availability": [
             {
               "offeringId": "qianfan",
-              "endpointIds": [
-                "qianfan:endpoint:0",
-                "qianfan:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             },
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v3.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4680,13 +4504,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qianfan-code-latest",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4696,13 +4518,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4712,13 +4532,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4728,13 +4546,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4744,13 +4560,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "ernie-4.5-turbo-20260402",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4760,13 +4574,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4776,13 +4588,11 @@
           "availability": [
             {
               "offeringId": "qianfan-coding",
-              "endpointIds": [
-                "qianfan-coding:endpoint:0",
-                "qianfan-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -4802,12 +4612,13 @@
           "label": "API 平台",
           "providerId": "xiaomi",
           "endpointIds": [
-            "xiaomi:endpoint:0",
-            "xiaomi:endpoint:1"
+            "xiaomi:endpoint:bajcy8",
+            "xiaomi:endpoint:t2awez"
           ],
           "authMethodIds": [
             "xiaomi:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         },
         {
           "id": "xiaomi-coding",
@@ -4815,12 +4626,13 @@
           "label": "Token Plan",
           "providerId": "xiaomi-coding",
           "endpointIds": [
-            "xiaomi-coding:endpoint:0",
-            "xiaomi-coding:endpoint:1"
+            "xiaomi-coding:endpoint:1t9kimv",
+            "xiaomi-coding:endpoint:pempnw"
           ],
           "authMethodIds": [
             "xiaomi-coding:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -4841,7 +4653,7 @@
       ],
       "endpoints": [
         {
-          "id": "xiaomi:endpoint:0",
+          "id": "xiaomi:endpoint:bajcy8",
           "name": "OPENAI",
           "offeringId": "xiaomi",
           "baseUrl": "https://api.xiaomimimo.com/v1",
@@ -4858,7 +4670,7 @@
           }
         },
         {
-          "id": "xiaomi:endpoint:1",
+          "id": "xiaomi:endpoint:t2awez",
           "name": "ANTHROPIC",
           "offeringId": "xiaomi",
           "baseUrl": "https://api.xiaomimimo.com/anthropic",
@@ -4875,7 +4687,7 @@
           }
         },
         {
-          "id": "xiaomi-coding:endpoint:0",
+          "id": "xiaomi-coding:endpoint:1t9kimv",
           "name": "OPENAI chat",
           "offeringId": "xiaomi-coding",
           "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
@@ -4892,7 +4704,7 @@
           }
         },
         {
-          "id": "xiaomi-coding:endpoint:1",
+          "id": "xiaomi-coding:endpoint:pempnw",
           "name": "ANTHROPIC",
           "offeringId": "xiaomi-coding",
           "baseUrl": "https://token-plan-sgp.xiaomimimo.com/anthropic",
@@ -4916,13 +4728,11 @@
           "availability": [
             {
               "offeringId": "xiaomi",
-              "endpointIds": [
-                "xiaomi:endpoint:0",
-                "xiaomi:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiMo-V2-Pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4932,13 +4742,11 @@
           "availability": [
             {
               "offeringId": "xiaomi",
-              "endpointIds": [
-                "xiaomi:endpoint:0",
-                "xiaomi:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "MiMo-V2-Flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4948,13 +4756,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4964,13 +4770,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4980,13 +4784,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-asr",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -4996,13 +4798,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-tts",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5012,13 +4812,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-tts-voiceclone",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5028,13 +4826,11 @@
           "availability": [
             {
               "offeringId": "xiaomi-coding",
-              "endpointIds": [
-                "xiaomi-coding:endpoint:0",
-                "xiaomi-coding:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-tts-voicedesign",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -5053,12 +4849,13 @@
           "label": "API 平台",
           "providerId": "deepseek",
           "endpointIds": [
-            "deepseek:endpoint:0",
-            "deepseek:endpoint:1"
+            "deepseek:endpoint:tdq4s9",
+            "deepseek:endpoint:yb6x7u"
           ],
           "authMethodIds": [
             "deepseek:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5072,7 +4869,7 @@
       ],
       "endpoints": [
         {
-          "id": "deepseek:endpoint:0",
+          "id": "deepseek:endpoint:tdq4s9",
           "name": "OPENAI",
           "offeringId": "deepseek",
           "baseUrl": "https://api.deepseek.com",
@@ -5089,7 +4886,7 @@
           }
         },
         {
-          "id": "deepseek:endpoint:1",
+          "id": "deepseek:endpoint:yb6x7u",
           "name": "ANTHROPIC",
           "offeringId": "deepseek",
           "baseUrl": "https://api.deepseek.com/anthropic",
@@ -5113,13 +4910,11 @@
           "availability": [
             {
               "offeringId": "deepseek",
-              "endpointIds": [
-                "deepseek:endpoint:0",
-                "deepseek:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5129,13 +4924,11 @@
           "availability": [
             {
               "offeringId": "deepseek",
-              "endpointIds": [
-                "deepseek:endpoint:0",
-                "deepseek:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5145,13 +4938,11 @@
           "availability": [
             {
               "offeringId": "deepseek",
-              "endpointIds": [
-                "deepseek:endpoint:0",
-                "deepseek:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-chat",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5161,13 +4952,11 @@
           "availability": [
             {
               "offeringId": "deepseek",
-              "endpointIds": [
-                "deepseek:endpoint:0",
-                "deepseek:endpoint:1"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-reasoner",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -5186,11 +4975,12 @@
           "label": "API 平台",
           "providerId": "siliconflow",
           "endpointIds": [
-            "siliconflow:endpoint:0"
+            "siliconflow:endpoint:1hdeusi"
           ],
           "authMethodIds": [
             "siliconflow:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5204,7 +4994,7 @@
       ],
       "endpoints": [
         {
-          "id": "siliconflow:endpoint:0",
+          "id": "siliconflow:endpoint:1hdeusi",
           "name": "OPENAI chat",
           "offeringId": "siliconflow",
           "baseUrl": "https://api.siliconflow.cn/v1",
@@ -5229,8 +5019,9 @@
             {
               "offeringId": "siliconflow",
               "endpointIds": [
-                "siliconflow:endpoint:0"
+                "siliconflow:endpoint:1hdeusi"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-ai/DeepSeek-V3",
               "status": "available",
               "source": "static"
@@ -5244,8 +5035,9 @@
             {
               "offeringId": "siliconflow",
               "endpointIds": [
-                "siliconflow:endpoint:0"
+                "siliconflow:endpoint:1hdeusi"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "Qwen/Qwen2.5-72B-Instruct",
               "status": "available",
               "source": "static"
@@ -5267,11 +5059,12 @@
           "label": "API 平台",
           "providerId": "mistral",
           "endpointIds": [
-            "mistral:endpoint:0"
+            "mistral:endpoint:99rn3w"
           ],
           "authMethodIds": [
             "mistral:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5285,7 +5078,7 @@
       ],
       "endpoints": [
         {
-          "id": "mistral:endpoint:0",
+          "id": "mistral:endpoint:99rn3w",
           "name": "OPENAI",
           "offeringId": "mistral",
           "baseUrl": "https://api.mistral.ai/v1",
@@ -5310,8 +5103,9 @@
             {
               "offeringId": "mistral",
               "endpointIds": [
-                "mistral:endpoint:0"
+                "mistral:endpoint:99rn3w"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mistral-large-latest",
               "status": "available",
               "source": "static"
@@ -5325,8 +5119,9 @@
             {
               "offeringId": "mistral",
               "endpointIds": [
-                "mistral:endpoint:0"
+                "mistral:endpoint:99rn3w"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "devstral-medium-latest",
               "status": "available",
               "source": "static"
@@ -5340,8 +5135,9 @@
             {
               "offeringId": "mistral",
               "endpointIds": [
-                "mistral:endpoint:0"
+                "mistral:endpoint:99rn3w"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "devstral-small-latest",
               "status": "available",
               "source": "static"
@@ -5355,8 +5151,9 @@
             {
               "offeringId": "mistral",
               "endpointIds": [
-                "mistral:endpoint:0"
+                "mistral:endpoint:99rn3w"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mistral-medium-latest",
               "status": "available",
               "source": "static"
@@ -5370,8 +5167,9 @@
             {
               "offeringId": "mistral",
               "endpointIds": [
-                "mistral:endpoint:0"
+                "mistral:endpoint:99rn3w"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mistral-small-latest",
               "status": "available",
               "source": "static"
@@ -5393,11 +5191,12 @@
           "label": "API 平台",
           "providerId": "stepfun",
           "endpointIds": [
-            "stepfun:endpoint:0"
+            "stepfun:endpoint:1skv2ok"
           ],
           "authMethodIds": [
             "stepfun:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5411,7 +5210,7 @@
       ],
       "endpoints": [
         {
-          "id": "stepfun:endpoint:0",
+          "id": "stepfun:endpoint:1skv2ok",
           "name": "OPENAI",
           "offeringId": "stepfun",
           "baseUrl": "https://api.stepfun.com/v1",
@@ -5436,8 +5235,9 @@
             {
               "offeringId": "stepfun",
               "endpointIds": [
-                "stepfun:endpoint:0"
+                "stepfun:endpoint:1skv2ok"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-3.5-flash",
               "status": "available",
               "source": "static"
@@ -5451,8 +5251,9 @@
             {
               "offeringId": "stepfun",
               "endpointIds": [
-                "stepfun:endpoint:0"
+                "stepfun:endpoint:1skv2ok"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-2",
               "status": "available",
               "source": "static"
@@ -5466,8 +5267,9 @@
             {
               "offeringId": "stepfun",
               "endpointIds": [
-                "stepfun:endpoint:0"
+                "stepfun:endpoint:1skv2ok"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-1-flash",
               "status": "available",
               "source": "static"
@@ -5489,11 +5291,12 @@
           "label": "API 平台",
           "providerId": "stepfun-global",
           "endpointIds": [
-            "stepfun-global:endpoint:0"
+            "stepfun-global:endpoint:tst08v"
           ],
           "authMethodIds": [
             "stepfun-global:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5507,7 +5310,7 @@
       ],
       "endpoints": [
         {
-          "id": "stepfun-global:endpoint:0",
+          "id": "stepfun-global:endpoint:tst08v",
           "name": "OPENAI",
           "offeringId": "stepfun-global",
           "baseUrl": "https://api.stepfun.ai/v1",
@@ -5532,8 +5335,9 @@
             {
               "offeringId": "stepfun-global",
               "endpointIds": [
-                "stepfun-global:endpoint:0"
+                "stepfun-global:endpoint:tst08v"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-3.7-flash",
               "status": "available",
               "source": "static"
@@ -5547,8 +5351,9 @@
             {
               "offeringId": "stepfun-global",
               "endpointIds": [
-                "stepfun-global:endpoint:0"
+                "stepfun-global:endpoint:tst08v"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-3.5-flash",
               "status": "available",
               "source": "static"
@@ -5562,8 +5367,9 @@
             {
               "offeringId": "stepfun-global",
               "endpointIds": [
-                "stepfun-global:endpoint:0"
+                "stepfun-global:endpoint:tst08v"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "step-image-edit-2",
               "status": "available",
               "source": "static"
@@ -5585,11 +5391,12 @@
           "label": "API 平台",
           "providerId": "openrouter",
           "endpointIds": [
-            "openrouter:endpoint:0"
+            "openrouter:endpoint:nn29im"
           ],
           "authMethodIds": [
             "openrouter:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5603,7 +5410,7 @@
       ],
       "endpoints": [
         {
-          "id": "openrouter:endpoint:0",
+          "id": "openrouter:endpoint:nn29im",
           "name": "OPENAI",
           "offeringId": "openrouter",
           "baseUrl": "https://openrouter.ai/api/v1",
@@ -5628,8 +5435,9 @@
             {
               "offeringId": "openrouter",
               "endpointIds": [
-                "openrouter:endpoint:0"
+                "openrouter:endpoint:nn29im"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "anthropic/claude-opus-4-7",
               "status": "available",
               "source": "static"
@@ -5643,8 +5451,9 @@
             {
               "offeringId": "openrouter",
               "endpointIds": [
-                "openrouter:endpoint:0"
+                "openrouter:endpoint:nn29im"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "openai/gpt-5.5",
               "status": "available",
               "source": "static"
@@ -5658,8 +5467,9 @@
             {
               "offeringId": "openrouter",
               "endpointIds": [
-                "openrouter:endpoint:0"
+                "openrouter:endpoint:nn29im"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "google/gemini-2.5-pro",
               "status": "available",
               "source": "static"
@@ -5673,8 +5483,9 @@
             {
               "offeringId": "openrouter",
               "endpointIds": [
-                "openrouter:endpoint:0"
+                "openrouter:endpoint:nn29im"
               ],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek/deepseek-v4-flash",
               "status": "available",
               "source": "static"
@@ -5696,13 +5507,14 @@
           "label": "API 平台",
           "providerId": "opencode-go",
           "endpointIds": [
-            "opencode-go:endpoint:0",
-            "opencode-go:endpoint:1",
-            "opencode-go:endpoint:2"
+            "opencode-go:endpoint:4u78uy",
+            "opencode-go:endpoint:yks0km",
+            "opencode-go:endpoint:o1qr4c"
           ],
           "authMethodIds": [
             "opencode-go:api-key"
-          ]
+          ],
+          "executionMode": "http_endpoint"
         }
       ],
       "authMethods": [
@@ -5716,7 +5528,7 @@
       ],
       "endpoints": [
         {
-          "id": "opencode-go:endpoint:0",
+          "id": "opencode-go:endpoint:4u78uy",
           "name": "OPENAI chat",
           "offeringId": "opencode-go",
           "baseUrl": "https://opencode.ai/zen/go/v1",
@@ -5733,7 +5545,7 @@
           }
         },
         {
-          "id": "opencode-go:endpoint:1",
+          "id": "opencode-go:endpoint:yks0km",
           "name": "OPENAI responses",
           "offeringId": "opencode-go",
           "baseUrl": "https://opencode.ai/zen/go/v1",
@@ -5750,7 +5562,7 @@
           }
         },
         {
-          "id": "opencode-go:endpoint:2",
+          "id": "opencode-go:endpoint:o1qr4c",
           "name": "ANTHROPIC",
           "offeringId": "opencode-go",
           "baseUrl": "https://opencode.ai/zen/go",
@@ -5774,14 +5586,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5791,14 +5600,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.6-luna",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5808,14 +5614,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.2",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5825,14 +5628,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.1",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5842,14 +5642,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5859,14 +5656,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.7-code",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5876,14 +5670,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k2.6",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5893,14 +5684,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5910,14 +5698,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-flash",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5927,14 +5712,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5944,14 +5726,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-pro",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5961,14 +5740,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5978,14 +5754,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m2.7",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -5995,14 +5768,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.8-max",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -6012,14 +5782,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.7-max",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -6029,14 +5796,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.7-plus",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -6046,14 +5810,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.6-plus",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         },
@@ -6063,14 +5824,11 @@
           "availability": [
             {
               "offeringId": "opencode-go",
-              "endpointIds": [
-                "opencode-go:endpoint:0",
-                "opencode-go:endpoint:1",
-                "opencode-go:endpoint:2"
-              ],
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
               "remoteModelId": "hy3",
-              "status": "available",
-              "source": "static"
+              "status": "unknown",
+              "source": "legacy_unknown"
             }
           ]
         }
@@ -6089,25 +5847,16 @@
           "label": "API 平台",
           "providerId": "ollama",
           "endpointIds": [
-            "ollama:endpoint:0"
+            "ollama:endpoint:17r5fi5"
           ],
-          "authMethodIds": [
-            "ollama:api-key"
-          ]
+          "authMethodIds": [],
+          "executionMode": "http_endpoint"
         }
       ],
-      "authMethods": [
-        {
-          "id": "ollama:api-key",
-          "type": "api_key",
-          "label": "API Key",
-          "providerId": "ollama",
-          "status": "unconfigured"
-        }
-      ],
+      "authMethods": [],
       "endpoints": [
         {
-          "id": "ollama:endpoint:0",
+          "id": "ollama:endpoint:17r5fi5",
           "name": "OPENAI",
           "offeringId": "ollama",
           "baseUrl": "http://127.0.0.1:11434/v1",
@@ -6115,9 +5864,7 @@
             "family": "openai",
             "mode": "chat"
           },
-          "authMethodIds": [
-            "ollama:api-key"
-          ],
+          "authMethodIds": [],
           "modelDiscovery": {
             "type": "remote",
             "path": "/models"
@@ -6139,25 +5886,16 @@
           "label": "API 平台",
           "providerId": "litellm",
           "endpointIds": [
-            "litellm:endpoint:0"
+            "litellm:endpoint:tgyr12"
           ],
-          "authMethodIds": [
-            "litellm:api-key"
-          ]
+          "authMethodIds": [],
+          "executionMode": "http_endpoint"
         }
       ],
-      "authMethods": [
-        {
-          "id": "litellm:api-key",
-          "type": "api_key",
-          "label": "API Key",
-          "providerId": "litellm",
-          "status": "unconfigured"
-        }
-      ],
+      "authMethods": [],
       "endpoints": [
         {
-          "id": "litellm:endpoint:0",
+          "id": "litellm:endpoint:tgyr12",
           "name": "OPENAI",
           "offeringId": "litellm",
           "baseUrl": "http://localhost:4000",
@@ -6165,9 +5903,7 @@
             "family": "openai",
             "mode": "chat"
           },
-          "authMethodIds": [
-            "litellm:api-key"
-          ],
+          "authMethodIds": [],
           "modelDiscovery": {
             "type": "remote",
             "path": "/models"
@@ -6439,14 +6175,22 @@
       ]
     },
     {
-      "family": "Kimi / Moonshot",
+      "family": "Moonshot",
       "plans": [
         {
-          "label": "Moonshot（国际 API）",
+          "label": "API 平台",
           "providerId": "moonshot"
-        },
+        }
+      ],
+      "ids": [
+        "moonshot"
+      ]
+    },
+    {
+      "family": "Kimi",
+      "plans": [
         {
-          "label": "Kimi（国内 API）",
+          "label": "国内 API 平台",
           "providerId": "kimi-coding"
         },
         {
@@ -6455,7 +6199,6 @@
         }
       ],
       "ids": [
-        "moonshot",
         "kimi-coding",
         "kimi-coding-plan"
       ]
@@ -6550,16 +6293,39 @@
     "xiaomi-coding": {
       "from": "https://token-plan-cn.xiaomimimo.com/v1",
       "to": "https://token-plan-sgp.xiaomimimo.com/v1"
+    },
+    "qwen-coding": {
+      "from": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+      "to": "https://coding.dashscope.aliyuncs.com/v1"
     }
   },
   "endpointUrlMigrations": {
-    "kimi-coding-plan": {
-      "from": "https://api.kimi.com/coding/",
-      "to": "https://api.kimi.com/coding"
-    },
-    "xiaomi-coding": {
-      "from": "https://token-plan-cn.xiaomimimo.com/anthropic",
-      "to": "https://token-plan-sgp.xiaomimimo.com/anthropic"
-    }
+    "kimi-coding-plan": [
+      {
+        "from": "https://api.kimi.com/coding/",
+        "to": "https://api.kimi.com/coding"
+      }
+    ],
+    "xiaomi-coding": [
+      {
+        "type": "anthropic",
+        "from": "https://token-plan-cn.xiaomimimo.com/anthropic",
+        "to": "https://token-plan-sgp.xiaomimimo.com/anthropic"
+      }
+    ],
+    "qwen": [
+      {
+        "type": "anthropic",
+        "from": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "to": "https://dashscope.aliyuncs.com/apps/anthropic"
+      }
+    ],
+    "qwen-coding": [
+      {
+        "type": "anthropic",
+        "from": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+        "to": "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+      }
+    ]
   }
 }

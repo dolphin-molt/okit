@@ -5,9 +5,22 @@ export interface ProviderModel {
   name?: string;
   capabilities?: string[];
   recent?: boolean;
+  availability?: ProviderModelAvailability[];
+}
+
+export interface ProviderModelAvailability {
+  executionMode: 'http_endpoint' | 'agent_native';
+  endpointId?: string;
+  nativeAgentIds?: string[];
+  remoteModelId: string;
+  status: 'available' | 'unavailable' | 'deprecated' | 'unknown';
+  source: 'remote' | 'static' | 'cli' | 'manual' | 'legacy_unknown';
+  discoveredAt?: string;
+  lastSeenAt?: string;
 }
 
 export interface ProviderEndpoint {
+  id?: string;
   type: 'anthropic' | 'openai' | 'google';
   baseUrl: string;
   protocol?: 'chat' | 'responses';
@@ -24,8 +37,15 @@ export interface Provider {
   authVerified?: boolean;
   authVerifiedKey?: string;
   authVerifiedAt?: string;
+  authLastCheckedAt?: string;
+  authLastCheckedKey?: string;
+  authLastError?: string;
+  authState?: 'unconfigured' | 'needs_verification' | 'verified' | 'partial' | 'stale' | 'invalid' | 'oauth_required' | 'oauth_verified' | 'mixed';
   authVerifiedEndpointIds?: string[];
-  authMode: 'api_key' | 'oauth' | 'both';
+  authEndpointStates?: Record<string, { state: 'verified' | 'stale' | 'invalid' | 'unknown'; checkedAt: string; error?: string }>;
+  authMode: 'api_key' | 'oauth' | 'both' | 'none';
+  executionMode?: 'http_endpoint' | 'agent_native';
+  nativeAgentIds?: string[];
   models: ProviderModel[];
   usedBy?: { id: string; name: string; modelId: string }[];
 }
@@ -37,6 +57,8 @@ export interface PlatformOffering {
   providerId: string;
   endpointIds: string[];
   authMethodIds: string[];
+  executionMode: 'http_endpoint' | 'agent_native';
+  nativeAgentIds?: string[];
 }
 
 export interface PlatformAuthMethod {
@@ -67,6 +89,8 @@ export interface PlatformModel {
   availability: {
     offeringId: string;
     endpointIds: string[];
+    executionMode: 'http_endpoint' | 'agent_native';
+    nativeAgentIds?: string[];
     remoteModelId: string;
     status: string;
     source: string;
@@ -128,38 +152,6 @@ export async function switchProvider(agentId: string, providerId: string, modelI
   return api('/api/providers/switch', {
     method: 'POST',
     body: JSON.stringify({ agentId, providerId, modelId }),
-  });
-}
-
-// --- Goal ③: favorite / recent model types + API ----------------------------
-
-export interface FavoriteModel {
-  providerId: string;
-  modelId: string;
-  addedAt: string;
-}
-
-export interface RecentModel {
-  providerId: string;
-  modelId: string;
-  agentId: string;
-  lastUsedAt: string;
-}
-
-export async function getFavoriteModels(): Promise<{ favorites: FavoriteModel[]; recent: RecentModel[] }> {
-  return api('/api/providers/models/favorites');
-}
-
-export async function addFavoriteModel(providerId: string, modelId: string): Promise<{ success: boolean; favorites: FavoriteModel[] }> {
-  return api('/api/providers/models/favorite', {
-    method: 'POST',
-    body: JSON.stringify({ providerId, modelId }),
-  });
-}
-
-export async function removeFavoriteModel(providerId: string, modelId: string): Promise<{ success: boolean; favorites: FavoriteModel[] }> {
-  return api(`/api/providers/models/favorite/${encodeURIComponent(providerId)}/${encodeURIComponent(modelId)}`, {
-    method: 'DELETE',
   });
 }
 
@@ -230,8 +222,16 @@ export async function launchAgent(agentId: string): Promise<{ success: boolean; 
   });
 }
 
-export async function getAuthStatus(): Promise<{ statuses: { id: string; name: string; hasApiKey: boolean; authVerified: boolean; oauthLoggedIn: boolean | null; authMode: string }[] }> {
+export async function getAuthStatus(): Promise<{ statuses: { id: string; name: string; hasApiKey: boolean; authVerified: boolean; oauthLoggedIn: boolean | null; authMode: string; authState?: string; authVerifiedAt?: string; authLastCheckedAt?: string; authLastError?: string; authEndpointStates?: Provider['authEndpointStates'] }[] }> {
   return api('/api/providers/auth');
+}
+
+export async function verifyProviderAuth(providerId: string): Promise<{
+  success: boolean;
+  status: { id: string; hasApiKey: boolean; authVerified: boolean; oauthLoggedIn: boolean | null; authMode: string; authState?: string; authLastCheckedAt?: string; authLastError?: string; authEndpointStates?: Provider['authEndpointStates'] };
+  results: { endpointId: string; success: boolean; message: string }[];
+}> {
+  return api(`/api/providers/${encodeURIComponent(providerId)}/verify-auth`, { method: 'POST' });
 }
 
 export async function triggerOAuthLogin(providerId: string): Promise<{ success: boolean; message: string }> {

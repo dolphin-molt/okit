@@ -5,6 +5,8 @@ export type ProviderEndpointPlan = 'coding' | 'token' | 'agent' | 'go';
 export type OfferingType = 'api' | 'coding_plan' | 'token_plan' | 'agent_plan' | 'agent_subscription' | 'go_plan' | string;
 export type AuthMethodType = 'api_key' | 'oauth' | 'cli_login' | 'cloud_credential' | string;
 export type EntitlementType = 'pay_as_you_go' | 'subscription_included' | 'prepaid_quota' | 'free_tier' | 'unknown' | string;
+export type ExecutionMode = 'http_endpoint' | 'agent_native';
+export type AvailabilitySource = 'remote' | 'static' | 'cli' | 'manual' | 'legacy_unknown';
 
 export interface PlatformAuthMethod {
   id: string;
@@ -42,6 +44,8 @@ export interface PlatformOffering {
   providerId: string;
   endpointIds: string[];
   authMethodIds: string[];
+  executionMode: ExecutionMode;
+  nativeAgentIds?: string[];
   entitlement?: {
     type: EntitlementType;
     product?: string;
@@ -51,10 +55,13 @@ export interface PlatformOffering {
 export interface PlatformModelAvailability {
   offeringId: string;
   endpointIds: string[];
+  executionMode: ExecutionMode;
+  nativeAgentIds?: string[];
   remoteModelId: string;
   status: 'available' | 'unavailable' | 'deprecated' | 'unknown';
-  source: 'remote' | 'static' | 'cli' | 'manual';
+  source: AvailabilitySource;
   discoveredAt?: string;
+  lastSeenAt?: string;
 }
 
 export interface PlatformModel {
@@ -76,6 +83,7 @@ export interface Platform {
 
 // A provider (platform) that offers AI models
 export interface ProviderEndpoint {
+  id?: string;
   type: ProviderType;
   baseUrl: string;
   protocol?: OpenAIProtocol;
@@ -94,8 +102,19 @@ export interface Provider {
   authVerified?: boolean;
   authVerifiedKey?: string;
   authVerifiedAt?: string;
+  authLastCheckedAt?: string;
+  authLastCheckedKey?: string;
+  authLastError?: string;
+  authState?: 'unconfigured' | 'needs_verification' | 'verified' | 'partial' | 'stale' | 'invalid' | 'oauth_required' | 'oauth_verified' | 'mixed';
   authVerifiedEndpointIds?: string[];
-  authMode: 'api_key' | 'oauth' | 'both';
+  authEndpointStates?: Record<string, {
+    state: 'verified' | 'stale' | 'invalid' | 'unknown';
+    checkedAt: string;
+    error?: string;
+  }>;
+  authMode: 'api_key' | 'oauth' | 'both' | 'none';
+  executionMode?: ExecutionMode;
+  nativeAgentIds?: string[];
   /** CLI subscription login only; never expose this provider to API adapters. */
   cliOnly?: boolean;
   models: ProviderModel[];
@@ -105,6 +124,18 @@ export interface ProviderModel {
   id: string;              // model identifier (e.g. "glm-4.7")
   name?: string;           // display name (e.g. "GLM-4.7")
   capabilities?: string[]; // ["chat", "code", "vision"]
+  availability?: ProviderModelAvailability[];
+}
+
+export interface ProviderModelAvailability {
+  executionMode: ExecutionMode;
+  endpointId?: string;
+  nativeAgentIds?: string[];
+  remoteModelId: string;
+  status: 'available' | 'unavailable' | 'deprecated' | 'unknown';
+  source: AvailabilitySource;
+  discoveredAt?: string;
+  lastSeenAt?: string;
 }
 
 // Runtime auth status (computed, not persisted)

@@ -5,9 +5,9 @@ import {
   PlatformModel,
   PlatformOffering,
   Provider,
-  ProviderEndpoint,
 } from "./types";
 import { PROVIDER_FAMILIES } from "./metadata";
+import { modelAvailability, providerEndpointEntries, providerExecutionMode } from "./routing";
 
 type FamilyDefinition = {
   family: string;
@@ -20,7 +20,9 @@ type FamilyDefinition = {
   ids: string[];
 };
 
-function offeringType(label: string, endpoints: ProviderEndpoint[]): string {
+function offeringType(label: string, provider: Provider): string {
+  if (providerExecutionMode(provider) === "agent_native") return "agent_subscription";
+  const endpoints = providerEndpointEntries(provider).map(entry => entry.endpoint);
   const plan = endpoints.find(endpoint => endpoint.plan)?.plan;
   if (plan === "coding") return "coding_plan";
   if (plan === "token") return "token_plan";
@@ -32,12 +34,6 @@ function offeringType(label: string, endpoints: ProviderEndpoint[]): string {
   if (normalized.includes("agent") || normalized.includes("oauth")) return "agent_plan";
   if (normalized.includes("go")) return "go_plan";
   return "api";
-}
-
-function providerEndpoints(provider: Provider): ProviderEndpoint[] {
-  return provider.endpoints?.length
-    ? provider.endpoints
-    : [{ type: provider.type, baseUrl: provider.baseUrl }];
 }
 
 function authMethodsFor(provider: Provider): PlatformAuthMethod[] {
@@ -77,14 +73,14 @@ function buildPlatform(name: string, members: Provider[], family?: FamilyDefinit
   const models = new Map<string, PlatformModel>();
 
   for (const provider of members) {
-    const rawEndpoints = providerEndpoints(provider);
+    const endpointEntries = providerEndpointEntries(provider);
+    const executionMode = providerExecutionMode(provider);
     const plan = family?.plans?.find(item => item.providerId === provider.id);
     const offeringId = provider.id;
     const endpointIds: string[] = [];
     const authMethodIds = authMethods.filter(method => method.providerId === provider.id).map(method => method.id);
 
-    rawEndpoints.forEach((endpoint, index) => {
-      const endpointId = `${provider.id}:endpoint:${index}`;
+    endpointEntries.forEach(({ id: endpointId, endpoint }) => {
       endpointIds.push(endpointId);
       endpoints.push({
         id: endpointId,
@@ -104,11 +100,13 @@ function buildPlatform(name: string, members: Provider[], family?: FamilyDefinit
 
     offerings.push({
       id: offeringId,
-      type: plan?.type || offeringType(plan?.label || "API", rawEndpoints),
+      type: plan?.type || offeringType(plan?.label || "API", provider),
       label: plan?.label || "API 平台",
       providerId: provider.id,
       endpointIds,
       authMethodIds,
+      executionMode,
+      nativeAgentIds: executionMode === "agent_native" ? provider.nativeAgentIds : undefined,
       entitlement: plan?.entitlement,
     });
 
@@ -119,13 +117,19 @@ function buildPlatform(name: string, members: Provider[], family?: FamilyDefinit
         capabilities: model.capabilities,
         availability: [],
       };
-      existing.availability.push({
-        offeringId,
-        endpointIds,
-        remoteModelId: model.id,
-        status: "available",
-        source: "static",
-      });
+      for (const availability of modelAvailability(provider, model)) {
+        existing.availability.push({
+          offeringId,
+          endpointIds: availability.endpointId ? [availability.endpointId] : [],
+          executionMode: availability.executionMode,
+          nativeAgentIds: availability.nativeAgentIds,
+          remoteModelId: availability.remoteModelId,
+          status: availability.status,
+          source: availability.source,
+          discoveredAt: availability.discoveredAt,
+          lastSeenAt: availability.lastSeenAt,
+        });
+      }
       models.set(model.id, existing);
     }
   }

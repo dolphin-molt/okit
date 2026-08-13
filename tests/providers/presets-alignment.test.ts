@@ -3,16 +3,17 @@ import { PRESET_PROVIDERS } from '../../src/providers/presets';
 
 describe('PRESET_PROVIDERS alignment', () => {
   const EXPECTED_IDS = [
-    'anthropic', 'openai', 'openai-codex', 'google', 'volcengine',
-    'zai', 'zai-global', 'glm-coding', 'minimax', 'minimax-global', 'minimax-coding',
-    'deepseek', 'moonshot', 'kimi-coding', 'kimi-coding-plan', 'qwen', 'qianfan',
-    'qianfan-coding', 'volcengine-coding', 'tencent-coding', 'xai', 'mistral', 'stepfun',
-    'xiaomi', 'xiaomi-coding',
-    'openrouter', 'ollama', 'litellm',
+    'anthropic', 'anthropic-agent', 'openai', 'openai-codex', 'google', 'google-agent', 'volcengine',
+    'zai', 'zai-global', 'zai-global-coding', 'glm-coding', 'minimax', 'minimax-global',
+    'minimax-global-coding', 'minimax-coding', 'deepseek', 'moonshot', 'kimi-coding',
+    'kimi-coding-plan', 'qwen', 'qwen-coding', 'qianfan', 'qianfan-coding', 'volcengine-coding',
+    'volcengine-agent', 'tencent', 'siliconflow', 'xai', 'xai-grok-build', 'github-copilot',
+    'mistral', 'stepfun', 'stepfun-global', 'xiaomi', 'xiaomi-coding', 'openrouter',
+    'opencode-go', 'ollama', 'litellm',
   ];
 
-  it('has exactly 28 presets', () => {
-    expect(PRESET_PROVIDERS.length).toBe(28);
+  it('has exactly 39 presets', () => {
+    expect(PRESET_PROVIDERS.length).toBe(39);
   });
 
   it('contains all expected provider IDs', () => {
@@ -37,18 +38,18 @@ describe('PRESET_PROVIDERS alignment', () => {
 
   it('keeps the legacy Kimi Coding ID while using the Kimi product name', () => {
     const kimi = PRESET_PROVIDERS.find(provider => provider.id === 'kimi-coding');
-    expect(kimi?.name).toBe('Kimi');
+    expect(kimi?.name).toBe('Kimi（国内站）');
     expect(kimi?.baseUrl).toBe('https://api.moonshot.cn/v1');
     const moonshot = PRESET_PROVIDERS.find(provider => provider.id === 'moonshot');
-    expect(moonshot?.name).toBe('Moonshot (Kimi Global)');
+    expect(moonshot?.name).toBe('Moonshot');
     expect(moonshot?.baseUrl).toBe('https://api.moonshot.ai/v1');
   });
 
   it('multi-endpoint providers have endpoints array', () => {
     const multiEndpoint = [
-      'google', 'zai', 'deepseek', 'xiaomi',
-      'kimi-coding-plan', 'glm-coding', 'minimax-coding',
-      'volcengine-coding', 'tencent-coding', 'xiaomi-coding',
+      'google', 'zai', 'deepseek', 'xiaomi', 'moonshot', 'kimi-coding',
+      'kimi-coding-plan', 'glm-coding', 'minimax-coding', 'qwen-coding',
+      'volcengine-coding', 'xiaomi-coding',
     ];
     for (const id of multiEndpoint) {
       const p = PRESET_PROVIDERS.find(p => p.id === id);
@@ -94,15 +95,17 @@ describe('PRESET_PROVIDERS alignment', () => {
   });
 
   it('marks Coding and Token Plan endpoints explicitly', () => {
-    const codingIds = ['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'tencent-coding'];
+    const codingIds = ['kimi-coding-plan', 'glm-coding', 'volcengine-coding', 'qwen-coding', 'zai-global-coding'];
     for (const id of codingIds) {
       const provider = PRESET_PROVIDERS.find(p => p.id === id)!;
       expect(provider.endpoints?.every(endpoint => endpoint.plan === 'coding'), id).toBe(true);
     }
-    for (const id of ['minimax-coding', 'xiaomi-coding']) {
+    for (const id of ['minimax-coding', 'minimax-global-coding', 'xiaomi-coding']) {
       const provider = PRESET_PROVIDERS.find(p => p.id === id)!;
       expect(provider.endpoints?.every(endpoint => endpoint.plan === 'token'), id).toBe(true);
     }
+    const openCodeGo = PRESET_PROVIDERS.find(provider => provider.id === 'opencode-go')!;
+    expect(openCodeGo.endpoints?.every(endpoint => endpoint.plan === 'coding')).toBe(true);
   });
 
   it('matches the signed-in MiMo Token Plan Base URLs and model list', () => {
@@ -118,9 +121,32 @@ describe('PRESET_PROVIDERS alignment', () => {
     ]);
   });
 
+  it('keeps Bailian API and Coding Plan protocols on their official distinct Base URLs', () => {
+    const api = PRESET_PROVIDERS.find(provider => provider.id === 'qwen')!;
+    expect(api.endpoints).toEqual([
+      { type: 'openai', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+      { type: 'anthropic', baseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic' },
+    ]);
+
+    const coding = PRESET_PROVIDERS.find(provider => provider.id === 'qwen-coding')!;
+    expect(coding.baseUrl).toBe('https://coding.dashscope.aliyuncs.com/v1');
+    expect(coding.endpoints).toEqual([
+      { type: 'openai', protocol: 'chat', baseUrl: 'https://coding.dashscope.aliyuncs.com/v1', plan: 'coding' },
+      { type: 'anthropic', baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic', plan: 'coding' },
+    ]);
+  });
+
   it('authMode is valid for all providers', () => {
     for (const p of PRESET_PROVIDERS) {
-      expect(p.authMode).toMatch(/^(api_key|oauth|both)$/);
+      expect(p.authMode).toMatch(/^(api_key|oauth|both|none)$/);
+    }
+  });
+
+  it('keeps OAuth subscriptions agent-native and endpoint-free', () => {
+    for (const id of ['anthropic-agent', 'openai-codex', 'google-agent', 'xai-grok-build', 'github-copilot']) {
+      const provider = PRESET_PROVIDERS.find(item => item.id === id)!;
+      expect(provider.executionMode, id).toBe('agent_native');
+      expect(provider.endpoints, id).toBeUndefined();
     }
   });
 });

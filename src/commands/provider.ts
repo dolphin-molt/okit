@@ -7,6 +7,7 @@ import { getAdapters, getAdapter } from "../providers/registry";
 import { checkAuthStatus } from "../providers/auth";
 import { loadUserConfig, updateUserConfig } from "../config/user";
 import { Provider, ProviderModel } from "../providers/types";
+import { providerSupportsAdapter, resolveModelRoute } from "../providers/routing";
 import { VaultStore } from "../vault/store";
 
 export async function providerList(): Promise<void> {
@@ -76,7 +77,7 @@ export async function providerSwitch(agentId?: string): Promise<void> {
   }
   if (!adapter) return;
 
-  const compatible = providers.filter(p => adapter!.supportedTypes.includes(p.type));
+  const compatible = providers.filter(p => providerSupportsAdapter(p, adapter!));
   if (compatible.length === 0) {
     console.log(kleur.yellow(`No compatible providers for ${adapter.name}`));
     return;
@@ -108,7 +109,9 @@ export async function providerSwitch(agentId?: string): Promise<void> {
   });
   if (!modelResponse.model) { console.log(kleur.gray(t("providerCancel"))); return; }
 
-  await adapter.applyConfig(selectedProvider, modelResponse.model);
+  const route = resolveModelRoute(selectedProvider, modelResponse.model, adapter);
+  await adapter.applyConfig(route.provider, route.remoteModelId);
+  await updateUserConfig({ providers: { [adapter.id]: { providerId: selectedProvider.id, modelId: modelResponse.model } } } as any);
   console.log(kleur.green(`${t("providerSwitched")}: ${selectedProvider.name} / ${modelResponse.model}`));
 }
 
@@ -131,7 +134,7 @@ export async function providerUse(
 
   const adapters = options?.agent
     ? [getAdapter(options.agent)].filter(Boolean)
-    : getAdapters().filter(a => a.supportedTypes.includes(provider.type));
+    : getAdapters().filter(a => providerSupportsAdapter(provider, a));
 
   if (adapters.length === 0) {
     console.log(kleur.red("No compatible agents"));
@@ -139,7 +142,9 @@ export async function providerUse(
   }
 
   for (const adapter of adapters) {
-    await adapter!.applyConfig(provider, modelId);
+    const route = resolveModelRoute(provider, modelId, adapter!);
+    await adapter!.applyConfig(route.provider, route.remoteModelId);
+    await updateUserConfig({ providers: { [adapter!.id]: { providerId: provider.id, modelId } } } as any);
     console.log(kleur.green(`${adapter!.name}: ${t("providerSwitched")} → ${provider.name} / ${modelId}`));
   }
 }

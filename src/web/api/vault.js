@@ -696,6 +696,25 @@ async function testApiKey(req, res) {
   }
 }
 
+// Reuse the same connection probe from non-HTTP provider flows (for example,
+// automatic background revalidation before a model switch). Keeping this
+// adapter here avoids duplicating the provider-specific probe rules above.
+async function testApiKeyResult(payload) {
+  let result;
+  const response = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      result = body;
+      return this;
+    },
+  };
+  await testApiKey({ body: payload }, response);
+  return result || { success: false, message: '连接测试没有返回结果' };
+}
+
 function isZaiAnthropicEndpoint(baseUrl) {
   return /^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim());
 }
@@ -887,4 +906,4 @@ async function migrateGroups(req, res) {
   }
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups };
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups };

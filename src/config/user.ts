@@ -6,13 +6,6 @@ import { backupImportantData } from "./backup";
 
 type Language = "zh" | "en";
 
-// A model the user explicitly starred as a favorite. Manually managed, capped.
-export interface FavoriteModel {
-  providerId: string;
-  modelId: string;
-  addedAt: string; // ISO timestamp
-}
-
 // A model that was used in a successful switchProvider call. Auto-maintained:
 // each switch prepends the model (deduped by providerId+modelId), capped at 10.
 export interface RecentModel {
@@ -88,10 +81,7 @@ export type UserConfig = {
   hints?: {
     mainHelpShown?: boolean;
   };
-  // Goal ③: favorites are user-starred; recents are auto-recorded on each
-  // successful switchProvider. Both drive the "常用模型" surfacing in pickers
-  // and the home dashboard.
-  favoriteModels?: FavoriteModel[];
+  // Auto-recorded on each successful switchProvider.
   recentModels?: RecentModel[];
   // Provider ids the user has explicitly added to each agent's home-page list.
   // Empty/absent = show nothing (the user adds their own). This is the "常用
@@ -117,7 +107,15 @@ const LEGACY_CLAUDE_PATH = path.join(OKIT_DIR, "claude-current.json");
 
 export async function loadUserConfig(): Promise<UserConfig> {
   const config = await readJson(USER_CONFIG_PATH);
-  if (config) return config;
+  if (config) {
+    // Remove the retired model-favorites field from older user configs once.
+    if (Object.prototype.hasOwnProperty.call(config, "favoriteModels")) {
+      const { favoriteModels: _removed, ...cleanConfig } = config;
+      await saveUserConfig(cleanConfig);
+      return cleanConfig;
+    }
+    return config;
+  }
 
   const migrated = await migrateLegacyConfig();
   if (migrated) {
@@ -146,7 +144,6 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     repo: patch.repo ? { ...current.repo, ...patch.repo } : current.repo,
     // Arrays are replaced wholesale — callers read-modify-write the full list
     // (e.g. switchProvider prepends to recentModels after deduping).
-    favoriteModels: patch.favoriteModels ?? current.favoriteModels,
     recentModels: patch.recentModels ?? current.recentModels,
     // Per-agent home-page provider lists: merge per agent key.
     homeProviders: patch.homeProviders ? { ...current.homeProviders, ...patch.homeProviders } : current.homeProviders,

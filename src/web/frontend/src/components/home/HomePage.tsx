@@ -4,9 +4,7 @@ import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon } from '../../assets/agents';
 import { getProviderIcon } from '../../assets/providers';
-import { useFavorites } from '../shared/favorites';
 import UsageSummary from './UsageSummary';
-import FavoriteModels from './FavoriteModels';
 
 export default function HomePage() {
   const { t } = useI18n();
@@ -16,10 +14,7 @@ export default function HomePage() {
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
-  // Goal ③/②: which provider cards have "show all models" expanded. When a
-  // user has favorites/recents we only show those by default and tuck the rest
-  // behind a "show all" toggle, so daily-use models surface without scrolling
-  // through dozens of entries.
+  // Which provider cards have "show all models" expanded.
   const [showAllModels, setShowAllModels] = useState<Set<string>>(new Set());
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [configFiles, setConfigFiles] = useState<AgentConfigFile[] | null>(null);
@@ -42,7 +37,6 @@ export default function HomePage() {
   const [addModelPickerFor, setAddModelPickerFor] = useState<string | null>(null);
   // Claude Code tier maps: per-provider { haiku, sonnet, opus } model overrides.
   const [tierMaps, setTierMaps] = useState<Record<string, TierMap>>({});
-  const { isFavorite } = useFavorites();
 
   const load = useCallback(async () => {
     try {
@@ -185,8 +179,6 @@ export default function HomePage() {
     <div className="quick-start-page">
       {/* Goal ②: dashboard blocks — daily-driver content above the fold */}
       <UsageSummary />
-      <FavoriteModels />
-
       {/* Agent configuration section — tab + provider cards */}
       <section className="home-section home-section--agent">
         <h3 className="home-section-title">{t('home.agentConfig')}</h3>
@@ -282,23 +274,12 @@ export default function HomePage() {
                   <div className="provider-card-models-list">
                     {(() => {
                       const showAll = showAllModels.has(p.id);
-                      // Goal ③: surface favorites first. If the user has starred
-                      // any models on this provider, show only those unless the
-                      // card is expanded. If no favorites, default to showing the
-                      // first 8 models (collapsed) — providers like 火山引擎 Coding
-                      // Plan carry 100+ models and flooding the card is unreadable.
-                      const favIds = new Set(visibleAfterExclude.filter(m => isFavorite(p.id, m.id)).map(m => m.id));
-                      const hasFavs = favIds.size > 0;
+                      // Keep large provider model lists collapsed by default.
                       const COLLAPSED_LIMIT = 8;
-                      const needsCollapse = !hasFavs && visibleAfterExclude.length > COLLAPSED_LIMIT;
-                      let visibleModels: typeof visibleAfterExclude;
-                      if (hasFavs && !showAll) {
-                        visibleModels = visibleAfterExclude.filter(m => favIds.has(m.id));
-                      } else if (needsCollapse && !showAll) {
-                        visibleModels = visibleAfterExclude.slice(0, COLLAPSED_LIMIT);
-                      } else {
-                        visibleModels = visibleAfterExclude;
-                      }
+                      const needsCollapse = visibleAfterExclude.length > COLLAPSED_LIMIT;
+                      const visibleModels = !showAll && needsCollapse
+                        ? visibleAfterExclude.slice(0, COLLAPSED_LIMIT)
+                        : visibleAfterExclude;
                       const totalCount = p.models.length;
                       const visibleCount = visibleAfterExclude.length;
                       return (
@@ -348,7 +329,7 @@ export default function HomePage() {
                               </div>
                             );
                           })}
-                          {(hasFavs || needsCollapse) && (
+                          {needsCollapse && (
                             <button
                               type="button"
                               className="agent-model-showall"

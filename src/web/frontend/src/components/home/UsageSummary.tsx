@@ -1,7 +1,6 @@
 // Goal ②: a compact "today's usage" strip for the home dashboard.
 //
-// Surfaces remaining quota for the user's favorited providers (falls back to
-// all supported providers when no favorites). Each card shows the REMAINING
+// Surfaces remaining quota for all supported providers. Each card shows the REMAINING
 // amount per window — not the used percentage — because "how much do I have
 // left" is the daily-driver question. Subscription providers show every window
 // they report (e.g. GLM shows both 5h and monthly; Codex shows 5h + weekly);
@@ -9,7 +8,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getUsage, getSupportedUsageProviders, listProviders, UsageResult, UsageWindow } from '../../api/providers';
-import { useFavorites } from '../shared/favorites';
 import { useI18n } from '../../i18n';
 
 // Map backend window labels (english short codes) to compact UI labels.
@@ -69,7 +67,6 @@ function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }
 
 export default function UsageSummary() {
   const { t } = useI18n();
-  const { favorites } = useFavorites();
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
   // Provider display names from API (single source of truth = presets.ts).
@@ -100,26 +97,18 @@ export default function UsageSummary() {
 
   useEffect(() => {
     if (supportedIds.length === 0) return;
-    // Prefer favorited providers; fall back to all supported.
-    const favIds = new Set(favorites.map(f => f.providerId));
-    const target = supportedIds.filter(id => favIds.has(id));
-    const ids = target.length > 0 ? target : supportedIds;
-    ids.forEach(id => fetchOne(id));
-  }, [supportedIds, favorites, fetchOne]);
+    supportedIds.forEach(id => fetchOne(id));
+  }, [supportedIds, fetchOne]);
 
   // Build cards: only include providers that actually have usable data
   // (windows present, or a meaningful balance). Skip providers whose only
   // signal is an error/empty — they would clutter the strip with "—" cards.
-  const favIds = new Set(favorites.map(f => f.providerId));
   const cards = supportedIds
     .filter(id => {
       const u = usageMap[id];
       if (!u || u.supported === false) return false;
       const hasWindows = (u.windows?.length || 0) > 0;
-      // Show a provider if it has windows OR it's a favorited provider (so the
-      // user sees their starred provider even when it reports an error, e.g.
-      // "not logged in" — that's actionable feedback).
-      return hasWindows || favIds.has(id);
+      return hasWindows;
     })
     .map(id => {
       const u = usageMap[id];

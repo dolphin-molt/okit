@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, triggerOAuthLogin, fetchModels, Provider, ProviderModel, ProviderEndpoint, Platform } from '../../api/providers';
+import { listProviders, deleteProvider, createProvider, updateProvider, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, Provider, ProviderModel, ProviderEndpoint, Platform } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
-import FavoriteButton from '../shared/FavoriteButton';
 import { getProviderIcon } from '../../assets/providers';
-import { getProviderDocsUrl } from '../../data/providerDocs';
+import { getProviderDocs, ProviderDocsKind } from '../../data/providerDocs';
 import crossDataRaw from '../../data/cross_platform_models.json';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const crossData: Record<string, any[]> = crossDataRaw as any;
@@ -19,6 +18,9 @@ const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = (pro
 type VariantOption = { label: string; providerId: string };
 type ProviderFamily = { family: string; plans?: VariantOption[]; ids: string[] };
 const PLATFORM_DEFINITIONS: Platform[] = (providersGenerated as any).platforms || [];
+const PRESET_PROVIDER_IDS = new Set<string>(
+  ((providersGenerated as any).presets || []).map((item: { id: string }) => item.id),
+);
 const PROVIDER_FAMILIES: ProviderFamily[] = PLATFORM_DEFINITIONS.map(platform => ({
   family: platform.name,
   plans: platform.offerings.map(offering => ({ label: offering.label, providerId: offering.providerId })),
@@ -38,13 +40,6 @@ const OPENAI_PROTOCOL_OPTIONS = [
   { value: 'chat', label: 'chat' },
   { value: 'responses', label: 'responses' },
 ];
-const AUTH_MODE_OPTIONS: { value: 'api_key' | 'oauth' | 'both' | 'none'; labelKey: string }[] = [
-  { value: 'api_key', labelKey: 'models.authModeApiKey' },
-  { value: 'oauth', labelKey: 'models.authModeOAuth' },
-  { value: 'both', labelKey: 'models.authModeBoth' },
-  { value: 'none', labelKey: 'models.authModeNone' },
-];
-
 // 平台分组由 providers-generated.json 提供（见文件头部 import）
 
 // 协议视角：支持的协议类型
@@ -55,28 +50,8 @@ const PROTOCOLS: { key: string; labelKey: string }[] = [
   { key: 'google', labelKey: 'models.protocolGoogle' },
 ];
 
-// 模态视角：模型能力分组
-const MODES: { key: string; labelKey: string; match: (caps: string[]) => boolean }[] = [
-  { key: 'multimodal', labelKey: 'models.modeMultimodal', match: caps => caps.some(c => ['image', 'video', 'audio'].includes(c)) },
-  { key: 'audio', labelKey: 'models.modeAudio', match: caps => caps.includes('audio') },
-  { key: 'text', labelKey: 'models.modeText', match: caps => caps.length === 0 || caps.every(c => c === 'text') },
-];
-
-// 根据模型 id/名称启发式推断能力（数据未标注时兜底）
-function inferCaps(id: string, name?: string): string[] {
-  const hay = `${id} ${name || ''}`.toLowerCase();
-  const caps: string[] = ['text'];
-  if (/(vision|image|img-|-vlm|omni|multimodal|vl$|vl-|ocr|video|veo|gemini)/.test(hay)) caps.push('image');
-  if (/(audio|voice|speech|tts|asr|realtime|song)/.test(hay)) caps.push('audio');
-  return caps;
-}
-
-function modelCaps(m: ProviderModel): string[] {
-  if (Array.isArray(m.capabilities) && m.capabilities.length) return m.capabilities;
-  return inferCaps(m.id, m.name);
-}
-
 function providerProtocols(p: Provider): string[] {
+  if (p.executionMode === 'agent_native') return [];
   const eps = p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }];
   const keys = new Set<string>();
   for (const ep of eps) {
@@ -87,15 +62,11 @@ function providerProtocols(p: Provider): string[] {
   return Array.from(keys);
 }
 
-function providerModes(p: Provider): string[] {
-  const modes = new Set<string>();
-  const allCaps = p.models.flatMap(modelCaps);
-  if (!allCaps.length) return ['text'];
-  for (const m of MODES) if (m.match(allCaps)) modes.add(m.key);
-  return Array.from(modes);
-}
-
 type ViewKey = 'platform' | 'model';
+
+// 暂停尚未形成完整使用闭环的入口。保留实现，待数据同步与使用场景明确后恢复。
+const MODEL_COMPARISON_ENABLED = false;
+const PLATFORM_DETAIL_ENABLED = false;
 
 // Provider families 由 providers-generated.json 提供数据（见文件头部 import）。
 const PROVIDER_FAMILY_MAP = new Map<string, string>();
@@ -142,6 +113,18 @@ interface AuthState {
   authVerified: boolean;
   oauthLoggedIn: boolean | null;
   authMode: string;
+  authState?: string;
+  authVerifiedAt?: string;
+  authLastCheckedAt?: string;
+  authLastError?: string;
+  authEndpointStates?: Provider['authEndpointStates'];
+}
+
+function runtimeAuthReady(provider: Provider | undefined, auth: AuthState | undefined): boolean {
+  if (!provider) return false;
+  if (provider.authMode === 'none') return true;
+  if (auth?.oauthLoggedIn === true) return true;
+  return Boolean(provider.vaultKey && auth?.hasApiKey && auth.authVerified === true && auth.authState !== 'invalid');
 }
 
 type StatusFilter = 'all' | 'authed' | 'unauthed' | 'used';
@@ -186,7 +169,6 @@ export default function ModelsPage() {
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeProtocol, setActiveProtocol] = useState<string | null>(null);
-  const [activeMode, setActiveMode] = useState<string | null>(null);
   const [activePlanFilter, setActivePlanFilter] = useState<PlanFilter | null>(null);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [activeModelProvider, setActiveModelProvider] = useState<string | null>(null);
@@ -202,7 +184,6 @@ export default function ModelsPage() {
   const [syncingModels, setSyncingModels] = useState<string | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [cardAuthMethod, setCardAuthMethod] = useState<Record<string, 'api_key' | 'oauth'>>({});
-  const [vaultPickerFor, setVaultPickerFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -216,6 +197,11 @@ export default function ModelsPage() {
           authVerified: s.authVerified === true,
           oauthLoggedIn: s.oauthLoggedIn,
           authMode: s.authMode,
+          authState: s.authState,
+          authVerifiedAt: s.authVerifiedAt,
+          authLastCheckedAt: s.authLastCheckedAt,
+          authLastError: s.authLastError,
+          authEndpointStates: s.authEndpointStates,
         };
       }
       setAuthMap(map);
@@ -246,6 +232,44 @@ export default function ModelsPage() {
     try {
       const res = await triggerOAuthLogin(providerId);
       toast(res.message, 'success');
+      // The CLI login runs in another terminal. Poll the local session so the
+      // user does not need to click Connect or refresh the page afterwards.
+      const deadline = Date.now() + 60_000;
+      let loggedIn = false;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+        const authData = await getAuthStatus();
+        const status = authData.statuses.find(item => item.id === providerId);
+        const oauthLoggedIn = status?.oauthLoggedIn === true;
+        if (status) {
+          setAuthMap(prev => ({
+            ...prev,
+            [providerId]: {
+              ...(prev[providerId] || { hasApiKey: false, authVerified: false, authMode: status.authMode }),
+              hasApiKey: status.hasApiKey,
+              authVerified: status.authVerified === true,
+              oauthLoggedIn,
+              authMode: status.authMode,
+              authState: status.authState,
+              authVerifiedAt: status.authVerifiedAt,
+              authLastCheckedAt: status.authLastCheckedAt,
+              authLastError: status.authLastError,
+            },
+          }));
+        }
+        if (oauthLoggedIn) {
+          loggedIn = true;
+          break;
+        }
+      }
+      if (loggedIn) {
+        toast(t('models.statusAuthed'), 'success');
+        await load();
+        const sync = await fetchModels(providerId);
+        if (sync.success) toast(t('models.connected', { n: sync.models.length }), 'success');
+      } else {
+        toast(t('models.oauthWaitingTimeout'), 'info');
+      }
     } catch (err: any) {
       toast(err.message, 'error');
     } finally {
@@ -255,6 +279,19 @@ export default function ModelsPage() {
 
   async function handleConnect(p: Provider) {
     setActionMenuId(null);
+    if (p.authMode === 'none') {
+      setSyncingModels(p.id);
+      try {
+        const res = await fetchModels(p.id);
+        toast(res.success ? t('models.connected', { n: res.models.length }) : t('models.syncFailed'), res.success ? 'success' : 'error');
+        if (res.success) await load();
+      } catch (err: any) {
+        toast(err.message || t('models.syncFailed'), 'error');
+      } finally {
+        setSyncingModels(null);
+      }
+      return;
+    }
     if (getCardAuthMethod(p) === 'oauth') {
       setTestingConn(p.id);
       try {
@@ -269,7 +306,7 @@ export default function ModelsPage() {
           },
         }));
         if (!oauthLoggedIn) {
-          toast(t('models.statusUnauthed'), 'error');
+          await handleOAuthLogin(p.id);
           return;
         }
 
@@ -290,50 +327,44 @@ export default function ModelsPage() {
       return;
     }
 
-    const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
     setTestingConn(p.id);
     setEndpointResults(prev => {
       const next = { ...prev };
       delete next[p.id];
       return next;
     });
-    const results: { success: boolean; message: string }[] = [];
-    for (const ep of eps) {
-      try {
-        const res = await api('/api/vault/test-key', {
-          method: 'POST',
-          body: JSON.stringify({ baseUrl: ep.baseUrl, type: ep.type, protocol: ep.protocol, vaultKey: p.vaultKey }),
-        }) as any;
-        results.push({ success: res.success, message: res.message });
-      } catch (err: any) {
-        results.push({ success: false, message: err.message || t('models.testFailed') });
+    try {
+      const verification = await verifyProviderAuth(p.id);
+      const results = verification.results || [];
+      setEndpointResults(prev => ({
+        ...prev,
+        [p.id]: results.map(result => ({ success: result.success, message: result.message })),
+      }));
+      const status = verification.status;
+      setAuthMap(prev => ({
+        ...prev,
+        [p.id]: {
+          ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), oauthLoggedIn: null, authMode: p.authMode }),
+          hasApiKey: status.hasApiKey,
+          authVerified: status.authVerified,
+          oauthLoggedIn: status.oauthLoggedIn,
+          authMode: status.authMode,
+          authState: status.authState,
+          authLastCheckedAt: status.authLastCheckedAt,
+          authLastError: status.authLastError,
+          authEndpointStates: status.authEndpointStates,
+        },
+      }));
+
+      if (!verification.success) {
+        toast(status.authLastError || t('models.endpointsFailed', { n: results.filter(r => !r.success).length }), status.authState === 'stale' ? 'info' : 'error');
+        setTestingConn(null);
+        return;
       }
-      setEndpointResults(prev => ({ ...prev, [p.id]: [...results] }));
-    }
-    const allOk = results.every(r => r.success);
-    try {
-      await updateProvider(p.id, {
-        authVerified: allOk,
-        authVerifiedKey: allOk ? p.vaultKey : undefined,
-        authVerifiedAt: allOk ? new Date().toISOString() : undefined,
-        authVerifiedEndpointIds: allOk ? eps.map((_, index) => `${p.id}:endpoint:${index}`) : [],
-      });
-    } catch { /* server unavailable, result still shown locally */ }
-    setAuthMap(prev => ({
-      ...prev,
-      [p.id]: { ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), oauthLoggedIn: null, authMode: p.authMode }), authVerified: allOk },
-    }));
 
-    if (!allOk) {
-      toast(t('models.endpointsFailed', { n: results.filter(r => !r.success).length }), 'error');
+      // 连接成功后自动拉取最新模型列表
+      setSyncingModels(p.id);
       setTestingConn(null);
-      return;
-    }
-
-    // 连接成功后自动拉取最新模型列表
-    setSyncingModels(p.id);
-    setTestingConn(null);
-    try {
       const res = await fetchModels(p.id);
       if (res.success) {
         toast(t('models.connected', { n: res.models.length }), 'success');
@@ -344,9 +375,10 @@ export default function ModelsPage() {
       } else {
         toast(t('models.allEndpointsOk'), 'success');
       }
-    } catch {
-      toast(t('models.allEndpointsOk'), 'success');
+    } catch (err: any) {
+      toast(err.message || t('models.testFailed'), 'error');
     } finally {
+      setTestingConn(null);
       setSyncingModels(null);
     }
   }
@@ -357,6 +389,7 @@ export default function ModelsPage() {
     if (stored) return stored;
     // 根据 provider 支持的方式决定默认值
     if (p.authMode === 'oauth') return 'oauth';
+    if (p.authMode === 'both' && authMap[p.id]?.oauthLoggedIn === true && !p.vaultKey) return 'oauth';
     if (p.vaultKey) return 'api_key';
     if (p.authMode === 'both') return 'api_key';
     return 'api_key';
@@ -366,61 +399,6 @@ export default function ModelsPage() {
   function supportsMethod(p: Provider, method: 'api_key' | 'oauth'): boolean {
     if (method === 'api_key') return p.authMode === 'api_key' || p.authMode === 'both';
     return p.authMode === 'oauth' || p.authMode === 'both';
-  }
-
-  // 设置密钥后自动连接
-  async function handleKeyPicked(providerId: string, vaultKey: string) {
-    setVaultPickerFor(null);
-    try {
-      await updateProvider(providerId, { vaultKey });
-      toast(t('models.keyBound'), 'success');
-      load();
-      // 自动连接(测试+刷新模型)
-      const updated = providers.find(pp => pp.id === providerId);
-      if (updated) handleConnect({ ...updated, vaultKey });
-    } catch (err: any) {
-      toast(err.message, 'error');
-    }
-  }
-
-  async function handleTestConnection(p: Provider) {
-    setActionMenuId(null);
-    const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
-    setTestingConn(p.id);
-    setEndpointResults(prev => {
-      const next = { ...prev };
-      delete next[p.id];
-      return next;
-    });
-    const results: { success: boolean; message: string }[] = [];
-    for (const ep of eps) {
-      try {
-        const res = await api('/api/vault/test-key', {
-          method: 'POST',
-          body: JSON.stringify({ baseUrl: ep.baseUrl, type: ep.type, protocol: ep.protocol, vaultKey: p.vaultKey }),
-        }) as any;
-        results.push({ success: res.success, message: res.message });
-      } catch (err: any) {
-        results.push({ success: false, message: err.message || t('models.testFailed') });
-      }
-      setEndpointResults(prev => ({ ...prev, [p.id]: [...results] }));
-    }
-    const allOk = results.every(r => r.success);
-    try {
-      await updateProvider(p.id, { authVerified: allOk });
-    } catch {
-      // The connection result is still shown locally; saving the provider
-      // metadata can be retried from the editor if the server is unavailable.
-    }
-    setAuthMap(prev => ({
-      ...prev,
-      [p.id]: { ...(prev[p.id] || { hasApiKey: Boolean(p.vaultKey), oauthLoggedIn: null, authMode: p.authMode }), authVerified: allOk },
-    }));
-    toast(
-      allOk ? t('models.allEndpointsOk') : t('models.endpointsFailed', { n: results.filter(r => !r.success).length }),
-      allOk ? 'success' : 'error'
-    );
-    setTestingConn(null);
   }
 
   async function handleSyncModels(p: Provider) {
@@ -455,11 +433,11 @@ export default function ModelsPage() {
   }
 
   function switchView(v: ViewKey) {
+    if (v === 'model' && !MODEL_COMPARISON_ENABLED) return;
     setView(v);
     setActiveProvider(null);
     setActiveGroup(null);
     setActiveProtocol(null);
-    setActiveMode(null);
     setActivePlanFilter(null);
     setActivePlatform(null);
   }
@@ -488,14 +466,19 @@ export default function ModelsPage() {
   }
 
   function isAuthed(p: Provider): boolean {
+    if (p.authMode === 'none') return true;
     const auth = authMap[p.id];
-    return Boolean((p.vaultKey && auth?.hasApiKey && auth.authVerified === true) || auth?.oauthLoggedIn === true);
+    return Boolean(
+      auth?.oauthLoggedIn === true
+      || (p.vaultKey && auth?.hasApiKey && auth?.authVerified === true && auth?.authState !== 'invalid')
+    );
   }
 
   function isAuthMethodAuthed(p: Provider, method: 'api_key' | 'oauth'): boolean {
+    if (p.authMode === 'none') return true;
     const auth = authMap[p.id];
     if (method === 'oauth') return auth?.oauthLoggedIn === true;
-    return Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === true);
+    return Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === true && auth.authState !== 'invalid');
   }
 
   function matchesQuery(p: Provider): boolean {
@@ -521,29 +504,27 @@ export default function ModelsPage() {
       if (activeGroup && groupOf(p.id).key !== activeGroup) return false;
       // 协议筛选：平台必须提供该协议端点
       if (activeProtocol && !providerProtocols(p).includes(activeProtocol)) return false;
-      // 模态筛选：平台模型必须支持该能力
-      if (activeMode && !providerModes(p).includes(activeMode)) return false;
       // 套餐筛选:对多成员家族,任一成员匹配则保留整个家族(卡片内用 tab 切换)
       if (activePlanFilter) {
         const ownPlans = providerPlans(p);
-        if (ownPlans.includes(activePlanFilter)) return true; // 自身匹配
+        let planMatches = ownPlans.includes(activePlanFilter);
         const familyIds = familyIdsMap.get(p.id);
         if (familyIds) {
           const familyMatch = familyIds.some(fid => {
             const fp = providers.find(pp => pp.id === fid);
             return fp && providerPlans(fp).includes(activePlanFilter);
           });
-          if (familyMatch) return true; // 家族中有成员匹配
+          planMatches = planMatches || familyMatch;
         }
-        return false;
+        if (!planMatches) return false;
       }
       if (!matchesQuery(p)) return false;
       if (statusFilter === 'authed' && !isAuthed(p)) return false;
-      if (statusFilter === 'unauthed' && !isAuthed(p)) return false;
+      if (statusFilter === 'unauthed' && isAuthed(p)) return false;
       if (statusFilter === 'used' && !isUsedBy(p)) return false;
       return true;
     });
-  }, [providers, authMap, activeProvider, activeGroup, view, activeProtocol, activeMode, activePlanFilter, searchQuery, statusFilter]);
+  }, [providers, authMap, activeProvider, activeGroup, activeProtocol, activePlanFilter, searchQuery, statusFilter]);
 
   // Build a global ordering: group priority (official → aggregator → china → local)
   // then the position within each group's ids array. Providers not in any group
@@ -603,12 +584,41 @@ export default function ModelsPage() {
     return members[0];
   }
   const modelStats = useMemo(() => {
-    const endpoints = providers.reduce((sum, p) => sum + (p.endpoints?.length || 1), 0);
-    const models = providers.reduce((sum, p) => sum + (p.models?.length || 0), 0);
-    const authed = providers.filter(p => isAuthed(p)).length;
+    const endpoints = platforms.reduce((sum, platform) => sum + platform.endpoints.length, 0);
+    const models = platforms.reduce((sum, platform) => sum + platform.models.length, 0);
+    const offerings = platforms.reduce((sum, platform) => sum + platform.offerings.length, 0);
+    const authed = platforms.filter(platform => platform.providerIds.some(providerId => {
+      const provider = providers.find(item => item.id === providerId);
+      return provider ? isAuthed(provider) : false;
+    })).length;
     const used = providers.filter(p => isUsedBy(p)).length;
-    return { endpoints, models, authed, used, total: providers.length };
-  }, [providers, authMap]);
+    return { endpoints, models, offerings, authed, used, total: platforms.length };
+  }, [providers, platforms, authMap]);
+  const comparisonModelCount = useMemo(() => Object.entries(crossData)
+    .filter(([, entries]) => Array.isArray(entries) && entries.length > 0 && (!hideLegacy || !entries.some(entry => entry.legacy)))
+    .length, [hideLegacy]);
+  const modelVendorOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const [, entries] of Object.entries(crossData)) {
+      if (!Array.isArray(entries) || entries.length === 0) continue;
+      if (hideLegacy && entries.some(entry => entry.legacy)) continue;
+      const vendor = entries[0]?.primary_provider || 'unknown';
+      counts.set(vendor, (counts.get(vendor) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [hideLegacy]);
+  const filteredComparisonCount = useMemo(() => filterModelEntries(
+    Object.entries(crossData).filter(([, entries]) => Array.isArray(entries) && entries.length > 0),
+    {
+      hideLegacy,
+      activeProtocol,
+      activeModality,
+      searchQuery,
+      providers,
+      activeProvider: activeModelProvider,
+    },
+  ).length, [hideLegacy, activeProtocol, activeModality, searchQuery, providers, activeModelProvider]);
+  const hasComparisonFilters = Boolean(searchQuery || activeModelProvider || activeModality || activeProtocol || !hideLegacy);
 
   // 分组 chips：跟随视角动态生成（分段结构，每段独立一行）
   // 返回: [{ label, chips: [...] }, ...]
@@ -618,12 +628,12 @@ export default function ModelsPage() {
       // 厂商 chip 计数：应用除「厂商自身」外的所有过滤（含模态），保证数量=点进去实际渲染数
       const filteredForProvider = filterModelEntries(
         Object.entries(crossData).filter(([, e]) => Array.isArray(e) && e.length > 0),
-        { hideLegacy, activeProtocol, activeMode, activeModality, searchQuery, providers }
+        { hideLegacy, activeProtocol, activeModality, searchQuery, providers }
       );
       // 模态 chip 计数：应用除「模态自身」外的所有过滤（含厂商）
       const filteredForMod = filterModelEntries(
         Object.entries(crossData).filter(([, e]) => Array.isArray(e) && e.length > 0),
-        { hideLegacy, activeProtocol, activeMode, searchQuery, providers, activeProvider: activeModelProvider }
+        { hideLegacy, activeProtocol, searchQuery, providers, activeProvider: activeModelProvider }
       );
       const ppCounts: Record<string, number> = {};
       for (const [, e] of filteredForProvider) {
@@ -682,7 +692,7 @@ export default function ModelsPage() {
       ];
     }
 
-    // 平台视角：分组 + 协议 + 模态 + 状态（4 行）
+    // 平台视角只筛提供方式自身属性；模型模态留在模型对比视角。
     const protocolChipsArr = [
       { key: '__all_proto__', label: t('models.filterAll'), active: !activeProtocol, onClick: () => setActiveProtocol(null) },
       ...PROTOCOLS.filter(pc => providers.some(p => providerProtocols(p).includes(pc.key))).map(pc => ({
@@ -690,15 +700,6 @@ export default function ModelsPage() {
         label: t(pc.labelKey),
         active: activeProtocol === pc.key,
         onClick: () => setActiveProtocol(activeProtocol === pc.key ? null : pc.key),
-      })),
-    ];
-    const modeChipsArr = [
-      { key: '__all_mode__', label: t('models.filterAll'), active: !activeMode, onClick: () => setActiveMode(null) },
-      ...MODES.filter(md => providers.some(p => providerModes(p).includes(md.key))).map(md => ({
-        key: md.key,
-        label: t(md.labelKey),
-        active: activeMode === md.key,
-        onClick: () => setActiveMode(activeMode === md.key ? null : md.key),
       })),
     ];
     const planChipsArr = [
@@ -728,49 +729,105 @@ export default function ModelsPage() {
     return [
       { label: t('models.dimPlan'), chips: planChipsArr },
       { label: t('models.dimProtocol'), chips: protocolChipsArr },
-      { label: t('models.dimMode'), chips: modeChipsArr },
     ];
-  }, [view, providers, activeProtocol, activeMode, activePlanFilter, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
+  }, [view, providers, activeProtocol, activePlanFilter, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
 
   if (loading) return <div className="page-loading">{t('common.loading')}</div>;
 
   return (
     <>
     <div className="access-workspace models-workspace models-page-full">
-        <header className="models-header">
+        {!activePlatform && <header className="models-header">
           <div className="models-header-title">
             <div className="models-title-row">
-              <div className="view-switcher" role="tablist" aria-label={t('models.viewSwitch')}>
-                {([
-                  ['platform', t('models.viewPlatform')],
-                  ['model', t('models.viewModel')],
-                ] as [ViewKey, string][]).map(([key, label]) => (
-                  <button
-                    key={key}
-                    role="tab"
-                    aria-selected={view === key}
-                    className={`view-switcher-btn${view === key ? ' view-switcher-btn--active' : ''}`}
-                    onClick={() => switchView(key)}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="view-switcher" aria-label={t('models.viewSwitch')}>
+                <span className="view-switcher-btn view-switcher-btn--active">
+                  {t('models.viewPlatform')}
+                </span>
               </div>
             </div>
           </div>
           <div className="models-header-actions">
             <div className="models-header-stats">
-            <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />
-            <StatChip label={t('models.totalModels')} value={modelStats.models} tone="muted" />
-            <StatChip label={t('models.totalEndpoints')} value={modelStats.endpoints} tone="muted" />
-            <StatChip label={t('models.authReady')} value={`${modelStats.authed} / ${modelStats.total}`} tone={modelStats.authed === modelStats.total ? 'success' : 'warn'} />
+            {view === 'platform' ? <>
+              <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />
+              <StatChip label={t('models.totalOfferings')} value={modelStats.offerings} tone="muted" />
+              <StatChip label={t('models.totalEndpoints')} value={modelStats.endpoints} tone="muted" />
+              <StatChip label={t('models.authReady')} value={`${modelStats.authed} / ${modelStats.total}`} tone={modelStats.authed === modelStats.total ? 'success' : 'warn'} />
+            </> : <>
+              <StatChip label={t('models.comparisonModels')} value={comparisonModelCount} />
+              <StatChip label={t('models.configuredPlatforms')} value={modelStats.total} tone="muted" />
+            </>}
             </div>
             <button className="vault-toolbar-btn models-add-platform-btn" onClick={handleAdd}>{t('models.addPlatform')}</button>
           </div>
-        </header>
+        </header>}
 
-        {/* chips 工具栏（按行：每个筛选维度独立一行） */}
-        <div className="models-toolbar">
+        {/* 平台使用分组筛选；模型对比使用单行紧凑筛选。 */}
+        {MODEL_COMPARISON_ENABLED && !activePlatform && view === 'model' && !activeModel && (
+          <div className="model-compare-filterbar">
+            <label className="model-compare-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder={t('models.searchModels')}
+              />
+            </label>
+            <label className="model-compare-select">
+              <span>{t('models.dimModelProvider')}</span>
+              <select value={activeModelProvider || ''} onChange={event => setActiveModelProvider(event.target.value || null)}>
+                <option value="">{t('models.filterAll')}</option>
+                {modelVendorOptions.map(([vendor, count]) => (
+                  <option key={vendor} value={vendor}>{PROVIDER_LABELS[vendor] || vendor} · {count}</option>
+                ))}
+              </select>
+            </label>
+            <label className="model-compare-select">
+              <span>{t('models.dimModality')}</span>
+              <select value={activeModality || ''} onChange={event => setActiveModality(event.target.value || null)}>
+                <option value="">{t('models.filterAll')}</option>
+                <option value="text">{t('models.modText')}</option>
+                <option value="image">{t('models.modImage')}</option>
+                <option value="video">{t('models.modVideo')}</option>
+                <option value="audio">{t('models.modAudio')}</option>
+                <option value="3d">{t('models.mod3d')}</option>
+                <option value="omni">{t('models.modOmni')}</option>
+              </select>
+            </label>
+            <label className="model-compare-select">
+              <span>{t('models.dimProtocol')}</span>
+              <select value={activeProtocol || ''} onChange={event => setActiveProtocol(event.target.value || null)}>
+                <option value="">{t('models.filterAll')}</option>
+                {PROTOCOLS.filter(protocol => providers.some(provider => providerProtocols(provider).includes(protocol.key))).map(protocol => (
+                  <option key={protocol.key} value={protocol.key}>{t(protocol.labelKey)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="model-compare-latest">
+              <input type="checkbox" checked={hideLegacy} onChange={event => setHideLegacy(event.target.checked)} />
+              <span>{t('models.onlyLatest')}</span>
+            </label>
+            <span className="model-compare-result-count">{filteredComparisonCount}</span>
+            {hasComparisonFilters && (
+              <button
+                type="button"
+                className="model-compare-clear"
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveModelProvider(null);
+                  setActiveModality(null);
+                  setActiveProtocol(null);
+                  setHideLegacy(true);
+                }}
+              >
+                {t('models.clearFilters')}
+              </button>
+            )}
+          </div>
+        )}
+        {!activePlatform && view === 'platform' && <div className="models-toolbar">
           {groupChips.map((section, i) => (
             <div key={i} className="models-filter-section">
               <span className="models-filter-section-label">{section.label}</span>
@@ -788,8 +845,7 @@ export default function ModelsPage() {
               </div>
             </div>
           ))}
-          {view !== 'model' && (
-            <div className="models-filter-section">
+          <div className="models-filter-section">
               <span className="models-filter-section-label">{t('models.dimStatus')}</span>
               <div className="models-filter-section-chips">
                 {([
@@ -808,30 +864,16 @@ export default function ModelsPage() {
                 ))}
               </div>
             </div>
-          )}
-          {view === 'model' && (
-            <div className="models-filter-section">
-              <span className="models-filter-section-label">选项</span>
-              <div className="models-filter-section-chips">
-                <button
-                  className={`models-filter-chip models-filter-chip--toggle${hideLegacy ? ' models-filter-chip--active' : ''}`}
-                  onClick={() => setHideLegacy(!hideLegacy)}
-                  type="button"
-                >
-                  {hideLegacy ? `✓ ${t('models.onlyLatest')}` : t('models.showLegacy')}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        </div>}
 
-        {view === 'model' && activeModel && crossData[activeModel] && (
-          <ModelDetailPanel modelKey={activeModel} entries={crossData[activeModel]} providers={providers} t={t} onBack={() => setActiveModel(null)} />
+        {MODEL_COMPARISON_ENABLED && view === 'model' && activeModel && crossData[activeModel] && (
+          <ModelDetailPanel modelKey={activeModel} entries={crossData[activeModel]} providers={providers} authMap={authMap} t={t} onBack={() => setActiveModel(null)} />
         )}
-        {view === 'model' && !activeModel && (
+        {MODEL_COMPARISON_ENABLED && view === 'model' && !activeModel && (
           <ModelGrid
             models={Object.entries(crossData).filter(([, e]) => Array.isArray(e) && e.length > 0)}
             providers={providers}
+            authMap={authMap}
             activeModel={activeModel}
             searchQuery={searchQuery}
             onSelect={(k) => setActiveModel(k)}
@@ -839,7 +881,6 @@ export default function ModelsPage() {
             activeProvider={activeModelProvider}
             hideLegacy={hideLegacy}
             activeProtocol={activeProtocol}
-            activeMode={activeMode}
             activeModality={activeModality}
           />
         )}
@@ -875,27 +916,40 @@ export default function ModelsPage() {
             } else {
               p = fam.providers[0];
             }
-            const eps = (p.endpoints || [{ type: p.type, baseUrl: p.baseUrl }]).map(normalizeEndpoint);
+            const platform = platforms.find(item => famDef
+              ? item.name === famDef.family
+              : item.providerIds.includes(p.id));
             const auth = authMap[p.id];
             const authed = isAuthed(p);
             const selectedAuthMethod = getCardAuthMethod(p);
             const needsVerification = selectedAuthMethod === 'api_key'
-              && Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === false);
+              && Boolean(p.vaultKey && auth?.hasApiKey && (auth.authState === 'needs_verification' || auth.authState === 'invalid'));
             const used = isUsedBy(p);
             // 状态反映当前选中的变体(不是整个家族的并集)
             const familyAuthed = isMulti ? authed : isAuthMethodAuthed(p, selectedAuthMethod);
+            const authWarning = selectedAuthMethod === 'api_key' && (auth?.authState === 'stale' || auth?.authState === 'partial');
+            const statusLabel = authWarning
+              ? auth?.authState === 'partial' ? t('models.statusPartial') : t('models.statusStale')
+              : familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed');
+            const authDetail = authWarning
+              ? `${auth?.authLastError || t('models.authNeedsRecheck')}${auth?.authLastCheckedAt ? ` · ${new Date(auth.authLastCheckedAt).toLocaleString()}` : ''}`
+              : familyAuthed
+                ? selectedAuthMethod === 'oauth' ? 'OKIT 通过 OAuth 认证' : p.authMode === 'none' ? t('models.authModeNone') : 'OKIT 通过 API Key 认证'
+                : needsVerification
+                  ? 'OKIT 已配置 API Key，尚未通过连接验证'
+                  : selectedAuthMethod === 'oauth' ? 'OKIT 尚未完成 OAuth 认证' : 'OKIT 尚未配置 API Key';
 
             return (
               <article
-                key={famDef?.family || p.id}
-                className={`provider-card provider-card--clickable${familyAuthed ? ' provider-card--authed' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
-                onClick={() => setActivePlatform(p.id)}
+                key={platform?.id || famDef?.family || p.id}
+                className={`provider-card${PLATFORM_DETAIL_ENABLED ? ' provider-card--clickable' : ''}${familyAuthed ? ' provider-card--authed' : ''}${testingConn === p.id ? ' provider-card--testing' : ''}`}
+                onClick={PLATFORM_DETAIL_ENABLED ? () => setActivePlatform(platform?.id || p.id) : undefined}
                 aria-busy={testingConn === p.id}
               >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
                     {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className="provider-card-brand-icon" /> : null; })()}
-                    <h3>{isMulti && famDef ? famDef.family : providerName(p.id, p.name)}</h3>
+                    <h3>{platform?.name || (isMulti && famDef ? famDef.family : providerName(p.id, p.name))}</h3>
                   </div>
                   <div className="provider-card-status">
                     {testingConn === p.id && (
@@ -905,21 +959,11 @@ export default function ModelsPage() {
                       </span>
                     )}
                     <span
-                      className={`provider-status provider-status--${familyAuthed ? 'authed' : 'unauthed'} provider-status--with-auth-tooltip`}
+                      className={`provider-status provider-status--${authWarning ? 'warning' : familyAuthed ? 'authed' : 'unauthed'} provider-status--with-auth-tooltip`}
                       tabIndex={0}
-                      data-auth-detail={
-                        familyAuthed
-                          ? selectedAuthMethod === 'oauth'
-                            ? 'OKIT 通过 OAuth 认证'
-                            : 'OKIT 通过 API Key 认证'
-                          : needsVerification
-                            ? 'OKIT 已配置 API Key，尚未通过连接验证'
-                            : selectedAuthMethod === 'oauth'
-                              ? 'OKIT 尚未完成 OAuth 认证'
-                              : 'OKIT 尚未配置 API Key'
-                      }
+                      data-auth-detail={authDetail}
                     >
-                      {familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed')}
+                      {statusLabel}
                     </span>
                   </div>
                   <div className="provider-card-actions">
@@ -936,8 +980,12 @@ export default function ModelsPage() {
                       <ActionMenu
                         onClose={() => setActionMenuId(null)}
                         actions={[
-                          { label: t('models.menuConnect'), onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id },
-                          { label: t('models.setKey'), onClick: () => { setActionMenuId(null); setVaultPickerFor(p.id); } },
+                          ...(selectedAuthMethod === 'oauth' ? [{
+                            label: loggingIn === p.id ? t('models.testingConn') : t('models.authModeOAuth'),
+                            onClick: () => { setActionMenuId(null); handleOAuthLogin(p.id); },
+                            disabled: loggingIn === p.id,
+                          }] : []),
+                          ...(selectedAuthMethod !== 'oauth' ? [{ label: p.authMode === 'none' ? t('models.syncModels') : t('models.menuConnect'), onClick: () => handleConnect(p), disabled: testingConn === p.id || syncingModels === p.id }] : []),
                           { label: t('models.menuEdit'), onClick: () => handleEdit(p) },
                           { label: t('models.menuDelete'), onClick: () => handleDelete(p), danger: true },
                         ]}
@@ -953,16 +1001,18 @@ export default function ModelsPage() {
           </div>
         )}
 
-        {view === 'platform' && activePlatform && (
+        {PLATFORM_DETAIL_ENABLED && view === 'platform' && activePlatform && (
           (() => {
-            const p = providers.find(pp => pp.id === activePlatform);
-            if (!p) return <div className="empty-state"><p>{t('models.noMatch')}</p></div>;
+            const platform = platforms.find(item => item.id === activePlatform)
+              || platforms.find(item => item.providerIds.includes(activePlatform));
+            if (!platform) return <div className="empty-state"><p>{t('models.noMatch')}</p></div>;
             return (
               <PlatformDetailPanel
-                provider={p}
+                key={platform.id}
+                platform={platform}
                 providers={providers}
+                authMap={authMap}
                 crossData={crossData}
-                authed={isAuthed(p)}
                 onBack={() => setActivePlatform(null)}
               />
             );
@@ -982,13 +1032,6 @@ export default function ModelsPage() {
           onClose={() => { setShowForm(false); setEditProvider(null); }}
         />
       )}
-      {vaultPickerFor && (
-        <VaultPickerModal
-          selected={providers.find(pp => pp.id === vaultPickerFor)?.vaultKey || ''}
-          onSelect={key => handleKeyPicked(vaultPickerFor, key)}
-          onClose={() => setVaultPickerFor(null)}
-        />
-      )}
       </div>
     </>
   );
@@ -1002,7 +1045,7 @@ function StatChip({ label, value, tone }: { label: string; value: number | strin
   );
 }
 
-function ModelDetailPanel({ modelKey, entries, providers, t, onBack }: { modelKey: string; entries: any[]; providers: Provider[]; t: (k: string, ...args: any[]) => string; onBack: () => void }) {
+function ModelDetailPanel({ modelKey, entries, providers, authMap, t, onBack }: { modelKey: string; entries: any[]; providers: Provider[]; authMap: Record<string, AuthState>; t: (k: string, ...args: any[]) => string; onBack: () => void }) {
   const platforms = [...new Set(entries.map((e: any) => e.platform))];
   const fmtPrice = (raw: string | undefined): number => {
     if (!raw || raw === '0') return 0;
@@ -1071,7 +1114,10 @@ function ModelDetailPanel({ modelKey, entries, providers, t, onBack }: { modelKe
           <div className="model-info-label">{t('models.infoAuthed')}</div>
           <div className="model-info-value">
             {(() => {
-              const authedCount = platforms.filter((pid: any) => providers.find(p => p.id === pid)?.vaultKey).length;
+              const authedCount = platforms.filter((pid: any) => {
+                const provider = providers.find(p => p.id === pid);
+                return runtimeAuthReady(provider, provider ? authMap[provider.id] : undefined);
+              }).length;
               return <span className={authedCount === platforms.length ? 'model-info-ok' : authedCount > 0 ? 'model-info-warn' : 'model-info-muted'}>{authedCount}/{platforms.length}</span>;
             })()}
           </div>
@@ -1096,10 +1142,12 @@ function ModelDetailPanel({ modelKey, entries, providers, t, onBack }: { modelKe
               const ec = e.context ? `${Math.round(e.context / 1024)}K` : '?';
               const pi = fmtPrice(e.pricing?.prompt);
               const po = fmtPrice(e.pricing?.completion);
+              const hasInputPrice = Object.prototype.hasOwnProperty.call(e.pricing || {}, 'prompt');
+              const hasOutputPrice = Object.prototype.hasOwnProperty.call(e.pricing || {}, 'completion');
               const piPct = maxPrice > 0 ? (pi / maxPrice) * 100 : 0;
               const poPct = maxPrice > 0 ? (po / maxPrice) * 100 : 0;
               return (
-                <tr key={i} className={pr?.vaultKey ? 'model-cross-row--authed' : ''}>
+                <tr key={i} className={runtimeAuthReady(pr, pr ? authMap[pr.id] : undefined) ? 'model-cross-row--authed' : ''}>
                   <td className="model-cross-platform">
                     {pr ? (
                       <span className="platform-chip">
@@ -1113,13 +1161,13 @@ function ModelDetailPanel({ modelKey, entries, providers, t, onBack }: { modelKe
                   <td className="model-cross-price">
                     <span className="price-bar-wrap">
                       <span className="price-bar" style={{ width: `${Math.max(piPct, 3)}%` }} />
-                      <span className="price-bar-label">{pi > 0 ? `$${pi.toFixed(2)}/M` : t('common.free')}</span>
+                      <span className="price-bar-label">{!hasInputPrice ? '—' : pi > 0 ? `$${pi.toFixed(2)}/M` : t('common.free')}</span>
                     </span>
                   </td>
                   <td className="model-cross-price">
                     <span className="price-bar-wrap">
                       <span className="price-bar price-bar--output" style={{ width: `${Math.max(poPct, 3)}%` }} />
-                      <span className="price-bar-label">{po > 0 ? `$${po.toFixed(2)}/M` : t('common.free')}</span>
+                      <span className="price-bar-label">{!hasOutputPrice ? '—' : po > 0 ? `$${po.toFixed(2)}/M` : t('common.free')}</span>
                     </span>
                   </td>
                 </tr>
@@ -1133,16 +1181,21 @@ function ModelDetailPanel({ modelKey, entries, providers, t, onBack }: { modelKe
 }
 
 /* ============ 平台详情视图：完整模型列表 + 可展开模型参数 ============ */
-function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }: {
-  provider: Provider;
+function PlatformDetailPanel({ platform, providers, authMap, crossData, onBack }: {
+  platform: Platform;
   providers: Provider[];
+  authMap: Record<string, AuthState>;
   crossData: Record<string, any[]>;
-  authed: boolean;
   onBack: () => void;
 }) {
   const { t, providerName } = useI18n();
+  const [activeOfferingId, setActiveOfferingId] = useState(platform.offerings[0]?.providerId || platform.providerIds[0]);
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const offering = platform.offerings.find(item => item.providerId === activeOfferingId) || platform.offerings[0];
+  const provider = providers.find(item => item.id === offering?.providerId)
+    || providers.find(item => platform.providerIds.includes(item.id))!;
+  const authed = runtimeAuthReady(provider, provider ? authMap[provider.id] : undefined);
   const fmtPrice = (raw: string | undefined): number => {
     if (!raw || raw === '0') return 0;
     const n = parseFloat(raw);
@@ -1164,24 +1217,28 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
         const norm = id.split('/').pop()?.toLowerCase() || '';
         const key = crossData[id] ? id : (lowerMap[norm] || lowerMap[id.toLowerCase()] || '');
         const entries = key ? (crossData[key] || []) : [];
-        const entry = entries.find((e: any) => e.platform === provider.id) || entries[0];
+        const entry = entries.find((e: any) => e.platform === provider.id);
+        const platformAvailability = platform.models
+          .find(platformModel => platformModel.id === id)
+          ?.availability.filter(item => item.offeringId === offering?.id) || [];
         return {
           m,
           id,
           key,
           entries,
           entry,
-          ctx: entry?.context || entries.find((e: any) => e.context)?.context || null,
+          ctx: entry?.context || null,
           pricing: entry?.pricing || {},
           modality: entry?.modality || 'text',
           vendorFamily: entry?.vendor_family || '',
           isFlagship: Boolean(entry?.is_flagship),
-          created: entry?.created || entries[0]?.created || 0,
+          created: entry?.created || 0,
           legacy: Boolean(entry?.legacy),
+          availability: platformAvailability.length ? platformAvailability : (m.availability || []),
           otherPlatforms: key ? [...new Set((entries || []).map((e: any) => e.platform))].filter((pl: string) => pl !== provider.id) : [],
         };
       });
-  }, [provider, crossData]);
+  }, [provider, platform, offering, crossData]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -1195,19 +1252,48 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
 
   const withParams = rows.filter(r => r.key).length;
   const usedCount = provider.usedBy?.length || 0;
-  const eps = (provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }]).map(normalizeEndpoint);
+  const eps = provider.executionMode === 'agent_native'
+    ? []
+    : (provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }]).map(normalizeEndpoint);
+  const endpointById = new Map(platform.endpoints.map(endpoint => [endpoint.id, endpoint]));
 
   return (
     <div className="model-cross-view platform-detail-view">
       <div className="model-detail-header">
-        <button className="model-detail-back" onClick={onBack}>← {t('models.back')}</button>
+        <button className="model-detail-back" onClick={onBack}>← {t('models.backPlatforms')}</button>
         <div className="model-detail-title">
-          <h3>
-            <span className={`type-badge type-badge--${provider.type}`}>{provider.type}</span>{' '}
-            {providerName(provider.id, provider.name)}
-          </h3>
-          <p>{t('models.platformModelsCount', { n: provider.models.length })}</p>
+          <h3>{platform.name}</h3>
+          <p>{t('models.platformSummary', { models: platform.models.length, offerings: platform.offerings.length })}</p>
         </div>
+      </div>
+
+      <div className="platform-offering-switcher" role="tablist" aria-label={t('models.totalOfferings')}>
+        {platform.offerings.map(item => {
+          const itemProvider = providers.find(candidate => candidate.id === item.providerId);
+          const ready = runtimeAuthReady(itemProvider, itemProvider ? authMap[itemProvider.id] : undefined);
+          return (
+            <button
+              key={item.id}
+              role="tab"
+              aria-selected={item.providerId === provider.id}
+              className={`models-filter-chip${item.providerId === provider.id ? ' models-filter-chip--active' : ''}`}
+              onClick={() => {
+                setActiveOfferingId(item.providerId);
+                setExpanded(new Set());
+                setQ('');
+              }}
+            >
+              {item.label}
+              <span className="models-chip-extra">{item.executionMode === 'agent_native' ? 'Agent native' : `${item.endpointIds.length} endpoint`}</span>
+              <span aria-label={ready ? t('models.statusAuthed') : t('models.statusUnauthed')}>{ready ? '✓' : '○'}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="platform-active-offering">
+        <span className={`type-badge type-badge--${provider.type}`}>{provider.type}</span>
+        <strong>{providerName(provider.id, provider.name)}</strong>
       </div>
 
       {/* 平台概览信息卡 */}
@@ -1233,6 +1319,9 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
         <div className="model-info-card platform-detail-endpoint-card">
           <div className="model-info-label">{t('models.endpoint')}</div>
           <div className="model-info-value platform-detail-endpoints">
+            {provider.executionMode === 'agent_native' && (
+              <span className="model-info-mode">Agent native · {provider.nativeAgentIds?.join(', ') || '—'}</span>
+            )}
             {eps.map((ep, i) => (
               <span key={i} className="model-info-mode">
                 {ep.type}{ep.type === 'openai' ? `/${ep.protocol || 'chat'}` : ''} · {ep.baseUrl}
@@ -1280,7 +1369,17 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
                   {po > 0 ? ` · $${po.toFixed(2)}/M out` : ''}
                 </span>
                 {!r.key && <span className="platform-model-nodata-tag">{t('models.noParamData')}</span>}
-                <FavoriteButton providerId={provider.id} modelId={r.id} />
+                {r.availability.length > 0 && (
+                  <span className="platform-model-nodata-tag">
+                    {r.availability.some((item: any) => item.executionMode === 'agent_native')
+                      ? t('models.sourceAgentNative')
+                      : r.availability.flatMap((item: any) => item.endpointIds || (item.endpointId ? [item.endpointId] : []))
+                          .map((endpointId: string) => endpointById.get(endpointId))
+                          .filter(Boolean)
+                          .map((endpoint: any) => `${endpoint.protocol.family} · ${endpoint.baseUrl}`)
+                          .join(', ') || t('models.sourceUnknown')}
+                  </span>
+                )}
                 <span className="platform-model-chevron">▾</span>
               </div>
               {isOpen && (
@@ -1292,11 +1391,11 @@ function PlatformDetailPanel({ provider, providers, crossData, authed, onBack }:
                     </div>
                     <div className="model-info-card">
                       <div className="model-info-label">{t('models.inputPrice')}</div>
-                      <div className="model-info-value">{pi > 0 ? <span className="model-info-price">${pi.toFixed(2)}<span className="model-info-unit">/M</span></span> : (r.key ? t('common.free') : '—')}</div>
+                      <div className="model-info-value">{!Object.prototype.hasOwnProperty.call(r.pricing || {}, 'prompt') ? '—' : pi > 0 ? <span className="model-info-price">${pi.toFixed(2)}<span className="model-info-unit">/M</span></span> : t('common.free')}</div>
                     </div>
                     <div className="model-info-card">
                       <div className="model-info-label">{t('models.outputPrice')}</div>
-                      <div className="model-info-value">{po > 0 ? <span className="model-info-price">${po.toFixed(2)}<span className="model-info-unit">/M</span></span> : (r.key ? t('common.free') : '—')}</div>
+                      <div className="model-info-value">{!Object.prototype.hasOwnProperty.call(r.pricing || {}, 'completion') ? '—' : po > 0 ? <span className="model-info-price">${po.toFixed(2)}<span className="model-info-unit">/M</span></span> : t('common.free')}</div>
                     </div>
                     <div className="model-info-card">
                       <div className="model-info-label">{t('models.modality')}</div>
@@ -1372,7 +1471,6 @@ function filterModelEntries(
   opts: {
     hideLegacy: boolean;
     activeProtocol: string | null;
-    activeMode: string | null;
     activeModality?: string | null;
     searchQuery: string;
     providers: Provider[];
@@ -1390,12 +1488,6 @@ function filterModelEntries(
     res = res.filter(([, e]) => e.some((x: any) => {
       const pr = opts.providers.find((p) => p.id === x.platform);
       return pr && providerProtocols(pr).includes(opts.activeProtocol as string);
-    }));
-  }
-  if (opts.activeMode) {
-    res = res.filter(([, e]) => e.some((x: any) => {
-      const pr = opts.providers.find((p) => p.id === x.platform);
-      return pr && providerModes(pr).includes(opts.activeMode as string);
     }));
   }
   if (opts.searchQuery.trim()) {
@@ -1418,9 +1510,10 @@ function fmtTimeAgo(ts: number): string {
   return `${Math.floor(diff / 31536000)}y`;
 }
 
-function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: _sq, onSelect, t, activeProvider, hideLegacy, activeProtocol, activeMode, activeModality }: {
+function ModelGrid({ models, providers, authMap, activeModel: _activeModel, searchQuery: _sq, onSelect, t, activeProvider, hideLegacy, activeProtocol, activeModality }: {
   models: [string, any[]][];
   providers: Provider[];
+  authMap: Record<string, AuthState>;
   activeModel: string | null;
   searchQuery: string;
   onSelect: (k: string) => void;
@@ -1428,11 +1521,10 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
   activeProvider: string | null;
   hideLegacy: boolean;
   activeProtocol: string | null;
-  activeMode: string | null;
   activeModality: string | null;
 }) {
   // 与厂商 chip 数量统计用同一套过滤条件，保证数量一致
-  const filtered = filterModelEntries(models, { hideLegacy, activeProtocol, activeMode, activeModality, searchQuery: _sq, providers, activeProvider });
+  const filtered = filterModelEntries(models, { hideLegacy, activeProtocol, activeModality, searchQuery: _sq, providers, activeProvider });
   if (filtered.length === 0) {
     return <div className="empty-state"><p>{t('models.noMatch')}</p></div>;
   }
@@ -1459,24 +1551,33 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
   const sortedGroups = Object.entries(grouped).sort((a, b) => b[1].length - a[1].length);
 
   return (
-    <div className="model-grid-wrap">
+    <div className="model-compare-list">
       {sortedGroups.map(([pp, items]) => (
-        <section key={pp} className="model-grid-section">
-          <h3 className="model-grid-section-title">
-            <span className="model-grid-section-name">{PROVIDER_LABELS[pp] || pp}</span>
-            <span className="model-grid-section-count">{items.length}</span>
-          </h3>
-          <div className="model-grid">
+        <section key={pp} className="model-compare-group">
+          <div className="model-compare-group-head">
+            <h3>{PROVIDER_LABELS[pp] || pp}</h3>
+            <span>{items.length}</span>
+          </div>
+          <div className="model-compare-columns" aria-hidden="true">
+            <span>{t('models.modelId')}</span>
+            <span>{t('models.modality')}</span>
+            <span>{t('models.contextLabel')}</span>
+            <span>{t('models.platforms')}</span>
+            <span>{t('models.price')}</span>
+            <span>{t('models.authReady')}</span>
+            <span />
+          </div>
+          <div className="model-compare-rows">
             {items.map(([key, entries]) => {
               const platforms = [...new Set(entries.map((e: any) => e.platform))];
               const ctxEntry = entries.find((e: any) => e.context);
               const ctx = ctxEntry?.context;
               const minIn = Math.min(...entries.map((e: any) => fmtPrice(e.pricing?.prompt)).filter(n => n > 0), Infinity);
               const minOut = Math.min(...entries.map((e: any) => fmtPrice(e.pricing?.completion)).filter(n => n > 0), Infinity);
-              const authedCount = platforms.filter((pid: any) => providers.find(p => p.id === pid)?.vaultKey).length;
-              const sample = entries.find((e: any) => e.architecture) || entries[0];
-              const inputModes: string[] = sample?.architecture?.input_modalities || [];
-              const isMulti = (inputModes.length || 0) > 1;
+              const authedCount = platforms.filter((pid: any) => {
+                const provider = providers.find(p => p.id === pid);
+                return runtimeAuthReady(provider, provider ? authMap[provider.id] : undefined);
+              }).length;
               const created = entries[0]?.created || 0;
               const isLegacy = entries.some((e: any) => e.legacy);
               const mod = entries[0]?.modality || 'text';
@@ -1487,37 +1588,28 @@ function ModelGrid({ models, providers, activeModel: _activeModel, searchQuery: 
               return (
                 <article
                   key={key}
-                  className={`model-card${isLegacy ? ' model-card--legacy' : ''}`}
+                  className={`model-compare-row${isLegacy ? ' model-compare-row--legacy' : ''}`}
                   onClick={() => onSelect(key)}
                 >
-                  <div className="model-card-title">
-                    <span className={`model-card-mod model-card-mod--${mod}`}>{MOD_LABEL[mod] || mod}</span>
-                    <h3>{key}</h3>
+                  <div className="model-compare-name">
+                    <strong>{key}</strong>
                     {created > 0 && (
-                      <span className={`model-card-age ${isLegacy ? 'model-card-age--legacy' : 'model-card-age--fresh'}`}>
+                      <span className="model-compare-age">
                         {fmtTimeAgo(created)}
                       </span>
                     )}
                   </div>
-                  <div className="model-card-meta">
-                    <span className="model-card-platforms">{platforms.length} {t('models.platforms')}</span>
-                    {ctx && <span className="model-card-ctx">{Math.round(ctx / 1024)}K ctx</span>}
-                    {inputModes.length > 0 && (
-                      <span className={`model-card-modes ${isMulti ? 'model-card-modes--multi' : ''}`}>
-                        {inputModes.slice(0, 3).join(' + ')}
-                      </span>
-                    )}
-                  </div>
-                  <div className="model-card-price">
-                    {isFinite(minIn) && <span className="model-card-price-in">${minIn.toFixed(2)}<span className="model-card-unit">/M in</span></span>}
-                    {isFinite(minOut) && <span className="model-card-price-out">${minOut.toFixed(2)}<span className="model-card-unit">/M out</span></span>}
-                  </div>
-                  <div className="model-card-footer">
-                    <span className={`model-card-authed ${authedCount === platforms.length ? 'model-card-authed--all' : authedCount > 0 ? 'model-card-authed--part' : 'model-card-authed--none'}`}>
-                      {authedCount}/{platforms.length} {t('models.authReady')}
-                    </span>
-                    <span className="model-card-cta">{t('models.viewDetail')} →</span>
-                  </div>
+                  <span className="model-compare-modality">{MOD_LABEL[mod] || mod}</span>
+                  <span className="model-compare-context">{ctx ? `${Math.round(ctx / 1024)}K` : '—'}</span>
+                  <span className="model-compare-platform-count">{platforms.length}</span>
+                  <span className="model-compare-price">
+                    {isFinite(minIn) ? `$${minIn.toFixed(2)} in` : '—'}
+                    {isFinite(minOut) && <small>${minOut.toFixed(2)} out</small>}
+                  </span>
+                  <span className={`model-compare-auth model-compare-auth--${authedCount === platforms.length ? 'all' : authedCount > 0 ? 'part' : 'none'}`}>
+                    <i />{authedCount}/{platforms.length}
+                  </span>
+                  <span className="model-compare-open">›</span>
                 </article>
               );
             })}
@@ -1563,9 +1655,13 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const isAgentNative = provider?.executionMode === 'agent_native';
+  const isCustomProvider = !provider || !PRESET_PROVIDER_IDS.has(provider.id);
+  const [editorPane, setEditorPane] = useState<'connection' | 'models'>('connection');
+  const [modelQuery, setModelQuery] = useState('');
   const [name, setName] = useState(provider?.name || '');
   const [endpoints, setEndpoints] = useState<ProviderEndpoint[]>(
-    (provider?.endpoints || (provider ? [{ type: provider.type, baseUrl: provider.baseUrl }] : [createOpenAIEndpoint()])).map(normalizeEndpoint)
+    (isAgentNative ? [] : (provider?.endpoints || (provider ? [{ type: provider.type, baseUrl: provider.baseUrl }] : [createOpenAIEndpoint()]))).map(normalizeEndpoint)
   );
   const [models, setModels] = useState<ProviderModel[]>(
     provider?.models?.map(m => ({ ...m })) || []
@@ -1574,13 +1670,6 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
   const [authMode, setAuthMode] = useState<'api_key' | 'oauth' | 'both' | 'none'>(
     (provider?.authMode as any) || 'api_key'
   );
-  const authMethodEnabled = (type: 'api_key' | 'oauth') =>
-    authMode === type || authMode === 'both';
-  const toggleAuthMethod = (type: 'api_key' | 'oauth') => {
-    const apiKey = type === 'api_key' ? !authMethodEnabled('api_key') : authMethodEnabled('api_key');
-    const oauth = type === 'oauth' ? !authMethodEnabled('oauth') : authMethodEnabled('oauth');
-    setAuthMode(apiKey && oauth ? 'both' : apiKey ? 'api_key' : oauth ? 'oauth' : 'none');
-  };
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResults, setConnectionResults] = useState<{ success: boolean; message: string }[] | null>(null);
@@ -1589,52 +1678,94 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
     provider?.authVerified === true ? 'success' : provider?.authVerified === false ? 'failure' : 'idle'
   );
   const [pulledModelCount, setPulledModelCount] = useState(0);
-  const [authVerified, setAuthVerified] = useState<boolean | undefined>(provider?.authVerified);
   // A new provider must be explicitly tested. Existing providers keep their
   // historical status until the key or endpoint configuration is changed.
-  const [connectionDirty, setConnectionDirty] = useState(!provider);
+  const [editorDirty, setEditorDirty] = useState(!provider);
 
   function markConnectionDirty() {
-    setConnectionDirty(true);
-    setAuthVerified(false);
+    setEditorDirty(true);
     setConnectionState('idle');
     setConnectionResults(null);
     setPulledModelCount(0);
   }
 
+  function currentOfferingPlan(): ProviderEndpoint['plan'] {
+    const endpointPlan = endpoints.find(endpoint => endpoint.plan)?.plan;
+    if (endpointPlan) return endpointPlan;
+    const offering = platform?.offerings.find(item => item.providerId === provider?.id);
+    if (offering?.type === 'coding_plan') return 'coding';
+    if (offering?.type === 'token_plan') return 'token';
+    if (offering?.type === 'agent_plan') return 'agent';
+    if (offering?.type === 'go_plan') return 'go';
+    return undefined;
+  }
+
   function addEndpoint() {
-    setEndpoints([...endpoints, createOpenAIEndpoint()]);
+    const endpoint = createOpenAIEndpoint();
+    const plan = currentOfferingPlan();
+    setEndpoints([...endpoints, plan ? { ...endpoint, plan } : endpoint]);
+    markConnectionDirty();
   }
 
   function removeEndpoint(i: number) {
     if (endpoints.length <= 1) return;
     setEndpoints(endpoints.filter((_, idx) => idx !== i));
+    markConnectionDirty();
   }
 
-  function updateEndpoint(i: number, field: keyof ProviderEndpoint, value: string) {
-    const next = [...endpoints];
-    const updated = { ...next[i], [field]: value };
+  function withEndpointField(endpoint: ProviderEndpoint, field: keyof ProviderEndpoint, value: string) {
+    const updated = { ...endpoint, [field]: value };
     if (field === 'type') {
       if (value === 'openai') updated.protocol = updated.protocol || 'chat';
       else delete updated.protocol;
     }
-    next[i] = normalizeEndpoint(updated as ProviderEndpoint);
+    return normalizeEndpoint(updated as ProviderEndpoint);
+  }
+
+  function updateEndpoint(i: number, field: keyof ProviderEndpoint, value: string) {
+    const next = [...endpoints];
+    next[i] = withEndpointField(next[i], field, value);
     setEndpoints(next);
     markConnectionDirty();
   }
 
+  function updateEndpointGroup(indexes: number[], field: keyof ProviderEndpoint, value: string) {
+    const indexSet = new Set(indexes);
+    setEndpoints(endpoints.map((endpoint, index) =>
+      indexSet.has(index) ? withEndpointField(endpoint, field, value) : endpoint
+    ));
+    markConnectionDirty();
+  }
+
+  function removeEndpointGroup(indexes: number[]) {
+    if (endpoints.length <= indexes.length) return;
+    const indexSet = new Set(indexes);
+    setEndpoints(endpoints.filter((_, index) => !indexSet.has(index)));
+    markConnectionDirty();
+  }
+
   function addModel() {
-    setModels([...models, { id: '', name: '' }]);
+    setModels([...models, { id: '' }]);
+    setEditorDirty(true);
   }
 
   function removeModel(i: number) {
     setModels(models.filter((_, idx) => idx !== i));
+    setEditorDirty(true);
   }
 
-  function updateModel(i: number, field: keyof ProviderModel, value: string) {
+  function updateModelParameter(i: number, value: string) {
     const next = [...models];
-    next[i] = { ...next[i], [field]: value || undefined };
+    const current = next[i];
+    next[i] = {
+      ...current,
+      id: value,
+      // Synced records often use the request parameter as their display name.
+      // Keep those values aligned, while preserving a real custom display name.
+      name: !current.name || current.name === current.id ? (value || undefined) : current.name,
+    };
     setModels(next);
+    setEditorDirty(true);
   }
 
   async function handleTestConnection() {
@@ -1679,6 +1810,7 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
           if (modelResult.success && modelResult.models?.length) {
             pulledCount = modelResult.models.length;
             setModels(modelResult.models.map(m => ({ id: m.id, name: m.name || m.id })));
+            setEditorDirty(true);
           }
         } catch {
           // Connection state remains green; model discovery is best effort.
@@ -1686,7 +1818,6 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
       }
       setPulledModelCount(pulledCount);
       setConnectionState(allOk ? 'success' : 'failure');
-      setAuthVerified(allOk);
     } finally {
       setTestingConnection(false);
     }
@@ -1704,9 +1835,9 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
     e.preventDefault();
     const validModels = models.filter(m => m.id.trim());
     const validEndpoints = endpoints.map(normalizeEndpoint).filter(ep => ep.baseUrl.trim());
-    const primary = validEndpoints[0] || normalizeEndpoint(endpoints[0]);
-
-    const shouldPersistAuthVerification = connectionDirty && (provider ? true : authVerified === true);
+    const primary = validEndpoints[0] || (provider
+      ? { type: provider.type, baseUrl: provider.baseUrl }
+      : normalizeEndpoint(endpoints[0]));
     onSave({
       id: provider?.id || name.toLowerCase().replace(/\s+/g, '-'),
       name,
@@ -1716,193 +1847,235 @@ function ProviderForm({ provider, platform, onSelectOffering, onSave, onClose }:
       models: validModels,
       vaultKey: vaultKey.trim() || undefined,
       authMode,
-      // Only the current key/endpoint combination may be marked verified.
-      // Leaving an existing untouched provider unchanged preserves legacy
-      // installations that predate this field.
-      ...(shouldPersistAuthVerification ? { authVerified: authVerified === true } : {}),
-      ...(shouldPersistAuthVerification ? {
-        authVerifiedKey: authVerified === true ? vaultKey.trim() || undefined : undefined,
-        authVerifiedAt: authVerified === true ? new Date().toISOString() : undefined,
-        authVerifiedEndpointIds: authVerified === true
-          ? validEndpoints.map((_, index) => `${provider?.id || name.toLowerCase().replace(/\s+/g, '-')}:endpoint:${index}`)
-          : [],
-      } : {}),
+      executionMode: provider?.executionMode || 'http_endpoint',
+      nativeAgentIds: provider?.nativeAgentIds,
     });
   }
+
+  const providerDocs = provider ? getProviderDocs(provider.id) : null;
+  const providerDocsLabelKeys: Record<ProviderDocsKind, string> = {
+    api: 'models.providerDocsApi',
+    coding_plan: 'models.providerDocsCodingPlan',
+    token_plan: 'models.providerDocsTokenPlan',
+    agent_plan: 'models.providerDocsAgentPlan',
+    agent_subscription: 'models.providerDocsAgentSubscription',
+    go_plan: 'models.providerDocsGoPlan',
+    local: 'models.providerDocsLocal',
+  };
+  const visibleModels = models
+    .map((model, index) => ({ model, index }))
+    .filter(({ model }) => {
+      const query = modelQuery.trim().toLowerCase();
+      return !query || model.id.toLowerCase().includes(query) || (model.name || '').toLowerCase().includes(query);
+    });
+  const endpointEditorGroups = (() => {
+    if (isCustomProvider) return endpoints.map((endpoint, index) => ({ endpoint, indexes: [index] }));
+    const groups: { endpoint: ProviderEndpoint; indexes: number[] }[] = [];
+    const groupByAddress = new Map<string, number>();
+    endpoints.forEach((endpoint, index) => {
+      // Built-in platforms may support Chat and Responses through the same
+      // OpenAI-compatible base URL. They are one connection in the editor,
+      // while the underlying protocol-specific routes remain intact.
+      const normalizedBaseUrl = endpoint.baseUrl.trim();
+      const key = normalizedBaseUrl
+        ? `${endpoint.type}\u0000${normalizedBaseUrl}\u0000${endpoint.plan || ''}`
+        : `new-endpoint\u0000${index}`;
+      const groupIndex = groupByAddress.get(key);
+      if (groupIndex === undefined) {
+        groupByAddress.set(key, groups.length);
+        groups.push({ endpoint, indexes: [index] });
+      } else {
+        groups[groupIndex].indexes.push(index);
+      }
+    });
+    return groups;
+  })();
 
   return (
     <>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel modal-panel--wide provider-form-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-panel-header">
-          <h2>{provider ? t('models.editPlatform') : t('models.newPlatform')}</h2>
-          {provider && (() => {
-            const docsUrl = getProviderDocsUrl(provider.id);
-            return docsUrl ? (
-              <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="provider-docs-link">
-                {t('models.providerDocs')}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-            ) : null;
-          })()}
-        </div>
         <form onSubmit={handleSubmit}>
-          <div className="modal-panel-body provider-form-body">
-            <section className="form-section">
-              <h4>{t('models.basicSection')}</h4>
-              <div className="form-group">
-                <label>{t('common.name')}</label>
-                <input className="vault-input" value={platform?.name || name} onChange={e => setName(e.target.value)} required disabled={!!provider} />
-              </div>
-              {platform && (
-                <div className="form-group">
-                  <label>平台提供方式</label>
-                  <div className="auth-mode-options">
-                    {platform.offerings.map(offering => (
-                      <button
-                        type="button"
-                        key={offering.id}
-                        className={`auth-mode-option${offering.providerId === provider?.id ? ' auth-mode-option--active' : ''}`}
-                        onClick={() => onSelectOffering(offering.providerId)}
-                      >
-                        {offering.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="form-group">
-                <label>{t('models.authMode')}</label>
-                <div className="auth-mode-options">
-                  {AUTH_MODE_OPTIONS.filter(opt => opt.value === 'api_key' || opt.value === 'oauth').map(opt => (
-                    <label key={opt.value} className={`auth-mode-option${authMethodEnabled(opt.value as 'api_key' | 'oauth') ? ' auth-mode-option--active' : ''}`}>
-                      <input
-                        type="checkbox"
-                        name="authMode"
-                        value={opt.value}
-                        checked={authMethodEnabled(opt.value as 'api_key' | 'oauth')}
-                        onChange={() => toggleAuthMethod(opt.value as 'api_key' | 'oauth')}
-                      />
-                      <span>{t(opt.labelKey)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="form-section">
-              <h4>平台提供方式与端点</h4>
-              <div className="endpoint-list">
-                {endpoints.map((ep, i) => (
-                  <div key={i} className="endpoint-row">
-                    <CustomSelect
-                      className="endpoint-type-select"
-                      value={ep.type}
-                      onChange={v => updateEndpoint(i, 'type', v)}
-                      options={TYPE_OPTIONS}
-                    />
-                    {ep.type === 'openai' && (
-                      <CustomSelect
-                        className="endpoint-protocol-select"
-                        value={ep.protocol || 'chat'}
-                        onChange={v => updateEndpoint(i, 'protocol', v)}
-                        options={OPENAI_PROTOCOL_OPTIONS}
-                      />
-                    )}
-                    <CustomSelect
-                      className="endpoint-plan-select"
-                      value={ep.plan || 'api'}
-                      onChange={v => {
-                        const next = [...endpoints];
-                        if (v === 'coding' || v === 'token' || v === 'agent' || v === 'go') next[i] = { ...next[i], plan: v as any };
-                        else {
-                          const { plan: _plan, ...withoutPlan } = next[i];
-                          next[i] = withoutPlan;
-                        }
-                        setEndpoints(next.map(normalizeEndpoint));
-                        markConnectionDirty();
-                      }}
-                      options={[
-                        { value: 'api', label: t('models.endpointPlanApi') },
-                        { value: 'coding', label: t('models.endpointPlanCoding') },
-                        { value: 'token', label: t('models.endpointPlanToken') },
-                        { value: 'agent', label: 'Agent Plan' },
-                        { value: 'go', label: 'Go Plan' },
-                      ]}
-                    />
-                    <input className="vault-input endpoint-url-input" value={ep.baseUrl} onChange={e => updateEndpoint(i, 'baseUrl', e.target.value)} placeholder="https://api.example.com" required />
-                    {endpoints.length > 1 && (
-                      <button type="button" className="endpoint-remove-btn" onClick={() => removeEndpoint(i)}>×</button>
-                    )}
-                  </div>
-                ))}
-                <button type="button" className="model-add-btn" onClick={addEndpoint}>{t('models.addEndpoint')}</button>
-              </div>
-            </section>
-
-            {(authMode === 'api_key' || authMode === 'both') && (
-              <section className="form-section">
-                <h4>{t('models.authSection')}</h4>
-                <div className="form-group provider-secret-field settings-workspace settings-workspace--light">
-                  <div className="settings-field--secret">
-                    <label>API Key</label>
-                    <div className="vault-ref-field">
-                      {vaultKey ? (
-                        <div className="vault-ref-selected">
-                          <span className="vault-ref-key">{vaultKey}</span>
-                          <button type="button" className="vault-ref-clear" onClick={() => { setVaultKey(''); markConnectionDirty(); }}>×</button>
-                          <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>{t('common.replace')}</button>
+          <div className="provider-editor-layout">
+            <section className="provider-editor-main">
+              <div className="provider-editor-header">
+                <div>
+                  <div className="provider-editor-context">
+                    {provider && getProviderIcon(provider.id) && <img src={getProviderIcon(provider.id)} alt="" />}
+                    <strong>{platform?.name || provider?.name || t('models.newPlatform')}</strong>
+                    {platform && platform.offerings.length > 1 && (
+                      <div className="provider-editor-offering-switch" aria-label={t('models.totalOfferings')}>
+                        {platform.offerings.map(offering => (
                           <button
                             type="button"
-                            className={`provider-auth-connection-btn provider-auth-connection-btn--${connectionState}`}
-                            onClick={handleTestConnection}
-                            disabled={testingConnection || !endpoints.some(ep => ep.baseUrl.trim())}
-                            title={connectionTitle}
-                            aria-label={connectionTitle}
+                            key={offering.id}
+                            className={offering.providerId === provider?.id ? 'active' : ''}
+                            onClick={() => onSelectOffering(offering.providerId)}
                           >
-                            {testingConnection ? (
-                              <span className="provider-auth-connection-spinner" aria-hidden="true">↻</span>
-                            ) : (
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.14 1.14" />
-                                <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.14-1.14" />
-                              </svg>
-                            )}
+                            {offering.label}
                           </button>
-                        </div>
-                      ) : (
-                        <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>{t('models.selectFromVault')}</button>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {provider?.id === 'qianfan-coding' && (
-                    <p className="provider-auth-hint">{t('models.qianfanCodingKeyHint')}</p>
-                  )}
+                  <h2>{editorPane === 'connection' ? t('models.editorConnection') : t('models.modelsSection')}</h2>
+                  <p>{editorPane === 'connection' ? t('models.editorConnectionHint') : t('models.editorModelsHint')}</p>
                 </div>
-              </section>
-            )}
+                <div className="provider-editor-header-actions">
+                  {providerDocs && (
+                    <a href={providerDocs.url} target="_blank" rel="noopener noreferrer" className="provider-docs-link">
+                      {t(providerDocsLabelKeys[providerDocs.kind])} ↗
+                    </a>
+                  )}
+                  <button type="button" className="provider-editor-close" onClick={onClose} aria-label={t('common.close')}>×</button>
+                </div>
+              </div>
 
-            <section className="form-section">
-              <h4>{t('models.modelsSection')}</h4>
-              <div className="model-form-list">
-                {models.length === 0 ? (
-                  <div className="model-form-empty">{t('common.notConfigured')}</div>
-                ) : (
-                  models.map((m, i) => (
-                    <div key={i} className="model-form-row">
-                      <input className="vault-input model-form-id" value={m.id} onChange={e => updateModel(i, 'id', e.target.value)} placeholder={t('models.modelId')} />
-                      <input className="vault-input model-form-name" value={m.name || ''} onChange={e => updateModel(i, 'name', e.target.value)} placeholder={t('models.displayName')} />
-                      <button type="button" className="endpoint-remove-btn" onClick={() => removeModel(i)}>×</button>
+              <nav className="provider-editor-nav" aria-label={t('models.editorSections')}>
+                <button type="button" className={editorPane === 'connection' ? 'active' : ''} onClick={() => setEditorPane('connection')}>
+                  <span className="provider-editor-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M12 8v8"/><circle cx="12" cy="12" r="8"/></svg></span>
+                  <span className="provider-editor-nav-copy"><strong>{t('models.editorConnection')}</strong><small>{t('models.editorConnectionHint')}</small></span>
+                </button>
+                <button type="button" className={editorPane === 'models' ? 'active' : ''} onClick={() => setEditorPane('models')}>
+                  <span className="provider-editor-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v5H4zM4 14h16v5H4z"/></svg></span>
+                  <span className="provider-editor-nav-copy"><strong>{t('models.modelsSection')}</strong><small>{models.length} {t('models.totalModels')}</small></span>
+                </button>
+              </nav>
+
+              <main className="provider-editor-content">
+              {editorPane === 'connection' && (
+                <>
+                  {!provider && !isAgentNative && (
+                    <label className="provider-editor-field">
+                      <span>{t('common.name')}</span>
+                      <input className="vault-input" value={name} onChange={event => setName(event.target.value)} required autoFocus />
+                    </label>
+                  )}
+
+                  {isAgentNative ? (
+                    <div className="provider-editor-native-note">
+                      <span>OAuth</span>
+                      <div>
+                        <strong>{t('models.agentNativeTitle')}</strong>
+                        <p>{t('models.agentNativeEditorHint', { agents: provider?.nativeAgentIds?.join(', ') || '—' })}</p>
+                      </div>
                     </div>
-                  ))
-                )}
-                <button type="button" className="model-add-btn" onClick={addModel}>{t('models.addModel')}</button>
+                  ) : (
+                    <>
+                      <section className="provider-editor-block">
+                        <div className="provider-editor-block-title">
+                          <div><strong>{t('models.endpoint')}</strong><span>{t('models.editorEndpointHint')}</span></div>
+                          <button type="button" onClick={addEndpoint}>＋ {t('models.addEndpoint')}</button>
+                        </div>
+                        <div className="endpoint-list">
+                          {endpointEditorGroups.map(({ endpoint, indexes }, groupIndex) => (
+                            <div key={indexes.map((index) => endpoints[index].id ?? `endpoint-${index}`).join(':')} className={`endpoint-row endpoint-row--${endpoint.type}`}>
+                              <span className="provider-editor-row-index">{String(groupIndex + 1).padStart(2, '0')}</span>
+                              <CustomSelect className="endpoint-type-select" dropdownMode="local" value={endpoint.type} onChange={value => updateEndpointGroup(indexes, 'type', value)} options={TYPE_OPTIONS} />
+                              <input className="vault-input endpoint-url-input" value={endpoint.baseUrl} onChange={event => updateEndpointGroup(indexes, 'baseUrl', event.target.value)} placeholder="https://api.example.com" aria-label={`${t('models.endpoint')} ${groupIndex + 1}`} required />
+                              {endpointEditorGroups.length > 1 && <button type="button" className="endpoint-remove-btn" onClick={() => removeEndpointGroup(indexes)}>×</button>}
+                            </div>
+                          ))}
+                        </div>
+                        {isCustomProvider && endpoints.some(endpoint => endpoint.type === 'openai') && (
+                          <details className="provider-editor-advanced">
+                            <summary>
+                              <span>{t('models.advancedProtocol')}</span>
+                              <small>{t('models.advancedProtocolHint')}</small>
+                            </summary>
+                            <div className="provider-editor-advanced-list">
+                              {endpoints.map((endpoint, index) => endpoint.type === 'openai' && (
+                                <label key={endpoint.id || index} className="provider-editor-advanced-row">
+                                  <span>{t('models.endpoint')} {String(index + 1).padStart(2, '0')}</span>
+                                  <CustomSelect dropdownMode="local" value={endpoint.protocol || 'chat'} onChange={value => updateEndpoint(index, 'protocol', value)} options={OPENAI_PROTOCOL_OPTIONS} />
+                                </label>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </section>
+
+                      <section className="provider-editor-block">
+                        <div className="provider-editor-block-title">
+                          <div><strong>{t('models.authSection')}</strong><span>{t('models.editorAuthHint')}</span></div>
+                          <div className="provider-editor-auth-toggle">
+                            {isCustomProvider ? (
+                              <>
+                                <button type="button" className={authMode !== 'none' ? 'active' : ''} onClick={() => { setAuthMode('api_key'); markConnectionDirty(); }}>API Key</button>
+                                <button type="button" className={authMode === 'none' ? 'active' : ''} onClick={() => { setAuthMode('none'); markConnectionDirty(); }}>{t('models.authModeNone')}</button>
+                              </>
+                            ) : (
+                              <span className={`provider-editor-auth-method${authMode === 'none' ? ' provider-editor-auth-method--none' : ''}`}>
+                                {authMode === 'none' ? t('models.authModeNone') : 'API Key'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {authMode !== 'none' && (
+                          <div className="provider-secret-field settings-workspace settings-workspace--light">
+                            <div className="settings-field--secret">
+                              <label>Vault</label>
+                              <div className="vault-ref-field">
+                                {vaultKey ? (
+                                  <div className="vault-ref-selected">
+                                    <span className="vault-ref-key">{vaultKey}</span>
+                                    <button type="button" className="vault-ref-clear" onClick={() => { setVaultKey(''); markConnectionDirty(); }}>×</button>
+                                    <button type="button" className="vault-ref-change" onClick={() => setShowVaultPicker(true)}>{t('common.replace')}</button>
+                                    <button type="button" className={`provider-auth-connection-btn provider-auth-connection-btn--${connectionState}`} onClick={handleTestConnection} disabled={testingConnection || !endpoints.some(ep => ep.baseUrl.trim())} title={connectionTitle} aria-label={connectionTitle}>
+                                      {testingConnection ? <span className="provider-auth-connection-spinner" aria-hidden="true">↻</span> : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.14 1.14"/><path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.14-1.14"/></svg>}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button type="button" className="vault-ref-trigger" onClick={() => setShowVaultPicker(true)}>{t('models.selectFromVault')}</button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="provider-auth-hint">{provider?.id === 'qianfan-coding' ? t('models.qianfanCodingKeyHint') : connectionTitle}</p>
+                          </div>
+                        )}
+                        {authMode === 'none' && (
+                          <p className="provider-editor-no-auth-hint">
+                            {isCustomProvider ? t('models.noAuthCustomHint') : t('models.noAuthPresetHint')}
+                          </p>
+                        )}
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
+
+              {editorPane === 'models' && (
+                <>
+                  <div className="provider-editor-model-toolbar">
+                    <input className="vault-input" type="search" value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder={t('models.searchModels')} />
+                    <button type="button" onClick={addModel}>＋ {t('models.addModel')}</button>
+                  </div>
+                  <div className="provider-editor-model-head" aria-hidden="true">
+                    <span />
+                    <div><strong>{t('models.modelParameterName')}</strong><small>{t('models.modelParameterHint')}</small></div>
+                    <span />
+                  </div>
+                  <div className="model-form-list provider-editor-model-list">
+                    {visibleModels.length === 0 ? (
+                      <div className="model-form-empty">{models.length === 0 ? t('common.notConfigured') : t('models.noMatch')}</div>
+                    ) : visibleModels.map(({ model, index }) => (
+                      <div key={`${model.id}-${index}`} className="model-form-row">
+                        <span className="provider-editor-row-index">{String(index + 1).padStart(2, '0')}</span>
+                        <input className="vault-input model-form-id" value={model.id} onChange={event => updateModelParameter(index, event.target.value)} placeholder={t('models.modelParameterExample')} aria-label={t('models.modelParameterName')} />
+                        <button type="button" className="endpoint-remove-btn" onClick={() => removeModel(index)}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              </main>
+
+              <div className="modal-actions">
+                <span className="provider-editor-save-hint">{editorDirty ? t('models.editorUnsaved') : t('models.editorSavedState')}</span>
+                <button type="button" className="btn-cancel" onClick={onClose}>{t('common.cancel')}</button>
+                <button type="submit" className="btn-save">{t('common.save')}</button>
               </div>
             </section>
-          </div>
-          <div className="modal-actions">
-            <button type="button" className="btn-cancel" onClick={onClose}>{t('common.cancel')}</button>
-            <button type="submit" className="btn-save">{t('common.save')}</button>
           </div>
         </form>
       </div>

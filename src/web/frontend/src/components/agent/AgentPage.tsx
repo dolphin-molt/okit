@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { listConversations, getConversation, createConversation, updateConversation, deleteConversation, agentChat, agentConfirm, type Conversation, type AgentMessage, type AgentImage, type AgentConfirm } from '../../api/agent';
 import { getSettings, updateSettings, type AgentConfig } from '../../api/settings';
 import { listProviders, type Provider } from '../../api/providers';
-import { useFavorites } from '../shared/favorites';
 import { renderMd } from '../../lib/markdown';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
@@ -29,9 +28,6 @@ export default function AgentPage() {
   const modelPickerRef = useRef<HTMLDivElement>(null);
   const [agentConfig, setAgentConfig] = useState<AgentConfig>(DEFAULT_AGENT);
   const [modelProviders, setModelProviders] = useState<Provider[]>([]);
-  // Goal ③: surface the user's starred models at the top of each provider
-  // group in the composer picker.
-  const { isFavorite } = useFavorites();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const rawTextRef = useRef('');
@@ -596,24 +592,17 @@ export default function AgentPage() {
                     {modelProviders.map(p => {
                       const models = (p.models || []).map(m => m.id);
                       if (models.length === 0) return null;
-                      // Goal ③: favorites first within each provider group.
-                      const sorted = [...models].sort((a, b) => {
-                        const fa = isFavorite(p.id, a) ? 0 : 1;
-                        const fb = isFavorite(p.id, b) ? 0 : 1;
-                        return fa - fb;
-                      });
                       return (
                         <div key={p.id} className="agent-model-group">
                           <div className="agent-model-group-title">{p.name || p.id}</div>
                           <div className="agent-model-items">
-                            {sorted.map(m => (
+                            {models.map(m => (
                               <button
                                 key={m}
                                 type="button"
                                 className={`agent-model-item ${agentConfig.provider === p.id && agentConfig.model === m ? 'active' : ''}`}
                                 onClick={() => { handleComposerModelChange(m, p.id); setModelPickerOpen(false); }}
                               >
-                                {isFavorite(p.id, m) && <span className="agent-model-fav">★</span>}
                                 {m}
                               </button>
                             ))}

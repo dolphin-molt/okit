@@ -1848,8 +1848,8 @@ select:focus {
 
 .provider-form-panel .modal-panel-header,
 .provider-form-panel .modal-actions {
-  background: rgba(255, 255, 252, 0.94) !important;
-  border-color: rgba(23, 32, 29, 0.1) !important;
+  background: var(--paper) !important;
+  border-color: transparent !important;
 }
 
 .provider-form-body.provider-form-body {
@@ -1862,23 +1862,35 @@ select:focus {
 }
 
 .provider-form-panel .vault-input,
-.provider-form-panel .custom-select-trigger,
+.provider-form-panel .custom-select-trigger {
+  background: var(--paper) !important;
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent) !important;
+  color: rgba(15, 23, 20, 0.9) !important;
+}
+
 .provider-form-panel .endpoint-remove-btn {
-  background: rgba(239, 246, 255, 0.78) !important;
-  border-color: rgba(23, 32, 29, 0.12) !important;
+  background: var(--paper) !important;
+  border-color: transparent !important;
   color: rgba(15, 23, 20, 0.9) !important;
 }
 
 .provider-form-panel .vault-input:focus,
 .provider-form-panel .custom-select--open .custom-select-trigger {
-  background: #fff !important;
-  border-color: var(--ink) !important;
+  background: var(--paper) !important;
+  border-color: color-mix(in srgb, var(--ink) 24%, transparent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 7%, transparent) !important;
 }
 
 .provider-form-panel .custom-select-dropdown {
   background: rgba(255, 255, 255, 0.98) !important;
   border-color: rgba(23, 32, 29, 0.12) !important;
   color: rgba(15, 23, 20, 0.9) !important;
+}
+
+.provider-form-panel .custom-select-option.active {
+  background: color-mix(in srgb, var(--ink) 8%, var(--paper)) !important;
+  color: var(--ink) !important;
+  font-weight: 650;
 }
 
 [data-theme="dark"] .provider-form-panel .custom-select-dropdown {
@@ -1898,8 +1910,8 @@ select:focus {
 }
 
 [data-theme="dark"] .provider-form-panel .custom-select-option.active {
-  background: rgba(239, 255, 97, 0.14) !important;
-  color: #efff61 !important;
+  background: rgba(245, 243, 235, 0.1) !important;
+  color: #f5f3eb !important;
 }
 
 .vault-form-panel.vault-form-panel {

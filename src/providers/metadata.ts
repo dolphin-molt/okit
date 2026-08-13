@@ -28,11 +28,28 @@ export const PRESET_BASE_URL_MIGRATIONS = new Map<string, { from: string; to: st
   ["kimi-coding", { from: "https://api.kimi.com", to: "https://api.moonshot.cn/v1" }],
   ["qianfan-coding", { from: "https://qianfan.baidubce.com/v2/coding", to: "https://qianfan.baidubce.com/v2/tokenplan/personal" }],
   ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/v1", to: "https://token-plan-sgp.xiaomimimo.com/v1" }],
+  ["qwen-coding", { from: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", to: "https://coding.dashscope.aliyuncs.com/v1" }],
 ]);
 
-export const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map<string, { from: string; to: string }>([
-  ["kimi-coding-plan", { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" }],
-  ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" }],
+type EndpointBaseUrlMigration = {
+  type?: import("./types").ProviderType;
+  from: string;
+  to: string;
+};
+
+export const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map<string, EndpointBaseUrlMigration[]>([
+  ["kimi-coding-plan", [
+    { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" },
+  ]],
+  ["xiaomi-coding", [
+    { type: "anthropic", from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" },
+  ]],
+  ["qwen", [
+    { type: "anthropic", from: "https://dashscope.aliyuncs.com/compatible-mode/v1", to: "https://dashscope.aliyuncs.com/apps/anthropic" },
+  ]],
+  ["qwen-coding", [
+    { type: "anthropic", from: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", to: "https://coding.dashscope.aliyuncs.com/apps/anthropic" },
+  ]],
 ]);
 
 export const PRESET_AUTH_MODE_MIGRATIONS = new Map<string, { from: string; to: string }>([

@@ -815,7 +815,7 @@
 [data-theme="dark"] .qs-list-item:hover { background: rgba(255, 255, 255, 0.08); }
 [data-theme="dark"] .qs-agent-item { border-color: rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); }
 
-/* --- Goal ②: home dashboard blocks (UsageSummary / FavoriteModels / QuickTools) --- */
+/* --- Goal ②: home dashboard blocks (UsageSummary / QuickTools) --- */
 .home-section { margin-bottom: 16px; }
 .home-section-title {
   font-size: 13px; font-weight: 600; color: var(--ink-muted);
@@ -858,32 +858,6 @@
 
 /* Error / console-only notice */
 .usage-summary-empty { font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
-
-/* Favorite models chip grid */
-.fav-model-grid { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
-.fav-model-chip-wrap { position: relative; }
-.fav-model-chip {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
-  padding: 6px 12px; border: 1.5px solid var(--border, #d4cebe); border-radius: 16px;
-  background: var(--paper); cursor: pointer; transition: border-color 0.12s;
-}
-.fav-model-chip:hover { border-color: var(--ink); }
-.fav-model-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-.fav-model-provider { font-size: 10px; color: var(--ink-muted); }
-.fav-model-popover {
-  position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 20;
-  min-width: 140px; padding: 6px; border: 1.5px solid var(--border, #d4cebe);
-  border-radius: 6px; background: var(--paper); box-shadow: 2px 2px 0 rgba(0,0,0,0.08);
-}
-.fav-model-popover-title { font-size: 11px; color: var(--ink-muted); margin-bottom: 4px; padding: 0 4px; }
-.fav-model-popover-empty { font-size: 12px; color: var(--ink-muted); padding: 4px 8px; }
-.fav-model-popover-item {
-  display: block; width: 100%; text-align: left; padding: 6px 8px; border: none;
-  background: transparent; cursor: pointer; font-size: 13px; color: var(--ink);
-  border-radius: 4px;
-}
-.fav-model-popover-item:hover { background: rgba(0,0,0,0.05); }
-.fav-model-popover-item:disabled { opacity: 0.5; cursor: default; }
 
 /* Agent model "show all" toggle inside provider cards */
 .agent-model-showall {

@@ -1,58 +1,189 @@
-// Official documentation URLs for each provider preset.
-// Surfaced in the Models page edit modal as a "接入文档" link so users can
-// reach the provider's own setup guide (base_url, auth, model list, Codex/Claude
-// integration steps) without leaving OKIT.
+// Official setup documentation for every bundled provider offering.
 //
-// Keys are provider preset ids. Add entries here as providers are onboarded.
+// Documentation is keyed by provider preset id rather than platform family:
+// API, Coding Plan, Token Plan and agent subscriptions often use different
+// credentials, endpoints and onboarding flows even when they share a brand.
 
-export const PROVIDER_DOCS: Record<string, string> = {
-  // 国际官方
-  'anthropic': 'https://docs.anthropic.com/en/api/getting-started',
-  'anthropic-agent': 'https://docs.anthropic.com/en/docs/claude-code',
-  'openai': 'https://platform.openai.com/docs/models',
-  'openai-codex': 'https://learn.chatgpt.com/docs/codex',
-  'google': 'https://ai.google.dev/gemini-api/docs',
-  'google-agent': 'https://ai.google.dev/gemini-api/docs/cli',
-  'xai': 'https://docs.x.ai/',
-  'xai-grok-build': 'https://docs.x.ai/',
-  'github-copilot': 'https://docs.github.com/copilot',
-  'mistral': 'https://docs.mistral.ai/',
+export type ProviderDocsKind =
+  | 'api'
+  | 'coding_plan'
+  | 'token_plan'
+  | 'agent_plan'
+  | 'agent_subscription'
+  | 'go_plan'
+  | 'local';
 
-  // 国内厂商
-  'zai': 'https://open.bigmodel.cn/dev/api',
-  'zai-global': 'https://docs.z.ai/guides/overview',
-  'glm-coding': 'https://open.bigmodel.cn/dev/api/coding',
-  'zai-global-coding': 'https://docs.z.ai/guides/coding-plan',
-  'minimax': 'https://platform.minimaxi.com/document',
-  'minimax-global': 'https://platform.minimaxi.com/document',
-  'minimax-coding': 'https://platform.minimaxi.com/document/coding-plan',
-  'minimax-global-coding': 'https://platform.minimaxi.com/document/coding-plan',
-  'moonshot': 'https://platform.moonshot.cn/docs',
-  'moonshot-coding-plan': 'https://platform.moonshot.cn/docs/guide/coding-plan',
-  'kimi-coding': 'https://platform.moonshot.cn/docs',
-  'kimi-coding-plan': 'https://platform.moonshot.cn/docs/guide/coding-plan',
-  'deepseek': 'https://api-docs.deepseek.com/',
-  'qwen': 'https://help.aliyun.com/zh/dashscope/',
-  'qwen-coding': 'https://help.aliyun.com/zh/model-studio/coding-plan',
-  'qianfan': 'https://cloud.baidu.com/doc/QIANFAN/',
-  'qianfan-coding': 'https://cloud.baidu.com/doc/QIANFAN/s/Um5c8hmoc',
-  'tencent': 'https://cloud.tencent.com/document/product/1772',
-  'volcengine': 'https://www.volcengine.com/docs/82379',
-  'volcengine-coding': 'https://www.volcengine.com/docs/82379/1399900',
-  'volcengine-agent': 'https://www.volcengine.com/docs/82379',
-  'siliconflow': 'https://docs.siliconflow.cn/',
-  'stepfun': 'https://platform.stepfun.com/docs',
-  'stepfun-global': 'https://platform.stepfun.ai/docs/en/',
-  'xiaomi': 'https://mimo.mi.com/docs/',
-  'xiaomi-coding': 'https://mimo.mi.com/docs/zh-CN/tokenplan/integration/codex-configuration',
+export interface ProviderDocumentation {
+  url: string;
+  kind: ProviderDocsKind;
+}
 
-  // 聚合 / 本地
-  'openrouter': 'https://openrouter.ai/docs',
-  'opencode-go': 'https://opencode.ai/docs/',
-  'ollama': 'https://github.com/ollama/ollama',
-  'litellm': 'https://docs.litellm.ai/',
+export const PROVIDER_DOCS_LAST_AUDITED_AT = '2026-08-13';
+
+export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
+  // International official providers
+  anthropic: {
+    kind: 'api',
+    url: 'https://platform.claude.com/docs/en/api/overview',
+  },
+  'anthropic-agent': {
+    kind: 'agent_subscription',
+    url: 'https://code.claude.com/docs/en/authentication',
+  },
+  openai: {
+    kind: 'api',
+    url: 'https://developers.openai.com/api/docs/quickstart/',
+  },
+  'openai-codex': {
+    kind: 'agent_subscription',
+    url: 'https://developers.openai.com/codex/auth/',
+  },
+  google: {
+    kind: 'api',
+    url: 'https://ai.google.dev/gemini-api/docs/get-started',
+  },
+  'google-agent': {
+    kind: 'agent_subscription',
+    url: 'https://geminicli.com/docs/get-started/authentication/',
+  },
+  xai: {
+    kind: 'api',
+    url: 'https://docs.x.ai/overview',
+  },
+  'xai-grok-build': {
+    kind: 'agent_subscription',
+    url: 'https://docs.x.ai/build/overview',
+  },
+  'github-copilot': {
+    kind: 'agent_subscription',
+    url: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli',
+  },
+  mistral: {
+    kind: 'api',
+    url: 'https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request',
+  },
+
+  // China and regional providers
+  zai: {
+    kind: 'api',
+    url: 'https://docs.bigmodel.cn/cn/api/introduction',
+  },
+  'zai-global': {
+    kind: 'api',
+    url: 'https://docs.z.ai/api-reference/introduction',
+  },
+  'glm-coding': {
+    kind: 'coding_plan',
+    url: 'https://docs.bigmodel.cn/cn/coding-plan/quick-start',
+  },
+  'zai-global-coding': {
+    kind: 'coding_plan',
+    url: 'https://docs.z.ai/devpack/quick-start',
+  },
+  minimax: {
+    kind: 'api',
+    url: 'https://platform.minimaxi.com/docs/api-reference/api-overview',
+  },
+  'minimax-global': {
+    kind: 'api',
+    url: 'https://platform.minimax.io/docs/api-reference/api-overview',
+  },
+  'minimax-coding': {
+    kind: 'token_plan',
+    url: 'https://platform.minimaxi.com/docs/token-plan/quickstart',
+  },
+  'minimax-global-coding': {
+    kind: 'token_plan',
+    url: 'https://platform.minimax.io/docs/token-plan/quickstart',
+  },
+  moonshot: {
+    kind: 'api',
+    url: 'https://platform.kimi.ai/docs/overview',
+  },
+  'kimi-coding': {
+    kind: 'api',
+    url: 'https://platform.kimi.com/docs/api/overview',
+  },
+  'kimi-coding-plan': {
+    kind: 'coding_plan',
+    url: 'https://www.kimi.com/code/docs/en/',
+  },
+  deepseek: {
+    kind: 'api',
+    url: 'https://api-docs.deepseek.com/',
+  },
+  qwen: {
+    kind: 'api',
+    url: 'https://help.aliyun.com/zh/model-studio/first-api-call-to-qwen',
+  },
+  'qwen-coding': {
+    kind: 'coding_plan',
+    url: 'https://help.aliyun.com/zh/model-studio/coding-plan',
+  },
+  qianfan: {
+    kind: 'api',
+    url: 'https://cloud.baidu.com/doc/qianfan-docs/s/qm8qxemze',
+  },
+  'qianfan-coding': {
+    kind: 'token_plan',
+    url: 'https://cloud.baidu.com/doc/qianfan/s/Smoghsq3g',
+  },
+  tencent: {
+    kind: 'api',
+    url: 'https://cloud.tencent.com/document/product/1772/115969',
+  },
+  volcengine: {
+    kind: 'api',
+    url: 'https://docs.volcengine.com/docs/82379/1494384?lang=zh',
+  },
+  'volcengine-coding': {
+    kind: 'coding_plan',
+    url: 'https://docs.volcengine.com/docs/82379/1928261?lang=zh',
+  },
+  'volcengine-agent': {
+    kind: 'agent_plan',
+    url: 'https://docs.volcengine.com/docs/82379/2373738?lang=zh',
+  },
+  siliconflow: {
+    kind: 'api',
+    url: 'https://docs.siliconflow.cn/cn/userguide/introduction',
+  },
+  stepfun: {
+    kind: 'api',
+    url: 'https://platform.stepfun.com/docs/zh/quickstart/overview',
+  },
+  'stepfun-global': {
+    kind: 'api',
+    url: 'https://platform.stepfun.ai/docs/en/quickstart/overview',
+  },
+  xiaomi: {
+    kind: 'api',
+    url: 'https://mimo.mi.com/docs/',
+  },
+  'xiaomi-coding': {
+    kind: 'token_plan',
+    url: 'https://mimo.mi.com/docs/zh-CN/tokenplan/integration/codex-configuration',
+  },
+
+  // Aggregators and local runtimes
+  openrouter: {
+    kind: 'api',
+    url: 'https://openrouter.ai/docs/quickstart',
+  },
+  'opencode-go': {
+    kind: 'go_plan',
+    url: 'https://opencode.ai/docs/go/',
+  },
+  ollama: {
+    kind: 'local',
+    url: 'https://docs.ollama.com/api/introduction',
+  },
+  litellm: {
+    kind: 'local',
+    url: 'https://docs.litellm.ai/docs/proxy/quick_start',
+  },
 };
 
-export function getProviderDocsUrl(providerId: string): string | null {
+export function getProviderDocs(providerId: string): ProviderDocumentation | null {
   return PROVIDER_DOCS[providerId] || null;
 }

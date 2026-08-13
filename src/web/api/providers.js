@@ -82,15 +82,18 @@ function sortProviders(arr) {
 // Try dist/ first (production), then fall back to src compiled output.
 let _presets, _metadata;
 let _platforms;
+let _routing;
 try {
   _presets = require('../../../providers/presets');
   _metadata = require('../../../providers/metadata');
   _platforms = require('../../../providers/platforms');
+  _routing = require('../../../providers/routing');
 } catch {
   // Fallback for dev mode where dist/ may not be in the expected relative position
   _presets = require('../../../dist/providers/presets');
   _metadata = require('../../../dist/providers/metadata');
   _platforms = require('../../../dist/providers/platforms');
+  _routing = require('../../../dist/providers/routing');
 }
 
 // Single adapter registry (shared with the CLI). Required once at module load
@@ -105,6 +108,7 @@ try {
 
 const PRESET_PROVIDERS = _presets.PRESET_PROVIDERS;
 const buildPlatforms = _platforms.buildPlatforms;
+const { providerEndpointEntries, providerExecutionMode, providerSupportsAdapter, resolveModelRoute } = _routing;
 const RETIRED_PRESET_PROVIDER_IDS = _metadata.RETIRED_PRESET_PROVIDER_IDS;
 const PRESET_BASE_URL_MIGRATIONS = _metadata.PRESET_BASE_URL_MIGRATIONS;
 const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = _metadata.PRESET_ENDPOINT_BASE_URL_MIGRATIONS;
@@ -122,7 +126,8 @@ async function loadProviders() {
   try {
     const content = await fs.readFile(PROVIDERS_PATH, 'utf-8');
     const data = JSON.parse(content);
-    const sourceProviders = Array.isArray(data.providers) ? data.providers : [];
+    if (!Array.isArray(data.providers)) throw new Error('providers.json 中的 providers 必须是数组');
+    const sourceProviders = data.providers;
     const providers = sourceProviders.filter(p => !RETIRED_PRESET_PROVIDER_IDS.has(p.id));
     const codexProvider = providers.find(p => p.id === 'openai-codex');
     if (codexProvider) {
@@ -137,11 +142,6 @@ async function loadProviders() {
     // Merge new presets: add missing ones, update name changes, and apply
     // narrowly-scoped endpoint migrations for known broken built-in defaults.
     let changed = providers.length !== sourceProviders.length;
-    // Strip cliOnly from all stored providers — this flag was used to hide
-    // the Claude subscription preset, but it should be visible in Claude Code.
-    for (const p of providers) {
-      if (p.cliOnly !== undefined) { delete p.cliOnly; changed = true; }
-    }
     for (const preset of PRESET_PROVIDERS) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
@@ -160,7 +160,7 @@ async function loadProviders() {
           if (Array.isArray(existing.endpoints)) {
             let endpointChanged = false;
             existing.endpoints = existing.endpoints.map(endpoint => {
-              if (endpoint && endpoint.baseUrl === migration.from) {
+              if (endpoint && endpoint.type === preset.type && endpoint.baseUrl === migration.from) {
                 endpointChanged = true;
                 return { ...endpoint, baseUrl: migration.to };
               }
@@ -169,11 +169,16 @@ async function loadProviders() {
             if (endpointChanged) changed = true;
           }
         }
-        const endpointMigration = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
-        if (endpointMigration && Array.isArray(existing.endpoints)) {
+        const endpointMigrations = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
+        if (endpointMigrations?.length && Array.isArray(existing.endpoints)) {
           let endpointChanged = false;
           existing.endpoints = existing.endpoints.map(endpoint => {
-            if (endpoint && endpoint.baseUrl === endpointMigration.from) {
+            const endpointMigration = endpointMigrations.find(candidate =>
+              endpoint
+              && endpoint.baseUrl === candidate.from
+              && (!candidate.type || endpoint.type === candidate.type)
+            );
+            if (endpointMigration) {
               endpointChanged = true;
               return { ...endpoint, baseUrl: endpointMigration.to };
             }
@@ -215,6 +220,26 @@ async function loadProviders() {
           existing.name = preset.name;
           changed = true;
         }
+        if (preset.executionMode && existing.executionMode !== preset.executionMode) {
+          existing.executionMode = preset.executionMode;
+          changed = true;
+        }
+        if (preset.executionMode === 'agent_native' && Array.isArray(existing.endpoints)) {
+          delete existing.endpoints;
+          changed = true;
+        }
+        if (preset.nativeAgentIds && JSON.stringify(existing.nativeAgentIds) !== JSON.stringify(preset.nativeAgentIds)) {
+          existing.nativeAgentIds = [...preset.nativeAgentIds];
+          changed = true;
+        }
+        if (preset.cliOnly === true && existing.cliOnly !== true) {
+          existing.cliOnly = true;
+          changed = true;
+        }
+        if (preset.authMode === 'none' && existing.authMode !== 'none' && !existing.vaultKey) {
+          existing.authMode = 'none';
+          changed = true;
+        }
         if (
           preset.id === 'qianfan-coding'
           && existing.models.some(model => ['kimi-k2.5', 'deepseek-v3.2', 'minimax-m2.5', 'ernie-4.5-turbo-20260402'].includes(model.id))
@@ -253,7 +278,9 @@ async function loadProviders() {
     if (changed) await saveProviders(providers);
 
     return providers;
-  } catch { return []; }
+  } catch (error) {
+    throw new Error(`无法读取 providers.json：${error.message || String(error)}`);
+  }
 }
 
 async function saveProviders(providers) {
@@ -288,15 +315,11 @@ const ADAPTERS = [
   { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
 ];
 
-// Caps for the goal-③ "常用模型" lists. Favorites are user-curated; recents
-// are auto-recorded on each successful switch.
-const FAVORITE_MODELS_MAX = 20;
+// Cap for models auto-recorded after a successful switch.
 const RECENT_MODELS_MAX = 10;
 
 function adapterSupportsProvider(adapter, provider) {
-  if (provider.cliOnly) return false;
-  const providerTypes = provider.endpoints?.map(e => e.type) || [provider.type];
-  return providerTypes.some(type => adapter.supportedTypes.includes(type));
+  return providerSupportsAdapter(provider, adapter);
 }
 
 async function listProviders(req, res) {
@@ -336,6 +359,7 @@ async function getAdaptersList(req, res) {
       // oauth-eligible). These are candidates for the "add to home" picker.
       const isProviderReady = (p) => {
         if (sel?.providerId === p.id) return true;
+        if (p.authMode === 'none') return true;
         if (p.authVerified) return true;
         if (p.vaultKey) return true;
         if (p.authMode === 'oauth' || p.authMode === 'both') return true;
@@ -479,7 +503,7 @@ function appleScriptQuote(value) {
 async function createProvider(req, res) {
   try {
     const providers = await loadProviders();
-    const { id, name, type, baseUrl, endpoints, vaultKey, authMode, authVerified, models } = req.body;
+    const { id, name, type, baseUrl, endpoints, vaultKey, authMode, models, executionMode, nativeAgentIds } = req.body;
 
     if (!id || !name) {
       return res.status(400).json({ error: 'Missing required fields: id, name' });
@@ -493,9 +517,10 @@ async function createProvider(req, res) {
       endpoints: endpoints || undefined,
       vaultKey: vaultKey || undefined,
       authMode: authMode || 'api_key',
+      executionMode: executionMode || 'http_endpoint',
+      nativeAgentIds: executionMode === 'agent_native' && Array.isArray(nativeAgentIds) ? nativeAgentIds : undefined,
       models: models || [],
     };
-    if (typeof authVerified === 'boolean') provider.authVerified = authVerified;
 
     const idx = providers.findIndex(p => p.id === id);
     if (idx >= 0) providers[idx] = provider;
@@ -515,7 +540,26 @@ async function updateProvider(req, res) {
     const idx = providers.findIndex(p => p.id === id);
     if (idx < 0) return res.status(404).json({ error: 'Provider not found' });
 
-    providers[idx] = { ...providers[idx], ...req.body, id };
+    const current = providers[idx];
+    const editableFields = ['name', 'type', 'baseUrl', 'endpoints', 'vaultKey', 'authMode', 'models', 'executionMode', 'nativeAgentIds'];
+    const patch = {};
+    for (const field of editableFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) patch[field] = req.body[field];
+    }
+    const routeOrCredentialChanged = ['type', 'baseUrl', 'endpoints', 'vaultKey', 'authMode', 'executionMode']
+      .some(field => Object.prototype.hasOwnProperty.call(patch, field) && JSON.stringify(patch[field]) !== JSON.stringify(current[field]));
+    providers[idx] = { ...current, ...patch, id };
+    if (routeOrCredentialChanged) {
+      providers[idx].authVerified = undefined;
+      providers[idx].authVerifiedKey = undefined;
+      providers[idx].authVerifiedAt = undefined;
+      providers[idx].authLastCheckedAt = undefined;
+      providers[idx].authLastCheckedKey = undefined;
+      providers[idx].authLastError = undefined;
+      providers[idx].authState = undefined;
+      providers[idx].authVerifiedEndpointIds = [];
+      providers[idx].authEndpointStates = {};
+    }
     await saveProviders(providers);
     res.json({ success: true, provider: providers[idx] });
   } catch (err) {
@@ -556,8 +600,17 @@ async function switchProvider(req, res) {
       return res.status(400).json({ error: `${adapter.name} does not support ${provider.type} providers` });
     }
 
-    const model = provider.models.find(m => m.id === modelId);
-    if (!model) return res.status(400).json({ error: `Model not found: ${modelId}` });
+    let route;
+    try {
+      route = resolveModelRoute(provider, modelId, adapter);
+    } catch (routeError) {
+      return res.status(400).json({ error: routeError.message, code: 'MODEL_ROUTE_UNAVAILABLE' });
+    }
+
+    const auth = await ensureProviderAuth(provider, providers, route.endpointId);
+    if (!auth.ok) {
+      return res.status(401).json({ error: auth.message, code: auth.code });
+    }
 
     // Apply config to agent via the TS adapter registry (single source of truth,
     // shared with the CLI). The JS writer functions that used to live here were
@@ -565,7 +618,7 @@ async function switchProvider(req, res) {
     // dropping the model, etc.) and were untested.
     const agentAdapter = _getAdapter(agentId);
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
-    await agentAdapter.applyConfig(provider, modelId);
+    await agentAdapter.applyConfig(route.provider, route.remoteModelId);
 
     // Save selection
     const config = await loadUserConfig();
@@ -577,9 +630,8 @@ async function switchProvider(req, res) {
       config.claude = { ...config.claude, name: provider.name, model: modelId };
     }
 
-    // Goal ③: auto-record this switch in recentModels (prepend, dedupe by
-    // providerId+modelId, cap at RECENT_MODELS_MAX). Favorites are separate —
-    // they are only ever mutated by the explicit favorite endpoints below.
+    // Auto-record this switch in recentModels (prepend, dedupe by
+    // providerId+modelId, cap at RECENT_MODELS_MAX).
     const entry = { providerId, modelId, agentId, lastUsedAt: new Date().toISOString() };
     const recent = Array.isArray(config.recentModels) ? config.recentModels : [];
     config.recentModels = [
@@ -589,63 +641,12 @@ async function switchProvider(req, res) {
 
     await saveUserConfig(config);
 
-    res.json({ success: true, agentId, providerId, modelId });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-}
-
-// --- Goal ③: favorite / recent model endpoints -----------------------------
-//
-// Favorites are user-curated (explicit star). Recents are auto-recorded by
-// switchProvider. Both are surfaced in pickers and the home dashboard. The
-// list lives in user.json alongside config.providers.
-
-async function addFavoriteModel(req, res) {
-  try {
-    const { providerId, modelId } = req.body;
-    if (!providerId || !modelId) {
-      return res.status(400).json({ error: 'Missing required fields: providerId, modelId' });
-    }
-    const config = await loadUserConfig();
-    const favorites = Array.isArray(config.favoriteModels) ? config.favoriteModels : [];
-    // Dedupe by providerId+modelId; if already present, keep existing addedAt.
-    if (favorites.some(m => m.providerId === providerId && m.modelId === modelId)) {
-      return res.json({ success: true, favorites });
-    }
-    favorites.push({ providerId, modelId, addedAt: new Date().toISOString() });
-    config.favoriteModels = favorites.slice(-FAVORITE_MODELS_MAX);
-    await saveUserConfig(config);
-    res.json({ success: true, favorites: config.favoriteModels });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-}
-
-async function removeFavoriteModel(req, res) {
-  try {
-    const { providerId, modelId } = req.params;
-    if (!providerId || !modelId) {
-      return res.status(400).json({ error: 'Missing providerId or modelId in path' });
-    }
-    const config = await loadUserConfig();
-    const favorites = Array.isArray(config.favoriteModels) ? config.favoriteModels : [];
-    config.favoriteModels = favorites.filter(
-      m => !(m.providerId === providerId && m.modelId === modelId),
-    );
-    await saveUserConfig(config);
-    res.json({ success: true, favorites: config.favoriteModels });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-}
-
-async function getFavoriteModels(_req, res) {
-  try {
-    const config = await loadUserConfig();
     res.json({
-      favorites: Array.isArray(config.favoriteModels) ? config.favoriteModels : [],
-      recent: Array.isArray(config.recentModels) ? config.recentModels : [],
+      success: true,
+      agentId,
+      providerId,
+      modelId,
+      route: { executionMode: route.executionMode, endpointId: route.endpointId, remoteModelId: route.remoteModelId },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -905,42 +906,237 @@ async function resolveVaultKey(vaultKey) {
   }
 }
 
+const AUTH_REVALIDATION_TTL_MS = 24 * 60 * 60 * 1000;
+const AUTH_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
+
+function supportsApiKey(p) {
+  return p.authMode === 'api_key' || p.authMode === 'both' || !p.authMode;
+}
+
+function supportsOAuth(p) {
+  return p.authMode === 'oauth' || p.authMode === 'both';
+}
+
+function providerEndpoints(p) {
+  return providerEndpointEntries(p);
+}
+
+function isCredentialFailure(message) {
+  return /API Key 无效|Token 已过期|尚未登录|无可用密钥|\b401\b|\b403\b/i.test(String(message || ''));
+}
+
+function isFreshAuth(p, endpointId) {
+  if (p.authVerified !== true || !p.vaultKey) return false;
+  if (p.authVerifiedKey && p.authVerifiedKey !== p.vaultKey) return false;
+  if (endpointId) {
+    const endpointState = p.authEndpointStates?.[endpointId];
+    return endpointState?.state === 'verified'
+      && Date.now() - Date.parse(endpointState.checkedAt) < AUTH_REVALIDATION_TTL_MS;
+  }
+  if (!p.authVerifiedAt) return false;
+  return Date.now() - Date.parse(p.authVerifiedAt) < AUTH_REVALIDATION_TTL_MS;
+}
+
+async function revalidateProviderAuth(p, { force = false, endpointId, probe } = {}) {
+  if (!supportsApiKey(p) || !p.vaultKey) return { checked: false, changed: false };
+
+  const lastChecked = p.authLastCheckedAt ? Date.parse(p.authLastCheckedAt) : 0;
+  const shouldCheck = force || !isFreshAuth(p, endpointId);
+  if (!shouldCheck) return { checked: false, changed: false };
+  const selectedEndpointHasState = !endpointId || Boolean(p.authEndpointStates?.[endpointId]);
+  if (!force && selectedEndpointHasState && p.authLastCheckedKey === p.vaultKey && lastChecked && Date.now() - lastChecked < AUTH_RETRY_COOLDOWN_MS) {
+    return { checked: false, changed: false };
+  }
+
+  const endpoints = providerEndpoints(p).filter(entry => !endpointId || entry.id === endpointId);
+  if (endpoints.length === 0) return { checked: false, changed: false };
+
+  // Lazy-load vault.js so provider validation tests can exercise routing logic
+  // without loading the filesystem-backed VaultStore module.
+  const testApiKeyResult = probe || require('./vault').testApiKeyResult;
+  const results = await Promise.all(endpoints.map(async ({ id, endpoint }) => ({
+    endpointId: id,
+    endpoint,
+    ...(await testApiKeyResult({
+      baseUrl: endpoint.baseUrl,
+      type: endpoint.type,
+      protocol: endpoint.protocol,
+      vaultKey: p.vaultKey,
+    })),
+  })));
+  const checkedAt = new Date().toISOString();
+  const allOk = results.length > 0 && results.every(result => result.success === true);
+  const successful = results.filter(result => result.success === true);
+  const credentialFailures = results.filter(result => !result.success && isCredentialFailure(result.message));
+  const previous = JSON.stringify({
+    authVerified: p.authVerified,
+    authVerifiedKey: p.authVerifiedKey,
+    authVerifiedAt: p.authVerifiedAt,
+    authLastCheckedAt: p.authLastCheckedAt,
+    authLastCheckedKey: p.authLastCheckedKey,
+    authLastError: p.authLastError,
+    authState: p.authState,
+    authVerifiedEndpointIds: p.authVerifiedEndpointIds,
+    authEndpointStates: p.authEndpointStates,
+  });
+
+  p.authLastCheckedAt = checkedAt;
+  p.authLastCheckedKey = p.vaultKey;
+  p.authEndpointStates = { ...(p.authEndpointStates || {}) };
+  for (const result of results) {
+    const previousState = p.authEndpointStates[result.endpointId];
+    p.authEndpointStates[result.endpointId] = result.success
+      ? { state: 'verified', checkedAt }
+      : isCredentialFailure(result.message)
+        ? { state: 'invalid', checkedAt, error: result.message }
+        : { state: previousState?.state === 'verified' ? 'stale' : 'unknown', checkedAt, error: result.message };
+  }
+  p.authVerifiedEndpointIds = Object.entries(p.authEndpointStates)
+    .filter(([, state]) => state.state === 'verified' || state.state === 'stale')
+    .map(([id]) => id);
+  if (allOk) {
+    p.authVerified = true;
+    p.authVerifiedKey = p.vaultKey;
+    p.authVerifiedAt = checkedAt;
+    p.authLastError = undefined;
+    p.authState = 'verified';
+  } else if (successful.length > 0) {
+    p.authVerified = true;
+    p.authVerifiedKey = p.vaultKey;
+    p.authVerifiedAt = checkedAt;
+    p.authLastError = results.find(result => !result.success)?.message;
+    p.authState = 'partial';
+  } else if (credentialFailures.length === results.length) {
+    p.authVerified = false;
+    p.authLastError = credentialFailures[0]?.message;
+    p.authState = 'invalid';
+  } else {
+    // Network/server errors do not invalidate a previously good key. Keep the
+    // last known good state and expose it as stale so switching can continue.
+    p.authLastError = results.find(result => !result.success)?.message || '连接复核失败';
+    p.authState = p.authVerified === true ? 'stale' : 'needs_verification';
+  }
+
+  const current = JSON.stringify({
+    authVerified: p.authVerified,
+    authVerifiedKey: p.authVerifiedKey,
+    authVerifiedAt: p.authVerifiedAt,
+    authLastCheckedAt: p.authLastCheckedAt,
+    authLastCheckedKey: p.authLastCheckedKey,
+    authLastError: p.authLastError,
+    authState: p.authState,
+    authVerifiedEndpointIds: p.authVerifiedEndpointIds,
+    authEndpointStates: p.authEndpointStates,
+  });
+  return { checked: true, changed: previous !== current, success: allOk, invalid: credentialFailures.length === results.length, results };
+}
+
+function authStateForProvider(p, { hasApiKey, oauthLoggedIn }) {
+  if (p.authMode === 'none') return 'verified';
+  if (supportsOAuth(p) && oauthLoggedIn === true) {
+    return p.authVerified === true && hasApiKey ? 'mixed' : 'oauth_verified';
+  }
+  if (supportsApiKey(p)) {
+    if (!hasApiKey) return supportsOAuth(p) ? 'oauth_required' : 'unconfigured';
+    if (p.authState === 'invalid' || p.authVerified === false) return 'invalid';
+    if (p.authState === 'stale') return 'stale';
+    if (p.authState === 'partial') return 'partial';
+    if (p.authVerified === true) return 'verified';
+    return 'needs_verification';
+  }
+  return supportsOAuth(p) ? 'oauth_required' : 'unconfigured';
+}
+
+async function getProviderAuthSnapshot(p, endpointId, dependencies = {}) {
+  const revalidation = await revalidateProviderAuth(p, { endpointId, probe: dependencies.probe });
+  let hasApiKey = false;
+  if (p.vaultKey) {
+    const apiKey = await (dependencies.resolveVaultKey || resolveVaultKey)(p.vaultKey);
+    hasApiKey = Boolean(apiKey);
+  }
+  const oauthLoggedIn = supportsOAuth(p)
+    ? await (dependencies.detectOAuth || detectOAuth)(p.id)
+    : null;
+  return {
+    id: p.id,
+    name: p.name,
+    hasApiKey,
+    authVerified: p.authVerified === true,
+    oauthLoggedIn,
+    authMode: p.authMode,
+    authState: authStateForProvider(p, { hasApiKey, oauthLoggedIn }),
+    authVerifiedAt: p.authVerifiedAt,
+    authLastCheckedAt: p.authLastCheckedAt,
+    authLastError: p.authLastError,
+    authEndpointStates: p.authEndpointStates || {},
+    revalidation,
+  };
+}
+
+async function ensureProviderAuth(p, allProviders, endpointId, dependencies = {}) {
+  const snapshot = await getProviderAuthSnapshot(p, endpointId, dependencies);
+  if (snapshot.revalidation?.changed && Array.isArray(allProviders)) {
+    await saveProviders(allProviders);
+  }
+  const oauthOk = snapshot.oauthLoggedIn === true;
+  const endpointState = endpointId ? snapshot.authEndpointStates?.[endpointId]?.state : undefined;
+  const apiOk = snapshot.hasApiKey
+    && snapshot.authVerified === true
+    && snapshot.authState !== 'invalid'
+    && (!endpointId || endpointState === 'verified' || endpointState === 'stale');
+  if (oauthOk || apiOk || (!supportsApiKey(p) && !supportsOAuth(p))) {
+    return { ok: true, snapshot };
+  }
+  if (supportsOAuth(p) && !oauthOk && !snapshot.hasApiKey) {
+    return { ok: false, code: 'OAUTH_REQUIRED', message: '请先完成 OAuth 登录' };
+  }
+  if (!snapshot.hasApiKey) {
+    return { ok: false, code: 'AUTH_REQUIRED', message: '请先绑定 API Key' };
+  }
+  if (snapshot.authState === 'invalid') {
+    return { ok: false, code: 'AUTH_INVALID', message: snapshot.authLastError || 'API Key 已失效，请重新认证' };
+  }
+  if (endpointId && endpointState === 'invalid') {
+    return { ok: false, code: 'AUTH_INVALID', message: snapshot.authEndpointStates[endpointId]?.error || '该模型来源端点的 API Key 已失效' };
+  }
+  return { ok: false, code: 'AUTH_VERIFICATION_REQUIRED', message: 'API Key 尚未完成认证，请先连接一次' };
+}
+
 async function getAuthStatus(req, res) {
   try {
     const providers = await loadProviders();
-    const results = [];
-
-    for (const p of providers) {
-      const status = {
-        id: p.id,
-        name: p.name,
-        hasApiKey: false,
-        // A key is not considered authenticated until this exact provider
-        // configuration has passed an explicit connection test. This also
-        // makes older providers (which have no field yet) show as pending
-        // verification instead of claiming a connection from mere presence.
-        authVerified: p.authVerified === true,
-        oauthLoggedIn: null,
-        authMode: p.authMode,
-      };
-
-      // Check Vault key
-      if (p.vaultKey) {
-        try {
-          const apiKey = await resolveVaultKey(p.vaultKey);
-          status.hasApiKey = !!apiKey;
-        } catch {}
-      }
-
-      // Check OAuth status for providers that support it
-      if (p.authMode === 'oauth' || p.authMode === 'both') {
-        status.oauthLoggedIn = await detectOAuth(p.id);
-      }
-
-      results.push(status);
+    const snapshots = await Promise.all(providers.map(p => getProviderAuthSnapshot(p)));
+    if (snapshots.some(snapshot => snapshot.revalidation?.changed)) {
+      await saveProviders(providers);
     }
+    const results = snapshots.map(({ revalidation, ...status }) => status);
 
     res.json({ statuses: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function verifyProviderAuth(req, res) {
+  try {
+    const providers = await loadProviders();
+    const provider = providers.find(item => item.id === req.params.id);
+    if (!provider) return res.status(404).json({ error: 'Provider not found' });
+    if (!supportsApiKey(provider)) {
+      return res.status(400).json({ error: '该 Offering 不使用 API Key 认证' });
+    }
+    if (!provider.vaultKey) {
+      return res.status(400).json({ error: '请先绑定 API Key' });
+    }
+    const revalidation = await revalidateProviderAuth(provider, { force: true });
+    if (revalidation.changed) await saveProviders(providers);
+    const snapshot = await getProviderAuthSnapshot(provider);
+    const { revalidation: _ignored, ...status } = snapshot;
+    res.json({
+      success: status.authVerified && status.authState !== 'invalid',
+      status,
+      results: revalidation.results || [],
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1080,6 +1276,27 @@ function findCommand(cmd) {
   }
 }
 
+function timestampIsValid(value) {
+  if (value === undefined || value === null || value === '') return true;
+  const numeric = typeof value === 'number' ? value : Number(value);
+  const timestamp = Number.isFinite(numeric)
+    ? (numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+    : Date.parse(String(value));
+  return !Number.isFinite(timestamp) || timestamp > Date.now() + 30_000;
+}
+
+function jwtIsValid(token) {
+  if (typeof token !== 'string' || !token) return false;
+  const parts = token.split('.');
+  if (parts.length < 2) return true;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return !payload.exp || payload.exp * 1000 > Date.now() + 30_000;
+  } catch {
+    return true;
+  }
+}
+
 async function detectOAuth(providerId) {
   const fs = require('fs');
   const path = require('path');
@@ -1093,14 +1310,17 @@ async function detectOAuth(providerId) {
         const credPath = path.join(home, '.claude', '.credentials.json');
         if (!fs.existsSync(credPath)) return false;
         const data = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
-        return !!(data.claudeApiKey || data.accessToken || data.apiKey);
+        const oauth = data.claudeAiOauth || data.oauth || data;
+        const token = oauth.accessToken || oauth.access_token || data.accessToken || data.claudeApiKey || data.apiKey;
+        return jwtIsValid(token) && timestampIsValid(oauth.expiresAt || oauth.expires_at || oauth.expiry_date);
       }
       case 'openai':
       case 'openai-codex': {
         const authPath = path.join(home, '.codex', 'auth.json');
         if (!fs.existsSync(authPath)) return false;
         const data = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
-        return !!(data.tokens?.access_token);
+        const token = data.tokens?.access_token;
+        return jwtIsValid(token) && timestampIsValid(data.tokens?.expires_at || data.tokens?.expiry_date);
       }
       case 'google': {
         // No shell: pass args as a discrete array. stderr is ignored via stdio config.
@@ -1116,8 +1336,15 @@ async function detectOAuth(providerId) {
       }
       case 'google-agent': {
         const geminiDir = path.join(home, '.gemini');
-        return ['oauth_creds.json', 'google_accounts.json']
-          .some(file => fs.existsSync(path.join(geminiDir, file)));
+        for (const file of ['oauth_creds.json', 'google_accounts.json']) {
+          const credentialPath = path.join(geminiDir, file);
+          if (!fs.existsSync(credentialPath)) continue;
+          try {
+            const data = JSON.parse(fs.readFileSync(credentialPath, 'utf-8'));
+            if (timestampIsValid(data.expiry_date || data.expiryDate || data.expires_at)) return true;
+          } catch {}
+        }
+        return false;
       }
       case 'xai-grok-build': {
         const authPath = path.join(home, '.grok', 'auth.json');
@@ -1237,6 +1464,68 @@ async function readCopilotCliModels() {
   }
 }
 
+function withNativeAvailability(provider, models, source = 'static') {
+  const now = new Date().toISOString();
+  return models.map(model => ({
+    ...model,
+    availability: [{
+      executionMode: 'agent_native',
+      nativeAgentIds: provider.nativeAgentIds || [],
+      remoteModelId: model.id,
+      status: 'available',
+      source,
+      discoveredAt: now,
+      lastSeenAt: now,
+    }],
+  }));
+}
+
+function mergeEndpointDiscoveries(provider, discoveries, successfulEndpointIds) {
+  const now = new Date().toISOString();
+  const models = new Map((provider.models || []).map(model => [model.id, {
+    ...model,
+    availability: Array.isArray(model.availability) ? model.availability.map(item => ({ ...item })) : [],
+  }]));
+
+  for (const model of models.values()) {
+    model.availability = model.availability.map(item =>
+      item.endpointId && successfulEndpointIds.has(item.endpointId)
+        ? { ...item, status: 'unavailable' }
+        : item,
+    );
+    if (model.availability.length === 0) {
+      model.availability.push({
+        executionMode: 'http_endpoint',
+        remoteModelId: model.id,
+        status: 'unknown',
+        source: 'legacy_unknown',
+      });
+    }
+  }
+
+  for (const discovery of discoveries) {
+    const existing = models.get(discovery.model.id) || {
+      id: discovery.model.id,
+      name: discovery.model.name || discovery.model.id,
+      capabilities: discovery.model.capabilities,
+      availability: [],
+    };
+    existing.name = discovery.model.name || existing.name || discovery.model.id;
+    existing.availability = existing.availability.filter(item => item.endpointId !== discovery.endpointId);
+    existing.availability.push({
+      executionMode: 'http_endpoint',
+      endpointId: discovery.endpointId,
+      remoteModelId: discovery.model.id,
+      status: 'available',
+      source: 'remote',
+      discoveredAt: now,
+      lastSeenAt: now,
+    });
+    models.set(existing.id, existing);
+  }
+  return Array.from(models.values());
+}
+
 async function fetchModels(req, res) {
   const { providerId, endpoints: requestedEndpoints, vaultKey: requestedVaultKey } = req.body;
   const previewConfig = Array.isArray(requestedEndpoints) || Object.prototype.hasOwnProperty.call(req.body, 'vaultKey');
@@ -1248,42 +1537,48 @@ async function fetchModels(req, res) {
     if (!p && !previewConfig) return res.status(404).json({ error: 'Provider 不存在' });
 
     if (p?.id === 'openai-codex' && !previewConfig) {
-      const models = await readCodexCachedModels();
+      const models = withNativeAvailability(p, await readCodexCachedModels(), 'cli');
       p.models = models;
-      await backupImportantData('providers');
-      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      await saveProviders(providers);
       return res.json({ success: true, models });
     }
 
     if (p?.id === 'xai-grok-build' && !previewConfig) {
       if (!(await detectOAuth(p.id))) throw new Error('请先完成 Grok Build 登录');
-      const models = await readGrokCliModels();
+      const models = withNativeAvailability(p, await readGrokCliModels(), 'cli');
       p.models = models;
-      await backupImportantData('providers');
-      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      await saveProviders(providers);
       return res.json({ success: true, models });
     }
 
     if (p?.id === 'github-copilot' && !previewConfig) {
       if (!(await detectOAuth(p.id))) throw new Error('请先完成 GitHub Copilot 登录');
-      const models = await readCopilotCliModels();
+      const models = withNativeAvailability(p, await readCopilotCliModels(), 'cli');
       p.models = models;
-      await backupImportantData('providers');
-      await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, version: 1 }, null, 2));
+      await saveProviders(providers);
       return res.json({ success: true, models });
+    }
+
+    if (p && providerExecutionMode(p) === 'agent_native' && !previewConfig) {
+      const models = withNativeAvailability(p, p.models || [], 'static');
+      p.models = models;
+      await saveProviders(providers);
+      return res.json({ success: models.length > 0, models });
     }
 
     const apiKey = previewConfig
       ? (requestedVaultKey ? await resolveVaultKey(requestedVaultKey) : undefined)
       : (p?.vaultKey ? await resolveVaultKey(p.vaultKey) : undefined);
-    const endpoints = Array.isArray(requestedEndpoints) && requestedEndpoints.length
-      ? requestedEndpoints
-      : (p?.endpoints || (p ? [{ type: p.type, baseUrl: p.baseUrl }] : []));
-    if (!endpoints.length) return res.status(400).json({ error: '至少需要一个有效端点' });
+    const endpointEntries = Array.isArray(requestedEndpoints) && requestedEndpoints.length
+      ? requestedEndpoints.map((endpoint, index) => ({ id: endpoint.id || `${providerId || 'preview'}:endpoint:${index}`, endpoint }))
+      : (p ? providerEndpointEntries(p) : []);
+    if (!endpointEntries.length) return res.status(400).json({ error: '至少需要一个有效端点' });
     const allModels = [];
+    const discoveries = [];
+    const successfulEndpointIds = new Set();
     const errors = [];
 
-    for (const ep of endpoints) {
+    for (const { id: endpointId, endpoint: ep } of endpointEntries) {
       try {
         let models = [];
         if (ep.type === 'openai') {
@@ -1295,8 +1590,10 @@ async function fetchModels(req, res) {
         } else if (ep.type === 'anthropic') {
           models = await fetchAnthropicModels(ep.baseUrl, apiKey);
         }
+        successfulEndpointIds.add(endpointId);
         for (const m of models) {
           if (!allModels.find(x => x.id === m.id)) allModels.push(m);
+          discoveries.push({ endpointId, model: m });
         }
       } catch (err) {
         errors.push({ endpoint: ep.baseUrl, error: err.message });
@@ -1304,16 +1601,13 @@ async function fetchModels(req, res) {
     }
 
     if (allModels.length > 0 && p && !previewConfig) {
-      // Update provider with fetched models
-      p.models = allModels.map(m => ({ id: m.id, name: m.name || m.id }));
-      const data = { providers, version: 1 };
-      await backupImportantData('providers');
-      await fs.writeFile(PROVIDERS_PATH, JSON.stringify(data, null, 2));
+      p.models = mergeEndpointDiscoveries(p, discoveries, successfulEndpointIds);
+      await saveProviders(providers);
     }
 
     res.json({
       success: allModels.length > 0,
-      models: allModels,
+      models: p && !previewConfig && allModels.length > 0 ? p.models : allModels,
       errors: errors.length > 0 ? errors : undefined,
       kept: allModels.length === 0 && p ? p.models : undefined,
     });
@@ -1454,9 +1748,6 @@ module.exports = {
   updateProvider,
   deleteProvider: deleteProviderRoute,
   switchProvider,
-  addFavoriteModel,
-  removeFavoriteModel,
-  getFavoriteModels,
   addHomeProvider,
   removeHomeProvider,
   getAgentConfigFiles,
@@ -1467,6 +1758,14 @@ module.exports = {
   setTierMap,
   launchAgent,
   getAuthStatus,
+  verifyProviderAuth,
   triggerOAuthLogin,
   fetchModels,
+  __testing: {
+    authStateForProvider,
+    ensureProviderAuth,
+    getProviderAuthSnapshot,
+    isCredentialFailure,
+    revalidateProviderAuth,
+  },
 };

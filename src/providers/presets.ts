@@ -19,6 +19,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     type: "anthropic",
     baseUrl: "https://api.anthropic.com",
     authMode: "oauth",
+    executionMode: "agent_native",
+    nativeAgentIds: ["claude"],
     models: [
       { id: "claude-opus-4-7", name: "Claude Opus 4.7" },
       { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
@@ -45,6 +47,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     type: "openai",
     baseUrl: "https://chatgpt.com/backend-api/codex",
     authMode: "oauth",
+    executionMode: "agent_native",
+    nativeAgentIds: ["codex"],
     models: [
       { id: "codex-1", name: "Codex 1" },
     ],
@@ -72,6 +76,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     type: "google",
     baseUrl: "https://generativelanguage.googleapis.com",
     authMode: "oauth",
+    executionMode: "agent_native",
+    nativeAgentIds: ["gemini"],
     cliOnly: true,
     models: [
       { id: "gemini-3", name: "Gemini 3" },
@@ -285,7 +291,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     endpoints: [
       { type: "openai", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-      { type: "anthropic", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+      { type: "anthropic", baseUrl: "https://dashscope.aliyuncs.com/apps/anthropic" },
     ],
     authMode: "api_key",
     models: [
@@ -301,10 +307,10 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     id: "qwen-coding",
     name: "阿里云百炼 Coding Plan",
     type: "openai",
-    baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
+    baseUrl: "https://coding.dashscope.aliyuncs.com/v1",
     endpoints: [
-      { type: "openai", protocol: "chat", baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", plan: "coding" },
-      { type: "anthropic", baseUrl: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", plan: "coding" },
+      { type: "openai", protocol: "chat", baseUrl: "https://coding.dashscope.aliyuncs.com/v1", plan: "coding" },
+      { type: "anthropic", baseUrl: "https://coding.dashscope.aliyuncs.com/apps/anthropic", plan: "coding" },
     ],
     authMode: "api_key",
     models: [
@@ -471,6 +477,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     type: "openai",
     baseUrl: "https://grok.com",
     authMode: "oauth",
+    executionMode: "agent_native",
+    nativeAgentIds: [],
     cliOnly: true,
     models: [
       { id: "grok-4.5", name: "Grok 4.5" },
@@ -482,6 +490,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     type: "openai",
     baseUrl: "https://github.com/features/copilot",
     authMode: "oauth",
+    executionMode: "agent_native",
+    nativeAgentIds: [],
     cliOnly: true,
     models: [
       { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
@@ -616,7 +626,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "Ollama (本地)",
     type: "openai",
     baseUrl: "http://127.0.0.1:11434/v1",
-    authMode: "api_key",
+    authMode: "none",
     models: [],
   },
   {
@@ -624,7 +634,7 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     name: "LiteLLM (本地)",
     type: "openai",
     baseUrl: "http://localhost:4000",
-    authMode: "api_key",
+    authMode: "none",
     models: [],
   },
 ];

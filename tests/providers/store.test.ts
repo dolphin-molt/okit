@@ -55,10 +55,9 @@ describe('loadProviders', () => {
     expect(result[0].models.length).toBe(2);
   });
 
-  it('returns empty array for invalid JSON', async () => {
+  it('fails loudly for invalid JSON so corrupted data is not overwritten', async () => {
     mocks.files.set(PROVIDERS_PATH, 'not json');
-    const result = await loadProviders();
-    expect(result).toEqual([]);
+    await expect(loadProviders()).rejects.toThrow('无法读取 providers.json');
   });
 
   it('filters out invalid providers', async () => {
@@ -93,6 +92,7 @@ describe('loadProviders', () => {
     expect(kimi?.baseUrl).toBe('https://api.moonshot.cn/v1');
     expect(kimi?.endpoints).toEqual([
       { type: 'openai', baseUrl: 'https://api.moonshot.cn/v1', protocol: 'chat' },
+      { type: 'anthropic', baseUrl: 'https://api.moonshot.cn/anthropic' },
     ]);
     expect(kimi?.vaultKey).toBe('KIMI_API_KEY-example');
   });
@@ -119,6 +119,7 @@ describe('loadProviders', () => {
     const coding = result.find(provider => provider.id === 'qianfan-coding');
     expect(qianfan?.endpoints).toEqual([
       { type: 'openai', baseUrl: 'https://qianfan.baidubce.com/v2' },
+      { type: 'anthropic', baseUrl: 'https://qianfan.baidubce.com/anthropic' },
     ]);
     expect(coding?.baseUrl).toBe('https://qianfan.baidubce.com/v2/tokenplan/personal');
     expect(coding?.vaultKey).toBeUndefined();
@@ -153,10 +154,75 @@ describe('loadProviders', () => {
     expect(xiaomi?.models.map(model => model.id)).toContain('mimo-v2.5-tts-voiceclone');
   });
 
-  it('returns empty when providers is not an array', async () => {
-    mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: 'not-array' }));
+  it('migrates only the stale Bailian defaults to protocol-specific Base URLs', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [
+        {
+          id: 'qwen',
+          name: '阿里云百炼',
+          type: 'openai',
+          baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+          endpoints: [
+            { type: 'openai', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+            { type: 'anthropic', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+          ],
+          authMode: 'api_key',
+          models: [{ id: 'qwen-plus' }],
+        },
+        {
+          id: 'qwen-coding',
+          name: '阿里云百炼 Coding Plan',
+          type: 'openai',
+          baseUrl: 'https://coding.dashscope.aliyuncs.com/compatible-mode/v1',
+          endpoints: [
+            { type: 'openai', protocol: 'chat', baseUrl: 'https://coding.dashscope.aliyuncs.com/compatible-mode/v1', plan: 'coding' },
+            { type: 'anthropic', baseUrl: 'https://coding.dashscope.aliyuncs.com/compatible-mode/v1', plan: 'coding' },
+          ],
+          authMode: 'api_key',
+          models: [{ id: 'qwen3-coder-plus' }],
+        },
+      ],
+    }));
+
     const result = await loadProviders();
-    expect(result).toEqual([]);
+    expect(result.find(provider => provider.id === 'qwen')?.endpoints).toEqual([
+      { type: 'openai', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+      { type: 'anthropic', baseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic' },
+    ]);
+    expect(result.find(provider => provider.id === 'qwen-coding')).toMatchObject({
+      baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+      endpoints: [
+        { type: 'openai', baseUrl: 'https://coding.dashscope.aliyuncs.com/v1' },
+        { type: 'anthropic', baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic' },
+      ],
+    });
+  });
+
+  it('fails loudly when providers is not an array', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({ providers: 'not-array' }));
+    await expect(loadProviders()).rejects.toThrow('providers 必须是数组');
+  });
+
+  it('migrates OAuth subscriptions to agent-native offerings without endpoints', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'openai-codex',
+        name: 'OpenAI Codex OAuth',
+        type: 'openai',
+        baseUrl: 'https://chatgpt.com/backend-api/codex',
+        endpoints: [{ type: 'openai', baseUrl: 'https://chatgpt.com/backend-api/codex' }],
+        authMode: 'oauth',
+        models: [{ id: 'codex-1' }],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const codex = result.find(provider => provider.id === 'openai-codex');
+    expect(codex).toMatchObject({
+      executionMode: 'agent_native',
+      nativeAgentIds: ['codex'],
+    });
+    expect(codex?.endpoints).toBeUndefined();
   });
 });
 

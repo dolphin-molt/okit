@@ -5,29 +5,19 @@ import { backupImportantData } from "../config/backup";
 import { Provider, ProvidersData } from "./types";
 import { PRESET_PROVIDERS } from "./presets";
 import { buildPlatforms } from "./platforms";
+import {
+  PRESET_AUTH_MODE_MIGRATIONS,
+  PRESET_BASE_URL_MIGRATIONS,
+  PRESET_ENDPOINT_BASE_URL_MIGRATIONS,
+  RETIRED_PRESET_PROVIDER_IDS,
+} from "./metadata";
 
 const PROVIDERS_PATH = path.join(OKIT_DIR, "providers.json");
 // These used to be bundled presets. Retire them on load as well as removing
 // them from the source list so existing OKIT installations match the UI.
-const RETIRED_PRESET_PROVIDER_IDS = new Set(["groq", "fireworks", "together"]);
-// Apply only this exact built-in endpoint correction. User-customized URLs are
-// intentionally left untouched when presets are refreshed.
-const PRESET_BASE_URL_MIGRATIONS = new Map([
-  ["kimi-coding", { from: "https://api.kimi.com", to: "https://api.moonshot.cn/v1" }],
-  ["qianfan-coding", { from: "https://qianfan.baidubce.com/v2/coding", to: "https://qianfan.baidubce.com/v2/tokenplan/personal" }],
-  ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/v1", to: "https://token-plan-sgp.xiaomimimo.com/v1" }],
-]);
-const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map([
-  ["kimi-coding-plan", { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" }],
-  ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/anthropic", to: "https://token-plan-sgp.xiaomimimo.com/anthropic" }],
-]);
 const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
   ["opencode-go", { from: ["go", "agent"], to: "coding" }],
   ["qianfan-coding", { from: ["coding"], to: "token" }],
-]);
-const PRESET_AUTH_MODE_MIGRATIONS = new Map([
-  ["anthropic", { from: "both", to: "api_key" }],
-  ["openai", { from: "both", to: "api_key" }],
 ]);
 
 export async function loadProviders(): Promise<Provider[]> {
@@ -38,7 +28,7 @@ export async function loadProviders(): Promise<Provider[]> {
   try {
     const content = await fs.readFile(PROVIDERS_PATH, "utf-8");
     const data: ProvidersData = JSON.parse(content);
-    if (!Array.isArray(data.providers)) return [];
+    if (!Array.isArray(data.providers)) throw new Error("providers.json 中的 providers 必须是数组");
     const providers = data.providers
       .filter(isValidProvider)
       .filter(provider => !RETIRED_PRESET_PROVIDER_IDS.has(provider.id));
@@ -47,11 +37,6 @@ export async function loadProviders(): Promise<Provider[]> {
     // narrowly-scoped endpoint migrations for known broken built-in defaults.
     const existingIds = new Set(providers.map(p => p.id));
     let changed = providers.length !== data.providers.length;
-    // Strip cliOnly from all stored providers — this flag hid the Claude
-    // subscription preset, but it should be visible in Claude Code.
-    for (const p of providers) {
-      if ((p as any).cliOnly !== undefined) { delete (p as any).cliOnly; changed = true; }
-    }
     for (const preset of PRESET_PROVIDERS as Provider[]) {
       const existing = providers.find(p => p.id === preset.id);
       if (!existing) {
@@ -70,7 +55,7 @@ export async function loadProviders(): Promise<Provider[]> {
           if (Array.isArray(existing.endpoints)) {
             let endpointChanged = false;
             existing.endpoints = existing.endpoints.map(endpoint => {
-              if (endpoint && endpoint.baseUrl === migration.from) {
+              if (endpoint && endpoint.type === preset.type && endpoint.baseUrl === migration.from) {
                 endpointChanged = true;
                 return { ...endpoint, baseUrl: migration.to };
               }
@@ -79,11 +64,16 @@ export async function loadProviders(): Promise<Provider[]> {
             if (endpointChanged) changed = true;
           }
         }
-        const endpointMigration = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
-        if (endpointMigration && Array.isArray(existing.endpoints)) {
+        const endpointMigrations = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
+        if (endpointMigrations?.length && Array.isArray(existing.endpoints)) {
           let endpointChanged = false;
           existing.endpoints = existing.endpoints.map(endpoint => {
-            if (endpoint && endpoint.baseUrl === endpointMigration.from) {
+            const endpointMigration = endpointMigrations.find(candidate =>
+              endpoint
+              && endpoint.baseUrl === candidate.from
+              && (!candidate.type || endpoint.type === candidate.type),
+            );
+            if (endpointMigration) {
               endpointChanged = true;
               return { ...endpoint, baseUrl: endpointMigration.to };
             }
@@ -97,7 +87,7 @@ export async function loadProviders(): Promise<Provider[]> {
           existing.endpoints = existing.endpoints.map(endpoint => {
             if (endpoint?.plan && planMigration.from.includes(endpoint.plan)) {
               endpointChanged = true;
-              return { ...endpoint, plan: planMigration.to as "coding" };
+              return { ...endpoint, plan: planMigration.to as "coding" | "token" | "go" };
             }
             return endpoint;
           });
@@ -123,6 +113,26 @@ export async function loadProviders(): Promise<Provider[]> {
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
+          changed = true;
+        }
+        if (preset.executionMode && existing.executionMode !== preset.executionMode) {
+          existing.executionMode = preset.executionMode;
+          changed = true;
+        }
+        if (preset.executionMode === "agent_native" && Array.isArray(existing.endpoints)) {
+          delete existing.endpoints;
+          changed = true;
+        }
+        if (preset.nativeAgentIds && JSON.stringify(existing.nativeAgentIds) !== JSON.stringify(preset.nativeAgentIds)) {
+          existing.nativeAgentIds = [...preset.nativeAgentIds];
+          changed = true;
+        }
+        if (preset.cliOnly === true && existing.cliOnly !== true) {
+          existing.cliOnly = true;
+          changed = true;
+        }
+        if (preset.authMode === "none" && existing.authMode !== "none" && !existing.vaultKey) {
+          existing.authMode = "none";
           changed = true;
         }
         if (
@@ -164,8 +174,8 @@ export async function loadProviders(): Promise<Provider[]> {
     if (changed) await saveProviders(providers);
 
     return providers;
-  } catch {
-    return [];
+  } catch (error) {
+    throw new Error(`无法读取 providers.json：${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

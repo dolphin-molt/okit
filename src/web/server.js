@@ -9,7 +9,7 @@ const { getMonitor, getDu, getCleanupScan, getCleanupAi, deleteCleanupItem, getC
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addFavoriteModel, removeFavoriteModel, getFavoriteModels, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, triggerOAuthLogin, fetchModels } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders } = require('./api/usage');
 
 function createServer(port = 3780) {
@@ -106,11 +106,6 @@ function createServer(port = 3780) {
   app.get('/api/providers', listProviders);
   app.get('/api/providers/adapters', getAdaptersList);
   app.post('/api/providers', createProvider);
-  // Goal ③: favorite/recent model endpoints. Registered before the :id routes
-  // so the static "models/..." segments aren't captured as an id.
-  app.get('/api/providers/models/favorites', getFavoriteModels);
-  app.post('/api/providers/models/favorite', addFavoriteModel);
-  app.delete('/api/providers/models/favorite/:providerId/:modelId', removeFavoriteModel);
   // Home-page provider list (curated per agent).
   app.post('/api/providers/agents/:agentId/home', addHomeProvider);
   app.delete('/api/providers/agents/:agentId/home/:providerId', removeHomeProvider);
@@ -126,6 +121,7 @@ function createServer(port = 3780) {
   app.post('/api/providers/switch', switchProvider);
   app.post('/api/providers/launch', launchAgent);
   app.get('/api/providers/auth', getAuthStatus);
+  app.post('/api/providers/:id/verify-auth', verifyProviderAuth);
   app.post('/api/providers/auth/login', triggerOAuthLogin);
   app.post('/api/providers/fetch-models', fetchModels);
 

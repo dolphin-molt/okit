@@ -53,24 +53,9 @@ const TOOL_ITEMS = [
   )},
 ];
 
-const SYSTEM_ITEMS = [
-  { path: '/logs', labelKey: 'nav.logs', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
-      <path d="M4 5h16v14H4z" />
-      <path d="M7 9l3 3-3 3M13 15h4" />
-    </svg>
-  )},
-  { path: '/monitor', labelKey: 'nav.monitor', icon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" {...SW}>
-      <path d="M3 12h4l2-6 4 12 2-6h6" />
-    </svg>
-  )},
-];
-
 const NAV_SECTIONS = [
   { labelKey: 'nav.workspace', items: WORKSPACE_ITEMS },
   { labelKey: 'nav.toolsSection', items: TOOL_ITEMS },
-  { labelKey: 'nav.system', items: SYSTEM_ITEMS },
 ];
 
 export default function Sidebar({ collapsed }: { collapsed: boolean }) {
@@ -125,7 +110,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
     } catch {}
   }
 
-  function renderNavItem(item: typeof WORKSPACE_ITEMS[number] | typeof TOOL_ITEMS[number] | typeof SYSTEM_ITEMS[number]) {
+  function renderNavItem(item: typeof WORKSPACE_ITEMS[number] | typeof TOOL_ITEMS[number]) {
     return (
       <div key={item.path}>
         <NavLink to={item.path} end={item.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>

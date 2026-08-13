@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import { useApp } from './components/Layout/AppContext';
 import VaultPage from './components/vault/VaultPage';
-import LogsPage from './components/logs/LogsPage';
-import MonitorPage from './components/monitor/MonitorPage';
 import AgentPage from './components/agent/AgentPage';
 import SettingsPage from './components/settings/SettingsPage';
 import OnboardingPage from './components/onboarding/OnboardingPage';
@@ -61,8 +59,6 @@ export default function App() {
                 <Route path="/models" element={<ModelsPage />} />
                 <Route path="/usage" element={<UsagePage />} />
                 <Route path="/agents" element={<AgentsPage />} />
-                <Route path="/logs" element={<LogsPage />} />
-                <Route path="/monitor" element={<MonitorPage />} />
                 <Route path="/agent" element={<AgentPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

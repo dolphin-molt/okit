@@ -48,7 +48,7 @@ AES-256-GCM encrypted key storage in `src/vault/store.ts`. Machine-specific key 
 
 - **Backend**: `src/web/server.js` (Express) + `src/web/api/*.js` — pure CommonJS, no TypeScript
 - **Frontend**: `src/web/frontend/` — React + TypeScript, Vite build
-  - Components organized by feature: `components/{vault,models,agents,logs,monitor,settings}/`
+  - Components organized by feature: `components/{vault,models,agents,logs,settings}/`
   - Shared sidebar layout: `.page-with-sidebar` + `.page-sidebar` classes (defined in `components.css`)
   - Design system: "Paper Cutout Collage" style using CSS variables (`--paper`, `--kraft`, `--kraft-dark`, `--ink`, `--ink-muted`), dashed borders, `1.5px solid` borders, `2px 2px 0 rgba(0,0,0,0.06)` shadows
   - All CSS files in `src/web/frontend/src/styles/` — `base.css` (variables/layout), `components.css` (shared), `providers.css`, `vault.css`, etc.

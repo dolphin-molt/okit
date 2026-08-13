@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
+import LogsPage from '../logs/LogsPage';
 import { getSyncImportStatus, type SyncImportState } from '../../lib/syncImportStatus';
 
 const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
@@ -43,6 +44,7 @@ export default function SettingsPage() {
   const [docPlatform, setDocPlatform] = useState<string | null>(null);
   const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -412,6 +414,29 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Support diagnostics */}
+      <div className="settings-section">
+        <div className="settings-section-title">{t('settings.diagnostics')}</div>
+        <div className="settings-card settings-logs-card">
+          <div className="settings-card-body">
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <div className="settings-row-title">{t('settings.logsTitle')}</div>
+                <div className="settings-row-desc">{t('settings.logsDesc')}</div>
+              </div>
+              <button className="settings-test-btn" type="button" onClick={() => setShowLogs(value => !value)}>
+                {showLogs ? t('settings.hideLogs') : t('settings.viewLogs')}
+              </button>
+            </div>
+          </div>
+          {showLogs && (
+            <div className="settings-logs-panel">
+              <LogsPage embedded />
+            </div>
+          )}
         </div>
       </div>
 

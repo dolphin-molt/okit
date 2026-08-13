@@ -4,6 +4,7 @@ const path = require('path');
 const execa = require('execa');
 const fse = require('fs-extra');
 const { z } = require('zod');
+const { redactLog } = require('./logs');
 
 const agentSessions = new Map();
 
@@ -151,13 +152,6 @@ async function buildPiModelRuntime(pi, agentCfg, apiKey) {
 }
 
 // ─── Helpers ───
-
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
-}
 
 function maskValue(val) {
   if (!val || val.length <= 8) return '****';
@@ -491,66 +485,6 @@ async function agentChat(req, res) {
         },
       },
 
-      // ─── 系统监控 ───
-      get_system_info: {
-        description: '获取系统信息：CPU、内存、磁盘、GPU',
-        parameters: z.object({}),
-        execute: async () => {
-          const cpus = os.cpus();
-          const totalMem = os.totalmem();
-          const freeMem = os.freemem();
-          let diskLine = '';
-          try {
-            const { stdout } = await execa.command('df -h /', { timeout: 5000, reject: false });
-            diskLine = stdout.split('\n')[1] || '';
-          } catch {}
-
-          return JSON.stringify({
-            cpu: { model: cpus[0]?.model || 'Unknown', cores: cpus.length, loadAvg: os.loadavg().map(v => Math.round(v * 100) / 100) },
-            memory: { total: formatBytes(totalMem), used: formatBytes(totalMem - freeMem), free: formatBytes(freeMem), usagePercent: Math.round((1 - freeMem / totalMem) * 1000) / 10 + '%' },
-            disk: diskLine,
-            uptime: Math.floor(os.uptime() / 3600) + '小时',
-            platform: os.platform(),
-            hostname: os.hostname(),
-          });
-        },
-      },
-      get_disk_usage: {
-        description: '获取指定目录的磁盘占用',
-        parameters: z.object({
-          path: z.string().describe('目录路径'),
-        }),
-        execute: async ({ path: dirPath }) => {
-          const resolved = dirPath.replace(/^~/, os.homedir());
-          if (!fs.existsSync(resolved)) return JSON.stringify({ error: '目录不存在' });
-          try {
-            const entries = fs.readdirSync(resolved, { withFileTypes: true });
-            const items = [];
-            const batchSize = 10;
-            for (let i = 0; i < entries.length && i < 50; i += batchSize) {
-              const batch = entries.slice(i, i + batchSize);
-              const results = await Promise.allSettled(
-                batch.filter(e => e.isDirectory()).map(async entry => {
-                  const fullPath = path.join(resolved, entry.name);
-                  try {
-                    const { stdout } = await execa('du', ['-sh', fullPath], { timeout: 15000, reject: false });
-                    const m = stdout?.match(/^(\S+)\s/);
-                    if (m) return { name: entry.name, size: m[1] };
-                  } catch {}
-                  return null;
-                })
-              );
-              for (const r of results) {
-                if (r.status === 'fulfilled' && r.value) items.push(r.value);
-              }
-            }
-            return JSON.stringify(items);
-          } catch (err) {
-            return JSON.stringify({ error: err.message });
-          }
-        },
-      },
-
       // ─── 日志 ───
       get_logs: {
         description: '获取最近的操作日志',
@@ -565,7 +499,7 @@ async function agentChat(req, res) {
             const lines = content.trim().split('\n').filter(Boolean);
             const logs = lines.slice(-n).map(line => {
               try { return JSON.parse(line); } catch { return null; }
-            }).filter(Boolean);
+            }).filter(Boolean).map(redactLog);
             return JSON.stringify(logs.map(l => ({
               time: l.timestamp,
               action: l.action,
@@ -617,7 +551,7 @@ async function agentChat(req, res) {
       },
     };
 
-    const systemPrompt = `你是 OKIT 智能助手，一个全能的 AI Agent，可以帮助用户管理开发工具、密钥和系统资源。
+    const systemPrompt = `你是 OKIT 智能助手，一个全能的 AI Agent，可以帮助用户管理密钥、Provider、模型和配置。
 
 你可以使用以下功能：
 - 应用管理：open_app（打开应用程序）
@@ -625,7 +559,6 @@ async function agentChat(req, res) {
 - API Key 自动创建：create_api_key（支持 cloudflare/volcengine/zhipu/minimax，需 Chrome 扩展连接。创建后自动存入 Vault）
 - 密钥绑定项目：bind_key_to_project（将密钥写入项目 .okitenv 文件，实现项目级密钥注入）
 - 云同步：sync_push（推送到云端）、sync_pull（从云端拉取）
-- 系统监控：get_system_info（CPU/内存/磁盘）、get_disk_usage（目录占用）
 - 日志：get_logs（操作历史）
 - 设置：get_settings（查看配置）、update_settings（更新配置）
 

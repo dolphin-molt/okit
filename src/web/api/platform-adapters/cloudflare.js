@@ -53,7 +53,7 @@ async function syncSecrets(config, secrets) {
 
   for (const secret of secrets) {
     try {
-      const val = secret.aliases?.[0]?.value || secret.value || '';
+      const val = secret.value || '';
       const existingId = existingMap.get(secret.key);
       if (existingId) {
         await cfFetch(config.apiToken,

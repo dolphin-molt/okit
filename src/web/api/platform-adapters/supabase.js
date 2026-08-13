@@ -75,7 +75,7 @@ async function syncSecrets(config, secrets) {
   const results = [];
   for (const secret of secrets) {
     try {
-      const value = { group: secret.group, aliases: secret.aliases };
+      const value = { value: secret.value, desc: secret.desc || '', group: secret.group || '' };
       const row = { key: secret.key, value, updated_at: new Date().toISOString() };
       // Try update first
       const updated = await sbFetch(`${base}/rest/v1/${TABLE_NAME}?key=eq.${encodeURIComponent(secret.key)}`, {

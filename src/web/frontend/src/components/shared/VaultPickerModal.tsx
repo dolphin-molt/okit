@@ -24,6 +24,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newKey, setNewKey] = useState('');
+  const [newDesc, setNewDesc] = useState('');
   const [newGroup, setNewGroup] = useState('');
   const [newGroupCustom, setNewGroupCustom] = useState('');
   const [newValue, setNewValue] = useState('');
@@ -58,6 +59,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
     const q = search.toLowerCase();
     return source.filter(s =>
       s.key.toLowerCase().includes(q) ||
+      (s.desc || '').toLowerCase().includes(q) ||
       (s.group || '').toLowerCase().includes(q)
     );
   }, [secrets, groups, activeGroup, search]);
@@ -67,7 +69,12 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
     setCreating(true);
     try {
       const group = newGroup === '__custom__' ? newGroupCustom.trim() : newGroup.trim();
-      await setVault({ key: newKey.trim(), value: newValue.trim(), group: group || undefined });
+      await setVault({
+        key: newKey.trim(),
+        value: newValue.trim(),
+        desc: newDesc.trim() || undefined,
+        group: group || undefined,
+      });
       await new Promise(r => setTimeout(r, 100));
       reload();
       onSelect(newKey.trim());
@@ -95,6 +102,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   function resetCreate() {
     setShowCreate(false);
     setNewKey('');
+    setNewDesc('');
     setNewGroup('');
     setNewGroupCustom('');
     setNewValue('');
@@ -161,6 +169,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                     <span className="vault-picker-item-key">{s.key}</span>
                     {s.group && <span className="vault-picker-item-group">{s.group}</span>}
                   </div>
+                  {s.desc && <span className="vault-picker-item-desc" title={s.desc}>{s.desc}</span>}
                 </div>
               ))}
             </div>
@@ -186,12 +195,22 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                       placeholder={t('common.selectGroup')}
                       dropdownMode="local"
                       options={[
-                        { value: '__custom__', label: t('common.manualInput') },
+                        { value: '__custom__', label: t('vault.newGroup') },
                         ...groupNames.map(g => ({ value: g, label: g })),
                       ]}
                     />
                   </label>
                 </div>
+                <label className="vault-picker-create-field vault-picker-create-field--span">
+                  <span className="vault-picker-create-label">{t('vault.descriptionLabel')}</span>
+                  <input
+                    className="vault-input vault-picker-create-input"
+                    placeholder={t('vault.descriptionPlaceholder')}
+                    value={newDesc}
+                    maxLength={120}
+                    onChange={e => setNewDesc(e.target.value)}
+                  />
+                </label>
                 {newGroup === '__custom__' && (
                   <label className="vault-picker-create-field vault-picker-create-field--span">
                     <span className="vault-picker-create-label">{t('common.enterGroup')}</span>

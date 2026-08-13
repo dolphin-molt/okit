@@ -315,14 +315,14 @@ const vault = program
 
 vault
   .command("set <key> <value>")
-  .description("存储密钥（支持 KEY/alias 格式，如 GITHUB_TOKEN/company）")
+  .description("存储密钥")
   .action(async (key: string, value: string) => {
     await vaultSet(key, value);
   });
 
 vault
   .command("get <key>")
-  .description("获取密钥明文（支持 KEY/alias 格式）")
+  .description("获取密钥明文")
   .action(async (key: string) => {
     await vaultGet(key);
   });

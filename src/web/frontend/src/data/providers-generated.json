@@ -3561,17 +3561,15 @@
     },
     {
       "id": "moonshot",
-      "name": "Kimi / Moonshot",
+      "name": "Moonshot",
       "providerIds": [
-        "moonshot",
-        "kimi-coding",
-        "kimi-coding-plan"
+        "moonshot"
       ],
       "offerings": [
         {
           "id": "moonshot",
           "type": "api",
-          "label": "Moonshot（国际 API）",
+          "label": "API 平台",
           "providerId": "moonshot",
           "endpointIds": [
             "moonshot:endpoint:0",
@@ -3579,32 +3577,6 @@
           ],
           "authMethodIds": [
             "moonshot:api-key"
-          ]
-        },
-        {
-          "id": "kimi-coding",
-          "type": "api",
-          "label": "Kimi（国内 API）",
-          "providerId": "kimi-coding",
-          "endpointIds": [
-            "kimi-coding:endpoint:0",
-            "kimi-coding:endpoint:1"
-          ],
-          "authMethodIds": [
-            "kimi-coding:api-key"
-          ]
-        },
-        {
-          "id": "kimi-coding-plan",
-          "type": "coding_plan",
-          "label": "Coding Plan",
-          "providerId": "kimi-coding-plan",
-          "endpointIds": [
-            "kimi-coding-plan:endpoint:0",
-            "kimi-coding-plan:endpoint:1"
-          ],
-          "authMethodIds": [
-            "kimi-coding-plan:api-key"
           ]
         }
       ],
@@ -3614,20 +3586,6 @@
           "type": "api_key",
           "label": "API Key",
           "providerId": "moonshot",
-          "status": "unconfigured"
-        },
-        {
-          "id": "kimi-coding:api-key",
-          "type": "api_key",
-          "label": "API Key",
-          "providerId": "kimi-coding",
-          "status": "unconfigured"
-        },
-        {
-          "id": "kimi-coding-plan:api-key",
-          "type": "api_key",
-          "label": "API Key",
-          "providerId": "kimi-coding-plan",
           "status": "unconfigured"
         }
       ],
@@ -3660,74 +3618,6 @@
           },
           "authMethodIds": [
             "moonshot:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "kimi-coding:endpoint:0",
-          "name": "OPENAI",
-          "offeringId": "kimi-coding",
-          "baseUrl": "https://api.moonshot.cn/v1",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "kimi-coding:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "kimi-coding:endpoint:1",
-          "name": "ANTHROPIC",
-          "offeringId": "kimi-coding",
-          "baseUrl": "https://api.moonshot.cn/anthropic",
-          "protocol": {
-            "family": "anthropic",
-            "mode": "messages"
-          },
-          "authMethodIds": [
-            "kimi-coding:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "kimi-coding-plan:endpoint:0",
-          "name": "OPENAI chat",
-          "offeringId": "kimi-coding-plan",
-          "baseUrl": "https://api.kimi.com/coding/v1",
-          "protocol": {
-            "family": "openai",
-            "mode": "chat"
-          },
-          "authMethodIds": [
-            "kimi-coding-plan:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
-        },
-        {
-          "id": "kimi-coding-plan:endpoint:1",
-          "name": "ANTHROPIC",
-          "offeringId": "kimi-coding-plan",
-          "baseUrl": "https://api.kimi.com/coding",
-          "protocol": {
-            "family": "anthropic",
-            "mode": "messages"
-          },
-          "authMethodIds": [
-            "kimi-coding-plan:api-key"
           ],
           "modelDiscovery": {
             "type": "remote",
@@ -3799,7 +3689,131 @@
               "source": "static"
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "kimi-coding",
+      "name": "Kimi",
+      "providerIds": [
+        "kimi-coding",
+        "kimi-coding-plan"
+      ],
+      "offerings": [
+        {
+          "id": "kimi-coding",
+          "type": "api",
+          "label": "国内 API 平台",
+          "providerId": "kimi-coding",
+          "endpointIds": [
+            "kimi-coding:endpoint:0",
+            "kimi-coding:endpoint:1"
+          ],
+          "authMethodIds": [
+            "kimi-coding:api-key"
+          ]
         },
+        {
+          "id": "kimi-coding-plan",
+          "type": "coding_plan",
+          "label": "Coding Plan",
+          "providerId": "kimi-coding-plan",
+          "endpointIds": [
+            "kimi-coding-plan:endpoint:0",
+            "kimi-coding-plan:endpoint:1"
+          ],
+          "authMethodIds": [
+            "kimi-coding-plan:api-key"
+          ]
+        }
+      ],
+      "authMethods": [
+        {
+          "id": "kimi-coding:api-key",
+          "type": "api_key",
+          "label": "API Key",
+          "providerId": "kimi-coding",
+          "status": "unconfigured"
+        },
+        {
+          "id": "kimi-coding-plan:api-key",
+          "type": "api_key",
+          "label": "API Key",
+          "providerId": "kimi-coding-plan",
+          "status": "unconfigured"
+        }
+      ],
+      "endpoints": [
+        {
+          "id": "kimi-coding:endpoint:0",
+          "name": "OPENAI",
+          "offeringId": "kimi-coding",
+          "baseUrl": "https://api.moonshot.cn/v1",
+          "protocol": {
+            "family": "openai",
+            "mode": "chat"
+          },
+          "authMethodIds": [
+            "kimi-coding:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        },
+        {
+          "id": "kimi-coding:endpoint:1",
+          "name": "ANTHROPIC",
+          "offeringId": "kimi-coding",
+          "baseUrl": "https://api.moonshot.cn/anthropic",
+          "protocol": {
+            "family": "anthropic",
+            "mode": "messages"
+          },
+          "authMethodIds": [
+            "kimi-coding:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        },
+        {
+          "id": "kimi-coding-plan:endpoint:0",
+          "name": "OPENAI chat",
+          "offeringId": "kimi-coding-plan",
+          "baseUrl": "https://api.kimi.com/coding/v1",
+          "protocol": {
+            "family": "openai",
+            "mode": "chat"
+          },
+          "authMethodIds": [
+            "kimi-coding-plan:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        },
+        {
+          "id": "kimi-coding-plan:endpoint:1",
+          "name": "ANTHROPIC",
+          "offeringId": "kimi-coding-plan",
+          "baseUrl": "https://api.kimi.com/coding",
+          "protocol": {
+            "family": "anthropic",
+            "mode": "messages"
+          },
+          "authMethodIds": [
+            "kimi-coding-plan:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        }
+      ],
+      "models": [
         {
           "id": "kimi-k2.5",
           "name": "Kimi K2.5",
@@ -6439,14 +6453,22 @@
       ]
     },
     {
-      "family": "Kimi / Moonshot",
+      "family": "Moonshot",
       "plans": [
         {
-          "label": "Moonshot（国际 API）",
+          "label": "API 平台",
           "providerId": "moonshot"
-        },
+        }
+      ],
+      "ids": [
+        "moonshot"
+      ]
+    },
+    {
+      "family": "Kimi",
+      "plans": [
         {
-          "label": "Kimi（国内 API）",
+          "label": "国内 API 平台",
           "providerId": "kimi-coding"
         },
         {
@@ -6455,7 +6477,6 @@
         }
       ],
       "ids": [
-        "moonshot",
         "kimi-coding",
         "kimi-coding-plan"
       ]

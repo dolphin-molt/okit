@@ -8,20 +8,19 @@ import { t } from "../config/i18n";
 const store = new VaultStore();
 
 // Parse .okitenv file
-// Format — each line: ENV_NAME: VAULT_KEY/alias
+// Format — each line: ENV_NAME: VAULT_KEY
 //
 // Examples:
 //   OPENAI_API_KEY: OPENROUTER_KEY       # vault 的 OPENROUTER_KEY → 注入为 OPENAI_API_KEY
 //   OPENAI_BASE_URL: OPENROUTER_BASE_URL # vault 的 OPENROUTER_BASE_URL → 注入为 OPENAI_BASE_URL
-//   GITHUB_TOKEN: GITHUB_TOKEN/company   # vault 的 GITHUB_TOKEN/company → 注入为 GITHUB_TOKEN
-//   DATABASE_URL                          # vault 的 DATABASE_URL/default → 注入为 DATABASE_URL
+//   GITHUB_TOKEN: GITHUB_TOKEN           # vault 的 GITHUB_TOKEN → 注入为 GITHUB_TOKEN
+//   DATABASE_URL                         # vault 的 DATABASE_URL → 注入为 DATABASE_URL
 //
 // envName = 项目 .env 里实际写入的变量名
-// vaultKey/alias = vault 里存储的 key 和别名
+// vaultKey = vault 里存储的 key
 interface OkitEnvEntry {
   envName: string;     // .env 里的变量名（如 OPENAI_API_KEY）
   vaultKey: string;    // vault 里的 key（如 OPENROUTER_KEY）
-  vaultAlias: string;  // vault 里的 alias（如 default）
 }
 
 async function parseOkitEnv(filePath: string): Promise<OkitEnvEntry[]> {
@@ -39,19 +38,17 @@ async function parseOkitEnv(filePath: string): Promise<OkitEnvEntry[]> {
       const envName = line.slice(0, colonIdx).trim();
       const source = line.slice(colonIdx + 1).trim();
       if (source) {
-        // Source can be "VAULT_KEY/alias" or just "VAULT_KEY"
-        const { key, alias } = VaultStore.parseKeyAlias(source);
-        entries.push({ envName, vaultKey: key, vaultAlias: alias });
+        entries.push({ envName, vaultKey: source });
       } else {
         // No source specified, envName = vaultKey
-        entries.push({ envName, vaultKey: envName, vaultAlias: "default" });
+        entries.push({ envName, vaultKey: envName });
       }
       continue;
     }
 
-    // Simple format: just ENV_NAME (same as vault key, default alias)
+    // Simple format: just ENV_NAME (same as vault key)
     if (/^[A-Z_][A-Z0-9_]*$/.test(line)) {
-      entries.push({ envName: line, vaultKey: line, vaultAlias: "default" });
+      entries.push({ envName: line, vaultKey: line });
     }
   }
 
@@ -68,15 +65,13 @@ function findOkitEnv(dir?: string): string | null {
   return null;
 }
 
-// okit vault set KEY/alias value
-export async function vaultSet(keyAlias: string, value: string): Promise<void> {
-  await store.set(keyAlias, value);
-  const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
-  const display = alias === "default" ? key : `${key}/${alias}`;
-  console.log(kleur.green(`${t("vaultSaved")} ${display}`));
+// okit vault set KEY value
+export async function vaultSet(key: string, value: string): Promise<void> {
+  await store.set(key, value);
+  console.log(kleur.green(`${t("vaultSaved")} ${key}`));
 
   // Auto-sync if there are bindings for this key
-  const bindings = await store.getBindings(keyAlias);
+  const bindings = await store.getBindings(key);
   if (bindings.length > 0) {
     console.log(kleur.gray(`${t("vaultAutoSync")} ${bindings.length} ${t("vaultTargets")}`));
     const results = await store.sync();
@@ -87,12 +82,11 @@ export async function vaultSet(keyAlias: string, value: string): Promise<void> {
   }
 }
 
-// okit vault get KEY/alias
-export async function vaultGet(keyAlias: string): Promise<void> {
-  const parsed = VaultStore.parseKeyAlias(keyAlias);
-  const value = await store.resolve(parsed.key, parsed.alias);
+// okit vault get KEY
+export async function vaultGet(key: string): Promise<void> {
+  const value = await store.get(key);
   if (value === null) {
-    console.log(kleur.red(`${t("vaultNotFound")} ${keyAlias}`));
+    console.log(kleur.red(`${t("vaultNotFound")} ${key}`));
     process.exit(1);
   }
   // Output raw value (for piping)
@@ -109,41 +103,27 @@ export async function vaultList(): Promise<void> {
 
   console.log(kleur.cyan(`\n${t("vaultListTitle")}\n`));
 
-  // Group by key
-  const groups = new Map<string, typeof entries>();
   for (const e of entries) {
-    const existing = groups.get(e.key) || [];
-    existing.push(e);
-    groups.set(e.key, existing);
-  }
-
-  for (const [key, aliases] of groups) {
-    if (aliases.length === 1 && aliases[0].alias === "default") {
-      console.log(`  ${kleur.bold(key)}  ${kleur.gray(aliases[0].masked)}`);
-    } else {
-      console.log(`  ${kleur.bold(key)}`);
-      for (const a of aliases) {
-        console.log(`    /${kleur.cyan(a.alias)}  ${kleur.gray(a.masked)}`);
-      }
-    }
+    const description = e.desc ? `  ${kleur.gray(e.desc)}` : '';
+    console.log(`  ${kleur.bold(e.key)}  ${kleur.gray(e.masked)}${description}`);
   }
   console.log();
 }
 
-// okit vault delete KEY/alias
-export async function vaultDelete(keyAlias: string): Promise<void> {
+// okit vault delete KEY
+export async function vaultDelete(key: string): Promise<void> {
   const confirm = await prompts({
     type: "confirm",
     name: "yes",
-    message: `${t("vaultConfirmDelete")} ${keyAlias}?`,
+    message: `${t("vaultConfirmDelete")} ${key}?`,
     initial: false,
   });
   if (!confirm.yes) return;
 
-  if (await store.delete(keyAlias)) {
-    console.log(kleur.green(`${t("vaultDeleted")} ${keyAlias}`));
+  if (await store.delete(key)) {
+    console.log(kleur.green(`${t("vaultDeleted")} ${key}`));
   } else {
-    console.log(kleur.red(`${t("vaultNotFound")} ${keyAlias}`));
+    console.log(kleur.red(`${t("vaultNotFound")} ${key}`));
   }
 }
 
@@ -155,10 +135,7 @@ export async function vaultInject(options?: { keys?: string; dir?: string; shell
   let entries: OkitEnvEntry[];
 
   if (options?.keys) {
-    entries = options.keys.split(",").map((k) => {
-      const { key, alias } = VaultStore.parseKeyAlias(k.trim());
-      return { envName: key, vaultKey: key, vaultAlias: alias };
-    });
+    entries = options.keys.split(",").map((key) => ({ envName: key.trim(), vaultKey: key.trim() }));
   } else {
     const envFile = findOkitEnv(dir);
     if (!envFile) {
@@ -175,7 +152,7 @@ export async function vaultInject(options?: { keys?: string; dir?: string; shell
 
   const loadedKeys: string[] = [];
   for (const entry of entries) {
-    const value = await store.resolve(entry.vaultKey, entry.vaultAlias);
+    const value = await store.get(entry.vaultKey);
     if (value !== null) {
       const escaped = value.replace(/'/g, "'\\''");
       if (targetShell === "powershell") {
@@ -221,7 +198,7 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
   let missing = 0;
 
   for (const entry of entries) {
-    const value = await store.resolve(entry.vaultKey, entry.vaultAlias);
+    const value = await store.get(entry.vaultKey);
     if (value !== null) {
       lines.push(`${entry.envName}=${value}`);
       resolved++;
@@ -231,12 +208,10 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
         projectPath: dir,
         file: dest,
         key: entry.vaultKey,
-        alias: entry.vaultAlias,
         envName: entry.envName,
       });
     } else {
-      const source = entry.vaultAlias === "default" ? entry.vaultKey : `${entry.vaultKey}/${entry.vaultAlias}`;
-      lines.push(`# ${entry.envName}= # ${t("vaultNotFound")} ${source}`);
+      lines.push(`# ${entry.envName}= # ${t("vaultNotFound")} ${entry.vaultKey}`);
       missing++;
     }
   }
@@ -249,18 +224,16 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
   console.log(kleur.gray(`  ${t("vaultResolved")}: ${resolved}, ${t("vaultMissing")}: ${missing}`));
 }
 
-// okit vault where KEY/alias — show where a key is used
-export async function vaultWhere(keyAlias: string): Promise<void> {
-  const bindings = await store.getBindings(keyAlias);
+// okit vault where KEY — show where a key is used
+export async function vaultWhere(key: string): Promise<void> {
+  const bindings = await store.getBindings(key);
 
   if (bindings.length === 0) {
-    console.log(kleur.yellow(`${t("vaultNoBindings")} ${keyAlias}`));
+    console.log(kleur.yellow(`${t("vaultNoBindings")} ${key}`));
     return;
   }
 
-  const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
-  const display = alias === "default" ? key : `${key}/${alias}`;
-  console.log(kleur.cyan(`\n${t("vaultWhereTitle")} ${display}\n`));
+  console.log(kleur.cyan(`\n${t("vaultWhereTitle")} ${key}\n`));
 
   for (const b of bindings) {
     const fullPath = path.join(b.projectPath, b.file);

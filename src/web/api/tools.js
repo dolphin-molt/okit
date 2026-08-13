@@ -413,18 +413,10 @@ async function buildAuthCommand(method, body = {}, vaultStore) {
   let token = body.token;
   if (!token && body.vaultKey) {
     const store = vaultStore || new (require('../../vault/store').VaultStore)();
-    const { key, alias } = parseKeyAlias(body.vaultKey);
-    if (typeof store.resolve === 'function') token = await store.resolve(key, alias);
-    else if (typeof store.get === 'function') token = await store.get(body.vaultKey);
+    if (typeof store.get === 'function') token = await store.get(body.vaultKey);
   }
   if (!token) throw new Error('Token is required for this auth method');
   return command.replace(/\{token\}/g, String(token).replace(/'/g, "'\\''"));
-}
-
-function parseKeyAlias(input) {
-  const slashIdx = String(input).indexOf('/');
-  if (slashIdx === -1) return { key: input, alias: 'default' };
-  return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
 }
 
 module.exports = { getTools, toolAction, submitAuthCode, openApp, buildAuthCommand };

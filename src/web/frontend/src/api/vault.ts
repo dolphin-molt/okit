@@ -2,7 +2,9 @@ import { api, apiRaw } from './client';
 
 export interface VaultSecret {
   key: string;
-  aliases: { alias: string; masked: string; group?: string; updatedAt: string }[];
+  masked: string;
+  desc?: string;
+  updatedAt: string;
   group?: string;
   expiresAt?: string;
   bindings?: { envName: string; key: string; file: string }[];
@@ -18,24 +20,23 @@ export interface AutoCreatePlatform {
 }
 
 export async function listVault(): Promise<{ secrets: VaultSecret[] }> {
-  return api('/api/vault');
+  return api('/api/vault/list');
 }
 
-export async function getVaultValue(key: string, alias = 'default'): Promise<{ value: string }> {
-  return api(`/api/vault/value?key=${encodeURIComponent(key)}&alias=${encodeURIComponent(alias)}`);
+export async function getVaultValue(key: string): Promise<{ value: string }> {
+  return api(`/api/vault/value?key=${encodeURIComponent(key)}`);
 }
 
 export async function setVault(data: {
   key: string;
   value: string;
-  alias?: string;
+  desc?: string;
   group?: string;
   originalKey?: string;
-  originalAlias?: string;
 }): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'POST',
-    body: JSON.stringify({ ...data, alias: data.alias || 'default' }),
+    body: JSON.stringify(data),
   });
 }
 
@@ -43,10 +44,10 @@ export async function listAutoCreatePlatforms(): Promise<{ platforms: AutoCreate
   return api('/api/vault/auto-create/platforms');
 }
 
-export async function deleteVault(key: string, alias = 'default'): Promise<{ success: boolean }> {
+export async function deleteVault(key: string): Promise<{ success: boolean }> {
   return api('/api/vault', {
     method: 'DELETE',
-    body: JSON.stringify({ key, alias }),
+    body: JSON.stringify({ key }),
   });
 }
 
@@ -62,25 +63,6 @@ export async function importVault(data: { secrets: any[] }): Promise<{ success: 
   });
 }
 
-export async function syncToProject(keys: { key: string; alias: string }[], projectPath: string): Promise<{ synced: number; failed: number }> {
-  return api('/api/vault/sync-to-project', {
-    method: 'POST',
-    body: JSON.stringify({ keys, projectPath }),
-  });
-}
-
-export async function browseDirs(dirPath: string): Promise<{
-  currentPath: string;
-  parentPath: string;
-  dirs: { name: string; path: string }[];
-}> {
-  return api(`/api/vault/browse-dirs?path=${encodeURIComponent(dirPath)}`);
-}
-
 export async function checkKeyImpact(key: string): Promise<{ projects: string[] }> {
   return api(`/api/vault/impact?key=${encodeURIComponent(key)}`);
-}
-
-export async function migrateGroups(): Promise<{ success: boolean; migrated: number; changes: { key: string; from: string; to: string }[] }> {
-  return api('/api/vault/migrate-groups', { method: 'POST' });
 }

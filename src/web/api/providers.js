@@ -896,10 +896,7 @@ async function resolveVaultKey(vaultKey) {
   try {
     const store = require('../../vault/store').VaultStore;
     const instance = new store();
-    let value = await instance.get(vaultKey);
-    if (value) return value;
-    const parsed = store.parseKeyAlias(vaultKey);
-    return await instance.resolve(parsed.key, parsed.alias);
+    return await instance.get(vaultKey);
   } catch {
     return undefined;
   }

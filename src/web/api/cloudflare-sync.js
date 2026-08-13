@@ -194,8 +194,7 @@ async function syncToCloudflare(req, res) {
   let created = 0, updated = 0, failed = 0;
 
   for (const key of keys) {
-    const entry = allSecrets.find(s => s.key === key && (s.alias === 'default' || !s.alias))
-      || allSecrets.find(s => s.key === key);
+    const entry = allSecrets.find(s => s.key === key);
 
     if (!entry || !entry.value) {
       cfLog(' key not found in vault:', key);

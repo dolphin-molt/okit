@@ -15,23 +15,21 @@ const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
-// Secret entry: KEY_NAME/alias → encrypted value
 export interface SecretEntry {
   key: string;       // e.g. "GITHUB_TOKEN"
-  alias: string;     // e.g. "personal", "company", "default"
   value: string;     // plaintext (only in memory after decrypt)
+  desc?: string;     // optional user-facing description
   group?: string;    // freeform group name, e.g. "OpenAI", "Stripe", empty = ungrouped
   expiresAt?: string; // ISO date when the secret expires, empty = no expiry
   createdAt: string;
   updatedAt: string;
 }
 
-// Project registration: which project uses which key/alias
+// Project registration: which project uses which key
 export interface ProjectBinding {
   projectPath: string;   // absolute path to project root
   file: string;          // relative path to target file (e.g. ".env")
   key: string;           // vault key (e.g. "OPENROUTER_KEY")
-  alias: string;         // vault alias (e.g. "default")
   envName?: string;      // .env variable name if different from key (e.g. "OPENAI_API_KEY")
 }
 
@@ -115,13 +113,31 @@ export class VaultStore {
     if (await fs.pathExists(SECRETS_FILE)) {
       const raw = await fs.readFile(SECRETS_FILE, "utf-8");
       const decrypted = decrypt(raw, this.key);
-      secrets = JSON.parse(decrypted);
-      for (const s of secrets) { if (s.group === undefined) s.group = ''; if (s.expiresAt === undefined) s.expiresAt = ''; }
+      const stored = JSON.parse(decrypted) as Array<SecretEntry & { alias?: string }>;
+      const byKey = new Map<string, SecretEntry & { legacyAlias?: string }>();
+      for (const raw of stored) {
+        const legacyAlias = raw.alias || 'default';
+        const normalized: SecretEntry & { legacyAlias?: string } = {
+          key: raw.key,
+          value: raw.value,
+          desc: raw.desc || (legacyAlias !== 'default' ? legacyAlias : ''),
+          group: raw.group || '',
+          expiresAt: raw.expiresAt || '',
+          createdAt: raw.createdAt,
+          updatedAt: raw.updatedAt,
+          legacyAlias,
+        };
+        const existing = byKey.get(raw.key);
+        if (!existing || (existing.legacyAlias !== 'default' && legacyAlias === 'default')) {
+          byKey.set(raw.key, normalized);
+        }
+      }
+      secrets = [...byKey.values()].map(({ legacyAlias: _legacyAlias, ...secret }) => secret);
     }
 
     if (await fs.pathExists(REGISTRY_FILE)) {
       const reg = await fs.readFile(REGISTRY_FILE, "utf-8");
-      bindings = JSON.parse(reg);
+      bindings = (JSON.parse(reg) as Array<ProjectBinding & { alias?: string }>).map(({ alias: _alias, ...binding }) => binding);
     }
 
     this.data = { secrets, bindings };
@@ -150,98 +166,65 @@ export class VaultStore {
     this.cacheStamp = await this.getCacheStamp();
   }
 
-  // Parse "KEY/alias" format, default alias is "default"
-  static parseKeyAlias(input: string): { key: string; alias: string } {
-    const slashIdx = input.indexOf("/");
-    if (slashIdx === -1) {
-      return { key: input, alias: "default" };
-    }
-    return { key: input.slice(0, slashIdx), alias: input.slice(slashIdx + 1) };
-  }
-
-  async set(keyAlias: string, value: string, group?: string, expiresAt?: string): Promise<void> {
-    const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
+  async set(key: string, value: string, group?: string, expiresAt?: string, desc?: string): Promise<void> {
     const data = await this.load();
     const now = new Date().toISOString();
 
-    const existing = data.secrets.find((s) => s.key === key && s.alias === alias);
+    const existing = data.secrets.find((s) => s.key === key);
     if (existing) {
       existing.value = value;
       if (group !== undefined) existing.group = group;
       if (expiresAt !== undefined) existing.expiresAt = expiresAt;
+      if (desc !== undefined) existing.desc = desc;
       existing.updatedAt = now;
     } else {
-      data.secrets.push({ key, alias, value, group: group || '', expiresAt: expiresAt || '', createdAt: now, updatedAt: now });
+      data.secrets.push({ key, value, desc: desc || '', group: group || '', expiresAt: expiresAt || '', createdAt: now, updatedAt: now });
     }
 
     await this.save();
   }
 
-  async get(keyAlias: string): Promise<string | null> {
-    const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
+  async get(key: string): Promise<string | null> {
     const data = await this.load();
-    const entry = data.secrets.find((s) => s.key === key && s.alias === alias);
+    const entry = data.secrets.find((s) => s.key === key);
     return entry?.value ?? null;
   }
 
-  async delete(keyAlias: string): Promise<boolean> {
-    const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
+  async delete(key: string): Promise<boolean> {
     const data = await this.load();
-    const idx = data.secrets.findIndex((s) => s.key === key && s.alias === alias);
+    const idx = data.secrets.findIndex((s) => s.key === key);
     if (idx === -1) return false;
     data.secrets.splice(idx, 1);
     // Remove related bindings
     data.bindings = data.bindings.filter(
-      (b) => !(b.key === key && b.alias === alias)
+      (b) => b.key !== key
     );
     await this.save();
     return true;
   }
 
-  async list(): Promise<Array<{ key: string; alias: string; masked: string; group: string; expiresAt: string; updatedAt: string }>> {
+  async list(): Promise<Array<{ key: string; masked: string; desc: string; group: string; expiresAt: string; updatedAt: string }>> {
     const data = await this.load();
     return data.secrets.map((s) => ({
       key: s.key,
-      alias: s.alias,
       masked: maskValue(s.value),
+      desc: s.desc || '',
       group: s.group || '',
       expiresAt: s.expiresAt || '',
       updatedAt: s.updatedAt,
     }));
   }
 
-  async exportAll(): Promise<Array<{ key: string; alias: string; value: string; group: string; expiresAt: string; updatedAt: string }>> {
+  async exportAll(): Promise<Array<{ key: string; value: string; desc: string; group: string; expiresAt: string; updatedAt: string }>> {
     const data = await this.load();
     return data.secrets.map((s) => ({
       key: s.key,
-      alias: s.alias,
       value: s.value,
+      desc: s.desc || '',
       group: s.group || '',
       expiresAt: s.expiresAt || '',
       updatedAt: s.updatedAt,
     }));
-  }
-
-  // Get all aliases for a key
-  async getAliases(key: string): Promise<string[]> {
-    const data = await this.load();
-    return data.secrets.filter((s) => s.key === key).map((s) => s.alias);
-  }
-
-  // Resolve a key for a project: look up .okitenv mapping, fall back to "default"
-  async resolve(key: string, alias?: string): Promise<string | null> {
-    const data = await this.load();
-    const targetAlias = alias || "default";
-    const entry = data.secrets.find((s) => s.key === key && s.alias === targetAlias);
-    if (entry) return entry.value;
-    // Fall back to default if specific alias not found
-    if (targetAlias !== "default") {
-      const def = data.secrets.find((s) => s.key === key && s.alias === "default");
-      return def?.value ?? null;
-    }
-    // Fall back to first available alias
-    const any = data.secrets.find((s) => s.key === key);
-    return any?.value ?? null;
   }
 
   // Project binding management
@@ -257,7 +240,6 @@ export class VaultStore {
     );
     if (exists) {
       exists.key = binding.key;
-      exists.alias = binding.alias;
       exists.envName = binding.envName;
     } else {
       data.bindings.push(binding);
@@ -265,13 +247,10 @@ export class VaultStore {
     await this.save();
   }
 
-  async getBindings(keyAlias?: string): Promise<ProjectBinding[]> {
+  async getBindings(key?: string): Promise<ProjectBinding[]> {
     const data = await this.load();
-    if (!keyAlias) return data.bindings;
-    const { key, alias } = VaultStore.parseKeyAlias(keyAlias);
-    return data.bindings.filter(
-      (b) => b.key === key && (alias === "default" || b.alias === alias)
-    );
+    if (!key) return data.bindings;
+    return data.bindings.filter((b) => b.key === key);
   }
 
   async removeBindingsForProject(projectPath: string): Promise<void> {
@@ -303,7 +282,7 @@ export class VaultStore {
         }
 
         for (const binding of bindings) {
-          const value = await this.resolve(binding.key, binding.alias);
+          const value = await this.get(binding.key);
           if (value === null) {
             results.push({
               file: filePath,

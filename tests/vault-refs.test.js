@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Module from 'module';
 import fse from 'fs-extra';
 
-const mockStore = { get: vi.fn(), getAliases: vi.fn(), exportAll: vi.fn(), set: vi.fn() };
+const mockStore = { get: vi.fn(), exportAll: vi.fn(), set: vi.fn() };
 function MockVaultStore() { return mockStore; }
 
 const origRequire = Module.prototype.require;
@@ -30,8 +30,6 @@ describe('resolveVaultRefs', () => {
       if (key === 'SUPABASE_API_TOKEN') return 'real-token-value';
       return null;
     });
-    mockStore.getAliases.mockResolvedValue([]);
-
     const result = await resolveVaultRefs({
       apiToken: 'SUPABASE_API_TOKEN',
       projectId: 'my-project',
@@ -41,22 +39,12 @@ describe('resolveVaultRefs', () => {
     expect(result.projectId).toBe('my-project');
   });
 
-  it('tries aliases when direct get returns null', async () => {
-    mockStore.get.mockResolvedValueOnce(null).mockResolvedValueOnce('alias-value');
-    mockStore.getAliases.mockResolvedValue(['company']);
-
-    const result = await resolveVaultRefs({ apiToken: 'MY_SECRET' });
-    expect(result.apiToken).toBe('alias-value');
-  });
-
   it('resolves Cloudflare Secrets Store storeId from vault', async () => {
     mockStore.get.mockImplementation(async (key) => {
       if (key === 'CF_API_TOKEN') return 'real-token';
       if (key === 'CF_STORE_ID') return 'real-store-id';
       return null;
     });
-    mockStore.getAliases.mockResolvedValue([]);
-
     const result = await resolveVaultRefs({
       apiToken: 'CF_API_TOKEN',
       storeId: 'CF_STORE_ID',
@@ -84,8 +72,6 @@ describe('resolveVaultRefs', () => {
 
   it('throws when vault key does not exist', async () => {
     mockStore.get.mockResolvedValue(null);
-    mockStore.getAliases.mockResolvedValue([]);
-
     await expect(resolveVaultRefs({ apiToken: 'MISSING_KEY' }))
       .rejects.toThrow('密钥 "MISSING_KEY" 不存在');
   });

@@ -16,7 +16,7 @@ const featureRows = [
 
 const logLines = [
   ['auth', 'gh, docker, wrangler', 'ready'],
-  ['vault', 'MINIMAX_READO_KEY/project', 'alias'],
+  ['vault', 'MINIMAX_READO_KEY', 'encrypted'],
   ['models', 'openai/gpt-5.5 -> codex', 'active'],
   ['sync', 'cloudflare -> local vault', 'merged'],
 ];

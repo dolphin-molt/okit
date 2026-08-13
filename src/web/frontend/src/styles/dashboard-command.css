@@ -12,6 +12,7 @@
   --green: #34d399;
   --blue: #38bdf8;
   --accent: #efff61;
+  --accent-ink: #080a09;
   --sidebar-bg: #070807;
   --sidebar-fg: #f5f3eb;
   --border: rgba(245, 243, 235, 0.18);
@@ -1904,7 +1905,7 @@ select:focus {
 
 .vault-form-panel.vault-form-panel {
   overflow: hidden;
-  background: rgba(255, 255, 252, 0.98) !important;
+  background: #fff !important;
   border-color: rgba(23, 32, 29, 0.14) !important;
   color: rgba(15, 23, 20, 0.92) !important;
   box-shadow: 0 28px 90px rgba(8, 14, 12, 0.22) !important;
@@ -1913,7 +1914,7 @@ select:focus {
 .vault-form-panel .progress-header,
 .vault-form-panel .vault-form-body,
 .vault-form-panel .vault-form-actions {
-  background: rgba(255, 255, 252, 0.96) !important;
+  background: #fff !important;
   border-color: rgba(23, 32, 29, 0.1) !important;
 }
 
@@ -1922,31 +1923,52 @@ select:focus {
 }
 
 .vault-form-panel .vault-form-field label {
-  color: rgba(0, 105, 168, 0.9) !important;
+  color: var(--ink-light) !important;
 }
 
 .vault-form-panel .vault-input,
 .vault-form-panel .custom-select-trigger {
-  background: rgba(239, 246, 255, 0.72) !important;
-  border-color: rgba(23, 32, 29, 0.12) !important;
-  color: rgba(15, 23, 20, 0.9) !important;
+  background: var(--paper) !important;
+  border-color: var(--border) !important;
+  color: var(--ink) !important;
 }
 
 .vault-form-panel .vault-input::placeholder {
-  color: rgba(15, 23, 20, 0.38) !important;
+  color: var(--ink-muted) !important;
 }
 
 .vault-form-panel .vault-input:focus,
 .vault-form-panel .custom-select--open .custom-select-trigger {
-  background: #fff !important;
-  border-color: rgba(0, 132, 209, 0.45) !important;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14) !important;
+  background: var(--paper) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+.vault-form-panel .custom-select-value {
+  color: var(--ink-light) !important;
+}
+
+.vault-form-panel .custom-select-value--placeholder,
+.vault-form-panel .custom-select-arrow {
+  color: var(--ink-muted) !important;
+  opacity: 1 !important;
 }
 
 .vault-form-panel .custom-select-dropdown {
-  background: rgba(255, 255, 255, 0.98) !important;
-  border-color: rgba(23, 32, 29, 0.12) !important;
-  color: rgba(15, 23, 20, 0.9) !important;
+  background: var(--paper) !important;
+  border-color: var(--border) !important;
+  color: var(--ink) !important;
+}
+
+.vault-form-panel .custom-select-option:hover {
+  background: rgba(23, 32, 29, 0.04) !important;
+  color: var(--ink) !important;
+}
+
+.vault-form-panel .custom-select-option.active {
+  background: rgba(23, 32, 29, 0.07) !important;
+  color: var(--ink) !important;
+  font-weight: 700;
 }
 
 /* Unified dark modal surfaces. Several dialogs are composed from settings,
@@ -2038,7 +2060,7 @@ select:focus {
 [data-theme="dark"] .auth-method-option-desc,
 [data-theme="dark"] .picker-empty,
 [data-theme="dark"] .settings-workspace .vault-picker-empty,
-[data-theme="dark"] .settings-workspace .vault-picker-item-alias,
+[data-theme="dark"] .settings-workspace .vault-picker-item-desc,
 [data-theme="dark"] .settings-workspace .platdoc-body,
 [data-theme="dark"] .settings-workspace .platdoc-steps,
 [data-theme="dark"] .settings-workspace .platdoc-field-hint,
@@ -2212,8 +2234,8 @@ select:focus {
 }
 
 [data-theme="dark"] .vault-form-panel .custom-select-option.active {
-  background: rgba(239, 255, 97, 0.14) !important;
-  color: #efff61 !important;
+  background: rgba(245, 243, 235, 0.12) !important;
+  color: #f5f3eb !important;
 }
 
 [data-theme="dark"] .settings-workspace .vault-picker-search {
@@ -2259,168 +2281,6 @@ select:focus {
   }
 }
 
-.vault-workspace .cloud-push-bar.cloud-push-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16px;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid rgba(23, 32, 29, 0.1) !important;
-  border-radius: 14px;
-  background:
-    linear-gradient(135deg, rgba(52, 211, 153, 0.1), transparent 42%),
-    rgba(255, 255, 252, 0.94) !important;
-  box-shadow: 0 16px 42px rgba(13, 20, 17, 0.08) !important;
-  color: rgba(15, 23, 20, 0.9) !important;
-}
-
-.vault-workspace .cloud-push-bar-left {
-  min-width: 0;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.vault-workspace .cloud-push-bar-left > div {
-  min-width: 220px;
-}
-
-.vault-workspace .cloud-push-bar-left strong {
-  color: rgba(15, 23, 20, 0.94) !important;
-  font-size: 14px;
-}
-
-.vault-workspace .cloud-push-bar-left span,
-.vault-workspace .cloud-push-count {
-  color: rgba(15, 23, 20, 0.58) !important;
-}
-
-.vault-workspace .cloud-push-count {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid rgba(23, 32, 29, 0.08);
-  border-radius: 999px;
-  background: rgba(23, 32, 29, 0.045);
-  font-weight: 700;
-}
-
-.vault-workspace .cloud-push-link {
-  min-height: 32px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent !important;
-  color: rgba(0, 105, 168, 0.92) !important;
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.vault-workspace .cloud-push-link:hover {
-  color: rgba(15, 23, 20, 0.92) !important;
-}
-
-.vault-workspace .cloud-push-bar-right {
-  gap: 10px;
-}
-
-.vault-workspace .cloud-push-select.cloud-push-select {
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.vault-workspace .cloud-push-select .custom-select-trigger,
-.vault-workspace .cloud-push-select.custom-select .custom-select-trigger {
-  min-width: 160px;
-  min-height: 44px;
-  border: 1px solid rgba(23, 32, 29, 0.12) !important;
-  border-radius: 10px;
-  background: rgba(239, 246, 255, 0.78) !important;
-  color: rgba(15, 23, 20, 0.9) !important;
-}
-
-.vault-workspace .cloud-push-bar .btn-save {
-  min-height: 44px;
-  border: 1px solid rgba(94, 122, 57, 0.26) !important;
-  border-radius: 10px;
-  background: rgba(190, 242, 100, 0.68) !important;
-  color: rgba(15, 23, 20, 0.9) !important;
-  box-shadow: none !important;
-}
-
-.vault-workspace .cloud-push-bar .btn-save:hover:not(:disabled) {
-  background: rgba(190, 242, 100, 0.86) !important;
-}
-
-.vault-workspace .cloud-push-bar .btn-save:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar.cloud-push-bar {
-  border-color: rgba(245, 243, 235, 0.16) !important;
-  background:
-    linear-gradient(135deg, rgba(239, 255, 97, 0.075), transparent 46%),
-    rgba(25, 33, 30, 0.92) !important;
-  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24) !important;
-  color: #f5f3eb !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar-left strong {
-  color: #f5f3eb !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar-left span {
-  color: rgba(215, 211, 201, 0.72) !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-count {
-  border-color: rgba(245, 243, 235, 0.12) !important;
-  background: rgba(245, 243, 235, 0.08) !important;
-  color: rgba(245, 243, 235, 0.82) !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-link {
-  color: #7dd3fc !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-link:hover {
-  color: #efff61 !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-trigger,
-[data-theme="dark"] .vault-workspace .cloud-push-select.custom-select .custom-select-trigger {
-  border-color: rgba(245, 243, 235, 0.16) !important;
-  background: rgba(245, 243, 235, 0.09) !important;
-  color: #f5f3eb !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-value,
-[data-theme="dark"] .vault-workspace .cloud-push-select .custom-select-arrow {
-  color: #f5f3eb !important;
-  opacity: 1 !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save {
-  border-color: rgba(239, 255, 97, 0.58) !important;
-  background: var(--accent) !important;
-  color: #080a09 !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save:hover:not(:disabled) {
-  background: #f4ff93 !important;
-}
-
-[data-theme="dark"] .vault-workspace .cloud-push-bar .btn-save:disabled {
-  border-color: rgba(245, 243, 235, 0.14) !important;
-  background: rgba(245, 243, 235, 0.08) !important;
-  color: rgba(215, 211, 201, 0.56) !important;
-  opacity: 1;
-}
-
 /* Keep transient feedback in the user's visual focus. The toast layer is a
  * centered stack; cards and dialogs continue to own their own inline states. */
 .toast-container {
@@ -2446,15 +2306,4 @@ select:focus {
 
 .toast-container .toast.show {
   transform: translateY(0) scale(1);
-}
-
-@media (max-width: 900px) {
-  .vault-workspace .cloud-push-bar.cloud-push-bar {
-    grid-template-columns: 1fr;
-  }
-
-  .vault-workspace .cloud-push-bar-right {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
 }

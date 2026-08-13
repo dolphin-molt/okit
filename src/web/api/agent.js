@@ -242,11 +242,7 @@ async function resolveAgentConfigFromProvider(agentCfg) {
 
 async function resolveVaultValue(store, keyAlias) {
   if (!keyAlias) return null;
-  let value = await store.get(keyAlias);
-  if (value) return value;
-  const { VaultStore } = require('../../vault/store');
-  const parsed = VaultStore.parseKeyAlias(keyAlias);
-  return await store.resolve(parsed.key, parsed.alias);
+  return await store.get(keyAlias);
 }
 
 async function listToolsImpl(filter) {
@@ -436,7 +432,7 @@ async function agentChat(req, res) {
           const list = await store.list();
           return JSON.stringify(list.map(k => ({
             key: k.key,
-            alias: k.alias,
+            desc: k.desc,
             group: k.group,
             hasValue: !!k.hasValue,
           })));
@@ -553,7 +549,6 @@ async function agentChat(req, res) {
           projectPath: z.string().describe('项目根目录的绝对路径'),
           keys: z.array(z.object({
             key: z.string().describe('Vault 中的密钥名'),
-            alias: z.string().optional().describe('密钥别名（默认 default）'),
           })).min(1).describe('要绑定的密钥列表'),
         }),
         execute: async ({ projectPath, keys }) => {

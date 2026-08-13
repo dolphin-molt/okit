@@ -28,12 +28,12 @@ describe('VaultStore cache coherence', () => {
     expect(await reader.list()).toEqual([]);
 
     const writer = new VaultStore();
-    await writer.set('IMPORTED_KEY/team', 'secret-value', 'Imported');
+    await writer.set('IMPORTED_KEY', 'secret-value', 'Imported', undefined, 'Imported credential');
 
     expect(await reader.list()).toEqual([
       expect.objectContaining({
         key: 'IMPORTED_KEY',
-        alias: 'team',
+        desc: 'Imported credential',
         group: 'Imported',
       }),
     ]);

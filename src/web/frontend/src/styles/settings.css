@@ -1886,8 +1886,8 @@
   font-weight: 800;
 }
 
-.vault-picker-item-alias,
-.vault-picker-item.active .vault-picker-item-alias {
+.vault-picker-item-desc,
+.vault-picker-item.active .vault-picker-item-desc {
   display: block;
   margin-top: 2px;
   overflow: hidden;

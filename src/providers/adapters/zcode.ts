@@ -13,7 +13,6 @@ const ZCODE_CONFIG_PATH = path.join(os.homedir(), ".zcode", "config.json");
 function apiProtocolFor(type: ProviderType): string {
   switch (type) {
     case "anthropic": return "anthropic";
-    case "google": return "google-generative-ai";
     case "openai":
     default: return "openai-completions";
   }
@@ -22,7 +21,7 @@ function apiProtocolFor(type: ProviderType): string {
 export class ZCodeAdapter extends BaseAdapter {
   readonly id = "zcode";
   readonly name = "ZCode";
-  readonly supportedTypes: ProviderType[] = ["anthropic", "openai", "google"];
+  readonly supportedTypes: ProviderType[] = ["anthropic", "openai"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {
     return { mode: "api_key", hasApiKey: false };

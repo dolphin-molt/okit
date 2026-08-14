@@ -284,7 +284,6 @@ export default {
   'models.protocolOpenaiChat': 'OpenAI (chat)',
   'models.protocolOpenaiResponses': 'OpenAI (responses)',
   'models.protocolAnthropic': 'Anthropic',
-  'models.protocolGoogle': 'Gemini',
   'models.protocolSupported': 'Providers with {protocol}',
   'models.modeSupported': 'Providers with {mode}',
 

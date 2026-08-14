@@ -251,7 +251,6 @@ export default function HomePage() {
                         const fallback = {
                           'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
                           'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
-                          'gemini': { providerId: 'google-agent', modelId: 'gemini-2.5-pro' },
                         }[activeAgent.id];
                         if (fallback) {
                           handleSwitch(activeAgent.id, fallback.providerId, fallback.modelId);

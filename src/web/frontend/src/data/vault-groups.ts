@@ -9,7 +9,6 @@ export const PREDEFINED_GROUPS: string[] = [
   // ── 国际大厂 ──
   'OpenAI',
   'Anthropic',
-  'Google Gemini',
   'xAI',
   'Mistral',
   // ── 国内/国际分站 ──
@@ -25,6 +24,7 @@ export const PREDEFINED_GROUPS: string[] = [
   '百度千帆',
   '火山引擎',
   '腾讯云',
+  'OpenCode Go',
   '阶跃星辰',
   '小米 MiMo',
   // ── 聚合/代理 ──

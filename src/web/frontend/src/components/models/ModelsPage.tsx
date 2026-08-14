@@ -34,7 +34,6 @@ for (const platform of PLATFORM_DEFINITIONS) {
 const TYPE_OPTIONS = [
   { value: 'anthropic', label: 'anthropic' },
   { value: 'openai', label: 'openai' },
-  { value: 'google', label: 'google' },
 ];
 const OPENAI_PROTOCOL_OPTIONS = [
   { value: 'chat', label: 'chat' },
@@ -47,7 +46,6 @@ const PROTOCOLS: { key: string; labelKey: string }[] = [
   { key: 'openai-chat', labelKey: 'models.protocolOpenaiChat' },
   { key: 'openai-responses', labelKey: 'models.protocolOpenaiResponses' },
   { key: 'anthropic', labelKey: 'models.protocolAnthropic' },
-  { key: 'google', labelKey: 'models.protocolGoogle' },
 ];
 
 function providerProtocols(p: Provider): string[] {
@@ -57,7 +55,6 @@ function providerProtocols(p: Provider): string[] {
   for (const ep of eps) {
     if (ep.type === 'openai') keys.add(ep.protocol === 'responses' ? 'openai-responses' : 'openai-chat');
     else if (ep.type === 'anthropic') keys.add('anthropic');
-    else if (ep.type === 'google') keys.add('google');
   }
   return Array.from(keys);
 }
@@ -133,6 +130,7 @@ type PlanFilter = 'coding' | 'token' | 'agent' | 'subscription' | 'go' | 'api-on
 const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
   { key: 'coding', labelKey: 'models.planCoding' },
   { key: 'token', labelKey: 'models.planToken' },
+  { key: 'go', labelKey: 'models.planGo' },
   { key: 'subscription', labelKey: 'models.planAgentSubscription' },
   { key: 'agent', labelKey: 'models.planAgent' },
   { key: 'api-only', labelKey: 'models.planApiOnly' },
@@ -1450,7 +1448,6 @@ function PlatformDetailPanel({ platform, providers, authMap, crossData, onBack }
 const PROVIDER_LABELS: Record<string, string> = {
   'openai': 'OpenAI',
   'anthropic': 'Anthropic',
-  'google': 'Google',
   'x-ai': 'xAI',
   'mistralai': 'Mistral',
   'meta-llama': 'Meta',

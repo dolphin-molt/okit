@@ -61,9 +61,9 @@ describe('WorkBuddyAdapter', () => {
     expect(adapter.name).toBe('WorkBuddy');
   });
 
-  it('supports anthropic/openai/google types', () => {
+  it('supports anthropic/openai types', () => {
     const adapter = new WorkBuddyAdapter();
-    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 });
 

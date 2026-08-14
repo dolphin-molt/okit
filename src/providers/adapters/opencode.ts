@@ -17,7 +17,6 @@ const OPENCODE_CONFIG_PATH = path.join(os.homedir(), ".config", "opencode", "ope
 function npmPackageFor(type: ProviderType): string {
   switch (type) {
     case "anthropic": return "@ai-sdk/anthropic";
-    case "google": return "@ai-sdk/google";
     case "openai":
     default: return "@ai-sdk/openai-compatible";
   }
@@ -26,7 +25,7 @@ function npmPackageFor(type: ProviderType): string {
 export class OpenCodeAdapter extends BaseAdapter {
   readonly id = "opencode";
   readonly name = "OpenCode";
-  readonly supportedTypes: ProviderType[] = ["anthropic", "openai", "google"];
+  readonly supportedTypes: ProviderType[] = ["anthropic", "openai"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {
     return { mode: "api_key", hasApiKey: false };

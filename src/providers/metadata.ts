@@ -12,6 +12,8 @@
 // These used to be bundled presets. Retire them on load so existing OKIT
 // installations match the current UI.
 export const RETIRED_PRESET_PROVIDER_IDS = new Set([
+  "google",
+  "google-agent",
   "groq",
   "fireworks",
   "together",
@@ -59,7 +61,7 @@ export const PRESET_AUTH_MODE_MIGRATIONS = new Map<string, { from: string; to: s
 
 // ── Provider groups (left-nav in models page) ────────────────
 export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[] = [
-  { key: "official", labelKey: "models.groupOfficial", ids: ["anthropic", "anthropic-agent", "openai", "openai-codex", "google", "google-agent", "xai", "xai-grok-build", "github-copilot", "mistral"] },
+  { key: "official", labelKey: "models.groupOfficial", ids: ["anthropic", "anthropic-agent", "openai", "openai-codex", "xai", "xai-grok-build", "github-copilot", "mistral"] },
   { key: "aggregator", labelKey: "models.groupAggregator", ids: ["openrouter", "opencode-go"] },
   { key: "china", labelKey: "models.groupChina", ids: [
     // 智谱
@@ -73,7 +75,7 @@ export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[]
     // 百度千帆
     "qianfan", "qianfan-coding",
     // 阿里云百炼 / 硅基流动
-    "qwen", "qwen-coding", "siliconflow",
+    "qwen", "qwen-coding", "qwen-token-plan", "siliconflow",
     // DeepSeek
     "deepseek",
     // 阶跃星辰
@@ -81,7 +83,7 @@ export const PROVIDER_GROUPS: { key: string; labelKey: string; ids: string[] }[]
     // 小米
     "xiaomi", "xiaomi-coding",
     // 腾讯云
-    "tencent",
+    "tencent", "tencent-token-plan",
   ] },
   { key: "local", labelKey: "models.groupLocal", ids: ["ollama", "litellm"] },
 ];
@@ -115,8 +117,9 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     plans: [
       { label: "API 平台", providerId: "qwen" },
       { label: "Coding Plan", providerId: "qwen-coding" },
+      { label: "Token Plan", providerId: "qwen-token-plan" },
     ],
-    ids: ["qwen", "qwen-coding"],
+    ids: ["qwen", "qwen-coding", "qwen-token-plan"],
   },
   {
     family: "OpenAI",
@@ -127,12 +130,11 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     ids: ["openai", "openai-codex"],
   },
   {
-    family: "Google Gemini",
+    family: "OpenCode Go",
     plans: [
-      { label: "API 平台", providerId: "google", type: "api", entitlement: { type: "pay_as_you_go" } },
-      { label: "Agent 订阅", providerId: "google-agent", type: "agent_subscription", entitlement: { type: "subscription_included", product: "Google AI / Gemini Code Assist" } },
+      { label: "Go 套餐", providerId: "opencode-go", type: "go_plan", entitlement: { type: "subscription_included", product: "OpenCode Go" } },
     ],
-    ids: ["google", "google-agent"],
+    ids: ["opencode-go"],
   },
   {
     family: "xAI",
@@ -209,8 +211,9 @@ export const PROVIDER_FAMILIES: ProviderFamily[] = [
     family: "腾讯云",
     plans: [
       { label: "API 平台", providerId: "tencent" },
+      { label: "Token Plan", providerId: "tencent-token-plan" },
     ],
-    ids: ["tencent"],
+    ids: ["tencent", "tencent-token-plan"],
   },
   {
     family: "百度千帆",

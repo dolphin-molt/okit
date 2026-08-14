@@ -61,9 +61,9 @@ describe('HermesAdapter', () => {
     expect(adapter.name).toBe('Hermes');
   });
 
-  it('supports anthropic/openai/google types', () => {
+  it('supports anthropic/openai types', () => {
     const adapter = new HermesAdapter();
-    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 });
 

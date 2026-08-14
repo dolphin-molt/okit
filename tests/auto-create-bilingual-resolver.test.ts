@@ -369,16 +369,6 @@ describe('representative bilingual platform wiring', () => {
     expect(anthropic.confirmTexts).toEqual(expect.arrayContaining(['Add', '添加']));
   });
 
-  it('wires both Google AI Studio name-field languages', () => {
-    const google = platform('google');
-    expect(google.createTexts).toEqual(expect.arrayContaining(['创建 API 密钥', 'Create API key']));
-    expect(google.nameSelectors).toEqual(expect.arrayContaining([
-      'input[aria-label="为密钥命名"]',
-      'input[aria-label="Name your key"]',
-    ]));
-    expect(google.confirmTexts).toEqual(expect.arrayContaining(['创建密钥', 'Create key']));
-  });
-
   it('wires ordinary and Token Plan Xiaomi actions bilingually', () => {
     const xiaomi = platform('xiaomi');
     const tokenPlan = platform('xiaomi-coding');

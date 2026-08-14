@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { getAdapters, getAdapter, getAdaptersByType } from '../../src/providers/registry';
 
 describe('getAdapters', () => {
-  it('returns 9 adapters', () => {
+  it('returns 8 adapters', () => {
     const adapters = getAdapters();
-    expect(adapters.length).toBe(9);
+    expect(adapters.length).toBe(8);
     const ids = adapters.map(a => a.id).sort();
-    expect(ids).toEqual(['claude', 'codex', 'gemini', 'hermes', 'kimi-code', 'openclaw', 'opencode', 'workbuddy', 'zcode']);
+    expect(ids).toEqual(['claude', 'codex', 'hermes', 'kimi-code', 'openclaw', 'opencode', 'workbuddy', 'zcode']);
   });
 });
 
@@ -25,32 +25,25 @@ describe('getAdapter', () => {
     expect(adapter!.supportedTypes).toEqual(['openai']);
   });
 
-  it('finds gemini adapter by id', () => {
-    const adapter = getAdapter('gemini');
-    expect(adapter).toBeDefined();
-    expect(adapter!.name).toBe('Gemini');
-    expect(adapter!.supportedTypes).toEqual(['google']);
-  });
-
   it('finds workbuddy adapter by id', () => {
     const adapter = getAdapter('workbuddy');
     expect(adapter).toBeDefined();
     expect(adapter!.name).toBe('WorkBuddy');
-    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 
   it('finds zcode adapter by id', () => {
     const adapter = getAdapter('zcode');
     expect(adapter).toBeDefined();
     expect(adapter!.name).toBe('ZCode');
-    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 
   it('finds hermes adapter by id', () => {
     const adapter = getAdapter('hermes');
     expect(adapter).toBeDefined();
     expect(adapter!.name).toBe('Hermes');
-    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter!.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 
   it('finds kimi-code adapter by id', () => {
@@ -84,12 +77,4 @@ describe('getAdaptersByType', () => {
     expect(ids).toContain('hermes');
   });
 
-  it('finds google-compatible adapters', () => {
-    const adapters = getAdaptersByType('google');
-    const ids = adapters.map(a => a.id);
-    expect(ids).toContain('gemini');
-    expect(ids).toContain('workbuddy');
-    expect(ids).toContain('zcode');
-    expect(ids).toContain('hermes');
-  });
 });

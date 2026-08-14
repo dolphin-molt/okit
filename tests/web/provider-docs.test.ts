@@ -11,7 +11,7 @@ describe('provider documentation', () => {
   it('has one audited official documentation entry for every bundled offering', () => {
     const presetIds = PRESET_PROVIDERS.map(provider => provider.id).sort();
     expect(Object.keys(PROVIDER_DOCS).sort()).toEqual(presetIds);
-    expect(PROVIDER_DOCS_LAST_AUDITED_AT).toBe('2026-08-13');
+    expect(PROVIDER_DOCS_LAST_AUDITED_AT).toBe('2026-08-14');
   });
 
   it('uses the selected offering type rather than a generic platform document', () => {
@@ -25,7 +25,7 @@ describe('provider documentation', () => {
       // OpenCode Go is a coding subscription in product filters, while its
       // official documentation keeps the branded Go plan name.
       if (offering.providerId === 'opencode-go') {
-        expect(offering.type).toBe('coding_plan');
+        expect(offering.type).toBe('go_plan');
         expect(docs?.kind).toBe('go_plan');
         continue;
       }

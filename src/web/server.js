@@ -9,7 +9,7 @@ const { agentChat, agentConfirm, listConversations, getConversation, createConve
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
-const { getUsage, getSupportedUsageProviders } = require('./api/usage');
+const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 
 function createServer(port = 3780) {
   const app = express();
@@ -124,6 +124,7 @@ function createServer(port = 3780) {
 
   // Usage / quota routes
   app.get('/api/usage/supported', getSupportedUsageProviders);
+  app.post('/api/usage/:providerId/login', openXiaomiLogin);
   app.get('/api/usage/:providerId', getUsage);
 
   // SPA fallback

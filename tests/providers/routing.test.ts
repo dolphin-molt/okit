@@ -5,7 +5,7 @@ import type { Provider } from '../../src/providers/types';
 
 const codex = { id: 'codex', supportedTypes: ['openai'] as const };
 const claude = { id: 'claude', supportedTypes: ['anthropic'] as const };
-const opencode = { id: 'opencode', supportedTypes: ['openai', 'anthropic', 'google'] as const };
+const opencode = { id: 'opencode', supportedTypes: ['openai', 'anthropic'] as const };
 
 describe('provider routing', () => {
   it('keeps an agent-native subscription endpoint-free and restricted to its native agent', () => {

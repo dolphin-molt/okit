@@ -138,10 +138,28 @@
   font-weight: 700;
   color: var(--ink);
 }
+.usage-card-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
 .usage-card-type {
   font-size: 11px;
   color: var(--ink-muted);
+}
+.usage-card-source {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
   margin-top: 2px;
+  padding: 3px 7px;
+  border: 1px dashed var(--kraft-dark, #b8ad98);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.2;
 }
 .usage-card-refresh {
   flex-shrink: 0;
@@ -170,6 +188,50 @@
 .usage-card-empty {
   color: var(--ink-muted);
 }
+.usage-card-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px dashed var(--kraft-dark, #b8ad98);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--kraft, #eee8d8) 35%, transparent);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.usage-card-notice-mark {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.1;
+}
+.usage-card-notice-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.usage-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper, #fffdf7);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.usage-card-action:hover {
+  color: var(--paper, #fffdf7);
+  transform: translateY(-1px);
+  box-shadow: 2px 2px 0 var(--kraft-dark, #b8ad98);
+}
 .usage-card-error {
   color: var(--danger, #dc2626);
   word-break: break-word;
@@ -188,6 +250,21 @@
   gap: 8px;
   font-size: 13px;
   line-height: 1.2;
+}
+.usage-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.usage-balance-detail {
+  margin-left: 56px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .usage-bar-label {
   font-weight: 600;
@@ -229,6 +306,13 @@
   color: var(--ink-muted);
   min-width: 32px;
   text-align: right;
+}
+.usage-bar-balance-amount {
+  min-width: auto;
+  max-width: 118px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* OpenRouter prepaid credits display */

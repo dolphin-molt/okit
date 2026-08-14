@@ -72,9 +72,9 @@ describe('OpenCodeAdapter', () => {
     expect(adapter.name).toBe('OpenCode');
   });
 
-  it('supports anthropic/openai/google types', () => {
+  it('supports anthropic/openai types', () => {
     const adapter = new OpenCodeAdapter();
-    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 });
 

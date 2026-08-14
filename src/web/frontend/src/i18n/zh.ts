@@ -287,7 +287,6 @@ export default {
   'models.protocolOpenaiChat': 'OpenAI (chat)',
   'models.protocolOpenaiResponses': 'OpenAI (responses)',
   'models.protocolAnthropic': 'Anthropic',
-  'models.protocolGoogle': 'Gemini',
   'models.protocolSupported': '支持 {protocol} 协议',
   'models.modeSupported': '支持 {mode} 能力',
 

@@ -61,9 +61,9 @@ describe('OpenClawAdapter', () => {
     expect(adapter.name).toBe('OpenClaw');
   });
 
-  it('supports anthropic/openai/google types', () => {
+  it('supports anthropic/openai types', () => {
     const adapter = new OpenClawAdapter();
-    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai', 'google']);
+    expect(adapter.supportedTypes).toEqual(['anthropic', 'openai']);
   });
 });
 

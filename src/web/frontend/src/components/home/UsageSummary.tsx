@@ -41,7 +41,18 @@ function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }
     const rem = w.remainingCredits;
     return (
       <span className="usage-summary-balance">
-        {rem != null ? `$${rem.toFixed(2)}` : '—'}
+        {rem != null ? (w.unit ? `${rem.toFixed(2)} ${w.unit}` : `$${rem.toFixed(2)}`) : '—'}
+      </span>
+    );
+  }
+
+  // Token Plan credits are quota, not currency. Keep them out of the dollar
+  // balance treatment while still surfacing the remaining amount on Home.
+  if (windows[0]?.unit) {
+    const w = windows[0];
+    return (
+      <span className="usage-summary-balance">
+        {w.remainingCredits != null ? `${w.remainingCredits.toFixed(2)} ${w.unit}` : '—'}
       </span>
     );
   }
@@ -115,7 +126,16 @@ export default function UsageSummary() {
       // Card border color = the worst (lowest remaining) window's tone.
       let cardTone = 'unknown';
       if (u?.kind === 'prepaid') {
-        cardTone = 'ok';
+        const w = u.windows?.[0];
+        const rem = w?.remainingCredits != null
+          ? w.remainingCredits
+          : w?.limitCredits != null && w.usedCredits != null
+            ? w.limitCredits - w.usedCredits
+            : null;
+        const remainingPct = rem != null && w?.limitCredits != null && w.limitCredits > 0
+          ? Math.min(100, Math.max(0, (rem / w.limitCredits) * 100))
+          : rem != null && rem <= 0 ? 0 : null;
+        cardTone = toneForRemaining(remainingPct);
       } else {
         for (const w of u?.windows || []) {
           const remaining = w.usedPercent != null ? 100 - w.usedPercent : null;

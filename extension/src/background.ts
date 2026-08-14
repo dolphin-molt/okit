@@ -507,16 +507,19 @@ async function handleNavigate(cmd: Command): Promise<Result> {
 }
 
 async function handleTabs(cmd: Command): Promise<Result> {
-  if (automationWindowId === null) return { id: cmd.id, ok: false, error: 'No automation window' };
   switch (cmd.op) {
     case 'list': {
-      const tabs = await chrome.tabs.query({ windowId: automationWindowId });
+      // Discovery is read-only and must include the user's normal browser
+      // windows. Usage integrations reuse an already-authenticated page
+      // instead of forcing a second login in the OKIT automation window.
+      const tabs = await chrome.tabs.query({});
       const data = tabs
         .filter(t => isDebuggableUrl(t.url))
         .map((t, i) => ({ index: i, tabId: t.id, url: t.url, title: t.title, active: t.active }));
       return { id: cmd.id, ok: true, data };
     }
     case 'new': {
+      if (automationWindowId === null) return { id: cmd.id, ok: false, error: 'No automation window' };
       if (cmd.url && !isSafeNavigationUrl(cmd.url)) {
         return { id: cmd.id, ok: false, error: 'Blocked URL scheme' };
       }
@@ -525,6 +528,7 @@ async function handleTabs(cmd: Command): Promise<Result> {
       return { id: cmd.id, ok: true, data: { tabId: tab.id, url: tab.url } };
     }
     case 'close': {
+      if (automationWindowId === null) return { id: cmd.id, ok: false, error: 'No automation window' };
       const tabId = cmd.tabId ?? automationTabId;
       if (tabId === null) return { id: cmd.id, ok: false, error: 'No tab to close' };
       await chrome.tabs.remove(tabId);
@@ -533,6 +537,7 @@ async function handleTabs(cmd: Command): Promise<Result> {
       return { id: cmd.id, ok: true, data: { closed: tabId } };
     }
     case 'select': {
+      if (automationWindowId === null) return { id: cmd.id, ok: false, error: 'No automation window' };
       if (cmd.tabId !== undefined) {
         await chrome.tabs.update(cmd.tabId, { active: true });
         automationTabId = cmd.tabId;
@@ -546,10 +551,14 @@ async function handleTabs(cmd: Command): Promise<Result> {
 }
 
 async function handleCookies(cmd: Command): Promise<Result> {
-  if (!cmd.domain) {
-    return { id: cmd.id, ok: false, error: 'Cookie domain required' };
+  if (!cmd.domain && !cmd.url) {
+    return { id: cmd.id, ok: false, error: 'Cookie domain or URL required' };
   }
-  const cookies = await chrome.cookies.getAll({ domain: cmd.domain });
+  // Prefer URL matching when the caller needs the exact cookies that a page
+  // request would send. This includes parent-domain cookies (for example
+  // `.xiaomimimo.com`) that are valid for a platform subdomain but are not
+  // returned by an exact `domain: platform.xiaomimimo.com` lookup.
+  const cookies = await chrome.cookies.getAll(cmd.url ? { url: cmd.url } : { domain: cmd.domain });
   const data = cookies.map((c) => ({
     name: c.name, value: c.value, domain: c.domain, path: c.path,
     secure: c.secure, httpOnly: c.httpOnly, expirationDate: c.expirationDate,

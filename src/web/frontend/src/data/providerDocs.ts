@@ -18,7 +18,7 @@ export interface ProviderDocumentation {
   kind: ProviderDocsKind;
 }
 
-export const PROVIDER_DOCS_LAST_AUDITED_AT = '2026-08-13';
+export const PROVIDER_DOCS_LAST_AUDITED_AT = '2026-08-14';
 
 export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
   // International official providers
@@ -37,14 +37,6 @@ export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
   'openai-codex': {
     kind: 'agent_subscription',
     url: 'https://developers.openai.com/codex/auth/',
-  },
-  google: {
-    kind: 'api',
-    url: 'https://ai.google.dev/gemini-api/docs/get-started',
-  },
-  'google-agent': {
-    kind: 'agent_subscription',
-    url: 'https://geminicli.com/docs/get-started/authentication/',
   },
   xai: {
     kind: 'api',
@@ -120,6 +112,10 @@ export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
     kind: 'coding_plan',
     url: 'https://help.aliyun.com/zh/model-studio/coding-plan',
   },
+  'qwen-token-plan': {
+    kind: 'token_plan',
+    url: 'https://help.aliyun.com/zh/model-studio/token-plan-personal-quick-start',
+  },
   qianfan: {
     kind: 'api',
     url: 'https://cloud.baidu.com/doc/qianfan-docs/s/qm8qxemze',
@@ -131,6 +127,10 @@ export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
   tencent: {
     kind: 'api',
     url: 'https://cloud.tencent.com/document/product/1772/115969',
+  },
+  'tencent-token-plan': {
+    kind: 'token_plan',
+    url: 'https://cloud.tencent.com/act/pro/tokenplan',
   },
   volcengine: {
     kind: 'api',

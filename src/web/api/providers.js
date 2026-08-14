@@ -64,11 +64,6 @@ function tagRecentModels(models) {
   });
 }
 
-// Sort providers alphabetically by display name. Uses localeCompare with
-// zh-Hans-CN so Chinese names sort by pinyin, English names sort A-Z, and
-// mixed lists interleave naturally. Official/subscription presets (anthropic,
-// openai-codex, google-agent, anthropic-agent) are pinned to the top so they
-// don't get buried under Chinese-named third-party providers.
 // Sort all providers alphabetically by display name. Chinese names sort by
 // pinyin (zh-Hans-CN), English names sort A-Z, mixed lists interleave.
 function sortProviders(arr) {
@@ -306,12 +301,11 @@ async function saveUserConfig(config) {
 const ADAPTERS = [
   { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude', launchType: 'cli' },
   { id: 'codex', name: 'ChatGPT', supportedTypes: ['openai'], command: 'codex', launchType: 'cli' },
-  { id: 'gemini', name: 'Gemini', supportedTypes: ['google'], command: 'gemini', launchType: 'cli' },
-  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'opencode', launchType: 'cli' },
-  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai', 'google'], command: 'openclaw', launchType: 'cli' },
-  { id: 'workbuddy', name: 'WorkBuddy', supportedTypes: ['anthropic', 'openai', 'google'], command: 'workbuddy', launchType: 'app', appName: 'WorkBuddy' },
-  { id: 'zcode', name: 'ZCode', supportedTypes: ['anthropic', 'openai', 'google'], command: 'zcode', launchType: 'app', appName: 'ZCode' },
-  { id: 'hermes', name: 'Hermes', supportedTypes: ['anthropic', 'openai', 'google'], command: 'hermes', launchType: 'cli' },
+  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai'], command: 'opencode', launchType: 'cli' },
+  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai'], command: 'openclaw', launchType: 'cli' },
+  { id: 'workbuddy', name: 'WorkBuddy', supportedTypes: ['anthropic', 'openai'], command: 'workbuddy', launchType: 'app', appName: 'WorkBuddy' },
+  { id: 'zcode', name: 'ZCode', supportedTypes: ['anthropic', 'openai'], command: 'zcode', launchType: 'app', appName: 'ZCode' },
+  { id: 'hermes', name: 'Hermes', supportedTypes: ['anthropic', 'openai'], command: 'hermes', launchType: 'cli' },
   { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
 ];
 
@@ -389,10 +383,10 @@ async function getAdaptersList(req, res) {
         })),
         // All configured-and-compatible providers, for the "+ 添加" picker.
         // Excludes the official subscription presets (anthropic-agent /
-        // openai-codex / google-agent) — those are the built-in fallback for
+        // openai-codex) — those are the built-in fallback for
         // single-type agents and don't need to be added manually. Sorted.
         availableProviders: sortProviders(allCompatible
-          .filter(p => !['anthropic-agent', 'openai-codex', 'google-agent'].includes(p.id))
+          .filter(p => !['anthropic-agent', 'openai-codex'].includes(p.id))
         ).map(p => ({
             id: p.id, name: p.name, type: p.type,
             added: homeSet.has(p.id),
@@ -614,8 +608,7 @@ async function switchProvider(req, res) {
 
     // Apply config to agent via the TS adapter registry (single source of truth,
     // shared with the CLI). The JS writer functions that used to live here were
-    // deleted — they had drifted from the TS adapters (Codex api_base bug, Gemini
-    // dropping the model, etc.) and were untested.
+    // deleted because they had drifted from the TS adapters and were untested.
     const agentAdapter = _getAdapter(agentId);
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
     await agentAdapter.applyConfig(route.provider, route.remoteModelId);
@@ -698,14 +691,13 @@ async function removeHomeProvider(req, res) {
     await saveUserConfig(config);
 
     // If the user removed the LAST provider OR the currently-active provider
-    // for a single-type agent (claude / codex / gemini), auto-switch back to
+    // for a single-type agent (claude / codex), auto-switch back to
     // the official subscription so the CLI doesn't keep using stale config.
     // Single-type agents are exclusive — the active provider must always be
     // one that still exists in the home list.
     const SINGLE_TYPE_AGENTS = {
       'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
       'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
-      'gemini': { providerId: 'google-agent', modelId: 'gemini-2.5-pro' },
     };
     const currentSel = config.providers?.[agentId];
     const removedWasCurrent = currentSel?.providerId === providerId;
@@ -748,7 +740,6 @@ async function removeHomeProvider(req, res) {
 const AGENT_CONFIG_FILES = {
   'claude': ['.claude/settings.json'],
   'codex': ['.codex/config.toml', '.codex/.env', '.codex/model-catalogs/model-catalogs.json'],
-  'gemini': ['.gemini/.env', '.gemini/settings.json'],
   'opencode': ['.config/opencode/opencode.json'],
   'openclaw': ['.openclaw/openclaw.json'],
   'workbuddy': ['.workbuddy/models.json'],
@@ -1151,8 +1142,7 @@ async function triggerOAuthLogin(req, res) {
     anthropic: { name: 'Claude Code', cli: 'claude', cliArgs: ['auth', 'login', '--claudeai'] },
     'anthropic-agent': { name: 'Claude Code', cli: 'claude', cliArgs: ['auth', 'login', '--claudeai'] },
     'openai-codex': { name: 'ChatGPT', url: 'https://chatgpt.com/', cli: 'codex', cliArgs: ['auth', 'login'] },
-    'google-agent': { name: 'Gemini CLI', cli: 'gemini', cliArgs: [] },
-    'xai-grok-build': { name: 'Grok Build', cli: 'grok', cliArgs: ['login'] },
+    'xai-grok-build': { name: 'SuperGrok', cli: 'grok', cliArgs: ['login'] },
     'github-copilot': { name: 'GitHub Copilot', cli: 'copilot', cliArgs: ['login'] },
   };
 
@@ -1319,30 +1309,6 @@ async function detectOAuth(providerId) {
         const token = data.tokens?.access_token;
         return jwtIsValid(token) && timestampIsValid(data.tokens?.expires_at || data.tokens?.expiry_date);
       }
-      case 'google': {
-        // No shell: pass args as a discrete array. stderr is ignored via stdio config.
-        const { spawnSync } = require('child_process');
-        const result = spawnSync('gcloud', ['auth', 'list', '--format=json'], {
-          encoding: 'utf-8',
-          timeout: 5000,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        });
-        if (result.status !== 0 || !result.stdout) return false;
-        const accounts = JSON.parse(result.stdout);
-        return Array.isArray(accounts) && accounts.some(a => a.status === 'ACTIVE');
-      }
-      case 'google-agent': {
-        const geminiDir = path.join(home, '.gemini');
-        for (const file of ['oauth_creds.json', 'google_accounts.json']) {
-          const credentialPath = path.join(geminiDir, file);
-          if (!fs.existsSync(credentialPath)) continue;
-          try {
-            const data = JSON.parse(fs.readFileSync(credentialPath, 'utf-8'));
-            if (timestampIsValid(data.expiry_date || data.expiryDate || data.expires_at)) return true;
-          } catch {}
-        }
-        return false;
-      }
       case 'xai-grok-build': {
         const authPath = path.join(home, '.grok', 'auth.json');
         if (!fs.existsSync(authPath)) return false;
@@ -1416,7 +1382,7 @@ async function readCodexCachedModels() {
 
 async function readGrokCliModels() {
   const cliPath = findCommand('grok');
-  if (!cliPath) throw new Error('未检测到 Grok Build CLI，请先安装 Grok Build');
+  if (!cliPath) throw new Error('未检测到 Grok CLI，请先安装 Grok');
   const { spawnSync } = require('child_process');
   const result = spawnSync(cliPath, ['models'], {
     encoding: 'utf-8',
@@ -1541,7 +1507,7 @@ async function fetchModels(req, res) {
     }
 
     if (p?.id === 'xai-grok-build' && !previewConfig) {
-      if (!(await detectOAuth(p.id))) throw new Error('请先完成 Grok Build 登录');
+      if (!(await detectOAuth(p.id))) throw new Error('请先完成 Grok 登录');
       const models = withNativeAvailability(p, await readGrokCliModels(), 'cli');
       p.models = models;
       await saveProviders(providers);
@@ -1582,8 +1548,6 @@ async function fetchModels(req, res) {
           models = isQianfanCodingEndpoint(ep.baseUrl)
             ? await fetchQianfanCodingModels(ep.baseUrl, apiKey)
             : await fetchOpenAIModels(ep.baseUrl, apiKey);
-        } else if (ep.type === 'google') {
-          models = await fetchGoogleModels(ep.baseUrl, apiKey);
         } else if (ep.type === 'anthropic') {
           models = await fetchAnthropicModels(ep.baseUrl, apiKey);
         }
@@ -1690,18 +1654,6 @@ async function fetchQianfanCodingModels(baseUrl, apiKey) {
 
   if (listResult.status === 401) throw new Error('百度千帆 Coding Plan API Key 无效');
   throw new Error(`HTTP ${listResult.status}`);
-}
-
-async function fetchGoogleModels(baseUrl, apiKey) {
-  const url = `${baseUrl}/v1beta/models${apiKey ? '?key=' + apiKey : ''}`;
-  const result = await httpReq(url, { method: 'GET', timeout: 10000 });
-  if (result.error) throw new Error(result.error);
-  if (result.status !== 200) throw new Error(`HTTP ${result.status}`);
-  const d = JSON.parse(result.body);
-  return (d.models || []).map(m => {
-    const id = m.name?.replace('models/', '') || m.name;
-    return { id, name: m.displayName || id };
-  });
 }
 
 async function fetchAnthropicModels(baseUrl, apiKey) {

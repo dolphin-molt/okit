@@ -21,17 +21,11 @@ describe('PRESET_PROVIDERS', () => {
     expect(p!.type).toBe('openai');
   });
 
-  it('includes google preset', () => {
-    const p = PRESET_PROVIDERS.find(p => p.id === 'google');
-    expect(p).toBeDefined();
-    expect(p!.type).toBe('google');
-  });
-
   it('each preset has valid fields', () => {
     for (const p of PRESET_PROVIDERS) {
       expect(p.id).toBeTruthy();
       expect(p.name).toBeTruthy();
-      expect(p.type).toMatch(/^(anthropic|openai|google)$/);
+      expect(p.type).toMatch(/^(anthropic|openai)$/);
       expect(p.baseUrl).toBeTruthy();
       expect(Array.isArray(p.models)).toBe(true);
       for (const m of p.models) {

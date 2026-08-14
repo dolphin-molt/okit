@@ -6,13 +6,12 @@
 //   xiaomi, openrouter, github, baidu, xai
 // - official favicons (PNG, multi-color): zhipu, moonshot, volcengine, tencent,
 //   siliconflow, mistral
-// - reused from assets/agents: anthropic→claude, google→gemini
+// - reused from assets/agents: anthropic→claude
 //
 // Providers without a logo here render with no icon (the caller falls back to a
 // text-only title). Add new entries as assets become available.
 
 import claude from '../agents/claude.png';
-import gemini from '../agents/gemini.svg';
 import opencode from '../agents/opencode.svg';
 
 import deepseek from './deepseek.svg';
@@ -44,9 +43,6 @@ const PROVIDER_ICON: Record<string, string> = {
   // OpenAI
   'openai': openai,
   'openai-codex': openai,
-  // Google — reuse Gemini logo
-  'google': gemini,
-  'google-agent': gemini,
   // DeepSeek
   'deepseek': deepseek,
   // 智谱 GLM / Z.AI (zhipu favicon covers all GLM-family presets)
@@ -73,9 +69,11 @@ const PROVIDER_ICON: Record<string, string> = {
   'qianfan-coding': baiduCloud,
   // 腾讯云
   'tencent': tencent,
+  'tencent-token-plan': tencent,
   // 阿里云百炼（通义千问）— 百炼平台图标
   'qwen': bailian,
   'qwen-coding': bailian,
+  'qwen-token-plan': bailian,
   // 硅基流动
   'siliconflow': siliconflow,
   // xAI (Grok)

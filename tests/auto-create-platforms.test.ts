@@ -20,10 +20,11 @@ describe('auto-create key platforms', () => {
 
   it('covers every bundled remote API provider plus Cloudflare', () => {
     expect(ids).toEqual(expect.arrayContaining([
-      'cloudflare', 'openai', 'anthropic', 'google',
+      'cloudflare', 'openai', 'anthropic',
       'volcengine', 'zhipu', 'zai-global',
       'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
-      'qwen', 'qianfan', 'qianfan-coding', 'xiaomi', 'xiaomi-coding', 'stepfun', 'xai', 'mistral', 'openrouter',
+      'qwen', 'qwen-token-plan', 'qianfan', 'qianfan-coding', 'xiaomi', 'xiaomi-coding', 'stepfun', 'xai', 'mistral', 'openrouter',
+      'tencent-token-plan', 'opencode-go',
     ]));
   });
 
@@ -164,19 +165,37 @@ describe('auto-create key platforms', () => {
     expect(new RegExp(coding.keyPatterns![0]).test('bce-v3/ALTAK1234567890_abc.def-xyz1234567890')) .toBe(true);
   });
 
-  it('uses the verified OpenAI, Gemini, and Bailian creation forms', () => {
+  it('uses the verified OpenAI and Bailian creation forms', () => {
     const openai = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'openai') as { nameSelectors?: string[]; confirmTexts?: string[] };
-    const google = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'google') as { nameSelectors?: string[]; confirmTexts?: string[]; formBlockers?: Array<{ text: string; message: string }> };
     const qwen = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qwen') as { nameSelectors?: string[]; confirmTexts?: string[]; createWaitAttempts?: number; keyPatterns?: string[] };
     expect(openai.nameSelectors).toContain('input[placeholder="My Test Key"]');
     expect(openai.confirmTexts).toEqual(['Create secret key']);
-    expect(google.nameSelectors).toContain('input[aria-label="为密钥命名"]');
-    expect(google.confirmTexts).toContain('创建密钥');
-    expect(google.formBlockers).toContainEqual(expect.objectContaining({ text: 'No Cloud Projects Available' }));
     expect(qwen.nameSelectors).toContain('textarea#description');
     expect(qwen.confirmTexts).toEqual(['确定']);
     expect(qwen.createWaitAttempts).toBeGreaterThan(1);
     expect(new RegExp(qwen.keyPatterns![0]).test('sk-ws-H.ERYRYPR.eiTC.abc123')).toBe(true);
+  });
+
+  it('keeps dedicated Token Plan keys separate from ordinary provider keys', () => {
+    const qwenToken = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qwen-token-plan') as {
+      keyHint?: string; groupHint?: string; url?: string; creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean;
+      existingMaskedKeyPrefix?: string; postCreateCopyByMaskedKeyPrefix?: string; keyPatterns?: string[];
+    };
+    expect(qwenToken.keyHint).toBe('DASHSCOPE_TOKEN_PLAN_API_KEY');
+    expect(qwenToken.groupHint).toBe('阿里云百炼');
+    expect(qwenToken.url).toBe('https://bailian.console.aliyun.com/cn-beijing?tab=plan');
+    expect(qwenToken.creationActionOnly).toBe(true);
+    expect(qwenToken.reuseExistingMaskedKey).toBe(true);
+    expect(qwenToken.existingMaskedKeyPrefix).toBe('sk-sp-');
+    expect(qwenToken.postCreateCopyByMaskedKeyPrefix).toBe('sk-sp-');
+    expect(new RegExp(qwenToken.keyPatterns![0]).test('sk-sp-abcdefghijklmnopqrstuvwxyz123456')).toBe(true);
+
+    const tencentToken = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent-token-plan') as {
+      keyHint?: string; groupHint?: string; url?: string;
+    };
+    expect(tencentToken.keyHint).toBe('TENCENT_TOKEN_PLAN_API_KEY');
+    expect(tencentToken.groupHint).toBe('腾讯云');
+    expect(tencentToken.url).toBe('https://console.cloud.tencent.com/lke/api-key');
   });
 
   it('dismisses only DeepSeek’s optional email reminder before creation', () => {

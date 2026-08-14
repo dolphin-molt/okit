@@ -603,13 +603,6 @@ async function testApiKey(req, res) {
         return res.json({ success: false, message: '端点可达，但 Z.AI 账户余额或资源包不足（1113），请充值或开通对应资源包后重试' });
       }
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
-    } else if (type === 'google') {
-      url = `${baseUrl}/v1beta/models?key=${resolvedKey}`;
-      const result = await httpRequest(url, { method: 'GET', timeout: 10000 });
-      if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
-      if (result.status === 400 || result.status === 403) return res.json({ success: false, message: 'API Key 无效' });
-      if (result.status === 200) return res.json({ success: true, message: '连接成功，Key 有效' });
-      return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
     } else {
       // Qianfan Coding Plan has its own credential scope and does not accept
       // the regular V2 API key. Probe its documented chat endpoint directly so
@@ -803,7 +796,6 @@ function resolveCanonicalGroup(key) {
   // ── 国际大厂 ──
   if (k.startsWith('OPENAI_API_KEY') || k === 'OPENAI_API_KEY') return 'OpenAI';
   if (k.startsWith('ANTHROPIC')) return 'Anthropic';
-  if (k.startsWith('GOOGLE') || k.startsWith('GEMINI')) return 'Google Gemini';
   if (k.startsWith('XAI_')) return 'xAI';
   if (k.startsWith('MISTRAL_')) return 'Mistral';
 

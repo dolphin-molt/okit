@@ -1,7 +1,6 @@
 import { AgentAdapter, ProviderType } from "./types";
 import { ClaudeAdapter } from "./adapters/claude";
 import { CodexAdapter } from "./adapters/codex";
-import { GeminiAdapter } from "./adapters/gemini";
 import { OpenCodeAdapter } from "./adapters/opencode";
 import { OpenClawAdapter } from "./adapters/openclaw";
 import { WorkBuddyAdapter } from "./adapters/workbuddy";
@@ -12,7 +11,6 @@ import { KimiCodeAdapter } from "./adapters/kimi-code";
 const adapters: AgentAdapter[] = [
   new ClaudeAdapter(),
   new CodexAdapter(),
-  new GeminiAdapter(),
   new OpenCodeAdapter(),
   new OpenClawAdapter(),
   new WorkBuddyAdapter(),

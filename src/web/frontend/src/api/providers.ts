@@ -21,7 +21,7 @@ export interface ProviderModelAvailability {
 
 export interface ProviderEndpoint {
   id?: string;
-  type: 'anthropic' | 'openai' | 'google';
+  type: 'anthropic' | 'openai';
   baseUrl: string;
   protocol?: 'chat' | 'responses';
   plan?: 'coding' | 'token' | 'agent' | 'go';
@@ -30,7 +30,7 @@ export interface ProviderEndpoint {
 export interface Provider {
   id: string;
   name: string;
-  type: 'anthropic' | 'openai' | 'google';
+  type: 'anthropic' | 'openai';
   baseUrl: string;
   endpoints?: ProviderEndpoint[];
   vaultKey?: string;
@@ -255,6 +255,8 @@ export interface UsageWindow {
   usedCredits?: number;
   limitCredits?: number | null;
   remainingCredits?: number | null;
+  /** Display unit for non-USD credit quotas, e.g. "M Credits". */
+  unit?: string;
   isPrepaid?: boolean;
 }
 
@@ -264,7 +266,8 @@ export interface UsageResult {
   windows?: UsageWindow[];
   error?: string;
   notice?: string;
-  source?: 'live' | 'cli' | 'console';
+  action?: { label: string; url: string; mode?: 'external' | 'extension' };
+  source?: 'live' | 'browser' | 'cli' | 'console';
   /** Goal ①: 'subscription' (percentage + reset) or 'prepaid' (USD balance). */
   kind?: 'subscription' | 'prepaid';
   raw?: any;
@@ -276,6 +279,10 @@ export async function getSupportedUsageProviders(): Promise<{ providers: string[
 
 export async function getUsage(providerId: string): Promise<UsageResult> {
   return api(`/api/usage/${encodeURIComponent(providerId)}`);
+}
+
+export async function openUsageLogin(providerId: string): Promise<{ success: boolean; error?: string }> {
+  return api(`/api/usage/${encodeURIComponent(providerId)}/login`, { method: 'POST' });
 }
 
 // ─── Deep Link: Provider export / import ───

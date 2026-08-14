@@ -12,7 +12,7 @@ const WORKBUDDY_MODELS_PATH = path.join(WORKBUDDY_DIR, "models.json");
 export class WorkBuddyAdapter extends BaseAdapter {
   readonly id = "workbuddy";
   readonly name = "WorkBuddy";
-  readonly supportedTypes: ProviderType[] = ["anthropic", "openai", "google"];
+  readonly supportedTypes: ProviderType[] = ["anthropic", "openai"];
 
   async detectOAuthStatus(): Promise<AuthStatus> {
     return { mode: "api_key", hasApiKey: false };

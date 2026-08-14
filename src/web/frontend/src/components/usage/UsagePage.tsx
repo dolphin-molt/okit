@@ -1,19 +1,41 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getUsage, getSupportedUsageProviders, listProviders, UsageResult, UsageWindow, Provider } from '../../api/providers';
+import { getUsage, getSupportedUsageProviders, listProviders, openUsageLogin, UsageResult, UsageWindow, Provider } from '../../api/providers';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 
 // Display metadata for known supported providers (icon + human-readable name).
 const PROVIDER_META: Record<string, { name: string; type: string; kind: 'subscription' | 'prepaid' }> = {
+  'openai': { name: 'OpenAI API', type: 'API 平台', kind: 'prepaid' },
   'openai-codex': { name: 'Codex (ChatGPT)', type: 'Agent 订阅', kind: 'subscription' },
+  'anthropic': { name: 'Anthropic API', type: 'API 平台', kind: 'prepaid' },
   'anthropic-agent': { name: 'Claude Code', type: 'Agent 订阅', kind: 'subscription' },
-  'google-agent': { name: 'Gemini CLI', type: 'Agent 订阅', kind: 'subscription' },
-  'xai-grok-build': { name: 'Grok', type: 'Agent 订阅', kind: 'subscription' },
+  'xai-grok-build': { name: 'SuperGrok', type: 'Agent 订阅', kind: 'subscription' },
   'github-copilot': { name: 'GitHub Copilot', type: 'Agent 订阅', kind: 'subscription' },
   'glm-coding': { name: 'GLM Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  'zai-global-coding': { name: 'Z.AI Coding Plan', type: 'Coding Plan', kind: 'subscription' },
   'kimi-coding-plan': { name: 'Kimi Coding Plan', type: 'Coding Plan', kind: 'subscription' },
   'minimax-coding': { name: 'MiniMax Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'minimax-global-coding': { name: 'MiniMax Token Plan（国际）', type: 'Token Plan', kind: 'subscription' },
+  'minimax': { name: 'MiniMax', type: 'API 平台', kind: 'prepaid' },
+  'minimax-global': { name: 'MiniMax（国际站）', type: 'API 平台', kind: 'prepaid' },
+  'zai': { name: '智谱 AI（国内站）', type: 'API 平台', kind: 'prepaid' },
+  'zai-global': { name: 'Z.AI（国际站）', type: 'API 平台', kind: 'prepaid' },
+  'kimi-coding': { name: 'Kimi', type: 'API 平台', kind: 'prepaid' },
+  'qwen-coding': { name: '阿里云百炼 Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  'qwen-token-plan': { name: '阿里云百炼 Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'qianfan-coding': { name: '百度千帆 Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'qianfan': { name: '百度千帆', type: 'API 平台', kind: 'prepaid' },
+  'tencent-token-plan': { name: '腾讯云 Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'tencent': { name: '腾讯云', type: 'API 平台', kind: 'prepaid' },
+  'opencode-go': { name: 'OpenCode Go', type: 'Agent 订阅', kind: 'subscription' },
   'volcengine-coding': { name: '火山引擎 Coding Plan', type: 'Coding Plan', kind: 'subscription' },
+  'volcengine-agent': { name: '火山引擎 Agent Plan', type: 'Agent Plan', kind: 'subscription' },
+  'volcengine': { name: '火山引擎', type: 'API 平台', kind: 'prepaid' },
+  'xiaomi-coding': { name: '小米 MiMo Token Plan', type: 'Token Plan', kind: 'subscription' },
+  'xiaomi': { name: '小米 MiMo API', type: 'API 平台', kind: 'prepaid' },
+  'xai': { name: 'xAI API', type: 'API 平台', kind: 'prepaid' },
+  'stepfun': { name: '阶跃星辰', type: 'API 平台', kind: 'prepaid' },
+  'stepfun-global': { name: 'StepFun Global', type: 'API 平台', kind: 'prepaid' },
   // Goal ①: prepaid balance providers.
   'openrouter': { name: 'OpenRouter', type: '充值制', kind: 'prepaid' },
   'deepseek': { name: 'DeepSeek', type: '充值制', kind: 'prepaid' },
@@ -81,6 +103,15 @@ export default function UsagePage() {
 
   function providerType(id: string): string {
     return PROVIDER_META[id]?.type || '';
+  }
+
+  async function handleUsageLogin(providerId: string) {
+    try {
+      const result = await openUsageLogin(providerId);
+      if (!result.success) toast(result.error || '无法打开登录页面', 'error');
+    } catch (error: any) {
+      toast(error?.message || '无法打开登录页面', 'error');
+    }
   }
 
   const allCards = supportedIds.map(id => ({
@@ -177,6 +208,7 @@ export default function UsagePage() {
             usage={card.usage}
             fetching={card.fetching}
             onRefresh={() => fetchOne(card.id)}
+            onLogin={() => handleUsageLogin(card.id)}
             t={t}
           />
         ))}
@@ -189,23 +221,26 @@ export default function UsagePage() {
   );
 }
 
-function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
+function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
   id: string;
   name: string;
   type: string;
   usage?: UsageResult;
   fetching: boolean;
   onRefresh: () => void;
+  onLogin: () => void;
   t: (k: string, ...args: any[]) => string;
 }) {
   const hasData = usage?.supported && (usage.windows?.length || 0) > 0;
   const hasError = usage?.error;
   const hasNotice = usage?.notice;
+  const externalSource = usage?.source === 'console' || usage?.source === 'cli';
 
   // Compute overall status for card border color.
   const maxPct = usage?.windows?.reduce((max, w) => {
-    if (w.usedPercent == null) return max;
-    return Math.max(max, w.usedPercent);
+    const usedPct = usageUsedPercent(w);
+    if (usedPct == null) return max;
+    return Math.max(max, usedPct);
   }, 0) || 0;
   const statusClass = !hasData ? '' : maxPct >= 90 ? ' usage-card--danger' : maxPct >= 70 ? ' usage-card--warn' : ' usage-card--ok';
 
@@ -215,6 +250,7 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
         <div className="usage-card-title">
           <h3>{name}</h3>
           {type && <span className="usage-card-type">{type}</span>}
+          {externalSource && <span className="usage-card-source">控制台查看</span>}
         </div>
         <button className="btn-icon usage-card-refresh" onClick={onRefresh} disabled={fetching} title={t('usage.refresh')}>
           {fetching ? (
@@ -236,7 +272,29 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
           <div className="usage-card-error">{usage!.error}</div>
         )}
         {hasNotice && !fetching && (
-          <div className="usage-card-empty">{usage!.notice}</div>
+          <div className="usage-card-notice">
+            <span className="usage-card-notice-mark" aria-hidden="true">↗</span>
+            <div className="usage-card-notice-content">
+              <span>{usage!.notice}</span>
+              {usage!.action && (
+                usage!.action.mode === 'extension' ? (
+                  <button className="usage-card-action" type="button" onClick={onLogin}>
+                    {usage!.action.label}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                ) : (
+                  <a className="usage-card-action" href={usage!.action.url} target="_blank" rel="noopener noreferrer">
+                    {usage!.action.label}
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5.5 3.5h7v7" />
+                      <path d="M12.5 3.5 7 9" />
+                      <path d="M11 8.5v3a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1 1h3" />
+                    </svg>
+                  </a>
+                )
+              )}
+            </div>
+          </div>
         )}
         {hasData && !fetching && (
           <div className="usage-card-windows">
@@ -256,7 +314,9 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, t }: {
 function UsageBar({ w }: { w: UsageWindow }) {
   const pct = w.usedPercent;                                  // 已用百分比
   const remaining = pct != null ? round1(100 - pct) : null;   // 剩余百分比
-  const tone = pct == null ? 'unknown' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const prepaidRemaining = getPrepaidRemainingPercent(w);
+  const tonePct = w.isPrepaid ? (prepaidRemaining == null ? null : 100 - prepaidRemaining) : pct;
+  const tone = tonePct == null ? 'unknown' : tonePct >= 90 ? 'danger' : tonePct >= 70 ? 'warn' : 'ok';
   const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
   const label = windowLabel(w.label);
 
@@ -265,20 +325,30 @@ function UsageBar({ w }: { w: UsageWindow }) {
     // only expose the remaining balance (no separate "used" figure), so we
     // prefer remainingCredits and fall back to limit - used when available.
     const rem = w.remainingCredits != null
-      ? `$${w.remainingCredits.toFixed(2)}`
+      ? w.remainingCredits
       : (w.limitCredits != null && w.usedCredits != null)
-        ? `$${(w.limitCredits - w.usedCredits).toFixed(2)}`
-        : '?';
-    const used = w.usedCredits != null ? `$${w.usedCredits.toFixed(2)}` : null;
+        ? w.limitCredits - w.usedCredits
+        : null;
+    const remainingPct = rem != null && w.limitCredits != null && w.limitCredits > 0
+      ? Math.min(100, Math.max(0, round1((rem / w.limitCredits) * 100)))
+      : null;
+    const formatAmount = (value: number) => w.unit ? value.toFixed(2) : `$${value.toFixed(2)}`;
+    const amountText = rem != null ? `${formatAmount(rem)}${w.unit ? ` ${w.unit}` : ''}` : '—';
+    const detailText = [
+      w.usedCredits != null ? `${t_global('usage.usedAmount')} ${formatAmount(w.usedCredits)}${w.unit ? ` ${w.unit}` : ''}` : null,
+      w.limitCredits != null ? `总额 ${formatAmount(w.limitCredits)}${w.unit ? ` ${w.unit}` : ''}` : null,
+    ].filter(Boolean).join(' · ');
     return (
-      <div className={`usage-bar usage-bar--${tone}`}>
-        <span className="usage-bar-label">{label}</span>
-        <div className="usage-bar-info">
-          {used != null && (
-            <span className="usage-bar-credits">{t_global('usage.usedAmount')}: {used}</span>
-          )}
-          <span className="usage-bar-remaining">{t_global('usage.balance')}: {rem}</span>
+      <div className="usage-balance">
+        <div className={`usage-bar usage-bar--${tone}`}>
+          <span className="usage-bar-label">{label}</span>
+          <div className="usage-bar-track">
+            <div className="usage-bar-fill" style={{ width: remainingPct != null ? `${remainingPct}%` : '100%' }} />
+          </div>
+          <span className="usage-bar-pct">{remainingPct != null ? `${remainingPct}%` : '—'}</span>
+          <span className="usage-bar-reset usage-bar-balance-amount">{amountText}</span>
         </div>
+        {detailText && <div className="usage-balance-detail">{detailText}</div>}
       </div>
     );
   }
@@ -293,6 +363,26 @@ function UsageBar({ w }: { w: UsageWindow }) {
       {resetText && <span className="usage-bar-reset" title={w.resetAt || ''}>{resetText}</span>}
     </div>
   );
+}
+
+function getPrepaidRemainingPercent(w: UsageWindow): number | null {
+  if (!w.isPrepaid) return null;
+  const remaining = w.remainingCredits != null
+    ? w.remainingCredits
+    : w.limitCredits != null && w.usedCredits != null
+      ? w.limitCredits - w.usedCredits
+      : null;
+  if (remaining == null) return null;
+  if (w.limitCredits != null && w.limitCredits > 0) {
+    return Math.min(100, Math.max(0, round1((remaining / w.limitCredits) * 100)));
+  }
+  return remaining <= 0 ? 0 : null;
+}
+
+function usageUsedPercent(w: UsageWindow): number | null {
+  if (!w.isPrepaid) return w.usedPercent;
+  const remaining = getPrepaidRemainingPercent(w);
+  return remaining == null ? null : 100 - remaining;
 }
 
 // ── Helpers ──

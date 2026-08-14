@@ -190,7 +190,6 @@ export async function providerAdd(): Promise<void> {
         choices: [
           { title: "anthropic", value: "anthropic" },
           { title: "openai", value: "openai" },
-          { title: "google", value: "google" },
         ] },
       { type: "text", name: "baseUrl", message: t("providerBaseUrl") },
       { type: "password", name: "apiKey", message: t("providerApiKey") },

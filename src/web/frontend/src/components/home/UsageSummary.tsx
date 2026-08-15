@@ -43,6 +43,15 @@ function remainingPercent(window: UsageWindow): number | null {
   return window.usedPercent == null ? null : Math.max(0, Math.min(100, Math.round(100 - window.usedPercent)));
 }
 
+function compactAlertMessage(message: string, providerName: string): string {
+  const prefix = `${providerName} `;
+  const compact = message.startsWith(prefix) ? message.slice(prefix.length) : message;
+  return compact
+    .replace('将在 ', '')
+    .replace('后重置，还有 ', '后重置 · ')
+    .replace(' 未使用', ' 未用');
+}
+
 function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }) {
   const windows = u.windows || [];
   if (windows.length === 0) {
@@ -141,9 +150,9 @@ export default function UsageSummary() {
 
   // Compute alerts + fire browser notifications.
   const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
-  const dangerAlerts = alerts.filter(a => a.severity === 'danger');
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
-  const visibleDangerAlerts = dangerAlerts.filter(a => !dismissedKeys.has(a.notifyKey));
+  const [alertCenterOpen, setAlertCenterOpen] = useState(false);
+  const visibleAlerts = alerts.filter(a => !dismissedKeys.has(a.notifyKey));
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -198,39 +207,70 @@ export default function UsageSummary() {
           <div className="home-section-title">{t('home.usageSummary')}</div>
           <p>{t('home.usageSummaryHint')}</p>
         </div>
-        <button className="usage-summary-link" onClick={() => navigate('/usage')}>
-          {t('usage.viewAll')} <span aria-hidden="true">↗</span>
-        </button>
-      </div>
-      {visibleDangerAlerts.length > 0 && (
-        <div className="usage-alerts">
-          {visibleDangerAlerts.slice(0, 3).map(a => (
-            <div key={a.notifyKey} className="usage-alert usage-alert--danger">
-              <span className="usage-alert-icon">🔴</span>
-              <span className="usage-alert-text">{a.message}</span>
+        <div className="usage-summary-heading-actions">
+          {visibleAlerts.length > 0 && (
+            <div className="usage-summary-alert-center">
               <button
-                className="usage-alert-close"
-                onClick={() => setDismissedKeys(prev => new Set(prev).add(a.notifyKey))}
-              >✕</button>
+                type="button"
+                className={`usage-summary-alert-toggle${alertCenterOpen ? ' is-open' : ''}`}
+                onClick={() => setAlertCenterOpen(open => !open)}
+                aria-expanded={alertCenterOpen}
+                aria-controls="usage-summary-alert-list"
+              >
+                <span className="usage-summary-alert-toggle-dot" aria-hidden="true" />
+                <span>{visibleAlerts.length} {t('home.usageAttention')}</span>
+                <span className="usage-summary-alert-toggle-chevron" aria-hidden="true">⌄</span>
+              </button>
+              {alertCenterOpen && (
+                <div id="usage-summary-alert-list" className="usage-summary-alert-popover" role="region" aria-label={t('home.usageAttention')}>
+                  <div className="usage-summary-alert-popover-title">{t('home.usageAttention')}</div>
+                  {visibleAlerts.map(alert => (
+                    <div key={alert.notifyKey} className={`usage-summary-alert-item usage-summary-alert-item--${alert.severity}`}>
+                      <span className="usage-summary-alert-item-dot" aria-hidden="true" />
+                      <div className="usage-summary-alert-item-content">
+                        <strong>{alert.providerName}</strong>
+                        <span title={alert.message}>{compactAlertMessage(alert.message, alert.providerName)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="usage-summary-alert-item-close"
+                        onClick={() => setDismissedKeys(prev => new Set(prev).add(alert.notifyKey))}
+                        aria-label={t('usage.dismissAlert')}
+                        title={t('usage.dismissAlert')}
+                      >×</button>
+                    </div>
+                  ))}
+                  <button type="button" className="usage-summary-alert-all" onClick={() => navigate('/usage')}>
+                    {t('usage.viewAll')} <span aria-hidden="true">↗</span>
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
+          )}
+          <button type="button" className="usage-summary-link" onClick={() => navigate('/usage')}>
+            {t('usage.viewAll')} <span aria-hidden="true">↗</span>
+          </button>
         </div>
-      )}
+      </div>
       <div className="usage-summary-grid">
-        {cards.map(c => (
-          <article key={c.id} className={`usage-summary-card usage-summary-card--${c.tone}${c.usage?.kind === 'prepaid' ? ' usage-summary-card--prepaid' : ''}`}>
+        {cards.map(c => {
+          const alert = visibleAlerts.find(item => item.providerId === c.id);
+          const cardTone = alert?.severity || c.tone;
+          return (
+          <article key={c.id} className={`usage-summary-card usage-summary-card--${cardTone}${c.usage?.kind === 'prepaid' ? ' usage-summary-card--prepaid' : ''}${alert ? ` usage-summary-card--alert-${alert.severity}` : ''}`}>
             <div className="usage-summary-card-head">
               <div className="usage-summary-provider">
                 {getProviderIcon(c.id) && <img src={getProviderIcon(c.id)} alt="" />}
                 <span>{c.name}</span>
               </div>
-              <span className={`usage-summary-status usage-summary-status--${c.tone}`}>
-                {c.usage?.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(c.tone, t)}
+              <span className={`usage-summary-status usage-summary-status--${cardTone}`}>
+                {alert ? toneLabel(alert.severity, t) : c.usage?.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(c.tone, t)}
               </span>
             </div>
             <RemainingWindows u={c.usage!} t={t} />
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

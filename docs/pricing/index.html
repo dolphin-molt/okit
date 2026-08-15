@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OKIT · 全平台模型定价与能力对比（2026-08）</title>
+<style>
+:root{
+  --paper:#faf8f2; --kraft:#efe9dc; --kraft-dark:#e3dac6; --ink:#2b2620; --ink-muted:#7a7263;
+  --accent:#c65b2e; --accent-soft:#f5e3d7; --good:#3a7d44; --warn:#b8860b;
+  --border:1.5px solid var(--ink); --shadow:2px 2px 0 rgba(0,0,0,.07);
+}
+[data-theme="dark"]{
+  --paper:#23211d; --kraft:#2c2925; --kraft-dark:#3a362f; --ink:#ece7dc; --ink-muted:#a49b8a;
+  --accent:#e8845a; --accent-soft:#4a3327; --good:#7dc28a; --warn:#e0b053;
+  --shadow:2px 2px 0 rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--paper);color:var(--ink);line-height:1.55;padding:0 0 80px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 24px}
+header{background:var(--kraft);border-bottom:var(--border);padding:28px 0 22px;margin-bottom:28px}
+header h1{font-size:26px;letter-spacing:.5px}
+header .sub{color:var(--ink-muted);font-size:14px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;background:var(--accent);color:#fff;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:600}
+button.theme{margin-left:auto;background:var(--paper);border:var(--border);border-radius:8px;padding:4px 12px;cursor:pointer;color:var(--ink);font-size:13px;box-shadow:var(--shadow)}
+.toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:22px;position:sticky;top:0;background:var(--paper);padding:12px 0;z-index:10;border-bottom:1.5px dashed var(--kraft-dark)}
+.tabs{display:flex;gap:0;border:var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+.tabs button{background:var(--paper);border:none;padding:7px 16px;font-size:14px;cursor:pointer;color:var(--ink);border-right:1.5px solid var(--kraft-dark)}
+.tabs button:last-child{border-right:none}
+.tabs button.active{background:var(--accent);color:#fff;font-weight:600}
+input.search{flex:1;min-width:220px;border:var(--border);border-radius:10px;padding:8px 14px;font-size:14px;background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+select.sort{border:var(--border);border-radius:10px;padding:8px 10px;font-size:13px;background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+.card{background:var(--paper);border:var(--border);border-radius:14px;box-shadow:var(--shadow);margin-bottom:26px;overflow:hidden}
+.card-head{display:flex;align-items:baseline;gap:12px;background:var(--kraft);padding:14px 20px;border-bottom:var(--border);flex-wrap:wrap}
+.card-head h2{font-size:18px}
+.card-head .meta{color:var(--ink-muted);font-size:12.5px}
+.card-head .region{margin-left:auto;font-size:12px;color:var(--ink-muted)}
+.card-head a{color:var(--accent);font-size:12.5px;text-decoration:none;border-bottom:1px dashed var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{background:var(--kraft);text-align:left;padding:9px 14px;font-size:12px;letter-spacing:.4px;border-bottom:var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--accent)}
+th .arrow{font-size:10px;opacity:.7}
+td{padding:8px 14px;border-bottom:1px dashed var(--kraft-dark);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--kraft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.free{color:var(--good);font-weight:600}
+.cheap{color:var(--good)}
+.expensive{color:var(--accent)}
+.note{color:var(--ink-muted);font-size:12px}
+.plan-chips{display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px;background:var(--accent-soft);border-top:1.5px dashed var(--kraft-dark)}
+.plan-chips .chip{background:var(--paper);border:var(--border);border-radius:999px;padding:3px 12px;font-size:12.5px;box-shadow:var(--shadow)}
+.plan-chips .chip b{color:var(--accent)}
+h2.section{font-size:20px;margin:36px 0 16px;display:flex;align-items:center;gap:10px}
+h2.section::before{content:"";display:inline-block;width:14px;height:14px;background:var(--accent);border:var(--border);border-radius:4px;transform:rotate(45deg)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:10px}
+.summary .s-card{background:var(--paper);border:var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.summary .s-card .t{font-size:13px;color:var(--ink-muted)}
+.summary .s-card .v{font-size:19px;font-weight:700;margin-top:4px}
+.summary .s-card .d{font-size:12px;color:var(--ink-muted);margin-top:2px}
+.empty{padding:60px;text-align:center;color:var(--ink-muted)}
+footer{margin-top:50px;color:var(--ink-muted);font-size:12.5px;text-align:center}
+@media (max-width:720px){ td,th{padding:6px 8px;font-size:12.5px} .card-head{padding:10px 14px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>OKIT · 全平台模型定价与能力对比</h1>
+    <div class="sub">
+      <span class="badge">2026-08-14 快照</span>
+      <span>覆盖 31 个站点 · 国内站/国际站独立计价</span>
+      <span>单位：$/¥ 每百万 token</span>
+      <button class="theme" onclick="toggleTheme()">🌙 深色</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="summary" id="summary"></div>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <input class="search" id="search" placeholder="搜索模型或平台，如 opus、qwen-coder、豆包…">
+    <select class="sort" id="sort">
+      <option value="default">默认排序</option>
+      <option value="priceInAsc">输入价 ↑（便宜优先）</option>
+      <option value="priceInDesc">输入价 ↓（贵优先）</option>
+      <option value="priceOutAsc">输出价 ↑</option>
+      <option value="priceOutDesc">输出价 ↓</option>
+    </select>
+  </div>
+
+  <h2 class="section">平台 API 定价</h2>
+  <div id="providers"></div>
+
+  <h2 class="section">订阅制（Coding / Token / Agent Plan）一览</h2>
+  <div class="card">
+    <table id="planTable">
+      <thead><tr><th>厂商</th><th class="num">入门档</th><th class="num">中档</th><th class="num">高档</th><th>说明</th></tr></thead>
+      <tbody id="planBody"></tbody>
+    </table>
+  </div>
+
+  <h2 class="section">模型能力对比</h2>
+  <div class="card">
+    <table id="capTable">
+      <thead><tr>
+        <th data-k="model">模型</th><th data-k="ctx">上下文</th><th data-k="modal">模态</th>
+        <th data-k="swe">SWE-bench Verified</th><th data-k="other">其他关键分数</th><th data-k="price">价格档</th>
+      </tr></thead>
+      <tbody id="capBody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    数据抓取自各平台官方定价页与公开榜单（swebench.com · artificialanalysis.ai · arena.ai · tbench.ai），截至 2026-08-14。<br>
+    促销价（Gemini 3.6/3.7 Flash、Sonnet 5、MiniMax M3 五折、千帆首购 5 折）到期后会变化；二手来源条目以官方页为准。
+  </footer>
+</div>
+
+<script>
+// ── 数据 ──────────────────────────────────────────────
+// price: [input, output, cacheRead, cacheWrite] 数值；null = 无/不适用；字符串 = 原样显示
+const PROVIDERS = [
+{ id:"anthropic", name:"Anthropic (Claude)", region:"国际", url:"platform.claude.com/docs/en/about-claude/pricing", cur:"$",
+  note:"Batch 全线 5 折；缓存倍率：写5m=1.25x / 写1h=2x / 读=0.1x 输入价；Bedrock/Vertex 的多区域与区域端点（数据驻留）比全球端点 +10%",
+  models:[
+  {m:"Claude Fable 5", i:10, o:50, cr:1, cw:"12.50 / 20 (5m/1h)", ctx:"1M", tag:"新旗舰 · Arena 总榜第一"},
+  {m:"Claude Mythos 5", i:10, o:50, cr:1, cw:"12.50 / 20", ctx:"1M", tag:"限量供应"},
+  {m:"Claude Opus 5", i:5, o:25, cr:0.5, cw:"6.25 / 10", ctx:"1M", tag:"AA 指数第一；Fast mode $10/$50"},
+  {m:"Claude Opus 4.5–4.8", i:5, o:25, cr:0.5, cw:"6.25 / 10", ctx:"1M", tag:"4.7+ 新 tokenizer，token 多约 30%"},
+  {m:"Claude Sonnet 5", i:2, o:10, cr:0.2, cw:"2.50 / 4", ctx:"—", tag:"促销价已永久化"},
+  {m:"Claude Sonnet 4.5/4.6", i:3, o:15, cr:0.3, cw:"3.75 / 6", ctx:"1M(4.6)", tag:""},
+  {m:"Claude Haiku 4.5", i:1, o:5, cr:0.1, cw:"1.25 / 2", ctx:"—", tag:"低价档"},
+]},
+{ id:"openai", name:"OpenAI", region:"国际", url:"developers.openai.com/api/docs/pricing", cur:"$",
+  note:"Batch/Flex 普遍 5 折；>272K 长上下文约 2x；Fast mode 约 2x；微调对新用户关闭",
+  models:[
+  {m:"gpt-5.6-sol", i:5, o:30, cr:0.5, ctx:"128K+", tag:"旗舰；长上下文 $10/$45"},
+  {m:"gpt-5.6-terra", i:2, o:12, cr:0.2, ctx:"128K+", tag:"主力档"},
+  {m:"gpt-5.6-luna", i:0.2, o:1.2, cr:0.02, ctx:"128K+", tag:"入门档"},
+  {m:"gpt-5.5 / 5.5-pro", i:"5 / 30", o:"30 / 180", cr:"0.50 / –", ctx:"128K+", tag:"上一代旗舰"},
+  {m:"gpt-5.4 / mini / nano", i:"2.50 / 0.75 / 0.20", o:"15 / 4.50 / 1.25", cr:"0.25 / 0.075 / 0.02", ctx:"128K+", tag:""},
+  {m:"gpt-5.3-codex", i:1.75, o:14, cr:0.175, ctx:"128K–400K", tag:"Terminal-Bench 2.0 榜首 77.3%"},
+  {m:"gpt-5.2 / 5.2-pro", i:"1.75 / 21", o:"14 / 168", cr:"0.175 / –", ctx:"128K+", tag:"编程性价比"},
+  {m:"gpt-5.1 / gpt-5", i:1.25, o:10, cr:0.125, ctx:"128K+", tag:""},
+  {m:"gpt-5-mini / nano", i:"0.25 / 0.05", o:"2 / 0.40", cr:"0.025 / 0.005", ctx:"128K+", tag:""},
+  {m:"gpt-5-pro", i:15, o:120, ctx:"128K+", tag:""},
+  {m:"o3 / o3-pro", i:"2 / 20", o:"8 / 80", cr:"0.50 / –", ctx:"—", tag:"推理系列"},
+  {m:"o3-mini / o4-mini", i:1.1, o:4.4, ctx:"—", tag:""},
+  {m:"gpt-realtime-2.1/2（音频）", i:32, o:64, cr:0.4, ctx:"—", tag:"文本 $4/$24"},
+  {m:"gpt-4.1 / mini / nano", i:"2 / 0.40 / 0.10", o:"8 / 1.60 / 0.40", ctx:"1M(4.1)", tag:"旧系列仍可用"},
+  {m:"gpt-4o / 4o-mini", i:"2.50 / 0.15", o:"10 / 0.60", ctx:"128K", tag:"旧系列"},
+]},
+{ id:"google", name:"Google Gemini", region:"国际", url:"ai.google.dev/gemini-api/docs/pricing", cur:"$",
+  note:"Batch/Flex 统一 5 折；Priority 约 1.8x；缓存另收存储费（$/hr）",
+  models:[
+  {m:"Gemini 3.7 Flash", i:"0.75*", o:"3.75*", cr:"—", cw:0.075, ctx:"1M", tag:"*2026 促销价，2027 起 $1.50/$7.50；存储 $0.50/hr"},
+  {m:"Gemini 3.5 Flash", i:1.5, o:9, cw:0.15, ctx:"1M", tag:"存储 $1.00/hr"},
+  {m:"Gemini 3.1 Pro (Preview)", i:2, o:12, cw:0.2, ctx:"2M", tag:"SWE-V 80.6%；存储 $4.50/hr"},
+  {m:"Gemini 3.1 Flash-Lite", i:0.25, o:1.5, cw:0.025, ctx:"1M", tag:""},
+  {m:"Gemini 3 Flash (Preview)", i:0.5, o:3, cw:0.05, ctx:"1M", tag:"SWE-V 75.8%，性价比标杆"},
+  {m:"Gemini 3 Pro Image (Nano Banana Pro)", i:2, o:"文本 12 / 图像 ~0.13–0.24 张", ctx:"—", tag:"图像输入 $0.0011"},
+  {m:"Gemini 2.5 Pro", i:1.25, o:10, cw:0.125, ctx:"200K", tag:"旧旗舰"},
+  {m:"Gemini 2.5 Flash / Flash-Lite", i:"0.30 / 0.10", o:"2.50 / 0.40", cw:"0.03 / 0.01", ctx:"1M", tag:""},
+]},
+{ id:"xai", name:"xAI (Grok)", region:"国际", url:"docs.x.ai/docs/models", cur:"$",
+  note:"⚠️ 单请求 ≥200K prompt 后整个请求所有 token 按高价档计费",
+  models:[
+  {m:"grok-4.6", i:2, o:6, cr:0.5, ctx:"500K", tag:"≥200K: $4/$12；AA 指数第三"},
+  {m:"grok-4.5", i:2, o:6, cr:0.3, ctx:"500K", tag:"旗舰价格战搅局者"},
+  {m:"grok-4.3 / 4.20 系列", i:1.25, o:2.5, cr:0.2, ctx:"1M", tag:"含 multi-agent 变体"},
+  {m:"grok-build-0.1", i:1, o:2, cr:0.2, ctx:"256K", tag:"Agent 订阅端点"},
+]},
+{ id:"mistral", name:"Mistral", region:"国际", url:"mistral.ai/pricing/api", cur:"$",
+  note:"缓存约 9 折；Batch 半价；区域推理 +10%",
+  models:[
+  {m:"Mistral Large 3", i:0.5, o:1.5, ctx:"—", tag:"较 Large 2 大幅降价"},
+  {m:"Mistral Medium 3.5", i:1.5, o:7.5, ctx:"—", tag:""},
+  {m:"Mistral Small 4", i:0.15, o:0.6, ctx:"—", tag:""},
+  {m:"Ministral 3 (3B/8B/14B)", i:"0.10 / 0.15 / 0.20", o:"同输入价", ctx:"—", tag:"小模型"},
+  {m:"Codestral", i:0.3, o:0.9, ctx:"—", tag:"代码模型"},
+  {m:"GLM 5.2（托管）", i:1.4, o:4.4, cr:0.14, ctx:"1M", tag:"第三方托管"},
+]},
+{ id:"copilot", name:"GitHub Copilot", region:"国际 · 订阅制", url:"docs.github.com/copilot/reference/copilot-billing/models-and-pricing", cur:"$",
+  note:"非按 token 直付：1 AI Credit = $0.01，按模型实际 token 消耗折算扣减；代码补全不耗 credits",
+  models:[
+  {m:"Free / Pro / Pro+ / Max", i:"$0 / $10 / $39 / $100 月费", o:"1,000–10,000 credits/月", ctx:"—", tag:"2026-06 起用量计费制"},
+  {m:"内含 OpenAI 模型", i:"与官方 API 价一致", o:"如 GPT-5.6 Terra $2/$12、GPT-5.3-Codex $1.75/$14", ctx:"—", tag:""},
+  {m:"内含 Anthropic / Google / Kimi", i:"与官方 API 价一致", o:"如 Sonnet 5 $2/$10、Gemini 3.1 Pro $2/$12、Kimi K2.7 Code $0.95/$4", ctx:"—", tag:"Opus/Fable 5 仅 Pro+"},
+]},
+{ id:"openrouter", name:"OpenRouter", region:"聚合", url:"openrouter.ai/models", cur:"$",
+  note:"单价与官方 pass-through 直通无加价；收充值手续费 5.5%（最低 $0.80，消费 $200 后 5%）",
+  models:[
+  {m:":nitro / :floor / :exacto 变体", i:"与官方同价", o:"只改变供应商路由（最快/最便宜/精度优先）", ctx:"—", tag:"70+ 供应商，同模型价差可达数倍"},
+]},
+{ id:"opencode", name:"OpenCode", region:"聚合", url:"opencode.ai/zen", cur:"$",
+  note:"Zen 充值按量零加价（卡费 ~4.4%+$0.30 转嫁）；Go 订阅 $10/月",
+  models:[
+  {m:"Zen（按量）", i:"充值制，最低 $20", o:"透明计价，可设月度上限", ctx:"—", tag:"旗舰模型重度并行更划算"},
+  {m:"Go（订阅）", i:"首月 $5，后 $10/月", o:"热门开源编码模型额度（含 7 款中国模型）", ctx:"—", tag:""},
+]},
+{ id:"deepseek", name:"DeepSeek（国内站）", region:"国内", url:"api-docs.deepseek.com/zh-cn/quick_start/pricing", cur:"¥",
+  note:"⚠️ 2026-08-17 起峰谷定价：高峰(9–12/14–18点) v4-pro 输出 ¥27；空闲为高峰一半",
+  models:[
+  {m:"deepseek-v4-flash", i:"0.02 命中 / 1 未命中", o:2, ctx:"1M（输出最大 384K）", tag:"并发 2500；最便宜 Opus 级之一"},
+  {m:"deepseek-v4-pro", i:"0.025 命中 / 3 未命中", o:6, ctx:"1M", tag:"并发 500"},
+]},
+{ id:"deepseek-global", name:"DeepSeek（国际站）", region:"国际", url:"api-docs.deepseek.com/quick_start/pricing", cur:"$",
+  note:"8-16 后同样切换峰谷价；与国内站额度/余额互相独立",
+  models:[
+  {m:"deepseek-v4-flash", i:"0.0028 命中 / 0.14 未命中", o:0.28, ctx:"1M（输出最大 384K）", tag:"国际站约国内价 7 折"},
+  {m:"deepseek-v4-pro", i:"0.0036 命中 / 0.435 未命中", o:0.87, ctx:"1M", tag:""},
+]},
+{ id:"zai", name:"智谱 AI（国内站）", region:"国内", url:"open.bigmodel.cn/pricing", cur:"¥",
+  note:"官方定价页 JS 渲染，以下人民币价为二手来源交叉印证，以官网为准；GLM Coding Plan：Lite ¥118 → Max ¥1,078/月",
+  models:[
+  {m:"GLM-5.2", i:"约 8", o:"约 28", cr:"约 2", ctx:"1M / 输出128K", tag:"旗舰；SWE-bench Pro 62.1% 开源第一"},
+  {m:"GLM-5", i:"约 4", o:"约 18", cr:"约 0.7", ctx:"200K", tag:"SWE-V 72.8%（$0.53/实例）"},
+  {m:"GLM-4.7-Flash", i:"免费", o:"免费", ctx:"200K", tag:"官方确认免费"},
+]},
+{ id:"zai-global", name:"Z.AI（国际站）", region:"国际", url:"docs.z.ai/guides/overview/pricing", cur:"$",
+  note:"官方文档抓取；缓存存储限时免费；Web Search 工具 $0.01/次；与国内站不同账号不同价",
+  models:[
+  {m:"GLM-5.2", i:1.4, o:4.4, cr:0.26, ctx:"1M / 输出128K", tag:"旗舰"},
+  {m:"GLM-5.1", i:1.4, o:4.4, cr:0.26, ctx:"—", tag:""},
+  {m:"GLM-5", i:1.0, o:3.2, cr:0.2, ctx:"200K", tag:""},
+  {m:"GLM-5-Turbo", i:1.2, o:4.0, cr:0.24, ctx:"200K", tag:""},
+  {m:"GLM-4.7", i:0.6, o:2.2, cr:0.11, ctx:"200K", tag:""},
+  {m:"GLM-4.7-FlashX", i:0.07, o:0.4, cr:0.01, ctx:"—", tag:""},
+  {m:"GLM-4.7-Flash", i:"免费", o:"免费", ctx:"200K", tag:"官方确认免费"},
+  {m:"GLM-5V-Turbo（视觉）", i:1.2, o:4.0, cr:0.24, ctx:"—", tag:""},
+  {m:"GLM-OCR", i:0.03, o:0.03, ctx:"图≤10MB / PDF≤50MB", tag:"按张处理"},
+]},
+{ id:"minimax", name:"MiniMax（国内站）", region:"国内", url:"platform.minimaxi.com/docs/guides/pricing-paygo", cur:"¥",
+  note:"M3 当前五折；priority 层 ×1.5；Token Plan：Plus ¥49 / Max ¥119 / Ultra ¥469 每月",
+  models:[
+  {m:"MiniMax-M3（≤512K 输入）", i:2.1, o:8.4, cr:0.42, ctx:"512K 分档", tag:">512K 档翻倍；SWE-bench Pro 59.0%"},
+  {m:"MiniMax-M2.7", i:2.1, o:8.4, cr:0.42, cw:2.625, ctx:"—", tag:""},
+  {m:"MiniMax-M2.7-highspeed", i:4.2, o:16.8, cr:0.42, cw:2.625, ctx:"—", tag:""},
+  {m:"MiniMax-M2.5 / M2.1 / M2", i:"2.1 / 4.2", o:"8.4 / 16.8", cr:0.21, cw:2.625, ctx:"—", tag:"M2.5 SWE-V 75.8%，每实例仅 $0.07"},
+]},
+{ id:"minimax-global", name:"MiniMax（国际站）", region:"国际", url:"api.minimax.io", cur:"$",
+  note:"国际站 LLM 定价来自搜索快照（二手来源）；语音为订阅制 $5–$999/月",
+  models:[
+  {m:"MiniMax-M2.5", i:0.3, o:1.2, cr:0.03, ctx:"—", tag:"约国内站 5 折"},
+  {m:"MiniMax-M2.5-Highspeed", i:0.6, o:2.4, ctx:"—", tag:""},
+  {m:"MiniMax-M2", i:0.3, o:1.2, cr:0.06, ctx:"—", tag:""},
+]},
+{ id:"kimi", name:"Kimi 开放平台（国内站）", region:"国内", url:"platform.kimi.com/docs/pricing/chat-k3", cur:"¥",
+  note:"⚠️ platform.moonshot.cn 已 301 → platform.kimi.com；Moonshot V1 系列 8 月底全平台下线。Coding Plan：免费 → ¥699/月 五档",
+  models:[
+  {m:"Kimi K3（旗舰，~2.8T 参数）", i:"2 命中 / 20 未命中", o:100, ctx:"1M", tag:"AA 指数第四 59.7"},
+  {m:"kimi-k2.7-code", i:"1.3 命中 / 6.5 未命中", o:27, ctx:"256K", tag:"编程模型；Copilot 内 $0.95/$4"},
+  {m:"kimi-k2.7-code-highspeed", i:"2.6 命中 / 13 未命中", o:54, ctx:"256K", tag:""},
+  {m:"Kimi K2.6（视觉）", i:"1.1 命中 / 6.5 未命中", o:27, ctx:"2M", tag:"长上下文开源第一梯队"},
+]},
+{ id:"volcengine", name:"火山引擎豆包", region:"国内", url:"docs.volcengine.com/docs/82379/1544106", cur:"¥",
+  note:"Coding Plan：Lite ¥40/月（每5h ~1200次）、Pro ¥200/月，兼容 Anthropic 协议；新用户赠 50 万 token",
+  models:[
+  {m:"Doubao-Seed-2.0 Pro", i:3.2, o:16, cr:"约输入 1/10", ctx:"32K 档", tag:"对标 Gemini 3 Pro"},
+  {m:"豆包 2.1 Pro", i:6, o:30, cr:1.2, ctx:"—", tag:"更高阶梯另计"},
+  {m:"Doubao-Seed-1.6", i:"1.2（0–32K）", o:"8（0–32K）", cr:"命中 ~1.2 + 存储 0.017/hr", ctx:"256K", tag:"128–256K 档约 2.4/24"},
+  {m:"Doubao-Seed-Code", i:"1.2 / 1.4", o:"8 / 12", cr:"0.12–0.14", ctx:"256K", tag:"编程模型"},
+]},
+{ id:"qwen", name:"阿里云百炼 (Qwen)", region:"国内", url:"help.aliyun.com/zh/model-studio/model-pricing", cur:"¥",
+  note:"Batch 半价；新模型多含 100 万 token 免费额度；同时托管 DeepSeek/GLM/Kimi/MiniMax/MiMo；Coding Plan 打包多模型",
+  models:[
+  {m:"qwen3.8-max", i:12, o:36, cr:"命中 ~1.2", ctx:"1M", tag:"当前旗舰"},
+  {m:"qwen3-max", i:"2.5 / 4 / 7", o:"10 / 16 / 28", cr:0.5, ctx:"256K", tag:"按输入长度三档"},
+  {m:"qwen3.7-plus", i:"2 / 6", o:"8 / 24", ctx:"1M", tag:"限时 8 折"},
+  {m:"qwen3.7-flash", i:"0.2 / 0.6 / 1.2", o:"0.8 / 2.4 / 4.8", ctx:"1M", tag:""},
+  {m:"qwen3-coder-plus", i:"4 / 6 / 10 / 20", o:"16 / 24 / 40 / 200", cr:"隐式缓存折扣", ctx:"1M", tag:"编程旗舰，四档至 1M"},
+  {m:"qwen3-coder-flash", i:"1 / 1.5 / 2.5 / 5", o:"4 / 6 / 10 / 25", cr:"隐式缓存折扣", ctx:"1M", tag:""},
+  {m:"qwen3-coder-next", i:"1 / 1.5 / 2.5", o:"4 / 6 / 10", ctx:"256K", tag:""},
+]},
+{ id:"qianfan", name:"百度千帆 (ERNIE)", region:"国内", url:"cloud.baidu.com/doc/qianfan/s/wmh4sv6ya", cur:"¥",
+  note:"Token Plan 首购 5 折：Mini ¥4.9/月（1000万 token）→ Max ¥299.9/月（7亿）；已支持 ERNIE-5.1、GLM-5.2",
+  models:[
+  {m:"ERNIE 5.1", i:"4（≤32K）/ 6", o:"18 / 22", cr:0.2, ctx:"128K", tag:"旗舰"},
+  {m:"ERNIE 5.0 系列", i:"6 / 10", o:"24 / 40", ctx:"128K", tag:"Thinking/Latest/Exp"},
+  {m:"ERNIE 4.5 Turbo", i:"0.8（Batch 0.32）", o:"3.2（Batch 1.28）", cr:0.2, ctx:"32K/128K", tag:"搜索增强 ¥0.004/次"},
+  {m:"ERNIE 4.5 Turbo VL", i:3, o:9, cr:0.75, ctx:"32K", tag:"视觉"},
+  {m:"ERNIE X1.1", i:1, o:4, ctx:"—", tag:"深度思考"},
+]},
+{ id:"tencent", name:"腾讯云混元", region:"国内", url:"cloud.tencent.com/document/product/1729/97731", cur:"¥",
+  note:"TokenHub 聚合 18 款模型一个 Key，兼容 OpenAI+Anthropic 协议（Claude Code 直连）；Token Plan 个人版 ¥28/月起（3500万 token）",
+  models:[
+  {m:"Hunyuan Hy3（旗舰）", i:1, o:4, cr:0.25, ctx:"256K", tag:"MoE 295B/A21B，已开源"},
+  {m:"hunyuan-t1", i:1, o:4, ctx:"256K", tag:""},
+  {m:"Hunyuan-a13b（开源）", i:0.5, o:2, ctx:"—", tag:""},
+  {m:"Hunyuan-turbos-vision", i:3, o:9, ctx:"—", tag:"视觉"},
+  {m:"混元 Lite", i:"免费", o:"免费", ctx:"—", tag:"永久免费"},
+]},
+{ id:"stepfun", name:"阶跃星辰 StepFun", region:"国内", url:"platform.stepfun.com/docs/zh/guides/pricing/details", cur:"¥",
+  note:"Step Plan 四档起步 ¥49/月（社区限时半价 ¥25）",
+  models:[
+  {m:"step-3.7-flash", i:"1.35 / 0.27 命中", o:8.1, ctx:"—", tag:"最新旗舰 Agent/Coding 多模态"},
+  {m:"step-3.5-flash（含 -2603）", i:"0.7 / 0.14 命中", o:2.1, ctx:"—", tag:"196B MoE 开源"},
+]},
+{ id:"xiaomi", name:"小米 MiMo（国内站 mimo.mi.com）", region:"国内", url:"mimo.mi.com/docs/zh-CN/price/pay-as-you-go", cur:"¥",
+  note:"2026-05-27 起永久降价不分档；缓存写入限时免费；Token Plan 走 tp- 前缀 Key + 专属 base_url（¥39/¥99 月）",
+  models:[
+  {m:"mimo-v2.5-pro", i:"0.025 命中 / 3 未命中", o:6, ctx:"—", tag:""},
+  {m:"mimo-v2.5", i:"0.02 命中 / 1 未命中", o:2, ctx:"1M", tag:"V2 已于 2026-06-30 下线"},
+]},
+{ id:"xiaomi-global", name:"小米 MiMo（海外站 platform.xiaomimimo.com）", region:"国际", url:"platform.xiaomimimo.com", cur:"$",
+  note:"海外站独立 Key/余额，cn/sgp/ams 集群 base_url 不同；Token Plan 与按量额度不互通",
+  models:[
+  {m:"mimo-v2.5-pro", i:"0.0036 命中 / 0.435 未命中", o:0.87, ctx:"—", tag:""},
+  {m:"mimo-v2.5", i:"0.0028 命中 / 0.14 未命中", o:0.28, ctx:"1M", tag:""},
+]},
+{ id:"siliconflow", name:"硅基流动 SiliconFlow", region:"国内 · 聚合", url:"siliconflow.cn/pricing", cur:"¥",
+  note:"无订阅；Batch 75 折 + 大量免费小模型；多家开源模型的代理托管方",
+  models:[
+  {m:"DeepSeek-V4-Pro / Flash", i:"12 / 1", o:"24 / 2", cr:"1 / 0.02", ctx:"1M", tag:"V3.2 ¥4/¥6"},
+  {m:"Qwen3.5-397B-A17B", i:"1.2(<128K) / 3", o:"7.2 / 18", ctx:"—", tag:""},
+  {m:"GLM-5.2", i:8, o:28, cr:2, ctx:"—", tag:""},
+  {m:"Kimi-K2.7-Code", i:6.5, o:27, cr:1.3, ctx:"—", tag:""},
+  {m:"MiniMax-M2.5", i:2.1, o:8.4, cr:0.21, ctx:"—", tag:""},
+  {m:"Step-3.5-Flash", i:0.7, o:2.1, ctx:"—", tag:""},
+  {m:"Hunyuan-A13B", i:"0.8（日间 1.0）", o:"3.2（日间 4.0）", ctx:"—", tag:"夜间折扣"},
+  {m:"GLM-Z1-9B / bge-m3 等", i:"免费", o:"免费", ctx:"—", tag:"免费模型"},
+]},
+];
+
+const PLANS = [
+["百度千帆 Token Plan","¥4.9/月（Mini·1000万 token，首购5折）","¥99.9/月（Pro·2.3亿）","¥299.9/月（Max·7亿）","支持 ERNIE-5.1、GLM-5.2"],
+["腾讯 TokenHub","¥28/月（3500万 token）","¥100/月（企业版·5000万）","¥130/月（新加坡）","一个 Key 聚合 18 款模型，Anthropic 协议直连"],
+["火山方舟 Coding Plan","¥40/月（Lite·每5h~1200次）","¥200/月（Pro）","—","兼容 Claude Code/Cline；额度(AFP)跨工具共享"],
+["Kimi Coding Plan","¥0（Adagio·仅K2.6）","¥49–199/月（Andante→Allegretto）","¥699/月（Allegro·K3 解锁1M）","5小时配额制，7天刷新不累积"],
+["MiniMax Token Plan","¥49/月（Plus·6亿+ token）","¥119/月（Max·18亿+）","¥469/月（Ultra·71亿+）","含 M3/M2.7/H3/语音"],
+["智谱 GLM Coding Plan","¥118/月（Lite·1万Credits/周）","¥538/月（Pro·6×）","¥1,078/月（Max·14×）","含 GLM-5.3/5.2/5-Turbo；价格二手来源"],
+["小米 MiMo Token Plan","¥39/月（Lite·~6000万）","¥99/月（Standard·~2亿）","—","tp- Key + 专属 base_url，额度与按量不互通"],
+["阶跃 Step Plan","¥49/月起（限时半价 ¥25）","—","—","面向 OpenClaw 与 AI Coding"],
+["GitHub Copilot","$10/月（Pro·1000 credits）","$39/月（Pro+·3900）","$100/月（Max·10000）","1 credit=$0.01 按量折算；补全不计量"],
+["OpenCode Go","$10/月（首月 $5）","—","—","7 款中国开源编码模型"],
+];
+
+const CAPS = [
+{model:"Claude Fable 5", ctx:"~250K+", modal:"视觉+工具", swe:"93.9–95%（口径不一）", other:"Arena 总榜 #1（~1525 Elo）；AA 62.1", price:"$10/$50"},
+{model:"Claude Opus 5", ctx:"250K（编码1M）", modal:"视觉+工具", swe:"97.0%（vals.ai 自报，存疑）", other:"AA 指数 #1（63.0）", price:"$5/$25"},
+{model:"Claude Opus 4.7", ctx:"200K", modal:"视觉+工具", swe:"87.6%", other:"GPQA Diamond 94.2%", price:"$5/$25"},
+{model:"GPT-5.3-Codex", ctx:"128K–400K", modal:"视觉+音频+工具", swe:"—", other:"Terminal-Bench 2.0: 77.3% 🏆；SWE-bench Pro 56.8%", price:"$1.75/$14"},
+{model:"GPT-5.2 Codex", ctx:"128K–400K", modal:"视觉+音频+工具", swe:"官方 72.8% / 三方 ~80%", other:"Terminal-Bench 2.0: 66.5%", price:"$1.75/$14"},
+{model:"GPT-5.5 / 5.6", ctx:"128K+", modal:"视觉+音频+工具", swe:"LM Council 80.6%±1.8", other:"AA: 5.6 Sol 58.9", price:"$5/$30"},
+{model:"Gemini 3.1 Pro", ctx:"2M", modal:"视觉+音频+工具", swe:"80.6%（第三方）", other:"LiveCodeBench Pro Elo 2439", price:"$2/$12"},
+{model:"Gemini 3 Flash", ctx:"1M", modal:"视觉+音频+工具", swe:"75.80%（$0.36/实例）", other:"LiveCodeBench 96.2%", price:"$0.50/$3"},
+{model:"Grok 4.5 / 4.6", ctx:"500K", modal:"视觉+工具", swe:"非编程榜首", other:"AA: 4.6 = 60.9（#3）", price:"$2/$6"},
+{model:"DeepSeek V4-Pro", ctx:"1M", modal:"文本+工具", swe:"与 Opus 4.7 互有胜负", other:"最便宜的 Opus 级精度", price:"¥3/¥6"},
+{model:"GLM-5 / 5.2", ctx:"200K–1M", modal:"文本+工具(部分视觉)", swe:"GLM-5: 72.80%（$0.53/实例）", other:"SWE-bench Pro: GLM-5.2 62.1% 开源第一", price:"$1/$3.2 起"},
+{model:"Kimi K3 / K2.6", ctx:"K2.6: 2M", modal:"K2.6 含视觉", swe:"SWE-rebench: K2 Thinking 43.8% 开源第一", other:"AA: K3 = 59.7（#4）", price:"¥20/¥100"},
+{model:"MiniMax M2.5 / M3", ctx:"~200K", modal:"文本+工具", swe:"M2.5: 75.80%（$0.07/实例 💰成本最低）", other:"SWE-bench Pro: M3 59.0%；Terminal-Bench 42.2%", price:"¥2.1/¥8.4"},
+{model:"Qwen3-Coder 系列", ctx:"1M", modal:"文本+工具", swe:"SWE-rebench 25–31%", other:"—", price:"¥4/¥16 起"},
+{model:"Doubao Seed 2.0 Pro", ctx:"256K 档", modal:"文本+工具", swe:"76.5%（Evolink 口径）", other:"多语言 Multi-SWE-bench 基准", price:"¥3.2/¥16"},
+{model:"MiMo-V2.5", ctx:"1M", modal:"文本+工具", swe:"未上榜", other:"AA 指数 ~34", price:"¥1/¥2"},
+];
+
+// ── 渲染 ──────────────────────────────────────────────
+const TABS=[["all","全部"],["国际","国际"],["国内","国内"],["聚合","聚合/托管"]];
+let curTab="all", sortMode="default";
+
+function fmt(v,cur){ if(v==null) return "—"; if(typeof v==="number") return cur+v; return v; }
+function minPrice(p){ return typeof p.i==="number"?p.i:parseFloat(String(p.i).replace(/[^0-9.].*$/,""))||0; }
+function maxPrice(p){ const m=String(p.i).match(/([\d.]+)\s*$/); return m?parseFloat(m[1]):minPrice(p); }
+
+function renderSummary(){
+  const n=PROVIDERS.length, models=PROVIDERS.reduce((a,p)=>a+p.models.length,0);
+  const cards=[
+    ["覆盖平台",n+" 家站点","国内站/国际站各自独立计价"],
+    ["收录模型/条目",models+" 条","含订阅档与免费模型"],
+    ["编程榜首","GPT-5.3-Codex","Terminal-Bench 2.0: 77.3%"],
+    ["性价比之王","MiniMax M2.5","SWE 任务 $0.07/实例"],
+    ["综合智能第一","Claude Opus 5","AA 指数 63.0"],
+  ];
+  document.getElementById("summary").innerHTML=cards.map(c=>
+    `<div class="s-card"><div class="t">${c[0]}</div><div class="v">${c[1]}</div><div class="d">${c[2]}</div></div>`).join("");
+}
+
+function renderTabs(){
+  document.getElementById("tabs").innerHTML=TABS.map(([k,l])=>
+    `<button class="${curTab===k?"active":""}" onclick="curTab='${k}';renderTabs();render()">${l}</button>`).join("");
+}
+
+function render(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  const box=document.getElementById("providers");
+  let html="", shown=0;
+  for(const p of PROVIDERS){
+    if(curTab!=="all" && !p.region.includes(curTab==="聚合"?"聚合":curTab)) continue;
+    let models=p.models.filter(m=>!q||m.m.toLowerCase().includes(q)||m.tag.toLowerCase().includes(q)||p.name.toLowerCase().includes(q));
+    if(q&&!models.length&&!p.name.toLowerCase().includes(q)) continue;
+    if(q&&models.length===0) models=p.models; // 平台名命中时展示全部
+    shown+=models.length;
+    if(sortMode!=="default"){
+      models=[...models].sort((a,b)=>{
+        if(sortMode==="priceInAsc")return minPrice(a)-minPrice(b);
+        if(sortMode==="priceInDesc")return maxPrice(b)-maxPrice(a);
+        const ov=m=>typeof m.o==="number"?m.o:parseFloat(String(m.o).replace(/[^0-9.]/g,""))||0;
+        if(sortMode==="priceOutAsc")return ov(a)-ov(b);
+        return ov(b)-ov(a);
+      });
+    }
+    html+=`<div class="card">
+      <div class="card-head"><h2>${p.name}</h2><span class="meta">${p.cur} / 每百万 token</span>
+        <span class="region">${p.region}</span><a href="https://${p.url}" target="_blank" rel="noopener">官方定价 ↗</a></div>
+      <table><thead><tr><th>模型</th><th class="num">输入</th><th class="num">输出</th><th class="num">缓存读</th><th class="num">缓存写</th><th>上下文</th><th>备注</th></tr></thead><tbody>
+      ${models.map(m=>{
+        const free=String(m.i).includes("免费");
+        const cheap=!free&&minPrice(m)>0&&minPrice(m)<=1&&p.cur==="$"||(!free&&minPrice(m)>0&&minPrice(m)<=2&&p.cur==="¥");
+        return `<tr><td><b>${m.m}</b></td>
+          <td class="num ${free?"free":cheap?"cheap":""}">${fmt(m.i,p.cur)}</td>
+          <td class="num ${free?"free":""}">${fmt(m.o,p.cur)}</td>
+          <td class="num">${fmt(m.cr,p.cur)}</td>
+          <td class="num">${m.cw==null?"—":(typeof m.cw==="number"?p.cur+m.cw:m.cw)}</td>
+          <td>${m.ctx||"—"}</td><td class="note">${m.tag||""}</td></tr>`;
+      }).join("")}
+      </tbody></table>
+      <div class="plan-chips"><span class="note" style="margin-right:4px">📌</span><span class="chip">${p.note}</span></div>
+    </div>`;
+  }
+  box.innerHTML=html||`<div class="empty">没有匹配的模型，换个关键词试试</div>`;
+  return shown;
+}
+
+function renderPlans(){
+  document.getElementById("planBody").innerHTML=PLANS.map(r=>
+    `<tr><td><b>${r[0]}</b></td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td><td class="note">${r[4]}</td></tr>`).join("");
+}
+
+let capSort=null,capAsc=true;
+function renderCaps(){
+  let rows=[...CAPS];
+  if(capSort){ rows.sort((a,b)=>String(a[capSort]?? "").localeCompare(String(b[capSort]?? ""),"zh-Hans-CN")); if(!capAsc)rows.reverse(); }
+  document.getElementById("capBody").innerHTML=rows.map(r=>
+    `<tr><td><b>${r.model}</b></td><td>${r.ctx}</td><td>${r.modal}</td><td>${r.swe}</td><td class="note">${r.other}</td><td class="num">${r.price}</td></tr>`).join("");
+}
+
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("sort").addEventListener("change",e=>{sortMode=e.target.value;render();});
+document.querySelectorAll("#capTable th").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.k;
+  if(capSort===k)capAsc=!capAsc;else{capSort=k;capAsc=true;}
+  document.querySelectorAll("#capTable th").forEach(t=>t.innerHTML=t.textContent.replace(/ [▲▼]$/,"")+(t.dataset.k===capSort?(capAsc?" ▲":" ▼"):""));
+  renderCaps();
+}));
+
+function toggleTheme(){
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"":"dark");
+  document.querySelector("button.theme").textContent=dark?"🌙 深色":"☀️ 浅色";
+}
+
+renderSummary();renderTabs();render();renderPlans();renderCaps();
+</script>
+</body>
+</html>

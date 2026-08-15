@@ -113,7 +113,7 @@ export function checkAlerts(
       }
 
       // Danger: resets within 1h and still has remaining quota unused
-      if (msToReset != null && msToReset <= RESET_SOON_MS && remaining > 0) {
+      if (msToReset != null && msToReset > 0 && msToReset <= RESET_SOON_MS && remaining > 0) {
         const resetText = formatTimeUntilReset(w.resetAt);
         alerts.push({
           providerId,

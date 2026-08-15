@@ -55,7 +55,6 @@ export default function UsagePage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
-  const [lastRefresh, setLastRefresh] = useState<number>(0);
   // Goal ①: subscription vs prepaid split. Defaults to subscription (the
   // historically-supported set); the tab surfaces the new balance providers.
   const [usageMode, setUsageMode] = useState<'subscription' | 'prepaid'>('subscription');
@@ -86,7 +85,6 @@ export default function UsagePage() {
     for (const id of supportedIds) {
       fetchOne(id); // fire all in parallel (don't await)
     }
-    setLastRefresh(Date.now());
   }, [supportedIds, fetchOne]);
 
   // Silent polling: auto-refresh every 5 min (or 1 min if a reset is imminent).
@@ -116,6 +114,7 @@ export default function UsagePage() {
   const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
   // Track dismissed alerts so the banner doesn't reappear after user closes it.
   const [dismissedAlertKeys, setDismissedAlertKeys] = useState<Set<string>>(new Set());
+  const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const visibleAlerts = alerts.filter(a => !dismissedAlertKeys.has(a.notifyKey));
 
   // Fire browser notifications when new danger alerts appear.
@@ -166,36 +165,62 @@ export default function UsagePage() {
   const prepaidCards = allCards.filter(c => c.kind === 'prepaid');
   const visibleCards = usageMode === 'subscription' ? subscriptionCards : prepaidCards;
 
-  const queriedCount = Object.keys(usageMap).length;
-  const okCount = allCards.filter(c => (c.usage?.windows?.length || 0) > 0).length;
-  const errCount = allCards.filter(c => c.usage?.error).length;
-
   return (
     <div className="access-workspace usage-workspace">
-      <header className="access-hero">
-        <div className="usage-hero-bar">
-          <div className="usage-hero-stats">
-            <div className="stat-chip">
-              <span className="stat-chip-value">{supportedIds.length}</span>
-              <span className="stat-chip-label">{t('usage.supported')}</span>
+      <div className="usage-tabs usage-tabs-with-actions">
+        <div className="usage-tab-list">
+          <button
+            type="button"
+            className={`usage-tab${usageMode === 'subscription' ? ' active' : ''}`}
+            onClick={() => setUsageMode('subscription')}
+          >
+            {t('usage.tabSubscription')} ({subscriptionCards.length})
+          </button>
+          <button
+            type="button"
+            className={`usage-tab${usageMode === 'prepaid' ? ' active' : ''}`}
+            onClick={() => setUsageMode('prepaid')}
+          >
+            {t('usage.tabPrepaid')} ({prepaidCards.length})
+          </button>
+        </div>
+        <div className="usage-tabs-actions">
+          {visibleAlerts.length > 0 && (
+            <div className="usage-summary-alert-center">
+              <button
+                type="button"
+                className={`usage-summary-alert-toggle${alertCenterOpen ? ' is-open' : ''}`}
+                onClick={() => setAlertCenterOpen(open => !open)}
+                aria-expanded={alertCenterOpen}
+                aria-controls="usage-page-alert-list"
+              >
+                <span className="usage-summary-alert-toggle-dot" aria-hidden="true" />
+                <span>{visibleAlerts.length} {t('home.usageAttention')}</span>
+                <span className="usage-summary-alert-toggle-chevron" aria-hidden="true">⌄</span>
+              </button>
+              {alertCenterOpen && (
+                <div id="usage-page-alert-list" className="usage-summary-alert-popover" role="region" aria-label={t('home.usageAttention')}>
+                  <div className="usage-summary-alert-popover-title">{t('home.usageAttention')}</div>
+                  {visibleAlerts.map(alert => (
+                    <div key={alert.notifyKey} className={`usage-summary-alert-item usage-summary-alert-item--${alert.severity}`}>
+                      <span className="usage-summary-alert-item-dot" aria-hidden="true" />
+                      <div className="usage-summary-alert-item-content">
+                        <strong>{alert.providerName}</strong>
+                        <span title={alert.message}>{compactAlertMessage(alert.message, alert.providerName)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="usage-summary-alert-item-close"
+                        onClick={() => setDismissedAlertKeys(prev => new Set(prev).add(alert.notifyKey))}
+                        aria-label={t('usage.dismissAlert')}
+                        title={t('usage.dismissAlert')}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className={`stat-chip${okCount > 0 ? ' stat-chip--success' : ''}`}>
-              <span className="stat-chip-value">{okCount}</span>
-              <span className="stat-chip-label">{t('usage.normal')}</span>
-            </div>
-            {errCount > 0 && (
-              <div className="stat-chip stat-chip--warn">
-                <span className="stat-chip-value">{errCount}</span>
-                <span className="stat-chip-label">{t('usage.errors')}</span>
-              </div>
-            )}
-            {lastRefresh > 0 && (
-              <div className="stat-chip stat-chip--muted">
-                <span className="stat-chip-value">{formatTimeAgo(lastRefresh)}</span>
-                <span className="stat-chip-label">{t('usage.lastRefresh')}</span>
-              </div>
-            )}
-          </div>
+          )}
           <button className="usage-refresh-btn" onClick={handleManualRefresh} disabled={fetchingIds.size > 0}>
             {fetchingIds.size > 0 ? (
               <><span className="provider-status-spinner" aria-hidden="true" /> {t('usage.refreshing')}</>
@@ -210,39 +235,6 @@ export default function UsagePage() {
             )}
           </button>
         </div>
-      </header>
-
-      {visibleAlerts.length > 0 && (
-        <div className="usage-alerts">
-          {visibleAlerts.slice(0, 5).map(a => (
-            <div key={a.notifyKey} className={`usage-alert usage-alert--${a.severity}`}>
-              <span className="usage-alert-icon">{a.severity === 'danger' ? '🔴' : '🟡'}</span>
-              <span className="usage-alert-text">{a.message}</span>
-              <button
-                className="usage-alert-close"
-                onClick={() => setDismissedAlertKeys(prev => new Set(prev).add(a.notifyKey))}
-                title={t('usage.dismissAlert')}
-              >✕</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="usage-tabs">
-        <button
-          type="button"
-          className={`usage-tab${usageMode === 'subscription' ? ' active' : ''}`}
-          onClick={() => setUsageMode('subscription')}
-        >
-          {t('usage.tabSubscription')} ({subscriptionCards.length})
-        </button>
-        <button
-          type="button"
-          className={`usage-tab${usageMode === 'prepaid' ? ' active' : ''}`}
-          onClick={() => setUsageMode('prepaid')}
-        >
-          {t('usage.tabPrepaid')} ({prepaidCards.length})
-        </button>
       </div>
 
       <div className="usage-grid">
@@ -449,11 +441,13 @@ function windowLabel(label: string): string {
   return map[label] || label;
 }
 
-function formatTimeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60000) return `${Math.floor(diff / 1000)}s`;
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-  return `${Math.floor(diff / 3600000)}h`;
+function compactAlertMessage(message: string, providerName: string): string {
+  const prefix = `${providerName} `;
+  const compact = message.startsWith(prefix) ? message.slice(prefix.length) : message;
+  return compact
+    .replace('将在 ', '')
+    .replace('后重置，还有 ', '后重置 · ')
+    .replace(' 未使用', ' 未用');
 }
 
 function formatResetTime(iso: string): string {

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import { useApp } from './components/Layout/AppContext';
@@ -40,6 +40,54 @@ function DeepLinkHandler() {
   );
 }
 
+/**
+ * Keep the two daily-driver pages mounted after their first visit. Switching
+ * between routes then changes visibility instead of throwing away their
+ * fetched data, scroll position, and local UI state.
+ */
+function PersistentDashboardRoutes() {
+  const location = useLocation();
+  const pathname = location.pathname;
+  const [visited, setVisited] = useState(() => new Set([pathname]));
+
+  useEffect(() => {
+    setVisited(prev => prev.has(pathname) ? prev : new Set(prev).add(pathname));
+  }, [pathname]);
+
+  const homeActive = pathname === '/';
+  const usageActive = pathname === '/usage';
+  // Mount the active page immediately on first navigation; the effect above
+  // records it for future switches without introducing a blank frame.
+  const homeVisited = visited.has('/') || homeActive;
+  const usageVisited = visited.has('/usage') || usageActive;
+
+  return (
+    <>
+      {homeVisited && (
+        <div className="route-keepalive" hidden={!homeActive} aria-hidden={!homeActive}>
+          <HomePage />
+        </div>
+      )}
+      {usageVisited && (
+        <div className="route-keepalive" hidden={!usageActive} aria-hidden={!usageActive}>
+          <UsagePage />
+        </div>
+      )}
+      {!homeActive && !usageActive && (
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/vault" element={<VaultPage />} />
+          <Route path="/models" element={<ModelsPage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/agent" element={<AgentPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   const { sidebarCollapsed } = useApp();
 
@@ -50,19 +98,9 @@ export default function App() {
         <div id="app">
           <DeepLinkHandler />
           <Sidebar collapsed={sidebarCollapsed} />
-          <main className={`main-content${sidebarCollapsed ? ' main-content--expanded' : ''}`}>
+            <main className={`main-content${sidebarCollapsed ? ' main-content--expanded' : ''}`}>
             <div className="tab-content">
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/vault" element={<VaultPage />} />
-                <Route path="/models" element={<ModelsPage />} />
-                <Route path="/usage" element={<UsagePage />} />
-                <Route path="/agents" element={<AgentsPage />} />
-                <Route path="/agent" element={<AgentPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <PersistentDashboardRoutes />
             </div>
           </main>
         </div>

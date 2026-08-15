@@ -87,6 +87,9 @@
   margin-bottom: 12px;
   border-bottom: 1.5px solid var(--border, #d4cebe);
 }
+.usage-tabs-with-actions { align-items: stretch; justify-content: space-between; gap: 12px; }
+.usage-tab-list { display: flex; gap: 4px; min-width: 0; }
+.usage-tabs-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-bottom: 6px; }
 .usage-tab {
   padding: 8px 16px;
   background: transparent;
@@ -106,6 +109,11 @@
 }
 [data-theme="dark"] .usage-tab { color: var(--ink-muted); }
 [data-theme="dark"] .usage-tab.active { color: var(--paper); border-bottom-color: var(--paper); }
+
+@media (max-width: 640px) {
+  .usage-tabs-with-actions { align-items: flex-start; flex-wrap: wrap; }
+  .usage-tabs-actions { width: 100%; justify-content: flex-end; padding-bottom: 8px; }
+}
 
 /* Grid of provider usage cards */
 .usage-grid {
@@ -333,62 +341,6 @@
 /* ── Dark mode ── */
 [data-theme="dark"] .usage-card {
   background: rgba(255, 255, 255, 0.04);
-}
-
-/* ── Alert banners ── */
-.usage-alerts {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.usage-alert {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.3;
-  border: 1.5px solid;
-}
-.usage-alert--danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #b91c1c;
-}
-.usage-alert--warn {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.4);
-  color: #92400e;
-}
-.usage-alert-icon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.usage-alert-text {
-  flex: 1;
-  font-weight: 500;
-}
-.usage-alert-close {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  color: inherit;
-  opacity: 0.5;
-  padding: 0 2px;
-  line-height: 1;
-}
-.usage-alert-close:hover { opacity: 1; }
-[data-theme="dark"] .usage-alert--danger {
-  background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
-}
-[data-theme="dark"] .usage-alert--warn {
-  background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
 }
 
 /* ── Home section header (title + view-all link) ── */

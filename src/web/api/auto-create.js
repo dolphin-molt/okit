@@ -432,6 +432,23 @@ async function waitForInteractiveVerification({ run, platform, stage }) {
   }
 }
 
+/**
+ * Cleanup can hit the same provider-owned security gate as creation, but the
+ * scheduled checker has no modal to poll. Keep the exact deletion flow alive
+ * while the focused automation window is handed to the user, then continue
+ * automatically once the provider closes the challenge.
+ */
+async function waitForSecurityVerificationToClear({ platform, stage }) {
+  const label = platform.label || platform.id;
+  await focusAutomationWindow().catch(() => false);
+  const deadline = Date.now() + AUTO_CREATE_VERIFICATION_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (!(await detectInteractiveVerification())) return;
+    await sleep(1000);
+  }
+  throw new Error(`${label} ${stage === 'delete' ? '删除' : '操作'}安全验证等待超时，请完成官方验证后重试`);
+}
+
 function createAutoCreateRun({ platformConfig, tokenName }) {
   const run = {
     id: crypto.randomUUID(),
@@ -4334,7 +4351,7 @@ async function deleteMoonshotBrowserKey({ createdName, tabId }) {
   return { success: true, platform: 'moonshot', name: createdName };
 }
 
-async function deleteCreatedBrowserKey({ platform, createdName }) {
+async function deleteCreatedBrowserKey({ platform, createdName, run = null }) {
   if (!platform || !createdName) throw new Error('删除测试密钥需要 platform 和 createdName');
   if (platform.cleanupMode === 'never') {
     throw new Error(`${platform.label || platform.id} 的自动创建流程复用或生成订阅密钥，禁止自动删除`);
@@ -4986,8 +5003,11 @@ async function deleteCreatedBrowserKey({ platform, createdName }) {
     let securityState = {};
     try { securityState = JSON.parse(securityRaw || '{}'); } catch {}
     if (securityState.matched) {
-      await closeAutomationWindow();
-      throw new Error(`删除测试密钥需要完成控制台安全验证，未删除：${createdName}`);
+      if (run) {
+        await waitForInteractiveVerification({ run, platform, stage: 'delete-security-verification' });
+      } else {
+        await waitForSecurityVerificationToClear({ platform, stage: 'delete' });
+      }
     }
   }
 

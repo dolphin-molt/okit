@@ -169,9 +169,11 @@ async function runOne(platform, stamp) {
     return result;
   }
   if (cleanup.status !== 200 || !cleanup.payload?.success) {
-    result.status = 'cleanup_failed';
-    result.cleanup = 'failed';
+    const cleanupStatus = classifyCreateFailure(platform, cleanup.status, cleanup.payload);
+    result.status = cleanupStatus === 'waiting_for_user' ? 'waiting_for_user' : 'cleanup_failed';
+    result.cleanup = cleanupStatus === 'waiting_for_user' ? 'waiting_for_user' : 'failed';
     result.reason = `删除失败（HTTP ${cleanup.status}）：${redact(cleanup.payload?.error || 'unknown error')}`;
+    if (cleanup.payload?.runId) result.runId = String(cleanup.payload.runId).slice(0, 80);
     return result;
   }
   result.status = 'passed';
@@ -234,9 +236,9 @@ async function main() {
         console.log(`${result.status}\t${platform.id}${result.reason ? `\t${result.reason}` : ''}`);
         // Never create another provider key after a cleanup failure. This keeps
         // one unresolved credential visible and prevents an orphan-key cascade.
-        if (result.status === 'cleanup_failed') {
+        if (result.status === 'cleanup_failed' || (result.status === 'waiting_for_user' && result.cleanup === 'waiting_for_user')) {
           for (const remaining of selectedPlatforms.slice(report.results.length)) {
-            report.results.push({ id: remaining.id, label: remaining.label, status: 'not_run', reason: '前一个测试密钥删除失败，已停止批量创建' });
+            report.results.push({ id: remaining.id, label: remaining.label, status: 'not_run', reason: result.status === 'waiting_for_user' ? '前一个测试密钥等待人工安全验证，已停止批量创建' : '前一个测试密钥删除失败，已停止批量创建' });
           }
           break;
         }

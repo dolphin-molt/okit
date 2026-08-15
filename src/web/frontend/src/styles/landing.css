@@ -1548,3 +1548,71 @@
 .manual-article .ai-table tr:hover td {
   background: rgba(244, 241, 232, 0.025);
 }
+
+/* Manual — sticky sidebar TOC */
+.manual-layout {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 56px;
+}
+
+.manual-toc {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.manual-toc-title {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--lx-cream-38);
+}
+
+.manual-toc-link {
+  padding: 5px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lx-cream-60);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 7px 7px 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.manual-toc-link--sub {
+  padding-left: 24px;
+  font-size: 12.5px;
+}
+
+.manual-toc-link:hover {
+  color: var(--lx-cream);
+}
+
+.manual-toc-link.active {
+  color: var(--lx-lime);
+  border-left-color: var(--lx-lime);
+  background: rgba(198, 255, 62, 0.05);
+}
+
+.manual-article h3,
+.manual-article h4 {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 1024px) {
+  .manual-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-toc {
+    display: none;
+  }
+}

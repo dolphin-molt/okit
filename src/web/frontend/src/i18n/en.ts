@@ -18,6 +18,7 @@ export default {
   'landing.nav.compare': 'Compare',
   'landing.nav.manual': 'Manual',
   'manual.backToSite': 'Back to site',
+  'manual.toc': 'Contents',
   'landing.nav.install': 'Install',
   'landing.nav.github': 'GitHub',
   'landing.lede': 'Key and model control plane for AI agents: a local encrypted vault, 29+ built-in providers, adapters for 8 agents, usage dashboards for 15 platforms, a built-in assistant, encrypted cloud sync — plus a CLI and Skill that other agents can call directly.',

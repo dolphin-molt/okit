@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMd } from '../../lib/markdown';
 import { useI18n } from '../../i18n';
 import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
@@ -6,9 +6,47 @@ import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
 // so the website and the repo always serve the same copy.
 import manualMd from '../../../../../../docs/user-manual.md?raw';
 
+interface TocEntry {
+  id: string;
+  level: 3 | 4;
+  text: string;
+}
+
+/** Render markdown, then inject stable ids into h3/h4 for TOC anchors. */
+function renderManual(): { html: string; toc: TocEntry[] } {
+  let html = renderMd(manualMd);
+  const toc: TocEntry[] = [];
+  let i = 0;
+  html = html.replace(/<(h[34])>([^<]+)<\/h[34]>/g, (match, tag, text) => {
+    const id = `manual-sec-${i++}`;
+    toc.push({ id, level: tag === 'h3' ? 3 : 4, text });
+    return `<${tag} id="${id}">${text}</${tag}>`;
+  });
+  return { html, toc };
+}
+
 export default function ManualPage() {
   const { t } = useI18n();
-  const html = useMemo(() => renderMd(manualMd), []);
+  const { html, toc } = useMemo(renderManual, []);
+  const [activeId, setActiveId] = useState<string>(toc[0]?.id ?? '');
+  const articleRef = useRef<HTMLElement>(null);
+
+  // Highlight the section currently at the top of the viewport.
+  useEffect(() => {
+    const onScroll = () => {
+      let current = toc[0]?.id ?? '';
+      for (const entry of toc) {
+        const el = document.getElementById(entry.id);
+        if (el && el.getBoundingClientRect().top <= 120) {
+          current = entry.id;
+        }
+      }
+      setActiveId(current);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [toc]);
 
   return (
     <div className="landing-shell manual-shell">
@@ -29,7 +67,21 @@ export default function ManualPage() {
       </header>
 
       <main className="manual-main">
-        <article className="manual-article" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="manual-layout">
+          <aside className="manual-toc" aria-label="Table of contents">
+            <span className="manual-toc-title">{t('manual.toc')}</span>
+            {toc.map((entry) => (
+              <a
+                key={entry.id}
+                href={`#${entry.id}`}
+                className={`manual-toc-link${entry.level === 4 ? ' manual-toc-link--sub' : ''}${entry.id === activeId ? ' active' : ''}`}
+              >
+                {entry.text}
+              </a>
+            ))}
+          </aside>
+          <article ref={articleRef} className="manual-article" dangerouslySetInnerHTML={{ __html: html }} />
+        </div>
       </main>
 
       <footer className="landing-footer">

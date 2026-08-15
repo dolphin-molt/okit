@@ -1500,7 +1500,7 @@ async function resolveVolcCredentials() {
 
 async function queryVolcengineBalance() {
   const credentials = await resolveVolcCredentials();
-  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_BILLING_CREDENTIALS（可用“自动创建”）', 'VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
+  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_BILLING_CREDENTIALS（请按文档手动录入）', 'VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
   const result = await callVolcApi(credentials.accessKey, credentials.secretKey, 'QueryBalanceAcct', {
     service: 'billing',
     version: '2022-01-01',
@@ -1554,7 +1554,7 @@ async function queryVolcengineUsage(plan = 'coding') {
   const combined = await resolveVolcCredentials();
   let ak = combined?.accessKey || await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
   let sk = combined?.secretKey || await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
-  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请在密钥管理中添加 VOLCENGINE_BILLING_CREDENTIALS（可用“自动创建”）或 VOLC_ARK_AK 和 VOLC_ARK_SK' };
+  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请按文档手动添加 VOLCENGINE_BILLING_CREDENTIALS，或分别添加 VOLC_ARK_AK 和 VOLC_ARK_SK' };
 
   if (plan === 'agent') {
     // Agent Plan exposes absolute quota windows through GetAFPUsage.

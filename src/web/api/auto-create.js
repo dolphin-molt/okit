@@ -131,7 +131,6 @@ const CREDENTIAL_PAIR_PLATFORMS = new Set([
   'aliyun-usage-credentials',
   'baidu-usage-credentials',
   'tencent-usage-credentials',
-  'volcengine-usage-credentials',
 ]);
 
 function normalizeCredentialFieldName(name) {
@@ -1828,12 +1827,10 @@ const AUTO_CREATE_PLATFORMS = [
   // its aria-labelled input and finalized with "创建密钥".
   { id: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_API_KEY', groupHint: '火山引擎', mode: 'browser' },
   { id: 'volcengine-agent', label: '火山引擎 Agent Plan', keyHint: 'VOLCENGINE_AGENT_PLAN_API_KEY', groupHint: '火山引擎 Agent Plan', mode: 'browser', url: VOLC_AGENT_PLAN_URL },
-  // Usage/billing calls use the traditional cloud AK/SK, not Ark's model API
-  // key. Save both values as VOLCENGINE_BILLING_CREDENTIALS JSON. Access Key
-  // permissions belong to the current root/IAM identity and are not selected
-  // in the Access Key creation dialog. Do not reuse arbitrary local Vault
-  // entries here: Vault has no provider-side deletion synchronization.
-  { id: 'volcengine-usage-credentials', label: '火山引擎 AK/SK（用量）', keyHint: 'VOLCENGINE_BILLING_CREDENTIALS', groupHint: '火山引擎', mode: 'browser', url: 'https://console.volcengine.com/iam/keymanage/', credentialPair: true, permissionNote: 'volcengine-identity', createTexts: ['创建 Access Key', '创建Access Key', '创建访问密钥', '新建密钥', '创建密钥'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[id*="name" i]'], confirmTexts: ['确定', '确认', '创建'], postCreateReadAttempts: 6 },
+  // Volcengine's traditional AK/SK is intentionally manual-only. It is an
+  // IAM identity credential, not an API key, and its permissions/rotation
+  // limits cannot be safely managed by this browser key flow. See
+  // docs/volcengine-usage-credentials.md.
   // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
   // are ordinary Bearer tokens shared across all plans.
   { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },

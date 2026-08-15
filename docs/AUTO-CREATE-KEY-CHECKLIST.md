@@ -1,6 +1,6 @@
 # 自动创建密钥检测清单
 
-这份清单对应 `AUTO_CREATE_PLATFORMS` 的当前 36 个入口。检测器使用唯一的
+这份清单对应 `AUTO_CREATE_PLATFORMS` 的当前 35 个入口。检测器使用唯一的
 `OKIT_AUTOCHECK_*` 名称，调用 OKIT 实际自动创建接口；新建型密钥成功后必须
 调用删除接口并确认页面上不再出现该名称。
 
@@ -50,10 +50,10 @@ OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN='测试用父 Token' \
 - 阿里云百炼 Token Plan 当前没有可复用的密钥操作入口，记为 `blocked_prerequisite`，不会生成新 Key。
 - Moonshot/Kimi Code 当前页面没有普通 API Key 创建入口，已改为只复用订阅 Key；没有 Key 时记为 `blocked_prerequisite`。
 
-用量凭证入口已经补入自动创建：火山 AK/SK、腾讯 SecretId/SecretKey、阿里云
-AccessKey、百度 BCE AK/SK。火山入口选择 `AdministratorAccess` 最高全局策略；百度
-BCE AK/SK 使用实际入口 `#/iam/accesslist`。主账号风险确认可以自动完成，但短信、微信
-扫码和其他安全验证必须交给用户，不能静默绕过。
+腾讯 SecretId/SecretKey、阿里云 AccessKey、百度 BCE AK/SK 的用量凭证入口支持自动化；
+火山传统 AK/SK 已明确改为手动配置，不再出现在自动创建列表。原因是它属于 IAM 身份
+凭证，权限绑定在 IAM 用户/主账号上，且 OKIT 没有平台端删除同步。请按
+[火山引擎 AK/SK 用量查询配置](volcengine-usage-credentials.md)操作。
 
 百度千帆当前仍有三条遗留测试行：
 `OKIT_AUTOCHECK_QIANFAN_20260814204707-tf48yp`、
@@ -75,7 +75,6 @@ BCE AK/SK 使用实际入口 `#/iam/accesslist`。主账号风险确认可以自
 | [x] | `anthropic` | Anthropic | 删除测试 Key | passed/deleted |
 | [!] | `volcengine` | 火山 Ark API Key | 删除测试 Key | 控制台无创建按钮/登录前置 |
 | [!] | `volcengine-agent` | 火山 Agent Plan API Key | 删除测试 Key | 控制台无创建按钮/套餐前置 |
-| [!] | `volcengine-usage-credentials` | 火山 AK/SK | 删除测试 AK/SK | 未登录；配置最高 `AdministratorAccess` |
 | [!] | `tencent` | 腾讯云 API Key | 删除测试 Key | 当前页面无创建入口 |
 | [x] | `tencent-token-plan` | 腾讯云 Token Plan | 仅验证复制，不删除已有订阅 Key | passed_existing_reuse |
 | [!] | `tencent-usage-credentials` | 腾讯云 SecretId/SecretKey | 删除测试凭证 | 双层主账号风险确认后要求微信扫码身份验证，自动化停止，未创建 |

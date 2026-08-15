@@ -26,7 +26,7 @@ describe('auto-create key platforms', () => {
       'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
       'qwen', 'qwen-token-plan', 'qianfan', 'qianfan-coding', 'xiaomi', 'xiaomi-coding', 'stepfun', 'xai', 'mistral', 'openrouter',
       'tencent-token-plan', 'opencode-go',
-      'aliyun-usage-credentials', 'baidu-usage-credentials', 'tencent-usage-credentials', 'volcengine-usage-credentials', 'xai-management',
+      'aliyun-usage-credentials', 'baidu-usage-credentials', 'tencent-usage-credentials', 'xai-management',
     ]));
   });
 
@@ -82,26 +82,8 @@ describe('auto-create key platforms', () => {
     expect(rendered).not.toContain(secret);
   });
 
-  it('stores management AK/SK captures as one JSON credential pair', () => {
-    const pair = extractKeyFromCaptures([{
-      method: 'POST',
-      responsePreview: JSON.stringify({ AccessKeyId: 'AKLT1234567890abcdef', SecretAccessKey: 'secret-value-1234567890' }),
-      url: 'https://console.volcengine.com/api/access-key/create',
-    }], 'volcengine-usage-credentials');
-    expect(JSON.parse(pair || 'null')).toEqual({
-      accessKey: 'AKLT1234567890abcdef',
-      secretKey: 'secret-value-1234567890',
-    });
-  });
-
-  it('creates Volcengine usage AK/SK for the current identity without guessing local credentials', () => {
-    const volc = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials') as any;
-    expect(volc.keyHint).toBe('VOLCENGINE_BILLING_CREDENTIALS');
-    expect(volc.credentialPair).toBe(true);
-    expect(volc.reuseExistingCredentialPair).toBeUndefined();
-    expect(volc.credentialSourceNames).toBeUndefined();
-    expect(volc.permissionDefaults).toBeUndefined();
-    expect(volc.permissionNote).toBe('volcengine-identity');
+  it('keeps Volcengine management AK/SK out of browser auto-create', () => {
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials')).toBeUndefined();
   });
 
   it('does not persist internal credential provenance as part of the AK/SK value', () => {
@@ -137,7 +119,6 @@ describe('auto-create key platforms', () => {
       'aliyun-usage-credentials': ['ALIYUN_BILLING_CREDENTIALS', 'https://ram.console.aliyun.com/profile/accessKey'],
       'baidu-usage-credentials': ['QIANFAN_BCE_CREDENTIALS', 'https://console.bce.baidu.com/iam/#/iam/accesslist'],
       'tencent-usage-credentials': ['TENCENT_CLOUD_CREDENTIALS', 'https://console.cloud.tencent.com/cam/capi'],
-      'volcengine-usage-credentials': ['VOLCENGINE_BILLING_CREDENTIALS', 'https://console.volcengine.com/iam/keymanage/'],
       'xai-management': ['XAI_MANAGEMENT_KEY', 'https://console.x.ai/team/default/settings/management-keys'],
     } as Record<string, [string, string]>;
     for (const [id, [keyHint, url]] of Object.entries(expected)) {

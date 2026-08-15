@@ -13,7 +13,7 @@ Agent 基础设施运维工具，集中管理工具安装、授权、密钥与�
 
 ## 安装
 
-> 📖 完整使用手册（含浏览器扩展配置与自动创建密钥）见 [docs/user-manual.md](docs/user-manual.md)。
+> 📖 完整使用手册（含浏览器扩展配置与自动创建密钥）：中文 [docs/user-manual.md](docs/user-manual.md) · English [docs/user-manual.en.md](docs/user-manual.en.md)
 
 **NPM（推荐）**：
 

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMd } from '../../lib/markdown';
 import { useI18n } from '../../i18n';
 import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
-// The manual lives in the repo's docs/ and is bundled verbatim at build time,
+// Both manuals live in the repo's docs/ and are bundled verbatim at build time,
 // so the website and the repo always serve the same copy.
-import manualMd from '../../../../../../docs/user-manual.md?raw';
+import manualZh from '../../../../../../docs/user-manual.md?raw';
+import manualEn from '../../../../../../docs/user-manual.en.md?raw';
 
 interface TocEntry {
   id: string;
@@ -13,8 +14,8 @@ interface TocEntry {
 }
 
 /** Render markdown, then inject stable ids into h3/h4 for TOC anchors. */
-function renderManual(): { html: string; toc: TocEntry[] } {
-  let html = renderMd(manualMd);
+function renderManual(md: string): { html: string; toc: TocEntry[] } {
+  let html = renderMd(md);
   const toc: TocEntry[] = [];
   let i = 0;
   html = html.replace(/<(h[34])>([^<]+)<\/h[34]>/g, (match, tag, text) => {
@@ -26,10 +27,20 @@ function renderManual(): { html: string; toc: TocEntry[] } {
 }
 
 export default function ManualPage() {
-  const { t } = useI18n();
-  const { html, toc } = useMemo(renderManual, []);
+  const { t, lang, setLang } = useI18n();
+  const nextLang = lang === 'zh' ? 'en' : 'zh';
+  const { html, toc } = useMemo(
+    () => renderManual(lang === 'zh' ? manualZh : manualEn),
+    [lang],
+  );
   const [activeId, setActiveId] = useState<string>(toc[0]?.id ?? '');
   const scrollColRef = useRef<HTMLDivElement>(null);
+
+  // Reset scroll + active section when the language switches.
+  useEffect(() => {
+    scrollColRef.current?.scrollTo({ top: 0 });
+    setActiveId(toc[0]?.id ?? '');
+  }, [toc]);
 
   // Highlight the section currently at the top of the article scroll area.
   useEffect(() => {
@@ -68,6 +79,14 @@ export default function ManualPage() {
           <a href="/landing#install">{t('landing.nav.install')}</a>
         </nav>
         <div className="landing-nav-actions">
+          <button
+            className="landing-lang-toggle"
+            onClick={() => setLang(nextLang)}
+            title={t('nav.language')}
+            type="button"
+          >
+            {lang === 'zh' ? 'EN' : '中'}
+          </button>
           <a className="manual-top-link" href="/landing">← {t('manual.backToSite')}</a>
         </div>
       </header>

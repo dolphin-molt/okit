@@ -326,7 +326,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                   <div className="vault-field-heading">
                     <label htmlFor="vault-auto-key-name">{t('vault.keyNameLabel')}</label>
                   </div>
-                  <input id="vault-auto-key-name" type="text" className="vault-input" placeholder={selectedPlatform?.keyHint || t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} />
+                  <input id="vault-auto-key-name" type="text" className="vault-input" placeholder={selectedPlatform ? t('vault.autoCreateKeyExample', { name: selectedPlatform.keyHint }) : t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} />
                 </div>
                 <div className="vault-form-field">
                   <div className="vault-field-heading"><label htmlFor="vault-auto-key-desc">{t('vault.descriptionLabel')}</label></div>

@@ -398,6 +398,7 @@ export default {
   'vault.autoCreateReviewHint': '创建成功后会回到手动页供你核对并保存。',
   'vault.autoCreateReady': '平台密钥已创建，请核对名称和密钥值后加密保存。',
   'vault.autoCreateReadyDelay': '平台密钥已创建，请核对并保存；约 {seconds} 秒后再测试连接。',
+  'vault.autoCreateKeyExample': '例如：{name}',
   'vault.keyExample': '例如 CF_API_TOKEN',
   'vault.keyValue': '密钥值',
   'vault.searchKey': '搜索密钥...',

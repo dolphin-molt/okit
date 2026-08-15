@@ -398,6 +398,7 @@ export default {
   'vault.autoCreateReviewHint': 'After creation, you will return to the manual form to review and save.',
   'vault.autoCreateReady': 'The platform key is ready. Review its name and value, then save it encrypted.',
   'vault.autoCreateReadyDelay': 'The platform key is ready. Review and save it, then wait about {seconds}s before testing.',
+  'vault.autoCreateKeyExample': 'e.g. {name}',
   'vault.keyExample': 'e.g. CF_API_TOKEN',
   'vault.keyValue': 'Value',
   'vault.searchKey': 'Search keys...',

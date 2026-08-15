@@ -1456,6 +1456,24 @@ const VOLC_URL = 'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKe
 const VOLC_AGENT_PLAN_URL = 'https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement?advancedActiveKey=agentPlan';
 const VOLC_CREATE_TEXTS = ['创建 API Key'];
 
+async function detectVolcengineLoginSurface() {
+  const raw = await execJs(`(() => {
+    const visible = el => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+    };
+    const bodyText = String(document.body?.innerText || '').slice(0, 16000);
+    const loginAction = [...document.querySelectorAll('a, button, [role="button"]')]
+      .filter(visible)
+      .some(el => /登录|登入|sign in|log in/i.test(String(el.textContent || '').trim()));
+    const loginPrompt = /立即登录使用|请先登录|登录后继续|登录后使用/i.test(bodyText);
+    const credentialSurface = /API\s*Key|密钥管理|调用凭证|credential/i.test(bodyText);
+    return JSON.stringify({ required: loginPrompt || (credentialSurface && loginAction) });
+  })()`).catch(() => '{"required":false}');
+  try { return Boolean(JSON.parse(raw || '{}').required); } catch { return false; }
+}
+
 async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   // Platform names must be unique. Keep the vault variable deterministic while
   // using a harmless suffix only for the console-side display name.
@@ -1472,7 +1490,9 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   // button so a signed-out account becomes a resumable login handoff rather
   // than a misleading “create button missing” failure.
   const loginState = await detectLoginRequired();
-  if (loginState.loginRequired) throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
+  if (loginState.loginRequired || await detectVolcengineLoginSurface()) {
+    throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
+  }
 
   const capStart = await sendCommand('network-capture-start',
     { pattern: '', workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);
@@ -1484,7 +1504,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   let opened = false;
   for (let attempt = 0; attempt < 12 && !opened; attempt += 1) {
     const currentLoginState = await detectLoginRequired();
-    if (currentLoginState.loginRequired) {
+    if (currentLoginState.loginRequired || await detectVolcengineLoginSurface()) {
       throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
     }
     if (await detectInteractiveVerification()) {
@@ -1507,6 +1527,9 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
     if (!opened) await sleep(1000);
   }
   if (!opened) {
+    if (await detectVolcengineLoginSurface()) {
+      throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
+    }
     if (url === VOLC_AGENT_PLAN_URL) {
       const currentUrl = await execJs('location.href').catch(() => '');
       if (/\/subscription\/agent-plan(?:[/?#]|$)/.test(currentUrl)) {

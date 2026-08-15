@@ -1506,7 +1506,11 @@ async function queryVolcengineBalance() {
     version: '2022-01-01',
   });
   if (result.error) return { supported: true, windows: [], error: result.error };
-  if (result.status === 401 || result.status === 403) return { supported: true, windows: [], error: '火山引擎 AK/SK 无费用中心查询权限' };
+  if (result.status === 401 || result.status === 403) return {
+    supported: true,
+    windows: [],
+    error: '火山引擎 AK/SK 无费用中心查询权限。请给当前 IAM 用户授予 BillingCenterReadOnlyAccess（仅查询余额），或按需授予 BillingCenterFullAccess；无需再创建主账号 Access Key。',
+  };
   if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
   let data;
   try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: '火山引擎余额接口返回了无效 JSON' }; }

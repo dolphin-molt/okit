@@ -17,6 +17,7 @@ export interface AutoCreatePlatform {
   keyHint: string;
   groupHint: string;
   mode: 'api' | 'browser';
+  reusesExistingCredentialPair?: boolean;
 }
 
 export async function listVault(): Promise<{ secrets: VaultSecret[] }> {

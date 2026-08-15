@@ -111,7 +111,9 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     setParentToken('');
     setAutoRunId(null);
     setVerificationHandoff(null);
-    if (Number(result.readyAfterMs) > 0) {
+    if (result.reusedExisting) {
+      setAutoNotice(t('vault.autoCreateReusedExisting'));
+    } else if (Number(result.readyAfterMs) > 0) {
       setAutoNotice(t('vault.autoCreateReadyDelay', { seconds: Math.ceil(Number(result.readyAfterMs) / 1000) }));
     } else {
       setAutoNotice(t('vault.autoCreateReady'));
@@ -320,6 +322,9 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                       label: `${p.label}${p.mode === 'api' ? ' (API)' : ` (${t('vault.browserMode')})`}`,
                     }))}
                   />
+                  {selectedPlatform?.reusesExistingCredentialPair && (
+                    <small className="vault-field-hint">{t('vault.autoCreateReuseExistingHint')}</small>
+                  )}
                 </div>
                 <div className="vault-form-field">
                   <div className="vault-field-heading">

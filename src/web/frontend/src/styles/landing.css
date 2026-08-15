@@ -115,6 +115,17 @@
   gap: 12px;
 }
 
+.landing-gh {
+  display: inline-flex;
+  align-items: center;
+  color: var(--lx-cream-60);
+  transition: color 0.15s ease;
+}
+
+.landing-gh:hover {
+  color: var(--lx-lime);
+}
+
 .landing-lang-toggle {
   padding: 5px 11px;
   font-size: 12px;

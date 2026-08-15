@@ -6,6 +6,7 @@ import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
 // so the website and the repo always serve the same copy.
 import manualZh from '../../../../../../docs/user-manual.md?raw';
 import manualEn from '../../../../../../docs/user-manual.en.md?raw';
+import { GithubIcon } from './icons';
 
 interface TocEntry {
   id: string;
@@ -73,14 +74,13 @@ export default function ManualPage() {
           <span>OKIT</span>
         </a>
         <nav className="landing-links" aria-label="Primary">
-          <a href="/landing#product">{t('landing.nav.product')}</a>
-          <a href="/landing#capabilities">{t('landing.nav.workflow')}</a>
-          <a href="/landing#compare">{t('landing.nav.compare')}</a>
+          <a href="/landing">{t('landing.nav.home')}</a>
           <a href="/manual" className="active">{t('landing.nav.manual')}</a>
-          <a href="/landing#install">{t('landing.nav.install')}</a>
-          <a href="https://github.com/dolphin-molt/okit">{t('landing.nav.github')}</a>
         </nav>
         <div className="landing-nav-actions">
+          <a className="landing-gh" href="https://github.com/dolphin-molt/okit" aria-label="GitHub" target="_blank" rel="noopener">
+            <GithubIcon />
+          </a>
           <button
             className="landing-lang-toggle"
             onClick={() => setLang(nextLang)}

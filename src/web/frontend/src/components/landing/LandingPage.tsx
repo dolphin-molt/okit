@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n';
 import { getProviderIcon } from '../../assets/providers';
 import { getAgentIcon } from '../../assets/agents';
 import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
+import { GithubIcon } from './icons';
 
 /* ---------------- motion helpers (React-Bits-style, self-implemented) ---------------- */
 
@@ -306,14 +307,13 @@ export default function LandingPage() {
           <span>OKIT</span>
         </a>
         <nav className="landing-links" aria-label="Primary">
-          <a href="#product">{t('landing.nav.product')}</a>
-          <a href="#capabilities">{t('landing.nav.workflow')}</a>
-          <a href="#compare">{t('landing.nav.compare')}</a>
+          <a href="/landing" className="active">{t('landing.nav.home')}</a>
           <a href="/manual">{t('landing.nav.manual')}</a>
-          <a href="#install">{t('landing.nav.install')}</a>
-          <a href="https://github.com/dolphin-molt/okit">{t('landing.nav.github')}</a>
         </nav>
         <div className="landing-nav-actions">
+          <a className="landing-gh" href="https://github.com/dolphin-molt/okit" aria-label="GitHub" target="_blank" rel="noopener">
+            <GithubIcon />
+          </a>
           <button
             className="landing-lang-toggle"
             onClick={() => setLang(nextLang)}

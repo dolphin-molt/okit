@@ -193,69 +193,6 @@ function parseCredentialPairText(text) {
   }
 }
 
-/**
- * Resolve a management credential pair from already stored Vault values.
- *
- * A provider may be represented either by one JSON pair entry or by two
- * conventional AK/SK entries. Keep this pure so the auto-create flow can be
- * tested without touching the user's Vault.
- */
-function credentialPairFromVaultValues(values, names = {}) {
-  const read = name => {
-    if (!name) return '';
-    if (values instanceof Map) return String(values.get(name) || '');
-    return String(values?.[name] || '');
-  };
-  for (const name of names.combined || []) {
-    const pair = parseCredentialPairText(read(name));
-    if (pair) return { ...pair, sourceKey: name };
-  }
-
-  let accessKey = '';
-  let accessKeyName = '';
-  for (const name of names.accessKey || []) {
-    const value = read(name);
-    if (value) {
-      accessKey = value;
-      accessKeyName = name;
-      break;
-    }
-  }
-  let secretKey = '';
-  for (const name of names.secretKey || []) {
-    const value = read(name);
-    if (value) {
-      secretKey = value;
-      break;
-    }
-  }
-  return accessKey && secretKey
-    ? { accessKey, secretKey, sourceKey: accessKeyName || (names.combined || [])[0] || '' }
-    : null;
-}
-
-async function resolveExistingCredentialPair(platform) {
-  if (!platform?.reuseExistingCredentialPair || !platform.credentialSourceNames) return null;
-  try {
-    const { VaultStore } = require('../../vault/store');
-    const vault = new VaultStore();
-    const names = platform.credentialSourceNames;
-    const allNames = [...new Set([
-      ...(names.combined || []),
-      ...(names.accessKey || []),
-      ...(names.secretKey || []),
-    ])];
-    const values = new Map();
-    for (const name of allNames) {
-      const value = await vault.get(name);
-      if (value) values.set(name, value);
-    }
-    return credentialPairFromVaultValues(values, names);
-  } catch {
-    return null;
-  }
-}
-
 /** Classify a Xiaomi MiMo Token Plan masked-row action icon from its SVG
  *  shape. The provider's Copy icon is a 20×20 viewBox containing two paths;
  *  Reset is 18×18 with one path. viewBox whitespace is normalized before
@@ -1892,9 +1829,11 @@ const AUTO_CREATE_PLATFORMS = [
   { id: 'volcengine', label: '火山引擎', keyHint: 'VOLCENGINE_API_KEY', groupHint: '火山引擎', mode: 'browser' },
   { id: 'volcengine-agent', label: '火山引擎 Agent Plan', keyHint: 'VOLCENGINE_AGENT_PLAN_API_KEY', groupHint: '火山引擎 Agent Plan', mode: 'browser', url: VOLC_AGENT_PLAN_URL },
   // Usage/billing calls use the traditional cloud AK/SK, not Ark's model API
-  // key. Save both values as VOLCENGINE_BILLING_CREDENTIALS JSON. Per the
-  // requested policy, the creation form selects the highest global preset.
-  { id: 'volcengine-usage-credentials', label: '火山引擎 AK/SK（用量）', keyHint: 'VOLCENGINE_BILLING_CREDENTIALS', groupHint: '火山引擎', mode: 'browser', url: 'https://console.volcengine.com/iam/keymanage/', credentialPair: true, reuseExistingCredentialPair: true, credentialSourceNames: { combined: ['VOLCENGINE_BILLING_CREDENTIALS', 'VOLCENGINE_CREDENTIALS'], accessKey: ['VOLC_ARK_AK', 'VOLCENGINE_ACCESS_KEY', 'VOLC_KMS_ACCESS_KEY'], secretKey: ['VOLC_ARK_SK', 'VOLCENGINE_SECRET_KEY', 'VOLC_KMS_SECRET_KEY'] }, createTexts: ['创建 Access Key', '创建Access Key', '创建访问密钥', '新建密钥', '创建密钥'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[id*="name" i]'], confirmTexts: ['确定', '确认', '创建'], postCreateReadAttempts: 6, permissionDefaults: { triggerTexts: ['权限策略', '选择权限', '添加权限', '策略'], optionTexts: ['AdministratorAccess', '全局超级管理员', '管理员权限'] } },
+  // key. Save both values as VOLCENGINE_BILLING_CREDENTIALS JSON. Access Key
+  // permissions belong to the current root/IAM identity and are not selected
+  // in the Access Key creation dialog. Do not reuse arbitrary local Vault
+  // entries here: Vault has no provider-side deletion synchronization.
+  { id: 'volcengine-usage-credentials', label: '火山引擎 AK/SK（用量）', keyHint: 'VOLCENGINE_BILLING_CREDENTIALS', groupHint: '火山引擎', mode: 'browser', url: 'https://console.volcengine.com/iam/keymanage/', credentialPair: true, permissionNote: 'volcengine-identity', createTexts: ['创建 Access Key', '创建Access Key', '创建访问密钥', '新建密钥', '创建密钥'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[id*="name" i]'], confirmTexts: ['确定', '确认', '创建'], postCreateReadAttempts: 6 },
   // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
   // are ordinary Bearer tokens shared across all plans.
   { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
@@ -3896,20 +3835,6 @@ async function createGenericBrowserKey({ tokenName, platform, run }) {
 }
 
 async function createBrowserPlatformKey(platform, tokenName, run) {
-  const existingPair = await resolveExistingCredentialPair(platform);
-  if (existingPair) {
-    // Reuse a credential already owned by the user instead of opening a
-    // provider create dialog. This is especially important for Volcengine:
-    // each IAM user has a two-key limit and the second key is intended for
-    // rotation, not for every new usage scenario.
-    return {
-      value: serializeCredentialPair(existingPair),
-      name: platform.keyHint,
-      reusedExisting: true,
-      sourceKey: existingPair.sourceKey,
-    };
-  }
-
   const ORCHESTRATORS = {
     zhipu: createZhipuKey,
     volcengine: createVolcengineKey,
@@ -4063,9 +3988,9 @@ async function recoverLatestZaiGlobalKey() {
 function listAutoCreatePlatforms(_req, res) {
   // Do not expose selectors or implementation details to the browser.
   res.json({
-    platforms: AUTO_CREATE_PLATFORMS.map(({ id, label, keyHint, groupHint, mode, reuseExistingCredentialPair }) => ({
+    platforms: AUTO_CREATE_PLATFORMS.map(({ id, label, keyHint, groupHint, mode, permissionNote }) => ({
       id, label, keyHint, groupHint, mode,
-      ...(reuseExistingCredentialPair ? { reusesExistingCredentialPair: true } : {}),
+      ...(permissionNote ? { permissionNote } : {}),
     })),
   });
 }
@@ -5472,7 +5397,6 @@ module.exports = {
   resolveActionCandidate,
   isValidZhipuApiKey,
   classifyXiaomiTokenPlanIcon,
-  credentialPairFromVaultValues,
   serializeCredentialPair,
   ZHIPU_CREATE_TEXTS,
   ZHIPU_CONFIRM_TEXTS,

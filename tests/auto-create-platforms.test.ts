@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 const autoCreate = await import('../src/web/api/auto-create.js');
 
-const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, isLoginUrl, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, credentialPairFromVaultValues, serializeCredentialPair } = autoCreate as {
+const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, isLoginUrl, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, serializeCredentialPair } = autoCreate as {
   AUTO_CREATE_PLATFORMS: Array<{ id: string; keyHint: string; groupHint: string; mode: string; url?: string }>;
   BROWSER_LOGIN_VERIFICATION_PLATFORMS: Array<{ id: string; label: string; url: string }>;
   isLoginFailure: (message: string) => boolean;
@@ -13,7 +13,6 @@ const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFail
   describeCapturedSecretFields: (entries: Array<{ responsePreview: string; url?: string; method?: string; responseStatus?: number }>) => Array<{ fields: Array<{ field: string; length: number; shape: string }> }>;
   capturesContainMaskedSecret: (entries: Array<{ responsePreview: string }>) => boolean;
   isAssetData: (value: string) => boolean;
-  credentialPairFromVaultValues: (values: Record<string, string>, names: { combined?: string[]; accessKey?: string[]; secretKey?: string[] }) => { accessKey: string; secretKey: string; sourceKey: string } | null;
   serializeCredentialPair: (pair: { accessKey: string; secretKey: string; sourceKey?: string } | null) => string | null;
 };
 
@@ -95,24 +94,14 @@ describe('auto-create key platforms', () => {
     });
   });
 
-  it('configures Volcengine usage AK/SK creation to use AdministratorAccess', () => {
+  it('creates Volcengine usage AK/SK for the current identity without guessing local credentials', () => {
     const volc = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials') as any;
     expect(volc.keyHint).toBe('VOLCENGINE_BILLING_CREDENTIALS');
     expect(volc.credentialPair).toBe(true);
-    expect(volc.reuseExistingCredentialPair).toBe(true);
-    expect(volc.permissionDefaults.optionTexts).toContain('AdministratorAccess');
-  });
-
-  it('reuses an existing split Volcengine AK/SK pair instead of creating another key', () => {
-    const volc = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials') as any;
-    expect(credentialPairFromVaultValues({
-      VOLC_KMS_ACCESS_KEY: 'AKL-existing-access',
-      VOLC_KMS_SECRET_KEY: 'existing-secret-key',
-    }, volc.credentialSourceNames)).toEqual({
-      accessKey: 'AKL-existing-access',
-      secretKey: 'existing-secret-key',
-      sourceKey: 'VOLC_KMS_ACCESS_KEY',
-    });
+    expect(volc.reuseExistingCredentialPair).toBeUndefined();
+    expect(volc.credentialSourceNames).toBeUndefined();
+    expect(volc.permissionDefaults).toBeUndefined();
+    expect(volc.permissionNote).toBe('volcengine-identity');
   });
 
   it('does not persist internal credential provenance as part of the AK/SK value', () => {

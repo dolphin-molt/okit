@@ -1492,8 +1492,8 @@ function getTrustedXiaomiLoginUrl(body) {
 async function resolveVolcCredentials() {
   const credentials = await resolveCredentialPair({
     combined: ['VOLCENGINE_BILLING_CREDENTIALS', 'VOLCENGINE_CREDENTIALS'],
-    accessKey: ['VOLC_ARK_AK', 'VOLCENGINE_ACCESS_KEY', 'VOLC_KMS_ACCESS_KEY'],
-    secretKey: ['VOLC_ARK_SK', 'VOLCENGINE_SECRET_KEY', 'VOLC_KMS_SECRET_KEY'],
+    accessKey: ['VOLC_ARK_AK', 'VOLCENGINE_ACCESS_KEY'],
+    secretKey: ['VOLC_ARK_SK', 'VOLCENGINE_SECRET_KEY'],
   });
   return credentials;
 }
@@ -1548,14 +1548,12 @@ async function openXiaomiLogin(req, res) {
 // Keep the two plan APIs separate: an account may have either plan, and a
 // successful response from one must never be shown on the other card.
 async function queryVolcengineUsage(plan = 'coding') {
-  // Resolve AK/SK from vault. These are typically stored under VOLC_KMS_ACCESS_KEY
-  // or a dedicated VOLC_ARK_AK / VOLC_ARK_SK pair.
+  // Resolve only explicitly named Volcengine credentials. A local Vault name
+  // is not provider-side synchronization, so KMS entries must never be
+  // treated as Volcengine AK/SK merely because their old name looks similar.
   const combined = await resolveVolcCredentials();
   let ak = combined?.accessKey || await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
   let sk = combined?.secretKey || await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
-  // Fallback: try the KMS AK/SK (works if the IAM user has ark permissions too)
-  if (!ak) ak = await resolveVaultKey('VOLC_KMS_ACCESS_KEY') || await resolveVaultKey('VOLC_KMS_ACCESS_KEY/火山引擎KMS Access Key');
-  if (!sk) sk = await resolveVaultKey('VOLC_KMS_SECRET_KEY') || await resolveVaultKey('VOLC_KMS_SECRET_KEY/火山引擎KMS Secret Access key');
   if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请在密钥管理中添加 VOLCENGINE_BILLING_CREDENTIALS（可用“自动创建”）或 VOLC_ARK_AK 和 VOLC_ARK_SK' };
 
   if (plan === 'agent') {

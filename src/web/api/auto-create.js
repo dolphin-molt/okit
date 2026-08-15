@@ -1792,12 +1792,12 @@ const AUTO_CREATE_PLATFORMS = [
   { id: 'volcengine-usage-credentials', label: '火山引擎 AK/SK（用量）', keyHint: 'VOLCENGINE_BILLING_CREDENTIALS', groupHint: '火山引擎', mode: 'browser', url: 'https://console.volcengine.com/iam/keymanage/', credentialPair: true, createTexts: ['创建 Access Key', '创建Access Key', '创建访问密钥', '新建密钥', '创建密钥'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[id*="name" i]'], confirmTexts: ['确定', '确认', '创建'], postCreateReadAttempts: 6, permissionDefaults: { triggerTexts: ['权限策略', '选择权限', '添加权限', '策略'], optionTexts: ['AdministratorAccess', '全局超级管理员', '管理员权限'] } },
   // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
   // are ordinary Bearer tokens shared across all plans.
-  { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Tencent's general Token Plan and Hy Token Plan use the same model API
   // key. Keep a separate vault hint so the Model Management family can bind
   // the Token Plan offering without silently reusing an unrelated key.
   { id: 'tencent-token-plan', label: '腾讯云 Token Plan', keyHint: 'TENCENT_TOKEN_PLAN_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-', missingExistingKeyMessage: '腾讯云 Token Plan 当前没有可复用的订阅 Key；自动化不会创建新的用户 Key。', confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
-  { id: 'tencent-usage-credentials', label: '腾讯云 SecretId/SecretKey（用量）', keyHint: 'TENCENT_CLOUD_CREDENTIALS', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/cam/capi', credentialPair: true, createTexts: ['新建密钥', '新建 API 密钥', '创建密钥', '创建 API 密钥', 'Create Key'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[name*="name" i]'], confirmTexts: ['确定', '确认', '创建', 'Create'], preCreateAcknowledge: { dialogTexts: ['不建议使用主账号 API 访问密钥', '主账号 API 密钥拥有对账号下所有云资源的完全控制权', '创建主账号 API 密钥', '主账号密钥拥有账户所有资源的完全控制权'], checkboxTexts: ['我已知晓使用主账号 API 访问密钥的风险', '我已知晓使用主账号访问 API 密钥的风险，但仍需要创建主账号 API 密钥'], continueTexts: ['继续使用', '仍需创建主账号密钥'] }, postCreateReadAttempts: 6 },
+  { id: 'tencent-usage-credentials', label: '腾讯云 SecretId/SecretKey（用量）', keyHint: 'TENCENT_CLOUD_CREDENTIALS', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/cam/capi', credentialPair: true, createTexts: ['新建密钥', '新建 API 密钥', '创建密钥', '创建 API 密钥', 'Create Key'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[name*="name" i]'], confirmTexts: ['确定', '确认', '创建', 'Create'], deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], preCreateAcknowledge: { dialogTexts: ['不建议使用主账号 API 访问密钥', '主账号 API 密钥拥有对账号下所有云资源的完全控制权', '创建主账号 API 密钥', '主账号密钥拥有账户所有资源的完全控制权'], checkboxTexts: ['我已知晓使用主账号 API 访问密钥的风险', '我已知晓使用主账号访问 API 密钥的风险，但仍需要创建主账号 API 密钥'], continueTexts: ['继续使用', '仍需创建主账号密钥'] }, postCreateReadAttempts: 6 },
   { id: 'zhipu', label: '智谱 AI（国内站）', keyHint: 'ZHIPUAI_API_KEY', groupHint: '智谱AI', mode: 'browser', deleteConfirmWaitAttempts: 20, deleteConfirmTexts: ['确定'], deleteDialogText: '此操作将永久删除该行数据' },
   // Verified on the signed-in Z.AI console: the entry is "Add API Key", then
   // the dialog requires an "API key name" before its "Create" action is enabled.
@@ -4708,6 +4708,44 @@ async function deleteCreatedBrowserKey({ platform, createdName, run = null }) {
     throw new Error(`无法点击测试密钥删除操作：${createdName}`);
   }
   await sleep(500);
+  // Some provider consoles replace the normal delete confirmation with an
+  // account-level security challenge immediately after the row action. Detect
+  // that state before looking for a confirmation button; otherwise the
+  // challenge's unrelated buttons are reported as an ambiguous delete
+  // confirmation and the exact-row cleanup is stopped too early.
+  if (platform.deleteSecurityVerificationTexts?.length) {
+    const earlySecurityRaw = await execJs(`(() => {
+      const phrases = ${JSON.stringify(platform.deleteSecurityVerificationTexts)};
+      const visible = el => {
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+      const normalize = value => String(value || '').replace(/[\\s\\u3000]+/g, '').toLowerCase();
+      const match = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], .modal, [class*="modal"], [class*="dialog"]')]
+        .filter(visible)
+        .find(dialog => phrases.some(phrase => normalize(dialog.innerText || '').includes(normalize(phrase))));
+      return JSON.stringify(match ? { matched: true, text: String(match.innerText || '').trim().slice(0, 180) } : { matched: false });
+    })()`).catch(() => '{"matched":false}');
+    let earlySecurityState = {};
+    try { earlySecurityState = JSON.parse(earlySecurityRaw || '{}'); } catch {}
+    if (earlySecurityState.matched) {
+      if (run) {
+        await waitForInteractiveVerification({ run, platform, stage: 'delete-security-verification' });
+      } else {
+        await waitForSecurityVerificationToClear({ platform, stage: 'delete' });
+      }
+      const remainingAfterSecurity = await execJs(`(() => {
+        const targetName = ${JSON.stringify(lookupName)};
+        return [...document.querySelectorAll('tr, [role="row"], li, article')]
+          .some(row => (row.innerText || '').includes(targetName));
+      })()`).catch(() => true);
+      if (!remainingAfterSecurity) {
+        await closeAutomationWindow();
+        return { success: true, platform: platform.id, name: createdName };
+      }
+    }
+  }
   if (platform.deleteAllowMissingAfterClick) {
     const postClickStateRaw = await execJs(`(() => {
       const visible = el => {

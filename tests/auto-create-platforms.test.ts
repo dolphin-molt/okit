@@ -229,6 +229,17 @@ describe('auto-create key platforms', () => {
     expect(qianfan.confirmTexts).toEqual(['确定']);
   });
 
+  it('waits for Tencent security verification before resolving deletion controls', () => {
+    const tencent = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent') as {
+      deleteSecurityVerificationTexts?: string[];
+    };
+    const usage = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent-usage-credentials') as {
+      deleteSecurityVerificationTexts?: string[];
+    };
+    expect(tencent.deleteSecurityVerificationTexts).toEqual(expect.arrayContaining(['身份验证', '微信扫码验证', 'MFA']));
+    expect(usage.deleteSecurityVerificationTexts).toEqual(expect.arrayContaining(['身份验证', '微信扫码验证', 'MFA']));
+  });
+
   it('uses SiliconFlow’s exact creation and dynamic deletion confirmation', () => {
     const silicon = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'siliconflow') as {
       nameSelectors?: string[];

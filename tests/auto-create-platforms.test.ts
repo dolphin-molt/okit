@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 const autoCreate = await import('../src/web/api/auto-create.js');
 
-const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, isLoginUrl, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, credentialPairFromVaultValues } = autoCreate as {
+const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, isLoginUrl, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, credentialPairFromVaultValues, serializeCredentialPair } = autoCreate as {
   AUTO_CREATE_PLATFORMS: Array<{ id: string; keyHint: string; groupHint: string; mode: string; url?: string }>;
   BROWSER_LOGIN_VERIFICATION_PLATFORMS: Array<{ id: string; label: string; url: string }>;
   isLoginFailure: (message: string) => boolean;
@@ -14,6 +14,7 @@ const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFail
   capturesContainMaskedSecret: (entries: Array<{ responsePreview: string }>) => boolean;
   isAssetData: (value: string) => boolean;
   credentialPairFromVaultValues: (values: Record<string, string>, names: { combined?: string[]; accessKey?: string[]; secretKey?: string[] }) => { accessKey: string; secretKey: string; sourceKey: string } | null;
+  serializeCredentialPair: (pair: { accessKey: string; secretKey: string; sourceKey?: string } | null) => string | null;
 };
 
 describe('auto-create key platforms', () => {
@@ -111,6 +112,17 @@ describe('auto-create key platforms', () => {
       accessKey: 'AKL-existing-access',
       secretKey: 'existing-secret-key',
       sourceKey: 'VOLC_KMS_ACCESS_KEY',
+    });
+  });
+
+  it('does not persist internal credential provenance as part of the AK/SK value', () => {
+    expect(JSON.parse(serializeCredentialPair({
+      accessKey: 'AKL-existing-access',
+      secretKey: 'existing-secret-key',
+      sourceKey: 'VOLC_KMS_ACCESS_KEY',
+    }) || 'null')).toEqual({
+      accessKey: 'AKL-existing-access',
+      secretKey: 'existing-secret-key',
     });
   });
 

@@ -178,7 +178,10 @@ function findCredentialPair(value, depth = 0) {
 }
 
 function serializeCredentialPair(pair) {
-  return pair ? JSON.stringify(pair) : null;
+  if (!pair?.accessKey || !pair?.secretKey) return null;
+  // `sourceKey` is internal provenance metadata and must never be persisted
+  // as part of the provider credential value.
+  return JSON.stringify({ accessKey: pair.accessKey, secretKey: pair.secretKey });
 }
 
 function parseCredentialPairText(text) {
@@ -5470,6 +5473,7 @@ module.exports = {
   isValidZhipuApiKey,
   classifyXiaomiTokenPlanIcon,
   credentialPairFromVaultValues,
+  serializeCredentialPair,
   ZHIPU_CREATE_TEXTS,
   ZHIPU_CONFIRM_TEXTS,
 };

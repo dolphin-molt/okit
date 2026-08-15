@@ -63,6 +63,9 @@ function classifyCreateFailure(platform, status, payload) {
   if (/扩展未连接|chrome 扩展|extension.*not connected|cdp unavailable/.test(message)) {
     return 'blocked_prerequisite';
   }
+  if (/未找到(?:创建)?(?:密钥|key|api key|操作)按钮|没有(?:创建|密钥|key).*入口|无(?:创建|密钥|key).*入口|no (?:create|key|api key).*button/.test(message)) {
+    return 'blocked_prerequisite';
+  }
   if (platform.id === 'cloudflare' && /parent token|父级/.test(message)) {
     return 'blocked_prerequisite';
   }

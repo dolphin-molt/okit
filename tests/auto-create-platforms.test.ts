@@ -278,25 +278,27 @@ describe('auto-create key platforms', () => {
   it('keeps dedicated Token Plan keys separate from ordinary provider keys', () => {
     const qwenToken = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qwen-token-plan') as {
       keyHint?: string; groupHint?: string; url?: string; creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean;
-      existingMaskedKeyPrefix?: string; postCreateCopyByMaskedKeyPrefix?: string; keyPatterns?: string[];
+      existingKeyRequired?: boolean; existingMaskedKeyPrefix?: string; postCreateCopyByMaskedKeyPrefix?: string; keyPatterns?: string[];
     };
     expect(qwenToken.keyHint).toBe('DASHSCOPE_TOKEN_PLAN_API_KEY');
     expect(qwenToken.groupHint).toBe('阿里云百炼');
     expect(qwenToken.url).toBe('https://bailian.console.aliyun.com/cn-beijing?tab=plan');
     expect(qwenToken.creationActionOnly).toBe(true);
     expect(qwenToken.reuseExistingMaskedKey).toBe(true);
+    expect(qwenToken.existingKeyRequired).toBe(true);
     expect(qwenToken.existingMaskedKeyPrefix).toBe('sk-sp-');
     expect(qwenToken.postCreateCopyByMaskedKeyPrefix).toBe('sk-sp-');
     expect(new RegExp(qwenToken.keyPatterns![0]).test('sk-sp-abcdefghijklmnopqrstuvwxyz123456')).toBe(true);
 
     const tencentToken = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent-token-plan') as {
-      keyHint?: string; groupHint?: string; url?: string; inlineFormScope?: boolean; reuseExistingMaskedKey?: boolean; existingMaskedKeyPrefix?: string;
+      keyHint?: string; groupHint?: string; url?: string; inlineFormScope?: boolean; reuseExistingMaskedKey?: boolean; existingKeyRequired?: boolean; existingMaskedKeyPrefix?: string;
     };
     expect(tencentToken.keyHint).toBe('TENCENT_TOKEN_PLAN_API_KEY');
     expect(tencentToken.groupHint).toBe('腾讯云');
     expect(tencentToken.url).toBe('https://console.cloud.tencent.com/tokenhub/apikey');
     expect(tencentToken.inlineFormScope).toBe(true);
     expect(tencentToken.reuseExistingMaskedKey).toBe(true);
+    expect(tencentToken.existingKeyRequired).toBe(true);
     expect(tencentToken.existingMaskedKeyPrefix).toBe('sk-');
 
     const tencentNormal = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent') as {
@@ -335,6 +337,17 @@ describe('auto-create key platforms', () => {
     expect(international.label).toBe('MiniMax Token Plan（国际）');
     expect(domestic.label).not.toContain('Coding Plan');
     expect(international.label).not.toContain('Coding Plan');
+  });
+
+  it('never creates Code/Token subscription keys when the provider exposes only reuse', () => {
+    for (const id of ['moonshot-coding-plan', 'kimi-coding-plan', 'xiaomi-coding']) {
+      const platform = AUTO_CREATE_PLATFORMS.find((candidate) => candidate.id === id) as {
+        creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingKeyRequired?: boolean;
+      };
+      expect(platform.creationActionOnly).toBe(true);
+      expect(platform.reuseExistingMaskedKey).toBe(true);
+      expect(platform.existingKeyRequired).toBe(true);
+    }
   });
 
   it('uses the verified Kimi international console and its visible default project', () => {

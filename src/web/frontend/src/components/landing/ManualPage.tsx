@@ -29,10 +29,12 @@ export default function ManualPage() {
   const { t } = useI18n();
   const { html, toc } = useMemo(renderManual, []);
   const [activeId, setActiveId] = useState<string>(toc[0]?.id ?? '');
-  const articleRef = useRef<HTMLElement>(null);
+  const scrollColRef = useRef<HTMLDivElement>(null);
 
-  // Highlight the section currently at the top of the viewport.
+  // Highlight the section currently at the top of the article scroll area.
   useEffect(() => {
+    const col = scrollColRef.current;
+    if (!col) return;
     const onScroll = () => {
       let current = toc[0]?.id ?? '';
       for (const entry of toc) {
@@ -44,8 +46,12 @@ export default function ManualPage() {
       setActiveId(current);
     };
     onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    col.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      col.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, [toc]);
 
   return (
@@ -67,32 +73,31 @@ export default function ManualPage() {
       </header>
 
       <main className="manual-main">
-        <div className="manual-layout">
-          <aside className="manual-toc" aria-label="Table of contents">
-            <span className="manual-toc-title">{t('manual.toc')}</span>
-            {toc.map((entry) => (
-              <a
-                key={entry.id}
-                href={`#${entry.id}`}
-                className={`manual-toc-link${entry.level === 4 ? ' manual-toc-link--sub' : ''}${entry.id === activeId ? ' active' : ''}`}
-              >
-                {entry.text}
-              </a>
-            ))}
-          </aside>
-          <article ref={articleRef} className="manual-article" dangerouslySetInnerHTML={{ __html: html }} />
+        <aside className="manual-toc" aria-label="Table of contents">
+          <span className="manual-toc-title">{t('manual.toc')}</span>
+          {toc.map((entry) => (
+            <a
+              key={entry.id}
+              href={`#${entry.id}`}
+              className={`manual-toc-link${entry.level === 4 ? ' manual-toc-link--sub' : ''}${entry.id === activeId ? ' active' : ''}`}
+            >
+              {entry.text}
+            </a>
+          ))}
+        </aside>
+        <div className="manual-article-col" ref={scrollColRef}>
+          <article className="manual-article" dangerouslySetInnerHTML={{ __html: html }} />
+          <footer className="landing-footer manual-footer">
+            <div className="landing-footer-inner">
+              <span className="landing-footer-brand">
+                <img src={okitIcon} alt="OKIT" className="landing-logo-img landing-logo-img--sm" />
+                © 2026 OKIT
+              </span>
+              <a href="https://github.com/dolphin-molt/okit">GitHub ↗</a>
+            </div>
+          </footer>
         </div>
       </main>
-
-      <footer className="landing-footer">
-        <div className="landing-footer-inner">
-          <span className="landing-footer-brand">
-            <img src={okitIcon} alt="OKIT" className="landing-logo-img landing-logo-img--sm" />
-            © 2026 OKIT
-          </span>
-          <a href="https://github.com/dolphin-molt/okit">GitHub ↗</a>
-        </div>
-      </footer>
     </div>
   );
 }

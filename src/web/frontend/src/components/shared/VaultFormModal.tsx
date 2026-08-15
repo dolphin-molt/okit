@@ -3,6 +3,7 @@ import { getVaultValue, listAutoCreatePlatforms, setVault, type AutoCreatePlatfo
 import { apiRaw } from '../../api/client';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
+import { getAutoCreatePlatformFields } from './autoCreateFormState';
 import { PREDEFINED_GROUPS } from '../../data/vault-groups';
 
 interface VaultFormModalProps {
@@ -104,14 +105,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     // a uniqueness suffix like "ZHIPU_KEY-x7k2" that matches the platform)
     setFormKey(result.name || tokenName);
     setFormValue(result.value);
-    if (platform.groupHint && !formGroup) {
-      if (groups.includes(platform.groupHint)) {
-        setFormGroup(platform.groupHint);
-      } else {
-        setFormGroup('__custom__');
-        setFormGroupCustom(platform.groupHint);
-      }
-    }
+    applyAutoCreatePlatformGroup(platform);
     setShowAutoCreate(false);
     setAutoPlatform('');
     setParentToken('');
@@ -122,6 +116,32 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     } else {
       setAutoNotice(t('vault.autoCreateReady'));
     }
+  }
+
+  function applyAutoCreatePlatformGroup(platform: AutoCreatePlatform) {
+    const fields = getAutoCreatePlatformFields(platform, groups);
+    setFormGroup(fields.group);
+    setFormGroupCustom(fields.groupCustom);
+  }
+
+  function handleAutoPlatformChange(value: string) {
+    if (autoCreating || autoRunId) return;
+    const platform = autoPlatforms.find(item => item.id === value);
+    if (!platform) return;
+
+    // The name and group belong to the selected provider. Reset both when the
+    // provider changes so a previous successful auto-create cannot leak its
+    // MiniMax/OpenAI name or group into the next run.
+    setAutoPlatform(value);
+    const fields = getAutoCreatePlatformFields(platform, groups);
+    setFormKey(fields.key);
+    setFormValue('');
+    applyAutoCreatePlatformGroup(platform);
+    setParentToken('');
+    setAutoError('');
+    setAutoNotice('');
+    setLoginHandoff(null);
+    setVerificationHandoff(null);
   }
 
   async function pollAutoCreateRun(runId: string, platform: AutoCreatePlatform, tokenName: string) {
@@ -293,7 +313,8 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                   </div>
                   <CustomSelect
                     value={autoPlatform}
-                    onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); setVerificationHandoff(null); }}
+                    onChange={handleAutoPlatformChange}
+                    disabled={autoCreating || Boolean(autoRunId)}
                     placeholder={loadingPlatforms ? t('common.loading') : t('vault.autoCreateSelectPlatform')}
                     options={autoPlatforms.map(p => ({
                       value: p.id,

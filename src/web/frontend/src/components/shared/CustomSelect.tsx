@@ -7,9 +7,10 @@ interface CustomSelectProps {
   placeholder?: string;
   className?: string;
   dropdownMode?: 'fixed' | 'local';
+  disabled?: boolean;
 }
 
-export default function CustomSelect({ value, options, onChange, placeholder, className, dropdownMode = 'fixed' }: CustomSelectProps) {
+export default function CustomSelect({ value, options, onChange, placeholder, className, dropdownMode = 'fixed', disabled = false }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
@@ -17,6 +18,7 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
   const active = options.find(o => o.value === value);
 
   function toggle() {
+    if (disabled) return;
     if (open) {
       setOpen(false);
       return;
@@ -80,7 +82,7 @@ export default function CustomSelect({ value, options, onChange, placeholder, cl
 
   return (
     <div ref={ref} className={`custom-select${open ? ' custom-select--open' : ''} ${className || ''}`}>
-      <button ref={triggerRef} type="button" className="custom-select-trigger" onClick={toggle}>
+      <button ref={triggerRef} type="button" className="custom-select-trigger" onClick={toggle} disabled={disabled}>
         <span className={`custom-select-value${!active ? ' custom-select-value--placeholder' : ''}`}>
           {active?.label || placeholder || ''}
         </span>

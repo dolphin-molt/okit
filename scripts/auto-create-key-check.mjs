@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+
+/**
+ * Destructive-but-scoped auto-create smoke test.
+ *
+ * Each run uses a unique OKIT_AUTOCHECK_* name, creates one credential through
+ * the same HTTP route as the UI, then revokes/deletes that exact credential.
+ * Subscription flows that deliberately copy an existing key are verified but
+ * are never deleted. Reports contain status and redacted errors only.
+ *
+ * Status contract:
+ *   passed                 create + read + delete + row disappearance
+ *   passed_existing_reuse  existing subscription key read/copy only
+ *   waiting_for_user       login/CAPTCHA/MFA/security challenge
+ *   blocked_prerequisite   missing dedicated test credential or entitlement
+ *   failed                 an automation/provider implementation problem
+ *   cleanup_failed         created, but deletion was not confirmed
+ */
+
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { AUTO_CREATE_PLATFORMS } = require('../src/web/api/auto-create.js');
+
+const BASE_URL = process.env.OKIT_AUTO_CREATE_BASE_URL || 'http://127.0.0.1:3780';
+const REPORT_DIR = process.env.OKIT_AUTO_CREATE_REPORT_DIR
+  || path.join(os.homedir(), '.okit', 'auto-create-check');
+const args = new Set(process.argv.slice(2));
+const requestedPlatforms = process.argv.slice(2).filter(value => !value.startsWith('--'));
+const selectedPlatforms = requestedPlatforms.length
+  ? AUTO_CREATE_PLATFORMS.filter(platform => requestedPlatforms.includes(platform.id))
+  : AUTO_CREATE_PLATFORMS;
+
+function redact(value) {
+  return String(value || '')
+    .replace(/(?:sk|xai|tp|bce-v3)[-_/.A-Za-z0-9]{12,}/g, '[REDACTED]')
+    .replace(/AKLT[A-Za-z0-9_-]{8,}/g, '[REDACTED]')
+    .replace(/eyJ[A-Za-z0-9_-]{20,}/g, '[REDACTED]')
+    .slice(0, 600);
+}
+
+function testName(platformId, stamp) {
+  return `OKIT_AUTOCHECK_${platformId.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}_${stamp}`;
+}
+
+function failureMessage(status, payload) {
+  return redact(payload?.error || payload?.message || `HTTP ${status}`);
+}
+
+function classifyCreateFailure(platform, status, payload) {
+  const message = String(payload?.error || payload?.message || '').toLowerCase();
+  if (/验证码|安全验证|身份验证|短信|微信扫码|滑块|拼图|captcha|turnstile|mfa|security verification/.test(message)) {
+    return 'waiting_for_user';
+  }
+  if (payload?.loginRequired || status === 401 || /需要登录|请登录|未登录|login required|sign in/.test(message)) {
+    return 'waiting_for_user';
+  }
+  if (/扩展未连接|chrome 扩展|extension.*not connected|cdp unavailable/.test(message)) {
+    return 'blocked_prerequisite';
+  }
+  if (platform.id === 'cloudflare' && /parent token|父级/.test(message)) {
+    return 'blocked_prerequisite';
+  }
+  if (platform.reuseExistingMaskedKey && /没有显示|没有可复制|无可复制|existing.*key|订阅 key|subscription key|token plan/.test(message)) {
+    return 'blocked_prerequisite';
+  }
+  if (/权限|permission|billing|账单|费用中心|套餐尚未|套餐未开通|未开通/.test(message)) {
+    return 'blocked_prerequisite';
+  }
+  return 'failed';
+}
+
+async function request(route, body) {
+  const response = await fetch(new URL(route, BASE_URL), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let payload = {};
+  try { payload = await response.json(); } catch {}
+  return { status: response.status, payload };
+}
+
+async function getJson(route) {
+  const response = await fetch(new URL(route, BASE_URL));
+  let payload = {};
+  try { payload = await response.json(); } catch {}
+  return { status: response.status, payload };
+}
+
+function checkoutState() {
+  try {
+    const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const dirty = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
+    return { revision, dirty: Boolean(dirty) };
+  } catch (error) {
+    return { revision: '', dirty: true, error: redact(error.message || error) };
+  }
+}
+
+async function runOne(platform, stamp) {
+  const name = testName(platform.id, stamp);
+  const result = {
+    id: platform.id,
+    label: platform.label,
+    mode: platform.mode,
+    testName: name,
+    status: 'not_run',
+    cleanup: 'not_started',
+  };
+
+  const parentToken = process.env.OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN || '';
+  if (platform.id === 'cloudflare' && !parentToken) {
+    result.status = 'blocked_prerequisite';
+    result.reason = '缺少 OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN；不会复用生产 Vault Token';
+    return result;
+  }
+
+  let create;
+  try {
+    create = await request('/api/vault/auto-create', {
+      platform: platform.id,
+      tokenName: name,
+      ...(platform.id === 'cloudflare' ? { parentToken } : {}),
+    });
+  } catch (error) {
+    result.status = 'failed';
+    result.reason = `创建请求失败：${redact(error.message || error)}`;
+    return result;
+  }
+  if (create.status !== 200 || !create.payload?.success) {
+    result.status = classifyCreateFailure(platform, create.status, create.payload);
+    result.reason = `创建未完成（HTTP ${create.status}）：${failureMessage(create.status, create.payload)}`;
+    if (create.payload?.runId) result.runId = String(create.payload.runId).slice(0, 80);
+    return result;
+  }
+  result.createdName = String(create.payload.name || name).slice(0, 200);
+
+  // These flows intentionally copy an already-existing subscription key. The
+  // returned value was not created by this run, so deleting it would violate
+  // the test's cleanup boundary and could break the user's subscription.
+  if (platform.reuseExistingMaskedKey) {
+    result.status = 'passed_existing_reuse';
+    result.cleanup = 'not_applicable_existing_key';
+    return result;
+  }
+
+  let cleanup;
+  try {
+    cleanup = await request('/api/vault/auto-create/delete', {
+      platform: platform.id,
+      createdName: result.createdName,
+      ...(platform.id === 'cloudflare'
+        ? { parentToken, tokenId: create.payload.id }
+        : {}),
+    });
+  } catch (error) {
+    result.status = 'cleanup_failed';
+    result.cleanup = 'failed';
+    result.reason = `删除请求失败：${redact(error.message || error)}`;
+    return result;
+  }
+  if (cleanup.status !== 200 || !cleanup.payload?.success) {
+    result.status = 'cleanup_failed';
+    result.cleanup = 'failed';
+    result.reason = `删除失败（HTTP ${cleanup.status}）：${redact(cleanup.payload?.error || 'unknown error')}`;
+    return result;
+  }
+  result.status = 'passed';
+  result.cleanup = 'deleted';
+  return result;
+}
+
+async function main() {
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  const report = {
+    schemaVersion: 2,
+    startedAt: new Date().toISOString(),
+    baseUrl: BASE_URL,
+    checkout: { cwd: process.cwd(), ...checkoutState() },
+    requestedPlatforms,
+    platforms: selectedPlatforms.map(platform => platform.id),
+    results: [],
+  };
+
+  if (args.has('--list')) {
+    for (const platform of AUTO_CREATE_PLATFORMS) {
+      console.log(`${platform.id}\t${platform.label}\t${platform.mode}`);
+    }
+    return;
+  }
+  if (!selectedPlatforms.length) throw new Error('没有匹配到测试平台');
+  if (args.has('--dry-run')) {
+    report.results = selectedPlatforms.map(platform => ({ id: platform.id, label: platform.label, status: 'dry_run' }));
+  } else {
+    if (report.checkout.dirty) {
+      const reason = report.checkout.error
+        ? `无法确认 checkout 状态：${report.checkout.error}`
+        : '检测 checkout 存在未提交修改；为避免每天执行未知代码，本轮未开始创建';
+      report.results = selectedPlatforms.map(platform => ({
+        id: platform.id,
+        label: platform.label,
+        mode: platform.mode,
+        testName: testName(platform.id, stamp),
+        status: 'blocked_prerequisite',
+        cleanup: 'not_started',
+        reason,
+      }));
+    } else {
+    const health = await getJson('/api/vault/cdp-status').catch(error => ({ status: 0, payload: { error: error.message } }));
+    if (!health.payload?.available && selectedPlatforms.some(platform => platform.mode === 'browser')) {
+      const reason = `Chrome 扩展未连接（${redact(health.payload?.error || 'cdp unavailable')}），本轮未开始创建`;
+      report.results = selectedPlatforms.map(platform => ({
+        id: platform.id,
+        label: platform.label,
+        mode: platform.mode,
+        testName: testName(platform.id, stamp),
+        status: platform.mode === 'browser' ? 'blocked_prerequisite' : 'not_run',
+        cleanup: 'not_started',
+        reason,
+      }));
+    } else {
+      for (const platform of selectedPlatforms) {
+        const result = await runOne(platform, stamp);
+        report.results.push(result);
+        console.log(`${result.status}\t${platform.id}${result.reason ? `\t${result.reason}` : ''}`);
+        // Never create another provider key after a cleanup failure. This keeps
+        // one unresolved credential visible and prevents an orphan-key cascade.
+        if (result.status === 'cleanup_failed') {
+          for (const remaining of selectedPlatforms.slice(report.results.length)) {
+            report.results.push({ id: remaining.id, label: remaining.label, status: 'not_run', reason: '前一个测试密钥删除失败，已停止批量创建' });
+          }
+          break;
+        }
+      }
+    }
+    }
+  }
+  report.endedAt = new Date().toISOString();
+  report.summary = report.results.reduce((summary, result) => {
+    summary[result.status] = (summary[result.status] || 0) + 1;
+    return summary;
+  }, {});
+  await fs.mkdir(REPORT_DIR, { recursive: true });
+  const reportPath = path.join(REPORT_DIR, `${report.startedAt.replace(/[:.]/g, '-')}.json`);
+  await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  console.log(`report\t${reportPath}`);
+  const failed = report.results.some(result => !['passed', 'passed_existing_reuse', 'dry_run'].includes(result.status));
+  process.exitCode = failed ? 1 : 0;
+}
+
+main().catch(error => {
+  console.error(`fatal\t${redact(error.message || error)}`);
+  process.exitCode = 1;
+});

@@ -9,7 +9,7 @@
 //   Claude Code (sub)    → OAuth token from ~/.claude/.credentials.json
 //   GLM Coding Plan      → Coding Plan API key (same as inference)
 //   Kimi Coding Plan     → Coding Plan API key (same as inference)
-//   MiniMax Token Plan   → Coding Plan API key (same as inference)
+//   MiniMax Token Plan   → Token Plan API key (same as inference)
 //   OpenRouter           → API key (same as inference)
 //
 // Unified response shape:
@@ -38,8 +38,8 @@ const SUPPORTED = new Set([
   'glm-coding',      // GLM Coding Plan
   'zai-global-coding', // Z.AI Coding Plan
   'kimi-coding-plan',// Kimi Coding Plan
-  'minimax-coding',  // MiniMax Token Plan
-  'minimax-global-coding', // MiniMax Token Plan (international)
+  'minimax-coding',  // Legacy provider ID; product name is MiniMax Token Plan
+  'minimax-global-coding', // Legacy provider ID; product name is MiniMax Token Plan (international)
   'minimax',         // MiniMax API (console-only balance)
   'minimax-global',  // MiniMax API (international, console-only balance)
   'zai',              // 智谱 API (console-only balance)
@@ -568,7 +568,7 @@ async function queryAlibabaBalance() {
     accessKey: ['ALIYUN_ACCESS_KEY_ID', 'ALIBABA_CLOUD_ACCESS_KEY_ID', 'QWEN_ACCESS_KEY_ID'],
     secretKey: ['ALIYUN_ACCESS_KEY_SECRET', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET', 'QWEN_ACCESS_KEY_SECRET'],
   });
-  if (!credentials) return managementCredentialNotice('阿里云百炼', ['ALIYUN_ACCESS_KEY_ID', 'ALIYUN_ACCESS_KEY_SECRET'], 'https://usercenter2.aliyun.com/home');
+  if (!credentials) return managementCredentialNotice('阿里云百炼', ['ALIYUN_BILLING_CREDENTIALS（可用“自动创建”）', 'ALIYUN_ACCESS_KEY_ID', 'ALIYUN_ACCESS_KEY_SECRET'], 'https://ram.console.aliyun.com/manage/ak');
 
   const result = await callAlibabaRpc(credentials.accessKey, credentials.secretKey, 'QueryAccountBalance', '2017-12-14');
   if (result.error) return { supported: true, windows: [], error: result.error };
@@ -618,7 +618,7 @@ async function queryQianfanBalance() {
     accessKey: ['QIANFAN_ACCESS_KEY_ID', 'BCE_ACCESS_KEY_ID', 'BAIDU_BCE_ACCESS_KEY_ID'],
     secretKey: ['QIANFAN_SECRET_ACCESS_KEY', 'BCE_SECRET_ACCESS_KEY', 'BAIDU_BCE_SECRET_ACCESS_KEY'],
   });
-  if (!credentials) return managementCredentialNotice('百度千帆', ['QIANFAN_ACCESS_KEY_ID', 'QIANFAN_SECRET_ACCESS_KEY'], 'https://console.bce.baidu.com/iam/#/iam/apikey/list');
+  if (!credentials) return managementCredentialNotice('百度千帆', ['QIANFAN_BCE_CREDENTIALS（可用“自动创建”）', 'QIANFAN_ACCESS_KEY_ID', 'QIANFAN_SECRET_ACCESS_KEY'], 'https://console.bce.baidu.com/iam/#/iam/accesskey/list');
   const host = 'billing.baidubce.com';
   const pathName = '/v1/finance/cash/balance';
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -656,8 +656,28 @@ function hmacSha256(key, value, encoding) {
 // normal inference XAI_API_KEY. SuperGrok subscription is a separate product.
 async function queryXaiApiBalance() {
   const managementKey = await resolveFirstVaultKey(['XAI_MANAGEMENT_KEY', 'XAI_BILLING_MANAGEMENT_KEY']);
-  const teamId = await resolveFirstVaultKey(['XAI_TEAM_ID', 'XAI_MANAGEMENT_TEAM_ID']);
-  if (!managementKey || !teamId) return managementCredentialNotice('xAI API', ['XAI_MANAGEMENT_KEY', 'XAI_TEAM_ID'], 'https://console.x.ai/');
+  let teamId = await resolveFirstVaultKey(['XAI_TEAM_ID', 'XAI_MANAGEMENT_TEAM_ID']);
+  if (!managementKey) return managementCredentialNotice('xAI API', ['XAI_MANAGEMENT_KEY'], 'https://console.x.ai/team/default/settings/management-keys');
+
+  // The management-key validation endpoint returns the scope/team id. This
+  // keeps the auto-create flow to one secret and avoids asking users to copy a
+  // non-secret team identifier into Vault manually.
+  if (!teamId) {
+    const validation = await httpRequest('https://management-api.x.ai/auth/management-keys/validation', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
+      timeout: 10000,
+    });
+    if (validation.error) return { supported: true, windows: [], error: validation.error };
+    if (validation.status === 401 || validation.status === 403) return { supported: true, windows: [], error: 'xAI Management Key 无权限或已失效' };
+    if (validation.status !== 200) return { supported: true, windows: [], error: `xAI Management Key 校验失败（HTTP ${validation.status}）` };
+    try {
+      const data = JSON.parse(validation.body);
+      teamId = data.scopeId || data.teamId || data.scope_id || data.team_id;
+    } catch {}
+    if (!teamId) return { supported: true, windows: [], error: 'xAI Management Key 未返回可识别的 Team ID，请添加 XAI_TEAM_ID' };
+  }
+
   const result = await httpRequest(`https://management-api.x.ai/v1/billing/teams/${encodeURIComponent(teamId)}/prepaid/balance`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
@@ -957,7 +977,7 @@ async function queryTencentTokenPlanUsage(_apiKey) {
       supported: true,
       windows: [],
       source: 'console',
-      notice: '腾讯云企业 Token Plan 可通过 TokenHub 管理 API 查询；请在密钥管理中添加 TENCENT_SECRET_ID、TENCENT_SECRET_KEY 和 TENCENT_TOKEN_PLAN_TEAM_ID。个人版仍需在控制台查看。',
+      notice: '腾讯云企业 Token Plan 可通过 TokenHub 管理 API 查询；请在密钥管理中添加 TENCENT_CLOUD_CREDENTIALS（可用“自动创建”）或分别添加 TENCENT_SECRET_ID、TENCENT_SECRET_KEY，并提供 TENCENT_TOKEN_PLAN_TEAM_ID。个人版仍需在控制台查看。',
       action: { label: '打开腾讯云 Token Plan', url: 'https://console.cloud.tencent.com/lke/token-plan' },
     };
   }
@@ -1480,7 +1500,7 @@ async function resolveVolcCredentials() {
 
 async function queryVolcengineBalance() {
   const credentials = await resolveVolcCredentials();
-  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
+  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_BILLING_CREDENTIALS（可用“自动创建”）', 'VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
   const result = await callVolcApi(credentials.accessKey, credentials.secretKey, 'QueryBalanceAcct', {
     service: 'billing',
     version: '2022-01-01',
@@ -1526,12 +1546,13 @@ async function openXiaomiLogin(req, res) {
 async function queryVolcengineUsage(plan = 'coding') {
   // Resolve AK/SK from vault. These are typically stored under VOLC_KMS_ACCESS_KEY
   // or a dedicated VOLC_ARK_AK / VOLC_ARK_SK pair.
-  let ak = await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
-  let sk = await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
+  const combined = await resolveVolcCredentials();
+  let ak = combined?.accessKey || await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
+  let sk = combined?.secretKey || await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
   // Fallback: try the KMS AK/SK (works if the IAM user has ark permissions too)
   if (!ak) ak = await resolveVaultKey('VOLC_KMS_ACCESS_KEY') || await resolveVaultKey('VOLC_KMS_ACCESS_KEY/火山引擎KMS Access Key');
   if (!sk) sk = await resolveVaultKey('VOLC_KMS_SECRET_KEY') || await resolveVaultKey('VOLC_KMS_SECRET_KEY/火山引擎KMS Secret Access key');
-  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请在密钥管理中添加 VOLC_ARK_AK 和 VOLC_ARK_SK' };
+  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请在密钥管理中添加 VOLCENGINE_BILLING_CREDENTIALS（可用“自动创建”）或 VOLC_ARK_AK 和 VOLC_ARK_SK' };
 
   if (plan === 'agent') {
     // Agent Plan exposes absolute quota windows through GetAFPUsage.

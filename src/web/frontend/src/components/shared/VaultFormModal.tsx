@@ -34,6 +34,8 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
   const [autoError, setAutoError] = useState('');
   const [autoNotice, setAutoNotice] = useState('');
   const [loginHandoff, setLoginHandoff] = useState<{ platformLabel: string; browserFocused: boolean; loginUrl?: string } | null>(null);
+  const [verificationHandoff, setVerificationHandoff] = useState<{ platformLabel: string; browserFocused: boolean } | null>(null);
+  const [autoRunId, setAutoRunId] = useState<string | null>(null);
   const [parentToken, setParentToken] = useState('');
   const [autoPlatforms, setAutoPlatforms] = useState<AutoCreatePlatform[]>([]);
   const [loadingPlatforms, setLoadingPlatforms] = useState(false);
@@ -97,17 +99,105 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     }
   }
 
+  function applyAutoCreateResult(result: any, platform: AutoCreatePlatform, tokenName: string) {
+    // Auto-fill the form — use the name from the API response (may include
+    // a uniqueness suffix like "ZHIPU_KEY-x7k2" that matches the platform)
+    setFormKey(result.name || tokenName);
+    setFormValue(result.value);
+    if (platform.groupHint && !formGroup) {
+      if (groups.includes(platform.groupHint)) {
+        setFormGroup(platform.groupHint);
+      } else {
+        setFormGroup('__custom__');
+        setFormGroupCustom(platform.groupHint);
+      }
+    }
+    setShowAutoCreate(false);
+    setAutoPlatform('');
+    setParentToken('');
+    setAutoRunId(null);
+    setVerificationHandoff(null);
+    if (Number(result.readyAfterMs) > 0) {
+      setAutoNotice(t('vault.autoCreateReadyDelay', { seconds: Math.ceil(Number(result.readyAfterMs) / 1000) }));
+    } else {
+      setAutoNotice(t('vault.autoCreateReady'));
+    }
+  }
+
+  async function pollAutoCreateRun(runId: string, platform: AutoCreatePlatform, tokenName: string) {
+    while (true) {
+      const response = await apiRaw(`/api/vault/auto-create/status/${encodeURIComponent(runId)}`);
+      const result = await response.json() as any;
+      if (!response.ok) throw new Error(result.error || t('vault.autoCreateFailed'));
+
+      if (result.status === 'verification_required') {
+        setVerificationHandoff({
+          platformLabel: result.platformLabel || platform.label,
+          browserFocused: Boolean(result.browserFocused),
+        });
+        setAutoCreating(false);
+        return;
+      }
+      if (result.status === 'login_required' || result.loginRequired) {
+        setLoginHandoff({
+          platformLabel: result.platformLabel || platform.label,
+          browserFocused: Boolean(result.browserFocused),
+          loginUrl: result.loginUrl,
+        });
+        setVerificationHandoff(null);
+        setAutoRunId(null);
+        setAutoCreating(false);
+        return;
+      }
+      if (result.status === 'succeeded' && result.success) {
+        applyAutoCreateResult(result, platform, tokenName);
+        return;
+      }
+      if (result.status === 'failed' || result.success === false) {
+        setAutoRunId(null);
+        setAutoError(result.error || t('vault.autoCreateFailed'));
+        return;
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 800));
+    }
+  }
+
+  async function handleResumeAutoCreate() {
+    if (!autoRunId) return;
+    setAutoCreating(true);
+    setAutoError('');
+    setVerificationHandoff(null);
+    try {
+      const response = await apiRaw(`/api/vault/auto-create/resume/${encodeURIComponent(autoRunId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await response.json() as any;
+      if (!response.ok || !result.success) throw new Error(result.error || t('vault.autoCreateFailed'));
+      const platform = autoPlatforms.find(p => p.id === autoPlatform);
+      if (!platform) throw new Error(t('vault.autoCreateSelectPlatform'));
+      await pollAutoCreateRun(autoRunId, platform, formKey || platform.keyHint);
+    } catch (err: any) {
+      setAutoError(err.message || t('vault.autoCreateFailed'));
+      setAutoRunId(null);
+    } finally {
+      setAutoCreating(false);
+    }
+  }
+
   async function handleAutoCreate() {
     if (!autoPlatform) return;
+    if (autoRunId) return;
     setAutoCreating(true);
     setAutoError('');
     setAutoNotice('');
     setLoginHandoff(null);
+    setVerificationHandoff(null);
     try {
       const platform = autoPlatforms.find(p => p.id === autoPlatform)!;
       const tokenName = formKey || platform.keyHint;
 
-      const body: any = { platform: autoPlatform, tokenName };
+      const body: any = { platform: autoPlatform, tokenName, interactive: platform.mode === 'browser' };
       if (platform.mode === 'api') {
         if (!parentToken.trim()) {
           setAutoError(t('vault.autoCreateParentTokenRequired') || '请提供父级 API Token');
@@ -124,28 +214,11 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
       });
       const result = await response.json() as any;
 
-      if (result.success) {
-        // Auto-fill the form — use the name from the API response (may include
-        // a uniqueness suffix like "ZHIPU_KEY-x7k2" that matches the platform)
-        setFormKey(result.name || tokenName);
-        setFormValue(result.value);
-        if (platform.groupHint && !formGroup) {
-          // Check if group already exists in groups list
-          if (groups.includes(platform.groupHint)) {
-            setFormGroup(platform.groupHint);
-          } else {
-            setFormGroup('__custom__');
-            setFormGroupCustom(platform.groupHint);
-          }
-        }
-        setShowAutoCreate(false);
-        setAutoPlatform('');
-        setParentToken('');
-        if (Number(result.readyAfterMs) > 0) {
-          setAutoNotice(t('vault.autoCreateReadyDelay', { seconds: Math.ceil(Number(result.readyAfterMs) / 1000) }));
-        } else {
-          setAutoNotice(t('vault.autoCreateReady'));
-        }
+      if (result.pending && result.runId) {
+        setAutoRunId(result.runId);
+        await pollAutoCreateRun(result.runId, platform, tokenName);
+      } else if (result.success) {
+        applyAutoCreateResult(result, platform, tokenName);
       } else if (result.loginRequired) {
         setLoginHandoff({
           platformLabel: platform.label,
@@ -220,7 +293,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                   </div>
                   <CustomSelect
                     value={autoPlatform}
-                    onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); }}
+                    onChange={v => { setAutoPlatform(v); setAutoError(''); setLoginHandoff(null); setVerificationHandoff(null); }}
                     placeholder={loadingPlatforms ? t('common.loading') : t('vault.autoCreateSelectPlatform')}
                     options={autoPlatforms.map(p => ({
                       value: p.id,
@@ -246,6 +319,15 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                   </div>
                 )}
                 {selectedPlatform?.mode === 'browser' && <p className="vault-auto-create-hint">{t('vault.autoCreateBrowserHint')}</p>}
+                {verificationHandoff && (
+                  <div className="vault-auto-create-login" role="alert">
+                    <strong>{t('vault.autoCreateVerificationRequired')}: {verificationHandoff.platformLabel}</strong>
+                    <p>{verificationHandoff.browserFocused ? t('vault.autoCreateVerificationFocused') : t('vault.autoCreateVerificationOpenBrowser')}</p>
+                    <button className="btn-save" onClick={handleResumeAutoCreate} disabled={autoCreating} type="button">
+                      {autoCreating ? t('vault.autoCreating') : t('vault.autoCreateVerificationContinue')}
+                    </button>
+                  </div>
+                )}
                 {loginHandoff && (
                   <div className="vault-auto-create-login" role="alert">
                     <strong>{t('vault.autoCreateLoginRequired')}: {loginHandoff.platformLabel}</strong>
@@ -256,7 +338,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                 )}
                 {autoError && <p className="vault-auto-create-error" role="alert">{autoError}</p>}
                 <div className="vault-auto-create-actions">
-                  <button className="btn-save vault-auto-create-primary" onClick={handleAutoCreate} disabled={autoCreating || loadingPlatforms || !autoPlatform} type="button">
+                  <button className="btn-save vault-auto-create-primary" onClick={handleAutoCreate} disabled={autoCreating || Boolean(autoRunId) || loadingPlatforms || !autoPlatform} type="button">
                     {autoCreating ? t('vault.autoCreating') : t('vault.autoCreateStart')}
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M3 7.5h9M8.5 4l3.5 3.5L8.5 11" /></svg>
                   </button>

@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups } = require('./api/vault');
-const { autoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
+const { autoCreateKey, autoCreateRunStatus, resumeAutoCreateRun, deleteAutoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
@@ -36,6 +36,9 @@ function createServer(port = 3780) {
   app.post('/api/vault/test-key', testApiKey);
   app.post('/api/vault/migrate-groups', migrateGroups);
   app.post('/api/vault/auto-create', autoCreateKey);
+  app.get('/api/vault/auto-create/status/:runId', autoCreateRunStatus);
+  app.post('/api/vault/auto-create/resume/:runId', resumeAutoCreateRun);
+  app.post('/api/vault/auto-create/delete', deleteAutoCreateKey);
   app.post('/api/vault/auto-create/recover-zai-latest', async (_req, res) => {
     try {
       const result = await recoverLatestZaiGlobalKey();

@@ -25,6 +25,7 @@ describe('auto-create key platforms', () => {
       'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
       'qwen', 'qwen-token-plan', 'qianfan', 'qianfan-coding', 'xiaomi', 'xiaomi-coding', 'stepfun', 'xai', 'mistral', 'openrouter',
       'tencent-token-plan', 'opencode-go',
+      'aliyun-usage-credentials', 'baidu-usage-credentials', 'tencent-usage-credentials', 'volcengine-usage-credentials', 'xai-management',
     ]));
   });
 
@@ -80,6 +81,72 @@ describe('auto-create key platforms', () => {
     expect(rendered).not.toContain(secret);
   });
 
+  it('stores management AK/SK captures as one JSON credential pair', () => {
+    const pair = extractKeyFromCaptures([{
+      method: 'POST',
+      responsePreview: JSON.stringify({ AccessKeyId: 'AKLT1234567890abcdef', SecretAccessKey: 'secret-value-1234567890' }),
+      url: 'https://console.volcengine.com/api/access-key/create',
+    }], 'volcengine-usage-credentials');
+    expect(JSON.parse(pair || 'null')).toEqual({
+      accessKey: 'AKLT1234567890abcdef',
+      secretKey: 'secret-value-1234567890',
+    });
+  });
+
+  it('configures Volcengine usage AK/SK creation to use AdministratorAccess', () => {
+    const volc = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials') as any;
+    expect(volc.keyHint).toBe('VOLCENGINE_BILLING_CREDENTIALS');
+    expect(volc.credentialPair).toBe(true);
+    expect(volc.permissionDefaults.optionTexts).toContain('AdministratorAccess');
+  });
+
+  it('acknowledges Tencent primary-account key risk only in its exact warning dialog', () => {
+    const tencent = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'tencent-usage-credentials') as any;
+    expect(tencent.url).toBe('https://console.cloud.tencent.com/cam/capi');
+    expect(tencent.credentialPair).toBe(true);
+    expect(tencent.preCreateAcknowledge.dialogTexts).toContain('不建议使用主账号 API 访问密钥');
+    expect(tencent.preCreateAcknowledge.checkboxTexts).toContain('我已知晓使用主账号 API 访问密钥的风险');
+    expect(tencent.preCreateAcknowledge.continueTexts).toEqual(['继续使用', '仍需创建主账号密钥']);
+  });
+
+  it('uses the live BCE Access Key route and acknowledges its primary-account warning', () => {
+    const baidu = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'baidu-usage-credentials') as any;
+    expect(baidu.url).toBe('https://console.bce.baidu.com/iam/#/iam/accesslist');
+    expect(baidu.preCreateAcknowledge.dialogTexts).toContain('不建议使用主账号 AccessKey');
+    expect(baidu.preCreateAcknowledge.checkboxTexts).toContain('我确认知晓使用主账号 AccessKey 的安全风险');
+    expect(baidu.preCreateAcknowledge.continueTexts).toEqual(['继续使用主账号 AccessKey']);
+  });
+
+  it('registers every management credential needed by usage cards', () => {
+    const expected = {
+      'aliyun-usage-credentials': ['ALIYUN_BILLING_CREDENTIALS', 'https://ram.console.aliyun.com/profile/accessKey'],
+      'baidu-usage-credentials': ['QIANFAN_BCE_CREDENTIALS', 'https://console.bce.baidu.com/iam/#/iam/accesslist'],
+      'tencent-usage-credentials': ['TENCENT_CLOUD_CREDENTIALS', 'https://console.cloud.tencent.com/cam/capi'],
+      'volcengine-usage-credentials': ['VOLCENGINE_BILLING_CREDENTIALS', 'https://console.volcengine.com/iam/keymanage/'],
+      'xai-management': ['XAI_MANAGEMENT_KEY', 'https://console.x.ai/team/default/settings/management-keys'],
+    } as Record<string, [string, string]>;
+    for (const [id, [keyHint, url]] of Object.entries(expected)) {
+      const platform = AUTO_CREATE_PLATFORMS.find(candidate => candidate.id === id) as any;
+      expect(platform, id).toBeTruthy();
+      expect(platform.keyHint, id).toBe(keyHint);
+      expect(platform.url, id).toBe(url);
+      expect(platform.credentialPair || id === 'xai-management', id).toBe(true);
+    }
+  });
+
+  it('limits xAI management creation to the billing permission needed for usage', () => {
+    const xai = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'xai-management') as any;
+    expect(xai.rowPermissionDefaults).toEqual([
+      { rowTexts: ['Billing'], optionTexts: ['Read only'] },
+    ]);
+  });
+
+  it('uses xAI’s discovered team API-key href for cleanup navigation', () => {
+    const xai = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'xai') as any;
+    expect(xai.deletePreNavigationUseHref).toBe(true);
+    expect(xai.deletePreNavigationTexts).toEqual(['API Keys']);
+  });
+
   it('rejects provider-masked values before they can be saved as keys', () => {
     expect(isAssetData('0123456789abcdef0123456789abcdef.*****a1b')).toBe(true);
     expect(isAssetData('0123456789abcdef0123456789abcdef.AbCdEf123')).toBe(false);
@@ -98,9 +165,12 @@ describe('auto-create key platforms', () => {
   });
 
   it('opens MiMo directly on its authenticated API Keys screen and completes its dialog', () => {
-    const xiaomi = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'xiaomi') as { url?: string; createTexts?: string[]; nameSelectors?: string[]; confirmTexts?: string[] };
+    const xiaomi = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'xiaomi') as { url?: string; createTexts?: string[]; nameSelectors?: string[]; confirmTexts?: string[]; deleteTextOnly?: boolean; deleteConfirmInputText?: string };
     expect(xiaomi.url).toBe('https://platform.xiaomimimo.com/console/api-keys');
     expect(xiaomi.createTexts).toContain('Create API Key');
+    expect(xiaomi.createTexts).toContain('新建 API Key');
+    expect(xiaomi.deleteTextOnly).toBe(true);
+    expect(xiaomi.deleteConfirmInputText).toBe('确认删除');
     expect(xiaomi.nameSelectors).toContain('input#apiKeyName');
     expect(xiaomi.confirmTexts).toContain('Confirm');
   });
@@ -142,23 +212,52 @@ describe('auto-create key platforms', () => {
 
   it('uses the verified BCE API Key name field and confirmation action', () => {
     const qianfan = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qianfan') as {
-      url?: string; createTexts?: string[]; formReadyAttempts?: number; formReadyDelayMs?: number; nameSelectors?: string[]; confirmTexts?: string[];
+      url?: string; createTexts?: string[]; formReadyAttempts?: number; formReadyDelayMs?: number; inlineFormScope?: boolean; deleteDomFirst?: boolean; deleteAllowMissingAfterClick?: boolean; deleteTextSelector?: string; deleteConfirmWaitAttempts?: number; deleteDialogText?: string; deleteSecurityVerificationTexts?: string[]; nameSelectors?: string[]; confirmTexts?: string[];
     };
     expect(qianfan.url).toBe('https://console.bce.baidu.com/iam/#/iam/apikey/list');
     expect(qianfan.createTexts).toEqual(['创建API Key']);
     expect(qianfan.formReadyAttempts).toBeGreaterThan(1);
     expect(qianfan.formReadyDelayMs).toBeGreaterThanOrEqual(150);
+    expect(qianfan.inlineFormScope).toBe(true);
+    expect(qianfan.deleteDomFirst).toBe(true);
+    expect(qianfan.deleteAllowMissingAfterClick).toBe(true);
+    expect(qianfan.deleteTextSelector).toBe('span.idaas-column-operate-item');
+    expect(qianfan.deleteConfirmWaitAttempts).toBeGreaterThan(1);
+    expect(qianfan.deleteDialogText).toBe('删除API Key');
+    expect(qianfan.deleteSecurityVerificationTexts).toContain('短信验证码');
     expect(qianfan.nameSelectors).toContain('input#name');
     expect(qianfan.confirmTexts).toEqual(['确定']);
   });
 
+  it('uses SiliconFlow’s exact creation and dynamic deletion confirmation', () => {
+    const silicon = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'siliconflow') as {
+      nameSelectors?: string[];
+      confirmTexts?: string[];
+      deleteDomFirst?: boolean;
+      deleteConfirmWaitAttempts?: number;
+      deleteDialogText?: string;
+      deleteConfirmInputFromDialog?: boolean;
+      deleteConfirmTexts?: string[];
+    };
+    expect(silicon.nameSelectors).toContain('input[placeholder*="请输入描述"]');
+    expect(silicon.confirmTexts).toEqual(['新建密钥']);
+    expect(silicon.deleteDomFirst).toBe(true);
+    expect(silicon.deleteConfirmWaitAttempts).toBeGreaterThan(1);
+    expect(silicon.deleteDialogText).toBe('确认删除密钥');
+    expect(silicon.deleteConfirmInputFromDialog).toBe(true);
+    expect(silicon.deleteConfirmTexts).toEqual(['确认删除']);
+  });
+
   it('uses the subscribed Token Plan page and its Copy action for Coding keys', () => {
     const coding = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qianfan-coding') as {
-      url?: string; createTexts?: string[]; creationActionOnly?: boolean; postCreateCopyTexts?: string[]; postCreateCopyNeedsForeground?: boolean; allowExtensionClipboardRead?: boolean; keyPatterns?: string[];
+      url?: string; createTexts?: string[]; creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingKeyRequired?: boolean; existingMaskedKeyPrefix?: string; postCreateCopyTexts?: string[]; postCreateCopyNeedsForeground?: boolean; allowExtensionClipboardRead?: boolean; keyPatterns?: string[];
     };
     expect(coding.url).toBe('https://console.bce.baidu.com/qianfan/resource/token-plan');
     expect(coding.createTexts).toEqual(['点击生成', '复制']);
     expect(coding.creationActionOnly).toBe(true);
+    expect(coding.reuseExistingMaskedKey).toBe(true);
+    expect(coding.existingKeyRequired).toBe(true);
+    expect(coding.existingMaskedKeyPrefix).toBe('bce-v3/');
     expect(coding.postCreateCopyTexts).toEqual(['复制']);
     expect(coding.postCreateCopyNeedsForeground).toBe(true);
     expect(coding.allowExtensionClipboardRead).toBe(true);
@@ -191,17 +290,51 @@ describe('auto-create key platforms', () => {
     expect(new RegExp(qwenToken.keyPatterns![0]).test('sk-sp-abcdefghijklmnopqrstuvwxyz123456')).toBe(true);
 
     const tencentToken = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent-token-plan') as {
-      keyHint?: string; groupHint?: string; url?: string;
+      keyHint?: string; groupHint?: string; url?: string; inlineFormScope?: boolean; reuseExistingMaskedKey?: boolean; existingMaskedKeyPrefix?: string;
     };
     expect(tencentToken.keyHint).toBe('TENCENT_TOKEN_PLAN_API_KEY');
     expect(tencentToken.groupHint).toBe('腾讯云');
-    expect(tencentToken.url).toBe('https://console.cloud.tencent.com/lke/api-key');
+    expect(tencentToken.url).toBe('https://console.cloud.tencent.com/tokenhub/apikey');
+    expect(tencentToken.inlineFormScope).toBe(true);
+    expect(tencentToken.reuseExistingMaskedKey).toBe(true);
+    expect(tencentToken.existingMaskedKeyPrefix).toBe('sk-');
+
+    const tencentNormal = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent') as {
+      url?: string; inlineFormScope?: boolean; postCreateCopyByMaskedKeyPrefix?: string;
+    };
+    expect(tencentNormal.url).toBe('https://console.cloud.tencent.com/tokenhub/apikey');
+    expect(tencentNormal.inlineFormScope).toBe(true);
+    expect(tencentNormal.postCreateCopyByMaskedKeyPrefix).toBe('sk-');
+
+    const aliyunUsage = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'aliyun-usage-credentials') as {
+      url?: string; createWaitAttempts?: number; preCreateAcknowledge?: { dialogTexts?: string[] };
+    };
+    expect(aliyunUsage.url).toBe('https://ram.console.aliyun.com/profile/accessKey');
+    expect(aliyunUsage.createWaitAttempts).toBeGreaterThan(10);
+    expect(aliyunUsage.preCreateAcknowledge?.dialogTexts).toContain('创建主账号 AccessKey');
   });
 
-  it('dismisses only DeepSeek’s optional email reminder before creation', () => {
-    const deepseek = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'deepseek') as { preCreateDismissTexts?: string[]; readyAfterMs?: number };
+  it('matches DeepSeek’s current name-input and custom-button creation flow', () => {
+    const deepseek = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'deepseek') as {
+      preCreateDismissTexts?: string[]; readyAfterMs?: number; nameSelectors?: string[];
+      nameFillViaInput?: boolean; confirmByExactText?: boolean; confirmNeedsForeground?: boolean; confirmTexts?: string[];
+    };
     expect(deepseek.preCreateDismissTexts).toEqual(['稍后再填']);
+    expect(deepseek.nameSelectors).toContain('input[placeholder="输入 API key 的名称"]');
+    expect(deepseek.nameFillViaInput).toBe(true);
+    expect(deepseek.confirmByExactText).toBe(true);
+    expect(deepseek.confirmNeedsForeground).toBe(true);
+    expect(deepseek.confirmTexts).toEqual(['创建']);
     expect(deepseek.readyAfterMs).toBe(15000);
+  });
+
+  it('calls MiniMax subscription credentials Token Plan, not Coding Plan', () => {
+    const domestic = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'minimax-coding') as { label?: string };
+    const international = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'minimax-global-coding') as { label?: string };
+    expect(domestic.label).toBe('MiniMax Token Plan（国内）');
+    expect(international.label).toBe('MiniMax Token Plan（国际）');
+    expect(domestic.label).not.toContain('Coding Plan');
+    expect(international.label).not.toContain('Coding Plan');
   });
 
   it('uses the verified Kimi international console and its visible default project', () => {
@@ -213,9 +346,11 @@ describe('auto-create key platforms', () => {
       nameSelectors?: string[];
       defaultProjectLabel?: string;
       confirmTexts?: string[];
+      confirmByExactText?: boolean;
+      confirmNeedsForeground?: boolean;
       createWaitAttempts?: number;
     };
-    expect(moonshot.label).toBe('Moonshot（Kimi 国际站）');
+    expect(moonshot.label).toBe('Moonshot');
     expect(moonshot.url).toBe('https://platform.kimi.ai/console/api-keys');
     expect(moonshot.createTexts).toContain('Create API Key');
     expect(moonshot.nameSelectors).toContain('input[placeholder*="Maximum 32"]');
@@ -238,13 +373,21 @@ describe('auto-create key platforms', () => {
       nameSelectors?: string[];
       defaultProjectLabel?: string;
       confirmTexts?: string[];
+      postCreateDomReadAttempts?: number;
+      postCreateCopyAttempts?: number;
+      postCreateKeySelectors?: string[];
     };
-    expect(kimi.label).toBe('Kimi');
+    expect(kimi.label).toBe('Kimi（国内站）');
     expect(kimi.url).toBe('https://platform.kimi.com/console/api-keys');
     expect(kimi.createTexts).toContain('新建 API Key');
     expect(kimi.nameSelectors).toContain('input[placeholder*="最多输入32"]');
     expect(kimi.defaultProjectLabel).toBe('default');
-    expect(kimi.confirmTexts).toEqual(['确定']);
+    expect(kimi.confirmTexts).toEqual(['确定', '确 定']);
+    expect(kimi.postCreateDomReadAttempts).toBeGreaterThan(10);
+    expect(kimi.postCreateCopyAttempts).toBeGreaterThan(10);
+    expect(kimi.postCreateKeySelectors).toContain('[role="dialog"] input');
+    expect(kimi.confirmByExactText).toBe(true);
+    expect(kimi.confirmNeedsForeground).toBe(false);
   });
 
   it('fills the required StepFun key name before confirming creation', () => {
@@ -307,7 +450,7 @@ describe('auto-create key platforms', () => {
       {
         method: 'POST',
         timestamp: 2,
-        url: 'https://admin.mistral.ai/api/local-trpc/apiKey.create',
+        url: 'https://admin.mistral.ai/api/billing/api-keys',
         responsePreview: JSON.stringify({ key: createdValue }),
       },
     ], 'mistral')).toBe(createdValue);
@@ -341,15 +484,16 @@ describe('auto-create key platforms', () => {
       allowConfirmCreateText?: boolean;
       postCreateKeySelectors?: string[];
       postCreateDomReadAttempts?: number;
+      formEntryTexts?: string[];
       postCreateReadAttempts?: number;
     };
     expect(mistral.url).toBe('https://console.mistral.ai/api-keys');
     expect(mistral.createTexts).toEqual(['New key']);
-    expect(mistral.formEntryTexts).toEqual(['Create new key']);
+    expect(mistral.formEntryTexts).toContain('Create new key');
     expect(mistral.nameSelectors).toContain('input[placeholder="My API Key"]');
     expect(mistral.confirmTexts).toEqual(['New key']);
     expect(mistral.allowConfirmCreateText).toBe(true);
-    expect(mistral.postCreateKeySelectors).toEqual(['[role="dialog"] input']);
+    expect(mistral.postCreateKeySelectors).toContain('[role="dialog"] input');
     expect(mistral.postCreateDomReadAttempts).toBeGreaterThan(1);
     expect(mistral.postCreateReadAttempts).toBeGreaterThan(1);
   });
@@ -358,12 +502,14 @@ describe('auto-create key platforms', () => {
     const mistral = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'mistral') as {
       postCreateReadAttempts?: number;
     };
-    expect(mistral.postCreateReadAttempts).toBe(5);
+    expect(mistral.postCreateReadAttempts).toBe(3);
   });
 
   it('opens every still-unverified browser platform for one-time login', () => {
     const ids = BROWSER_LOGIN_VERIFICATION_PLATFORMS.map((platform) => platform.id);
-    expect(ids).toHaveLength(19);
+    expect(ids).toEqual(AUTO_CREATE_PLATFORMS
+      .filter(platform => platform.mode === 'browser' && platform.id !== 'openrouter')
+      .map(platform => platform.id));
     expect(ids).not.toContain('cloudflare');
     expect(ids).not.toContain('openrouter');
     for (const platform of BROWSER_LOGIN_VERIFICATION_PLATFORMS) {

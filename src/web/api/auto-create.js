@@ -1483,6 +1483,10 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   // fixed load time, so an expired session is not misreported as a click bug.
   let opened = false;
   for (let attempt = 0; attempt < 12 && !opened; attempt += 1) {
+    const currentLoginState = await detectLoginRequired();
+    if (currentLoginState.loginRequired) {
+      throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
+    }
     if (await detectInteractiveVerification()) {
       await waitForInteractiveVerification({ run, platform: { id: 'volcengine', label: '火山引擎' }, stage: 'before-create' });
     }

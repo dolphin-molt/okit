@@ -30,8 +30,14 @@ const { AUTO_CREATE_PLATFORMS } = require('../src/web/api/auto-create.js');
 const BASE_URL = process.env.OKIT_AUTO_CREATE_BASE_URL || 'http://127.0.0.1:3780';
 const REPORT_DIR = process.env.OKIT_AUTO_CREATE_REPORT_DIR
   || path.join(os.homedir(), '.okit', 'auto-create-check');
-const args = new Set(process.argv.slice(2));
-const requestedPlatforms = process.argv.slice(2).filter(value => !value.startsWith('--'));
+const cliArgs = process.argv.slice(2);
+const args = new Set(cliArgs.filter(value => value.startsWith('--')));
+const cleanupOptionIndex = cliArgs.indexOf('--cleanup');
+const cleanupReportPath = cleanupOptionIndex >= 0 ? cliArgs[cleanupOptionIndex + 1] : '';
+const requestedPlatforms = cliArgs.filter((value, index) => (
+  !value.startsWith('--')
+  && !(cleanupOptionIndex >= 0 && index === cleanupOptionIndex + 1)
+));
 const selectedPlatforms = requestedPlatforms.length
   ? AUTO_CREATE_PLATFORMS.filter(platform => requestedPlatforms.includes(platform.id))
   : AUTO_CREATE_PLATFORMS;
@@ -181,69 +187,153 @@ async function runOne(platform, stamp) {
   return result;
 }
 
+async function runCleanupOne(platform, target) {
+  const result = {
+    id: platform.id,
+    label: platform.label,
+    mode: platform.mode,
+    testName: target.testName,
+    createdName: target.createdName,
+    status: 'not_run',
+    cleanup: 'not_started',
+    sourceStatus: target.status,
+  };
+  let cleanup;
+  try {
+    cleanup = await request('/api/vault/auto-create/delete', {
+      platform: platform.id,
+      createdName: target.createdName,
+    });
+  } catch (error) {
+    result.status = 'cleanup_failed';
+    result.cleanup = 'failed';
+    result.reason = `删除请求失败：${redact(error.message || error)}`;
+    return result;
+  }
+  if (cleanup.status !== 200 || !cleanup.payload?.success) {
+    const cleanupStatus = classifyCreateFailure(platform, cleanup.status, cleanup.payload);
+    result.status = cleanupStatus === 'waiting_for_user' ? 'waiting_for_user' : 'cleanup_failed';
+    result.cleanup = cleanupStatus === 'waiting_for_user' ? 'waiting_for_user' : 'failed';
+    result.reason = `删除失败（HTTP ${cleanup.status}）：${redact(cleanup.payload?.error || 'unknown error')}`;
+    if (cleanup.payload?.runId) result.runId = String(cleanup.payload.runId).slice(0, 80);
+    return result;
+  }
+  result.status = 'passed';
+  result.cleanup = 'deleted';
+  return result;
+}
+
+async function readCleanupTargets(reportPath) {
+  if (!reportPath || reportPath.startsWith('--')) {
+    throw new Error('--cleanup 需要提供一个报告 JSON 路径');
+  }
+  const source = JSON.parse(await fs.readFile(path.resolve(reportPath), 'utf8'));
+  const targets = (source.results || [])
+    .filter(result => ['cleanup_failed', 'waiting_for_user'].includes(result.status) && result.createdName)
+    .map(result => ({
+      id: result.id,
+      testName: result.testName,
+      createdName: result.createdName,
+      status: result.status,
+    }));
+  if (!targets.length) throw new Error(`报告没有可清理的孤儿测试密钥：${reportPath}`);
+  return { source, targets };
+}
+
 async function main() {
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-  const report = {
-    schemaVersion: 2,
-    startedAt: new Date().toISOString(),
-    baseUrl: BASE_URL,
-    checkout: { cwd: process.cwd(), ...checkoutState() },
-    requestedPlatforms,
-    platforms: selectedPlatforms.map(platform => platform.id),
-    results: [],
-  };
-
   if (args.has('--list')) {
     for (const platform of AUTO_CREATE_PLATFORMS) {
       console.log(`${platform.id}\t${platform.label}\t${platform.mode}`);
     }
     return;
   }
-  if (!selectedPlatforms.length) throw new Error('没有匹配到测试平台');
+  const cleanupMode = args.has('--cleanup');
+  const cleanupData = cleanupMode ? await readCleanupTargets(cleanupReportPath) : null;
+  const cleanupTargets = cleanupData?.targets || [];
+  const cleanupPlatforms = cleanupTargets.map(target => AUTO_CREATE_PLATFORMS.find(platform => platform.id === target.id));
+  if (cleanupPlatforms.some(platform => !platform)) {
+    const unknown = cleanupTargets.find(target => !AUTO_CREATE_PLATFORMS.some(platform => platform.id === target.id));
+    throw new Error(`报告中的平台当前不受支持：${unknown?.id || 'unknown'}`);
+  }
+  const activePlatforms = cleanupMode ? cleanupPlatforms : selectedPlatforms;
+  const report = {
+    schemaVersion: 2,
+    startedAt: new Date().toISOString(),
+    baseUrl: BASE_URL,
+    checkout: { cwd: process.cwd(), ...checkoutState() },
+    mode: cleanupMode ? 'cleanup' : 'create-check',
+    sourceReport: cleanupMode ? path.resolve(cleanupReportPath) : undefined,
+    requestedPlatforms: cleanupMode ? cleanupTargets.map(target => target.id) : requestedPlatforms,
+    platforms: activePlatforms.map(platform => platform.id),
+    results: [],
+  };
+
+  if (!activePlatforms.length) throw new Error(cleanupMode ? '报告没有可清理的测试密钥' : '没有匹配到测试平台');
   if (args.has('--dry-run')) {
-    report.results = selectedPlatforms.map(platform => ({ id: platform.id, label: platform.label, status: 'dry_run' }));
+    report.results = cleanupMode
+      ? cleanupTargets.map(target => ({ ...target, status: 'dry_run' }))
+      : activePlatforms.map(platform => ({ id: platform.id, label: platform.label, status: 'dry_run' }));
   } else {
     if (report.checkout.dirty) {
       const reason = report.checkout.error
         ? `无法确认 checkout 状态：${report.checkout.error}`
-        : '检测 checkout 存在未提交修改；为避免每天执行未知代码，本轮未开始创建';
-      report.results = selectedPlatforms.map(platform => ({
-        id: platform.id,
-        label: platform.label,
-        mode: platform.mode,
-        testName: testName(platform.id, stamp),
-        status: 'blocked_prerequisite',
-        cleanup: 'not_started',
-        reason,
-      }));
+        : `检测 checkout 存在未提交修改；为避免每天执行未知代码，本轮未开始${cleanupMode ? '清理' : '创建'}`;
+      report.results = cleanupMode
+        ? cleanupTargets.map(target => ({ ...target, status: 'blocked_prerequisite', cleanup: 'not_started', reason }))
+        : activePlatforms.map(platform => ({
+          id: platform.id,
+          label: platform.label,
+          mode: platform.mode,
+          testName: testName(platform.id, stamp),
+          status: 'blocked_prerequisite',
+          cleanup: 'not_started',
+          reason,
+        }));
     } else {
-    const health = await getJson('/api/vault/cdp-status').catch(error => ({ status: 0, payload: { error: error.message } }));
-    if (!health.payload?.available && selectedPlatforms.some(platform => platform.mode === 'browser')) {
-      const reason = `Chrome 扩展未连接（${redact(health.payload?.error || 'cdp unavailable')}），本轮未开始创建`;
-      report.results = selectedPlatforms.map(platform => ({
-        id: platform.id,
-        label: platform.label,
-        mode: platform.mode,
-        testName: testName(platform.id, stamp),
-        status: platform.mode === 'browser' ? 'blocked_prerequisite' : 'not_run',
-        cleanup: 'not_started',
-        reason,
-      }));
-    } else {
-      for (const platform of selectedPlatforms) {
-        const result = await runOne(platform, stamp);
-        report.results.push(result);
-        console.log(`${result.status}\t${platform.id}${result.reason ? `\t${result.reason}` : ''}`);
-        // Never create another provider key after a cleanup failure. This keeps
-        // one unresolved credential visible and prevents an orphan-key cascade.
-        if (result.status === 'cleanup_failed' || (result.status === 'waiting_for_user' && result.cleanup === 'waiting_for_user')) {
-          for (const remaining of selectedPlatforms.slice(report.results.length)) {
-            report.results.push({ id: remaining.id, label: remaining.label, status: 'not_run', reason: result.status === 'waiting_for_user' ? '前一个测试密钥等待人工安全验证，已停止批量创建' : '前一个测试密钥删除失败，已停止批量创建' });
+      const health = await getJson('/api/vault/cdp-status').catch(error => ({ status: 0, payload: { error: error.message } }));
+      if (!health.payload?.available && activePlatforms.some(platform => platform.mode === 'browser')) {
+        const reason = `Chrome 扩展未连接（${redact(health.payload?.error || 'cdp unavailable')}），本轮未开始${cleanupMode ? '清理' : '创建'}`;
+        report.results = cleanupMode
+          ? cleanupTargets.map(target => ({ ...target, status: 'blocked_prerequisite', cleanup: 'not_started', reason }))
+          : activePlatforms.map(platform => ({
+            id: platform.id,
+            label: platform.label,
+            mode: platform.mode,
+            testName: testName(platform.id, stamp),
+            status: platform.mode === 'browser' ? 'blocked_prerequisite' : 'not_run',
+            cleanup: 'not_started',
+            reason,
+          }));
+      } else if (cleanupMode) {
+        for (let index = 0; index < cleanupTargets.length; index += 1) {
+          const target = cleanupTargets[index];
+          const platform = cleanupPlatforms[index];
+          const result = await runCleanupOne(platform, target);
+          report.results.push(result);
+          console.log(`${result.status}\t${platform.id}\t${target.createdName}${result.reason ? `\t${result.reason}` : ''}`);
+          if (result.status !== 'passed') {
+            for (const remaining of cleanupTargets.slice(index + 1)) {
+              report.results.push({ ...remaining, status: 'not_run', reason: result.status === 'waiting_for_user' ? '前一个测试密钥等待人工安全验证，已停止清理' : '前一个测试密钥清理失败，已停止清理' });
+            }
+            break;
           }
-          break;
+        }
+      } else {
+        for (const platform of activePlatforms) {
+          const result = await runOne(platform, stamp);
+          report.results.push(result);
+          console.log(`${result.status}\t${platform.id}${result.reason ? `\t${result.reason}` : ''}`);
+          // Never create another provider key after a cleanup failure. This keeps
+          // one unresolved credential visible and prevents an orphan-key cascade.
+          if (result.status === 'cleanup_failed' || (result.status === 'waiting_for_user' && result.cleanup === 'waiting_for_user')) {
+            for (const remaining of activePlatforms.slice(report.results.length)) {
+              report.results.push({ id: remaining.id, label: remaining.label, status: 'not_run', reason: result.status === 'waiting_for_user' ? '前一个测试密钥等待人工安全验证，已停止批量创建' : '前一个测试密钥删除失败，已停止批量创建' });
+            }
+            break;
+          }
         }
       }
-    }
     }
   }
   report.endedAt = new Date().toISOString();

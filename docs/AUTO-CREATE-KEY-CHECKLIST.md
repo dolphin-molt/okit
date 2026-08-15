@@ -13,6 +13,13 @@ node scripts/auto-create-key-check.mjs --dry-run
 node scripts/auto-create-key-check.mjs
 ```
 
+如果上一轮报告留下 `cleanup_failed` 或等待人工验证的测试密钥，先用原报告做清理续跑，
+不会重新创建新的 Key：
+
+```bash
+node scripts/auto-create-key-check.mjs --cleanup ~/.okit/auto-create-check/<report>.json
+```
+
 Cloudflare 不会隐式读取生产 Vault Token，需显式提供一次性测试父 Token：
 
 ```bash

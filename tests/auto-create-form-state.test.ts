@@ -15,15 +15,15 @@ describe('auto-create form platform state', () => {
     const minimax = getAutoCreatePlatformFields(platform('minimax', 'MINIMAX_API_KEY', 'MiniMax · 国内'), groups);
     const openai = getAutoCreatePlatformFields(platform('openai', 'OPENAI_API_KEY', 'OpenAI'), groups);
 
-    expect(minimax).toEqual({ key: 'MINIMAX_API_KEY', group: 'MiniMax · 国内', groupCustom: '' });
-    expect(openai).toEqual({ key: 'OPENAI_API_KEY', group: 'OpenAI', groupCustom: '' });
-    expect(openai.key).not.toContain('MINIMAX');
+    expect(minimax).toEqual({ key: '', group: 'MiniMax · 国内', groupCustom: '' });
+    expect(openai).toEqual({ key: '', group: 'OpenAI', groupCustom: '' });
+    expect(openai.key).toBe('');
     expect(openai.group).not.toContain('MiniMax');
   });
 
   it('uses a custom group field when the provider group is not in the current list', () => {
     expect(getAutoCreatePlatformFields(platform('new-provider', 'NEW_PROVIDER_KEY', 'New Provider'), [])).toEqual({
-      key: 'NEW_PROVIDER_KEY',
+      key: '',
       group: '__custom__',
       groupCustom: 'New Provider',
     });

@@ -133,8 +133,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     // provider changes so a previous successful auto-create cannot leak its
     // MiniMax/OpenAI name or group into the next run.
     setAutoPlatform(value);
-    const fields = getAutoCreatePlatformFields(platform, groups);
-    setFormKey(fields.key);
+    setFormKey('');
     setFormValue('');
     applyAutoCreatePlatformGroup(platform);
     setParentToken('');

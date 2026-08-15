@@ -1658,3 +1658,14 @@
   }
 }
 
+
+/* Manual nav — page indicator instead of landing section links */
+.manual-nav-title {
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--lx-cream-60);
+  border: 1px solid var(--lx-hairline);
+  border-radius: 999px;
+}

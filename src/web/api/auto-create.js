@@ -324,8 +324,9 @@ async function detectLoginRequired() {
       const hasLoginPrompt = /请(?:先)?登录|登录后(?:继续|使用)|请登录(?:后)?|sign in to continue|log in to continue|please sign in|authentication required/i.test(bodyText);
       const hasLoginAction = [...document.querySelectorAll('a, button, [role="button"]')]
         .filter(isVisible)
-        .some((el) => /^(?:登录|登入|sign in|log in)$/i.test((el.textContent || '').trim()));
-      return JSON.stringify({ loginRequired: loginRoute || hasPasswordField || (hasLoginInput && hasLoginAction) || (hasLoginPrompt && hasLoginAction), url });
+        .some((el) => /(?:登录|登入|sign in|log in)/i.test((el.textContent || '').trim()));
+      const credentialPage = /API\s*Key|密钥管理|调用凭证|credential/i.test(bodyText);
+      return JSON.stringify({ loginRequired: loginRoute || hasPasswordField || (hasLoginInput && hasLoginAction) || (hasLoginPrompt && hasLoginAction) || (credentialPage && hasLoginAction), url });
     })()`);
     const state = JSON.parse(raw || '{}');
     return { loginRequired: Boolean(state.loginRequired), url: typeof state.url === 'string' ? state.url : undefined };
@@ -1465,6 +1466,13 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   if (!nav.ok) throw new Error(nav.error || 'navigate failed');
   const tabId = nav.data && nav.data.tabId;
   console.log('[auto-create] volcengine: navigated (tab ' + tabId + ')');
+
+  // Ark renders a public shell with a visible “登录” action instead of
+  // redirecting to /login. Detect that state before searching for the create
+  // button so a signed-out account becomes a resumable login handoff rather
+  // than a misleading “create button missing” failure.
+  const loginState = await detectLoginRequired();
+  if (loginState.loginRequired) throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
 
   const capStart = await sendCommand('network-capture-start',
     { pattern: '', workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);

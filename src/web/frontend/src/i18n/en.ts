@@ -17,8 +17,6 @@ export default {
   'landing.nav.workflow': 'Capabilities',
   'landing.nav.compare': 'Compare',
   'landing.nav.manual': 'Manual',
-  'manual.backToSite': 'Back to site',
-  'manual.navTitle': 'Manual',
   'manual.toc': 'Contents',
   'landing.nav.install': 'Install',
   'landing.nav.github': 'GitHub',

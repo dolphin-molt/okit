@@ -73,7 +73,12 @@ export default function ManualPage() {
           <span>OKIT</span>
         </a>
         <nav className="landing-links" aria-label="Primary">
-          <span className="manual-nav-title">{t('manual.navTitle')}</span>
+          <a href="/landing#product">{t('landing.nav.product')}</a>
+          <a href="/landing#capabilities">{t('landing.nav.workflow')}</a>
+          <a href="/landing#compare">{t('landing.nav.compare')}</a>
+          <a href="/manual" className="active">{t('landing.nav.manual')}</a>
+          <a href="/landing#install">{t('landing.nav.install')}</a>
+          <a href="https://github.com/dolphin-molt/okit">{t('landing.nav.github')}</a>
         </nav>
         <div className="landing-nav-actions">
           <button
@@ -84,7 +89,6 @@ export default function ManualPage() {
           >
             {lang === 'zh' ? 'EN' : '中'}
           </button>
-          <a className="manual-top-link" href="/landing">← {t('manual.backToSite')}</a>
         </div>
       </header>
 

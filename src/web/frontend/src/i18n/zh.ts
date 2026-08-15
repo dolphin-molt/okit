@@ -17,8 +17,6 @@ export default {
   'landing.nav.workflow': '能力',
   'landing.nav.compare': '对比',
   'landing.nav.manual': '手册',
-  'manual.backToSite': '返回官网',
-  'manual.navTitle': '使用手册',
   'manual.toc': '目录',
   'landing.nav.install': '安装',
   'landing.nav.github': 'GitHub',

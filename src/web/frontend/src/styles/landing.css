@@ -102,6 +102,13 @@
   color: var(--lx-lime);
 }
 
+.landing-links a.active {
+  color: var(--lx-lime);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1.5px;
+}
+
 .landing-nav-actions {
   display: flex;
   align-items: center;
@@ -1397,17 +1404,6 @@
 
 /* ---------- Manual page (/manual) — renders docs/user-manual.md ---------- */
 
-.manual-top-link {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--lx-cream-60);
-  text-decoration: none;
-}
-
-.manual-top-link:hover {
-  color: var(--lx-lime);
-}
-
 /* Fixed shell: the page itself never scrolls — only the article column does,
    so the TOC (and nav) stay put while reading. */
 .manual-shell {
@@ -1658,14 +1654,3 @@
   }
 }
 
-
-/* Manual nav — page indicator instead of landing section links */
-.manual-nav-title {
-  padding: 4px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--lx-cream-60);
-  border: 1px solid var(--lx-hairline);
-  border-radius: 999px;
-}

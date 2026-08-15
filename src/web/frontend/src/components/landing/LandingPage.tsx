@@ -309,6 +309,7 @@ export default function LandingPage() {
           <a href="#product">{t('landing.nav.product')}</a>
           <a href="#capabilities">{t('landing.nav.workflow')}</a>
           <a href="#compare">{t('landing.nav.compare')}</a>
+          <a href="/manual">{t('landing.nav.manual')}</a>
           <a href="#install">{t('landing.nav.install')}</a>
           <a href="https://github.com/dolphin-molt/okit">{t('landing.nav.github')}</a>
         </nav>

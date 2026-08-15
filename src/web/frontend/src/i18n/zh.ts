@@ -16,6 +16,8 @@ export default {
   'landing.nav.product': '产品',
   'landing.nav.workflow': '能力',
   'landing.nav.compare': '对比',
+  'landing.nav.manual': '手册',
+  'manual.backToSite': '返回官网',
   'landing.nav.install': '安装',
   'landing.nav.github': 'GitHub',
   'landing.lede': 'AI Agent 的密钥与模型管控台：本地加密密钥库、内置 29+ 模型平台、适配 8 个 Agent、15 平台用量查询、内置 AI 助手，支持加密云同步，并提供可被其他 Agent 直接调用的 CLI 与 Skill。',

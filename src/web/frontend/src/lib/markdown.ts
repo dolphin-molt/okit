@@ -80,8 +80,20 @@ export function renderMd(text: string): string {
   html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
 
+  // Horizontal rules (table dividers contain pipes and are handled separately)
+  html = html.replace(/^---+\s*$/gm, '<hr>');
+
+  // Blockquotes (lines already escaped, so '>' is '&gt;')
+  html = html.replace(/^&gt; ?(.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
+
   // Tables
   html = renderTables(html);
+
+  // Ordered lists
+  html = html.replace(/(?:^\d+\. .+\n?)+/gm, (run) =>
+    `<ol>${run.trim().split('\n').map((l) => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('')}</ol>`
+  );
 
   // Lists
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
@@ -91,8 +103,8 @@ export function renderMd(text: string): string {
   // Paragraphs
   html = html.replace(/\n{2,}/g, '</p><p>');
   html = `<p>${html}</p>`;
-  html = html.replace(/<p>\s*<(h[2-4]|pre|ul|div)/g, '<$1');
-  html = html.replace(/<\/(h[2-4]|pre|ul|div)>\s*<\/p>/g, '</$1>');
+  html = html.replace(/<p>\s*<(h[2-4]|pre|ul|ol|div|blockquote|hr)/g, '<$1');
+  html = html.replace(/<\/(h[2-4]|pre|ul|ol|div|blockquote|hr)>\s*<\/p>/g, '</$1>');
 
   return html;
 }

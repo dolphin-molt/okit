@@ -1394,3 +1394,157 @@
     font-size: 11.5px;
   }
 }
+
+/* ---------- Manual page (/manual) — renders docs/user-manual.md ---------- */
+
+.manual-top-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lx-cream-60);
+  text-decoration: none;
+}
+
+.manual-top-link:hover {
+  color: var(--lx-lime);
+}
+
+.manual-main {
+  width: min(880px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 72px 0 96px;
+}
+
+.manual-article {
+  font-size: 15.5px;
+  line-height: 1.9;
+  color: var(--lx-cream-60);
+}
+
+.manual-article h2 {
+  margin: 64px 0 20px;
+  padding-bottom: 14px;
+  font-family: var(--lx-serif);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+}
+
+.manual-article > h2:first-child {
+  margin-top: 8px;
+}
+
+.manual-article h3 {
+  margin: 52px 0 18px;
+  padding-bottom: 12px;
+  font-family: var(--lx-serif);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+}
+
+.manual-article h4 {
+  margin: 28px 0 10px;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--lx-lime);
+}
+
+.manual-article p {
+  margin: 0 0 14px;
+}
+
+.manual-article strong {
+  color: var(--lx-cream);
+}
+
+.manual-article a {
+  color: var(--lx-lime);
+}
+
+.manual-article code {
+  padding: 2px 7px;
+  font-family: var(--lx-sans);
+  font-size: 13px;
+  color: var(--lx-lime);
+  background: rgba(198, 255, 62, 0.08);
+  border: 1px solid rgba(198, 255, 62, 0.18);
+  border-radius: 6px;
+}
+
+.manual-article pre {
+  margin: 0 0 18px;
+  padding: 18px 22px;
+  background: rgba(244, 241, 232, 0.04);
+  border: 1px solid var(--lx-hairline);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.manual-article pre code {
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--lx-cream);
+  background: none;
+  border: none;
+}
+
+.manual-article ul,
+.manual-article ol {
+  margin: 0 0 16px;
+  padding-left: 22px;
+}
+
+.manual-article li {
+  margin-bottom: 7px;
+}
+
+.manual-article blockquote {
+  margin: 0 0 18px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--lx-lime);
+  border-radius: 0 10px 10px 0;
+  background: rgba(198, 255, 62, 0.05);
+  color: var(--lx-cream);
+}
+
+.manual-article hr {
+  margin: 44px 0;
+  border: none;
+  border-top: 1px solid var(--lx-hairline);
+}
+
+/* Tables reuse the app's ai-table classes inside a dark wrapper */
+.manual-article .ai-table-wrap {
+  margin: 0 0 20px;
+  overflow-x: auto;
+}
+
+.manual-article table,
+.manual-article .ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.manual-article .ai-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+}
+
+.manual-article .ai-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--lx-hairline);
+  color: var(--lx-cream-60);
+}
+
+.manual-article .ai-table tr:hover td {
+  background: rgba(244, 241, 232, 0.025);
+}

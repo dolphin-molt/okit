@@ -10,6 +10,7 @@ import ModelsPage from './components/models/ModelsPage';
 import UsagePage from './components/usage/UsagePage';
 import AgentsPage from './components/agents/AgentsPage';
 import LandingPage from './components/landing/LandingPage';
+import ManualPage from './components/landing/ManualPage';
 import HomePage from './components/home/HomePage';
 import ProviderImportModal from './components/shared/ProviderImportModal';
 
@@ -94,6 +95,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/landing" element={<LandingPage />} />
+      <Route path="/manual" element={<ManualPage />} />
       <Route path="*" element={
         <div id="app">
           <DeepLinkHandler />

@@ -1683,7 +1683,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   }
   if (key) {
     await closeAutomationWindow();
-    return { value: key, name: tokenName };
+    return { value: key, name: uniqueName };
   }
 
   await sleep(700);
@@ -1730,7 +1730,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
   }
 
   await closeAutomationWindow();
-  return { value: key, name: tokenName };
+  return { value: key, name: uniqueName };
 }
 
 // ─── MiniMax — atomic-capability orchestration ──────────────────────

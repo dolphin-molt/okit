@@ -42,7 +42,10 @@ async function ensureDir(config, dirPath) {
 async function testConnection(config) {
   config = normalizeConfig(config);
   assertConfig(config);
-  const res = await fetch(fullUrl(config, '/'), {
+  // Probe the normalized base URL itself. Appending a path segment here would
+  // produce a double slash after trailing-slash stripping (e.g. dav//), which
+  // Jianguoyun answers with 404.
+  const res = await fetch(config.url, {
     method: 'PROPFIND',
     headers: { Authorization: authHeader(config), Depth: '0' },
   });
@@ -53,27 +56,6 @@ async function testConnection(config) {
   }
   await ensureDir(config, SYNC_DIR);
   return `WebDAV 连接成功 (${config.url})`;
-}
-
-async function syncSecrets(config, secrets) {
-  config = normalizeConfig(config);
-  assertConfig(config);
-  await ensureDir(config, `${SYNC_DIR}/secrets`);
-  const results = [];
-  for (const secret of secrets) {
-    try {
-      const res = await fetch(fullUrl(config, `${SYNC_DIR}/secrets/${encodeURIComponent(secret.key)}.json`), {
-        method: 'PUT',
-        body: JSON.stringify(secret),
-        headers: { Authorization: authHeader(config), 'Content-Type': 'application/json' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
 }
 
 async function pushSync(config, userId, encryptedBlob) {
@@ -106,4 +88,4 @@ async function pullSync(config, userId) {
   return JSON.parse(await res.text());
 }
 
-module.exports = { name: 'WebDAV', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'WebDAV', testConnection, pushSync, pullSync };

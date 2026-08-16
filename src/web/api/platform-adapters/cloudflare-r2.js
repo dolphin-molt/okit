@@ -130,22 +130,6 @@ async function testConnection(config) {
   return `Cloudflare R2 连接成功 (Bucket: ${BUCKET_NAME})`;
 }
 
-async function syncSecrets(config, secrets) {
-  config = normalizeConfig(config);
-  assertConfig(config);
-  const results = [];
-  for (const secret of secrets) {
-    try {
-      const key = `secrets/${secret.key}.json`;
-      await s3PutObject(config, key, JSON.stringify(secret));
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   config = normalizeConfig(config);
   assertConfig(config);
@@ -161,4 +145,4 @@ async function pullSync(config, userId) {
   return await s3GetObject(config, key);
 }
 
-module.exports = { name: 'Cloudflare R2', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'Cloudflare R2', testConnection, pushSync, pullSync };

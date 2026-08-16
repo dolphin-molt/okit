@@ -5,7 +5,7 @@ const { autoCreateKey, autoCreateRunStatus, resumeAutoCreateRun, deleteAutoCreat
 const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
-const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
+const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
@@ -43,6 +43,7 @@ function createServer(port = 3780) {
     try {
       const result = await recoverLatestZaiGlobalKey();
       res.json({ success: true, platform: 'zai-global', name: result.name, valueLength: result.valueLength });
+      require('./api/sync-scheduler').markDirty('secrets');
     } catch (error) {
       res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -81,7 +82,6 @@ function createServer(port = 3780) {
   app.get('/api/settings/onboarding', getOnboarding);
   app.post('/api/settings/onboarding/dismiss', dismissOnboarding);
   app.post('/api/settings/onboarding/reset', resetOnboarding);
-  app.post('/api/settings/sync-to-cloud', syncSecretsToPlatform);
 
   // Sync routes
   app.post('/api/sync/push', handlePush);
@@ -148,6 +148,8 @@ function startServer(port = 3780, onStarted) {
     setupWebSocket(server);
     console.log(`\n  OKIT Web UI is running at http://localhost:${port}`);
     console.log(`  Press Ctrl+C to stop\n`);
+    // Auto-sync scheduler: debounced push + periodic pull check.
+    require('./api/sync-scheduler').startAutoSync();
     if (onStarted) onStarted(port);
   });
 

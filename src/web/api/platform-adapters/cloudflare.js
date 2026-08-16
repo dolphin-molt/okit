@@ -32,46 +32,6 @@ async function testConnection(config) {
   return `Cloudflare Secrets Store (${config.storeId}) 连接成功`;
 }
 
-async function syncSecrets(config, secrets) {
-  if (!config.apiToken) throw new Error('apiToken is required');
-  if (!config.storeId) throw new Error('storeId is required');
-
-  const accounts = await listAccounts(config.apiToken);
-  const accountId = accounts[0]?.id;
-  if (!accountId) throw new Error('未找到 Cloudflare 账户');
-
-  // List existing secrets
-  let existing = [];
-  try {
-    const listData = await cfFetch(config.apiToken,
-      `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`);
-    existing = listData.result || [];
-  } catch {}
-
-  const existingMap = new Map(existing.map(s => [s.name, s.id]));
-  const results = [];
-
-  for (const secret of secrets) {
-    try {
-      const val = secret.value || '';
-      const existingId = existingMap.get(secret.key);
-      if (existingId) {
-        await cfFetch(config.apiToken,
-          `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets/${existingId}`,
-          { method: 'PATCH', body: JSON.stringify({ value: val }) });
-      } else {
-        await cfFetch(config.apiToken,
-          `/accounts/${accountId}/secrets_store/stores/${config.storeId}/secrets`,
-          { method: 'POST', body: JSON.stringify([{ name: secret.key, value: val, scopes: ['workers'] }]) });
-      }
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   if (!config.apiToken || !config.storeId) throw new Error('请配置 API Token 和 Store ID');
   const accounts = await listAccounts(config.apiToken);
@@ -131,4 +91,4 @@ async function pullSync(config, userId) {
   }
 }
 
-module.exports = { name: 'Cloudflare Secrets Store', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'Cloudflare Secrets Store', testConnection, pushSync, pullSync };

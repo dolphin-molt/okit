@@ -24,7 +24,13 @@ function MockVaultStore() { return mockStore; }
 const mockSupabaseAdapter = {
   name: 'Supabase',
   testConnection: vi.fn(),
-  syncSecrets: vi.fn(),
+  pushSync: vi.fn(),
+  pullSync: vi.fn(),
+};
+
+const mockWebdavAdapter = {
+  name: 'WebDAV',
+  testConnection: vi.fn(),
   pushSync: vi.fn(),
   pullSync: vi.fn(),
 };
@@ -34,6 +40,7 @@ Module.prototype.require = function (id) {
   if (id === 'fs-extra') return mockFs;
   if (id === '../../vault/store') return { VaultStore: MockVaultStore };
   if (id === './platform-adapters/supabase') return mockSupabaseAdapter;
+  if (id === './platform-adapters/webdav') return mockWebdavAdapter;
   return origRequire.apply(this, arguments);
 };
 
@@ -114,6 +121,38 @@ describe('syncPush', () => {
 
     const savedConfig = mockFs.writeJson.mock.calls[0][1];
     expect(savedConfig.sync.machineId).toBeTruthy();
+  });
+
+  it('pushes the same encrypted blob to every enabled platform', async () => {
+    const config = JSON.parse(JSON.stringify(VALID_CONFIG));
+    config.sync.platforms.webdav = { enabled: true, url: 'https://dav.example.com/dav/', username: 'u', password: 'p' };
+    mockFs.readJson.mockResolvedValue(config);
+    mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+    mockStore.get.mockResolvedValue('resolved');
+    mockSupabaseAdapter.pushSync.mockResolvedValue(undefined);
+    mockWebdavAdapter.pushSync.mockResolvedValue(undefined);
+
+    const result = await syncPush();
+
+    expect(result.platforms).toEqual(['supabase', 'webdav']);
+    expect(mockSupabaseAdapter.pushSync).toHaveBeenCalledTimes(1);
+    expect(mockWebdavAdapter.pushSync).toHaveBeenCalledTimes(1);
+    const supaBlob = mockSupabaseAdapter.pushSync.mock.calls[0][2];
+    const wdavBlob = mockWebdavAdapter.pushSync.mock.calls[0][2];
+    expect(supaBlob.ciphertext).toBe(wdavBlob.ciphertext);
+  });
+
+  it('still pushes to healthy platforms when one fails, then reports the failure', async () => {
+    const config = JSON.parse(JSON.stringify(VALID_CONFIG));
+    config.sync.platforms.webdav = { enabled: true, url: 'https://dav.example.com/dav/', username: 'u', password: 'p' };
+    mockFs.readJson.mockResolvedValue(config);
+    mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+    mockStore.get.mockResolvedValue('resolved');
+    mockSupabaseAdapter.pushSync.mockResolvedValue(undefined);
+    mockWebdavAdapter.pushSync.mockRejectedValue(new Error('network down'));
+
+    await expect(syncPush()).rejects.toThrow('部分平台失败');
+    expect(mockSupabaseAdapter.pushSync).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -217,7 +256,13 @@ describe('syncPull', () => {
     });
     await syncPush();
 
-    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    // Simulate a second machine (no local baselines): the pushed blob must be
+    // applied there. Keeping the same config object would carry this machine's
+    // push baselines, and the pull guards would correctly skip our own data.
+    const secondMachineConfig = JSON.parse(JSON.stringify(VALID_CONFIG));
+    delete secondMachineConfig.sync.localChangedAt;
+    delete secondMachineConfig.sync.lastRemote;
+    mockFs.readJson.mockResolvedValue(secondMachineConfig);
     mockFs.readFile.mockResolvedValue(JSON.stringify({ providers: [] }));
     mockStore.exportAll.mockResolvedValue([]);
     mockSupabaseAdapter.pullSync.mockResolvedValue(encryptedBlob);
@@ -230,6 +275,80 @@ describe('syncPull', () => {
     expect(written.providers).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'custom-ai', vaultKey: 'CUSTOM_AI_KEY' }),
     ]));
+  });
+
+  it('keeps local agent/providers config edited after the remote blob was written', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-08-01T10:00:00Z'));
+      mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+      mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+      mockStore.get.mockResolvedValue('resolved');
+      let encryptedBlob;
+      mockSupabaseAdapter.pushSync.mockImplementation(async (cfg, userId, blob) => { encryptedBlob = blob; });
+      await syncPush();
+      // blob.updatedAt is now 2026-08-01T10:00:00.000Z
+
+      // Second machine pulled earlier, then edited agent + providers at 11:00
+      const cfg = JSON.parse(JSON.stringify(VALID_CONFIG));
+      cfg.agent = { provider: 'local-provider' };
+      cfg.sync.localChangedAt = {
+        secrets: '2026-08-01T09:00:00.000Z',
+        agent: '2026-08-01T11:00:00.000Z',
+        providers: '2026-08-01T11:00:00.000Z',
+      };
+      mockFs.readJson.mockResolvedValue(cfg);
+      mockFs.readFile.mockResolvedValue(JSON.stringify({ providers: [] }));
+      mockStore.exportAll.mockResolvedValue([]);
+      mockSupabaseAdapter.pullSync.mockResolvedValue(encryptedBlob);
+
+      const result = await syncPull();
+
+      expect(result.agentApplied).toBe(false);
+      expect(result.providersApplied).toBe(false);
+      const savedConfig = mockFs.writeJson.mock.calls[mockFs.writeJson.mock.calls.length - 1][1];
+      expect(savedConfig.agent).toEqual({ provider: 'local-provider' });
+      expect(mockFs.writeFile.mock.calls.find(([file]) => String(file).includes('providers.json'))).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('applies remote config when local baselines are older than the blob', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-08-01T10:00:00Z'));
+      const pushConfig = JSON.parse(JSON.stringify(VALID_CONFIG));
+      pushConfig.agent = { provider: 'remote-provider' };
+      mockFs.readJson.mockResolvedValue(pushConfig);
+      mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+      mockStore.get.mockResolvedValue('resolved');
+      let encryptedBlob;
+      mockSupabaseAdapter.pushSync.mockImplementation(async (cfg, userId, blob) => { encryptedBlob = blob; });
+      await syncPush();
+
+      // Local config untouched since 09:00, remote blob written at 10:00
+      const cfg = JSON.parse(JSON.stringify(VALID_CONFIG));
+      cfg.agent = { provider: 'local-provider' };
+      cfg.sync.localChangedAt = {
+        secrets: '2026-08-01T09:00:00.000Z',
+        agent: '2026-08-01T09:00:00.000Z',
+        providers: '2026-08-01T09:00:00.000Z',
+      };
+      mockFs.readJson.mockResolvedValue(cfg);
+      mockFs.readFile.mockResolvedValue(JSON.stringify({ providers: [] }));
+      mockStore.exportAll.mockResolvedValue([]);
+      mockSupabaseAdapter.pullSync.mockResolvedValue(encryptedBlob);
+
+      const result = await syncPull();
+
+      expect(result.agentApplied).toBe(true);
+      expect(result.providersApplied).toBe(true);
+      const savedConfig = mockFs.writeJson.mock.calls[mockFs.writeJson.mock.calls.length - 1][1];
+      expect(savedConfig.agent).toEqual({ provider: 'remote-provider' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -321,6 +321,9 @@ async function saveProviders(providers) {
   await fs.ensureDir(OKIT_DIR);
   await backupImportantData('providers');
   await fs.writeFile(PROVIDERS_PATH, JSON.stringify({ providers, platforms: buildPlatforms(providers) }, null, 2));
+  // Any providers.json write is a payload change for cloud sync (pull merges go
+  // through cloud-sync-core's own writer, so this never fires for remote data).
+  require('./sync-scheduler').markDirty('providers');
 }
 
 async function loadUserConfig() {

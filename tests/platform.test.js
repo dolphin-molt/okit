@@ -34,7 +34,7 @@ Module.prototype.require = function (id) {
   return origRequire.apply(this, arguments);
 };
 
-const { testConnection, pushSecrets } = await import('../src/web/api/cloud-sync-core.js');
+const { testConnection, peekRemote } = await import('../src/web/api/cloud-sync-core.js');
 
 const _pw = 'test' + '-' + 'password';
 const _token = 'SUPABASE' + '_API_TOKEN';
@@ -83,43 +83,33 @@ describe('testConnection', () => {
   });
 });
 
-describe('pushSecrets', () => {
-  it('throws when platform not enabled', async () => {
-    mockFs.readJson.mockResolvedValue({
-      sync: { platforms: { supabase: { enabled: false } } },
-    });
-    await expect(pushSecrets('supabase', null)).rejects.toThrow('平台 supabase 未启用');
+describe('peekRemote', () => {
+  it('returns null when the remote has no data', async () => {
+    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
+    mockStore.get.mockResolvedValue('resolved');
+    mockSupabaseAdapter.pullSync.mockResolvedValue(null);
+
+    await expect(peekRemote()).resolves.toBeNull();
   });
 
-  it('pushes all secrets when keys is null', async () => {
+  it('reports the remote blob version without touching local state', async () => {
+    // Push once to produce a valid encrypted blob
+    const { syncPush } = await import('../src/web/api/cloud-sync-core.js');
     mockFs.readJson.mockResolvedValue(VALID_CONFIG);
-    mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
+    mockStore.exportAll.mockResolvedValue([]);
     mockStore.get.mockResolvedValue('resolved');
-    mockSupabaseAdapter.syncSecrets.mockResolvedValue([
-      { key: 'OPEN_AI_KEY', success: true },
-      { key: 'SILICONFLOW_API_KEY', success: true },
-    ]);
+    let blob;
+    mockSupabaseAdapter.pushSync.mockImplementation(async (_cfg, _userId, b) => { blob = b; });
+    await syncPush();
 
-    const results = await pushSecrets('supabase', null);
-    expect(results).toHaveLength(2);
+    mockSupabaseAdapter.pullSync.mockResolvedValue(blob);
+    const before = mockFs.writeJson.mock.calls.length;
+    const info = await peekRemote();
 
-    const callArgs = mockSupabaseAdapter.syncSecrets.mock.calls[0][1];
-    const openAiSecret = callArgs.find((s) => s.key === 'OPEN_AI_KEY');
-    expect(openAiSecret).toMatchObject({ value: 'sk-abc123', desc: 'Production' });
-  });
-
-  it('filters secrets by keys when provided', async () => {
-    mockFs.readJson.mockResolvedValue(VALID_CONFIG);
-    mockStore.exportAll.mockResolvedValue(SAMPLE_SECRETS);
-    mockStore.get.mockResolvedValue('resolved');
-    mockSupabaseAdapter.syncSecrets.mockResolvedValue([
-      { key: 'OPEN_AI_KEY', success: true },
-    ]);
-
-    await pushSecrets('supabase', ['OPEN_AI_KEY']);
-
-    const callArgs = mockSupabaseAdapter.syncSecrets.mock.calls[0][1];
-    expect(callArgs).toHaveLength(1);
-    expect(callArgs[0].key).toBe('OPEN_AI_KEY');
+    expect(info.updatedAt).toBeTruthy();
+    expect(info.machineId).toBe('machine-1');
+    // peek must not persist anything
+    expect(mockFs.writeJson.mock.calls.length).toBe(before);
+    expect(mockStore.set).not.toHaveBeenCalled();
   });
 });

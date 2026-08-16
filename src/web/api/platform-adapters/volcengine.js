@@ -51,39 +51,6 @@ function secretName(key) {
   return 'okit-' + key.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-async function syncSecrets(config, secrets) {
-  const client = createClient(config);
-  const results = [];
-
-  for (const secret of secrets) {
-    const name = secretName(secret.key);
-    const value = typeof secret === 'object' ? JSON.stringify(secret) : secret.value;
-    try {
-      await kmsCall(client, 'CreateSecret',
-        { SecretName: name, SecretType: 'Generic' },
-        { SecretValue: value, Description: 'Managed by OKIT' },
-      );
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      if (error.message?.includes('already exist') || error.message?.includes('Conflict') || error.message?.includes('already')) {
-        try {
-          await kmsCall(client, 'SetSecretValue',
-            { SecretName: name },
-            { SecretValue: value },
-          );
-          results.push({ key: secret.key, success: true });
-          continue;
-        } catch (updateError) {
-          results.push({ key: secret.key, success: false, error: updateError.message });
-          continue;
-        }
-      }
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   const client = createClient(config);
   const name = secretName('sync-' + userId);
@@ -120,4 +87,4 @@ async function pullSync(config, userId) {
   }
 }
 
-module.exports = { name: '火山引擎 KMS', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: '火山引擎 KMS', testConnection, pushSync, pullSync };

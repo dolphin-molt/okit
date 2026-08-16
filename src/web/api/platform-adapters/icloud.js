@@ -42,24 +42,7 @@ async function testConnection(config) {
   assertConfig(config);
   await fs.ensureDir(SYNC_DIR);
   await fs.ensureDir(SECRETS_DIR);
-  return `iCloud 连接成功 (${SYNC_DIR})`;
-}
-
-async function syncSecrets(config, secrets) {
-  config = normalizeConfig(config);
-  assertConfig(config);
-  await fs.ensureDir(SECRETS_DIR);
-  const results = [];
-  for (const secret of secrets) {
-    try {
-      const filePath = path.join(SECRETS_DIR, `${secret.key}.json`);
-      await fs.writeJson(filePath, secret, { spaces: 2 });
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
+  return 'iCloud 连接成功，数据将同步到 iCloud Drive 的 okit-sync 文件夹';
 }
 
 async function pushSync(config, userId, encryptedBlob) {
@@ -78,4 +61,4 @@ async function pullSync(config, userId) {
   return await fs.readJson(filePath);
 }
 
-module.exports = { name: 'iCloud', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'iCloud', testConnection, pushSync, pullSync };

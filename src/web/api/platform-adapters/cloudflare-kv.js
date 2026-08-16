@@ -52,26 +52,6 @@ async function testConnection(config) {
   return `Cloudflare KV 连接成功 (Namespace: ${KV_NAMESPACE_NAME})`;
 }
 
-async function syncSecrets(config, secrets) {
-  if (!config.apiToken) throw new Error('请配置 API Token');
-  const accountId = await getAccountId(config.apiToken);
-  const nsId = await ensureNamespace(config.apiToken, accountId);
-  const results = [];
-
-  for (const secret of secrets) {
-    try {
-      const val = JSON.stringify({ value: secret.value, desc: secret.desc || '', group: secret.group || '' });
-      await cfFetch(config.apiToken,
-        `/accounts/${accountId}/storage/kv/namespaces/${nsId}/values/${encodeURIComponent(secret.key)}`,
-        { method: 'PUT', body: val });
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   if (!config.apiToken) throw new Error('请配置 API Token');
   const accountId = await getAccountId(config.apiToken);
@@ -98,4 +78,4 @@ async function pullSync(config, userId) {
   return await res.json();
 }
 
-module.exports = { name: 'Cloudflare KV', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'Cloudflare KV', testConnection, pushSync, pullSync };

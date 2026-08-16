@@ -9,15 +9,15 @@ const mockStore = {
   list: vi.fn(),
   getBindings: vi.fn(),
 };
-const mockCloudSyncCore = {
-  pushSecrets: vi.fn(),
+const mockScheduler = {
+  markDirty: vi.fn(),
 };
 function MockVaultStore() { return mockStore; }
 
 const origRequire = Module.prototype.require;
 Module.prototype.require = function (id) {
   if (id === '../../vault/store') return { VaultStore: MockVaultStore };
-  if (id === './cloud-sync-core') return mockCloudSyncCore;
+  if (id === './sync-scheduler') return mockScheduler;
   return origRequire.apply(this, arguments);
 };
 
@@ -26,7 +26,7 @@ vi.spyOn(fse, 'mkdirSync').mockReturnValue(undefined);
 vi.spyOn(fse, 'appendFileSync').mockReturnValue(undefined);
 vi.spyOn(fse, 'readJson').mockResolvedValue({});
 
-const { listVault, setVault, deleteVault, autoSyncToPlatforms } = await import('../src/web/api/vault.js');
+const { listVault, setVault, deleteVault } = await import('../src/web/api/vault.js');
 
 function createResponse() {
   return {
@@ -222,42 +222,32 @@ describe('vault api key records', () => {
 });
 
 describe('vault auto sync', () => {
-  it('reuses cloud sync core so platform vault references are resolved', async () => {
-    fse.existsSync.mockReturnValue(true);
-    fse.readJson.mockResolvedValue({
-      sync: {
-        autoSync: true,
-        platforms: {
-          supabase: { enabled: true, apiToken: 'SUPABASE_API_TOKEN' },
-          cloudflare: { enabled: false, apiToken: 'CF_API_TOKEN' },
-        },
-      },
-    });
-    mockCloudSyncCore.pushSecrets.mockResolvedValue([{ key: 'SERVICE_KEY', success: true }]);
+  it('marks the secrets section dirty after a successful set', async () => {
+    const res = createResponse();
 
-    await autoSyncToPlatforms('SERVICE_KEY');
+    await setVault({ body: { key: 'SERVICE_KEY', value: 'v' } }, res);
 
-    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledTimes(1);
-    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledWith('supabase', ['SERVICE_KEY']);
+    expect(res.body.success).toBe(true);
+    expect(mockScheduler.markDirty).toHaveBeenCalledWith('secrets');
   });
 
-  it('handles platform sync failures without throwing from stale adapter state', async () => {
-    fse.existsSync.mockReturnValue(true);
-    fse.readJson.mockResolvedValue({
-      sync: {
-        autoSync: true,
-        platforms: {
-          supabase: { enabled: true, apiToken: 'SUPABASE_API_TOKEN' },
-        },
-      },
-    });
-    mockCloudSyncCore.pushSecrets.mockResolvedValue([{
-      key: 'SERVICE_KEY',
-      success: false,
-      error: 'remote rejected the key',
-    }]);
+  it('marks the secrets section dirty after a successful delete', async () => {
+    mockStore.delete.mockResolvedValue(true);
+    const res = createResponse();
 
-    await expect(autoSyncToPlatforms('SERVICE_KEY')).resolves.toBeUndefined();
-    expect(mockCloudSyncCore.pushSecrets).toHaveBeenCalledWith('supabase', ['SERVICE_KEY']);
+    await deleteVault({ body: { key: 'SERVICE_KEY' } }, res);
+
+    expect(res.body).toEqual({ success: true });
+    expect(mockScheduler.markDirty).toHaveBeenCalledWith('secrets');
+  });
+
+  it('does not mark dirty when the delete target is missing', async () => {
+    mockStore.delete.mockResolvedValue(false);
+    const res = createResponse();
+
+    await deleteVault({ body: { key: 'SERVICE_KEY' } }, res);
+
+    expect(res.statusCode).toBe(404);
+    expect(mockScheduler.markDirty).not.toHaveBeenCalled();
   });
 });

@@ -207,8 +207,8 @@ async function setVault(req, res) {
     appendVaultLog('vault-set', key, true);
     res.json({ success: true, key, desc: desc || '' });
 
-    // Auto-sync to enabled platforms (fire-and-forget)
-    autoSyncToPlatforms(key);
+    // Auto-sync scheduler: debounced encrypted push (fire-and-forget)
+    require('./sync-scheduler').markDirty('secrets');
   } catch (error) {
     console.error('Error setting vault:', error);
     appendVaultLog('vault-set', req.body.key || '', false, error.message);
@@ -225,6 +225,7 @@ async function deleteVault(req, res) {
       removeKeyFromOkitEnvFiles(key);
       appendVaultLog('vault-delete', key, true);
       res.json({ success: true });
+      require('./sync-scheduler').markDirty('secrets');
     } else {
       res.status(404).json({ error: 'Secret not found' });
     }
@@ -280,6 +281,7 @@ async function importVault(req, res) {
       }
     }
     res.json({ success: true, imported, skipped, total: secrets.length });
+    if (imported > 0) require('./sync-scheduler').markDirty('secrets');
   } catch (error) {
     console.error('Error importing vault:', error);
     res.status(500).json({ error: 'Failed to import vault' });
@@ -473,34 +475,6 @@ async function listVaultWithProjects(req, res) {
     console.error('Error listing vault:', error);
     res.status(500).json({ error: 'Failed to list vault' });
   }
-}
-
-async function autoSyncToPlatforms(key) {
-  try {
-    const configPath = path.join(os.homedir(), '.okit', 'user.json');
-    if (!fs.existsSync(configPath)) return;
-    const config = await fs.readJson(configPath);
-    const sync = config.sync;
-    if (!sync?.autoSync || !sync.platforms) return;
-    const { pushSecrets } = require('./cloud-sync-core');
-
-    for (const [platformId, platConfig] of Object.entries(sync.platforms)) {
-      if (!platConfig.enabled) continue;
-      try {
-        // Reuse the same path as manual cloud sync so vault-backed platform
-        // credentials are resolved before an adapter receives its config.
-        const results = await pushSecrets(platformId, [key]);
-        const failed = results.filter(r => !r.success);
-        if (failed.length === 0) {
-          appendVaultLog('auto-sync', `${key} → ${platformId}`, true);
-        } else {
-          appendVaultLog('auto-sync', `${key} → ${platformId}`, false, failed.map(r => r.error).join('; '));
-        }
-      } catch (error) {
-        appendVaultLog('auto-sync', `${key} → ${platformId}`, false, error.message);
-      }
-    }
-  } catch {}
 }
 
 async function testApiKey(req, res) {
@@ -962,6 +936,7 @@ async function migrateGroups(req, res) {
     if (migrated > 0) {
       await store.save();
       appendVaultLog('migrate-groups', '', true, `${migrated} keys regrouped`);
+      require('./sync-scheduler').markDirty('secrets');
     }
 
     res.json({ success: true, migrated, changes });
@@ -971,4 +946,4 @@ async function migrateGroups(req, res) {
   }
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups, autoSyncToPlatforms };
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups };

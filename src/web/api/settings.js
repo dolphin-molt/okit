@@ -126,6 +126,8 @@ async function updateSettings(req, res) {
     if (!sync && !agent) return res.status(400).json({ error: 'sync or agent is required' });
 
     const config = await loadConfig();
+    const prevAgent = config.agent || {};
+    const autoSyncWasOn = !!config.sync?.autoSync;
 
     if (sync) {
       const merged = mergeSensitive(config.sync, sync);
@@ -149,6 +151,16 @@ async function updateSettings(req, res) {
     if (agent) changes.push('agent');
     appendLog('settings-update', changes.join(',') || 'settings', true);
     res.json({ success: true, sync: maskConfig(config.sync), agent: config.agent });
+
+    // The frontend round-trips agent on every save; only a real change is a
+    // payload change for cloud sync.
+    if (agent && JSON.stringify(config.agent) !== JSON.stringify(prevAgent)) {
+      require('./sync-scheduler').markDirty('agent');
+    }
+    // Toggling auto-sync on should adopt remote + flush pending without a restart
+    if (sync && typeof sync.autoSync === 'boolean' && sync.autoSync && !autoSyncWasOn) {
+      require('./sync-scheduler').syncNow().catch(() => {});
+    }
   } catch (error) {
     console.error('Error updating settings:', error);
     appendLog('settings-update', 'settings', false, error.message);
@@ -296,17 +308,4 @@ async function testAgentConnection(req, res) {
   }
 }
 
-async function syncSecretsToPlatform(req, res) {
-  const { platform, keys } = req.body;
-  if (!platform || !Array.isArray(keys)) return res.status(400).json({ error: 'platform and keys are required' });
-  try {
-    const core = require('./cloud-sync-core');
-    const results = await core.pushSecrets(platform, keys);
-    res.json({ success: true, results });
-  } catch (error) {
-    appendLog('cloud-push', platform, false, error.message);
-    res.status(500).json({ error: error.message });
-  }
-}
-
-module.exports = { getSettings, updateSettings, testPlatformConnection, testAgentConnection, syncSecretsToPlatform, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };
+module.exports = { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };

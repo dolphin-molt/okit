@@ -208,40 +208,75 @@ async function testConnection(platform) {
   return result;
 }
 
-async function pushSecrets(platform, keys) {
+// Derive userId/encryptionKey from the sync password. All enabled platforms
+// share the same derived identity, so any of them can serve the same blob.
+async function resolveSyncKeys(config) {
+  const password = config.sync?.password;
+  if (!password) throw new Error('请先设置同步密码');
+  const key = crypto.pbkdf2Sync(password, 'okit-sync-salt', 100000, 32, 'sha256');
+  return { userId: key.slice(0, 16).toString('hex'), encryptionKey: key };
+}
+
+// Sync goes to EVERY enabled platform (enabled = participates). The legacy
+// syncPlatform preference only breaks ties for single-target flows like the
+// sync-code export.
+async function listEnabledSyncTargets(config) {
+  const { userId, encryptionKey } = await resolveSyncKeys(config);
+  const platforms = config.sync?.platforms || {};
+  const targets = [];
+  for (const [id, platConfig] of Object.entries(platforms)) {
+    if (!platConfig?.enabled) continue;
+    targets.push({ id, resolvedConfig: await resolveVaultRefs(platConfig, id) });
+  }
+  if (targets.length === 0) throw new Error('请先启用一个同步平台');
+  return { targets, userId, encryptionKey };
+}
+
+async function resolvePrimaryTarget(config) {
+  const { targets } = await listEnabledSyncTargets(config);
+  const preferred = config.sync?.syncPlatform;
+  return targets.find(t => t.id === preferred) || targets[0];
+}
+
+function decryptRemoteBlob(encrypted, encryptionKey) {
+  const iv = Buffer.from(encrypted.nonce, 'hex');
+  const tag = Buffer.from(encrypted.tag, 'hex');
+  const ciphertext = Buffer.from(encrypted.ciphertext, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, iv);
+  decipher.setAuthTag(tag);
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return JSON.parse(decrypted.toString('utf8'));
+}
+
+// Read the freshest remote blob across all enabled platforms without merging.
+// A platform that errors or has no data is skipped; returns null when none
+// has data. Throws only when every enabled platform failed.
+async function peekRemote() {
   const config = await loadConfig();
-  const platConfig = config.sync?.platforms?.[platform];
-  if (!platConfig?.enabled) throw new Error(`平台 ${platform} 未启用`);
-
-  const { VaultStore } = require('../../vault/store');
-  const store = new VaultStore();
-  const allSecrets = await store.exportAll();
-
-  const keySet = keys ? new Set(keys) : null;
-  const secrets = allSecrets.filter(secret => !keySet || keySet.has(secret.key));
-
-  const resolved = await resolveVaultRefs(platConfig, platform);
-  const adapter = loadAdapter(platform);
-  const results = await adapter.syncSecrets(resolved, secrets);
-  appendLog('cloud-push', platform, true, `${secrets.length} secrets`);
-  return results;
+  const { targets, userId, encryptionKey } = await listEnabledSyncTargets(config);
+  let freshest = null;
+  let failures = 0;
+  for (const { id, resolvedConfig } of targets) {
+    try {
+      const encrypted = await loadAdapter(id).pullSync(resolvedConfig, userId);
+      if (!encrypted) continue;
+      const remoteData = decryptRemoteBlob(encrypted, encryptionKey);
+      const info = { updatedAt: remoteData.updatedAt || '', machineId: remoteData.machineId || null };
+      if (!freshest || info.updatedAt > freshest.updatedAt) freshest = info;
+    } catch (error) {
+      failures++;
+      appendLog('peek-remote', id, false, error.message);
+    }
+  }
+  if (!freshest && failures === targets.length) {
+    throw new Error('所有已启用的同步平台都无法访问');
+  }
+  return freshest;
 }
 
 async function syncPush() {
   const config = await loadConfig();
-  const password = config.sync?.password;
-  if (!password) throw new Error('请先设置同步密码');
-
-  const platforms = config.sync?.platforms || {};
-  const target = config.sync?.syncPlatform;
-  const entry = target && platforms[target]?.enabled ? { id: target, config: platforms[target] } : null;
-  if (!entry) throw new Error('请先启用一个同步平台');
-
-  const resolvedConfig = await resolveVaultRefs(entry.config, entry.id);
-
-  const key = crypto.pbkdf2Sync(password, 'okit-sync-salt', 100000, 32, 'sha256');
-  const userId = key.slice(0, 16).toString('hex');
-  const encryptionKey = key;
+  const { targets, userId, encryptionKey } = await listEnabledSyncTargets(config);
 
   if (!config.sync.machineId) {
     config.sync.machineId = crypto.randomUUID();
@@ -264,43 +299,60 @@ async function syncPush() {
   const tag = cipher.getAuthTag();
   const encryptedBlob = { nonce: iv.toString('hex'), ciphertext: encrypted.toString('hex'), tag: tag.toString('hex') };
 
-  const adapter = loadAdapter(entry.id);
-  await adapter.pushSync(resolvedConfig, userId, encryptedBlob);
+  // Fan out the same encrypted blob to every enabled platform. Attempt all
+  // before reporting failures so one dead platform never blocks the others.
+  const pushed = [];
+  const failed = [];
+  for (const { id, resolvedConfig } of targets) {
+    try {
+      await loadAdapter(id).pushSync(resolvedConfig, userId, encryptedBlob);
+      pushed.push(id);
+      appendLog('sync-push', id, true, `${secrets.length} secrets`);
+    } catch (error) {
+      failed.push(`${id}: ${error.message}`);
+      appendLog('sync-push', id, false, error.message);
+    }
+  }
+  if (pushed.length === 0) {
+    throw new Error(`推送失败（${failed.join('; ')}）`);
+  }
 
+  // Baselines: everything pushed at syncData.updatedAt. Newer local edits (or a
+  // newer remote blob) are what the pull guards compare against.
+  config.sync.lastRemote = { updatedAt: syncData.updatedAt, machineId: config.sync.machineId };
+  config.sync.localChangedAt = { secrets: syncData.updatedAt, agent: syncData.updatedAt, providers: syncData.updatedAt };
   config.sync.lastSyncAt = new Date().toISOString();
-  config.sync.lastSyncPlatform = entry.id;
+  config.sync.lastSyncPlatform = pushed.join(',');
   await saveConfig(config);
 
-  appendLog('sync-push', entry.id, true, `${secrets.length} secrets`);
-  return { secrets: secrets.length, platform: adapter.name };
+  if (failed.length > 0) {
+    throw new Error(`已推送到 ${pushed.join('、')}，但部分平台失败（${failed.join('; ')}）`);
+  }
+  return { secrets: secrets.length, platforms: pushed, platform: pushed.join('、') };
 }
 
 async function syncPull() {
   const config = await loadConfig();
-  const password = config.sync?.password;
-  if (!password) throw new Error('请先设置同步密码');
+  const { targets, userId, encryptionKey } = await listEnabledSyncTargets(config);
 
-  const platforms = config.sync?.platforms || {};
-  const target = config.sync?.syncPlatform;
-  const entry = target && platforms[target]?.enabled ? { id: target, config: platforms[target] } : null;
-  if (!entry) throw new Error('请先启用一个同步平台');
-
-  const key = crypto.pbkdf2Sync(password, 'okit-sync-salt', 100000, 32, 'sha256');
-  const userId = key.slice(0, 16).toString('hex');
-  const encryptionKey = key;
-
-  const resolvedConfig = await resolveVaultRefs(entry.config, entry.id);
-  const adapter = loadAdapter(entry.id);
-  const encrypted = await adapter.pullSync(resolvedConfig, userId);
-  if (!encrypted) throw new Error('远端没有同步数据');
-
-  const iv = Buffer.from(encrypted.nonce, 'hex');
-  const tag = Buffer.from(encrypted.tag, 'hex');
-  const ciphertext = Buffer.from(encrypted.ciphertext, 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, iv);
-  decipher.setAuthTag(tag);
-  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  const remoteData = JSON.parse(decrypted.toString('utf8'));
+  // Pick the freshest blob across enabled platforms; stale copies on other
+  // platforms are ignored. Unreachable platforms are skipped (peek logged).
+  let remoteData = null;
+  let remoteFrom = null;
+  for (const { id, resolvedConfig } of targets) {
+    try {
+      const encrypted = await loadAdapter(id).pullSync(resolvedConfig, userId);
+      if (!encrypted) continue;
+      const data = decryptRemoteBlob(encrypted, encryptionKey);
+      if (!remoteData || (data.updatedAt || '') > (remoteData.updatedAt || '')) {
+        remoteData = data;
+        remoteFrom = id;
+      }
+    } catch (error) {
+      appendLog('pull-skip', id, false, error.message);
+    }
+  }
+  if (!remoteData) throw new Error('远端没有同步数据');
 
   // Merge
   const { VaultStore } = require('../../vault/store');
@@ -321,17 +373,32 @@ async function syncPull() {
     }
   }
 
-  if (remoteData.settings?.agent) {
+  // Config guards: apply remote agent/providers only when the remote blob is newer
+  // than the last local edit of that section, so an auto-pull loop never clobbers
+  // newer local config with stale remote config. Missing localChangedAt (legacy
+  // installs) keeps the old unconditional-apply behavior.
+  const remoteUpdated = remoteData.updatedAt || '';
+  const localChangedAt = config.sync.localChangedAt || {};
+  let agentApplied = false;
+  if (remoteData.settings?.agent && remoteUpdated > (localChangedAt.agent || '')) {
     config.agent = { ...(config.agent || {}), ...remoteData.settings.agent };
+    agentApplied = true;
   }
-  const providers = await mergeProvidersConfig(remoteData.settings?.providers);
+  let providersApplied = false;
+  let providers = 0;
+  if (remoteData.settings && remoteUpdated > (localChangedAt.providers || '')) {
+    providers = await mergeProvidersConfig(remoteData.settings.providers);
+    providersApplied = true;
+  }
+
   if (!config.sync.machineId) config.sync.machineId = crypto.randomUUID();
+  config.sync.lastRemote = { updatedAt: remoteUpdated, machineId: remoteData.machineId || null };
   config.sync.lastSyncAt = new Date().toISOString();
-  config.sync.lastSyncPlatform = entry.id;
+  config.sync.lastSyncPlatform = remoteFrom;
   await saveConfig(config);
 
-  appendLog('sync-pull', entry.id, true, `+${added} ~${updated} providers:${providers}`);
-  return { added, updated, providers, total: (remoteData.secrets || []).length };
+  appendLog('sync-pull', remoteFrom, true, `+${added} ~${updated} providers:${providers}${agentApplied ? '' : ' agent:kept-local'}${providersApplied ? '' : ' providers:kept-local'}`);
+  return { added, updated, providers, total: (remoteData.secrets || []).length, agentApplied, providersApplied };
 }
 
 async function exportSyncCode(passwordOverride) {
@@ -339,10 +406,8 @@ async function exportSyncCode(passwordOverride) {
   const password = passwordOverride || config.sync?.password;
   if (!password) throw new Error('请先设置同步密码');
 
-  const platforms = config.sync?.platforms || {};
-  const target = config.sync?.syncPlatform;
-  const entry = target && platforms[target]?.enabled ? { id: target, config: platforms[target] } : null;
-  if (!entry) throw new Error('请先启用一个同步平台');
+  const primary = await resolvePrimaryTarget(config);
+  const entry = { id: primary.id, config: config.sync.platforms[primary.id] };
 
   const platformSecrets = await collectPlatformVaultSecrets(entry.config, entry.id);
   const payload = {
@@ -392,4 +457,4 @@ async function importSyncCode(code, password) {
   return { platform: payload.syncPlatform, secrets: secrets.length };
 }
 
-module.exports = { loadConfig, saveConfig, resolveVaultRefs, testConnection, pushSecrets, syncPush, syncPull, exportSyncCode, importSyncCode };
+module.exports = { loadConfig, saveConfig, appendLog, resolveVaultRefs, testConnection, peekRemote, syncPush, syncPull, exportSyncCode, importSyncCode };

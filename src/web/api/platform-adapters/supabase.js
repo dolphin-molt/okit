@@ -69,36 +69,6 @@ async function testConnection(config) {
   return 'Supabase 连接成功（表已就绪）';
 }
 
-async function syncSecrets(config, secrets) {
-  const base = getBaseUrl(config);
-  const h = headers(config.apiKey);
-  const results = [];
-  for (const secret of secrets) {
-    try {
-      const value = { value: secret.value, desc: secret.desc || '', group: secret.group || '' };
-      const row = { key: secret.key, value, updated_at: new Date().toISOString() };
-      // Try update first
-      const updated = await sbFetch(`${base}/rest/v1/${TABLE_NAME}?key=eq.${encodeURIComponent(secret.key)}`, {
-        method: 'PATCH',
-        headers: { ...h, 'Prefer': 'return=representation' },
-        body: JSON.stringify(row),
-      });
-      // If no row updated, insert new
-      if (!updated || updated.length === 0) {
-        await sbFetch(`${base}/rest/v1/${TABLE_NAME}`, {
-          method: 'POST',
-          headers: h,
-          body: JSON.stringify(row),
-        });
-      }
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   if (!config.apiKey) throw new Error('请配置 Secret Key');
   const base = getBaseUrl(config);
@@ -136,4 +106,4 @@ async function pullSync(config, userId) {
   }
 }
 
-module.exports = { name: 'Supabase', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'Supabase', testConnection, pushSync, pullSync };

@@ -342,6 +342,7 @@ async function agentChat(req, res) {
           const { VaultStore } = require('../../vault/store');
           const store = new VaultStore();
           await store.set(key, value, group);
+          require('./sync-scheduler').markDirty('secrets');
           return JSON.stringify({ success: true, key });
         },
       },
@@ -359,6 +360,7 @@ async function agentChat(req, res) {
           const { VaultStore } = require('../../vault/store');
           const store = new VaultStore();
           await store.delete(key);
+          require('./sync-scheduler').markDirty('secrets');
           return JSON.stringify({ success: true, key });
         },
       },
@@ -409,6 +411,7 @@ async function agentChat(req, res) {
             const { VaultStore } = require('../../vault/store');
             const store = new VaultStore();
             await store.set(storeKey, createdValue, platform);
+            require('./sync-scheduler').markDirty('secrets');
             return JSON.stringify({ success: true, platform, vaultKey: storeKey, name: fakeRes.body.name, message: `已创建并保存到 Vault（密钥名：${storeKey}）` });
           } catch (err) {
             // Key created but failed to save — return value so user can save manually

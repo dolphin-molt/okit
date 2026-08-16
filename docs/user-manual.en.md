@@ -126,12 +126,18 @@ The extension requests `debugger`, `tabs`, `cookies`, and related permissions, s
 
 - **Manual add**: Vault → Add, name + key, optional usage note
 - **Project binding**: keys bind to project directories; OKIT injects them into that project's `.env` (e.g. `OPENAI_API_KEY`), matched by key name
-- **Cloud sync**: end-to-end encrypted via Cloudflare KV. After configuring it in Settings:
+- **Cloud sync**: end-to-end encrypted cross-machine sync over iCloud / WebDAV / Cloudflare / Supabase / Volcengine KMS. After configuring a sync password and platform in Settings:
   ```bash
   okit vault push     # push keys to the cloud
   okit vault pull     # pull from the cloud
   ```
   The cloud only ever stores ciphertext; the master key never leaves your machine.
+- **Auto sync**: enable "Auto Sync" under Settings → Cross-Machine Sync and forget the buttons:
+  - Local changes (keys, agent config, provider config) are **pushed automatically after 10s** (encrypted)
+  - **Every enabled platform is pushed simultaneously** (mutual backups); pulls automatically pick the freshest copy across platforms
+  - The remote is **checked every 5 minutes** and merged when a new version appears (newest-wins by timestamp; newer local edits are never overwritten by stale remote data)
+  - On startup OKIT merges the remote first, then flushes any pending local changes
+  - Enabling it for the first time seeds the cloud with an initial push; machines sharing the same sync password stay in sync automatically
 
 ---
 

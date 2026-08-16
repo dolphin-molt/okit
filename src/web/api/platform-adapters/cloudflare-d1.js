@@ -108,31 +108,6 @@ async function testConnection(config) {
   return `Cloudflare D1 连接成功 (数据库: ${DB_NAME})`;
 }
 
-async function syncSecrets(config, secrets) {
-  if (!config.apiToken) throw new Error('请配置 API Token');
-
-  const accountId = await getAccountId(config.apiToken);
-  const databaseId = await ensureDatabase(config.apiToken, accountId);
-  const tableName = 'okit_secrets';
-  const results = [];
-
-  for (const secret of secrets) {
-    try {
-      const val = JSON.stringify({ value: secret.value, desc: secret.desc || '', group: secret.group || '' });
-      await cfFetch(config.apiToken,
-        `/accounts/${accountId}/d1/database/${databaseId}/query`,
-        { method: 'POST', body: JSON.stringify({
-          sql: `INSERT OR REPLACE INTO ${tableName} (name, value, updated_at) VALUES (?, ?, ?)`,
-          params: [secret.key, val, new Date().toISOString()],
-        }) });
-      results.push({ key: secret.key, success: true });
-    } catch (error) {
-      results.push({ key: secret.key, success: false, error: error.message });
-    }
-  }
-  return results;
-}
-
 async function pushSync(config, userId, encryptedBlob) {
   if (!config.apiToken) throw new Error('请配置 API Token');
 
@@ -169,4 +144,4 @@ async function pullSync(config, userId) {
   }
 }
 
-module.exports = { name: 'Cloudflare D1', testConnection, syncSecrets, pushSync, pullSync };
+module.exports = { name: 'Cloudflare D1', testConnection, pushSync, pullSync };

@@ -53,12 +53,6 @@ function toneForRemaining(remainingPct: number | null): string {
   return 'ok';
 }
 
-function toneLabel(tone: string, t: (k: string) => string): string {
-  if (tone === 'danger') return t('home.usageCritical');
-  if (tone === 'warn') return t('home.usageWatch');
-  return t('home.usageHealthy');
-}
-
 function remainingPercent(window: UsageWindow): number | null {
   return window.usedPercent == null ? null : Math.max(0, Math.min(100, Math.round(100 - window.usedPercent)));
 }
@@ -80,6 +74,7 @@ type UsageCard = {
 };
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
+type UsageKind = 'quota' | 'balance';
 const GROUP_PAGE_SIZE = 4;
 
 function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; detail: string } {
@@ -108,28 +103,6 @@ function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; det
   return { value: remaining != null ? `${remaining}%` : '—', detail };
 }
 
-function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
-  const tone = alert?.severity || card.tone;
-  const { value, detail } = compactPrimaryValue(card.usage, t);
-  return (
-    <article className={`usage-summary-compact-card usage-summary-compact-card--${tone}`}>
-      <div className="usage-summary-compact-head">
-        <div className="usage-summary-provider">
-          {getProviderIcon(card.id) && <img src={getProviderIcon(card.id)} alt="" />}
-          <span>{card.name}</span>
-        </div>
-        <span className={`usage-summary-status usage-summary-status--${tone}`}>
-          {alert ? toneLabel(alert.severity, t) : card.usage.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(card.tone, t)}
-        </span>
-      </div>
-      <div className="usage-summary-compact-value">
-        <strong>{value}</strong>
-        <span>{detail}</span>
-      </div>
-    </article>
-  );
-}
-
 function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
   const tone = alert?.severity || card.tone;
   const primary = compactPrimaryValue(card.usage, t);
@@ -152,58 +125,6 @@ function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnTyp
         <span>{detail}</span>
       </div>
     </article>
-  );
-}
-
-function UsageGroupPanel({
-  title,
-  kind,
-  cards,
-  page,
-  onPageChange,
-  alerts,
-  t,
-}: {
-  title: string;
-  kind: 'quota' | 'balance';
-  cards: UsageCard[];
-  page: number;
-  onPageChange: (page: number) => void;
-  alerts: ReturnType<typeof checkAlerts>;
-  t: Translate;
-}) {
-  if (cards.length === 0) return null;
-  const pageCount = Math.max(1, Math.ceil(cards.length / GROUP_PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageCards = cards.slice(safePage * GROUP_PAGE_SIZE, (safePage + 1) * GROUP_PAGE_SIZE);
-
-  return (
-    <section className={`usage-summary-group usage-summary-group--${kind}`}>
-      <div className="usage-summary-group-heading">
-        <div className="usage-summary-group-title">
-          <span className="usage-summary-group-mark" aria-hidden="true" />
-          <strong>{title}</strong>
-          <span>{cards.length}</span>
-        </div>
-        {pageCount > 1 && (
-          <div className="usage-summary-group-pager" aria-label={title}>
-            <button type="button" onClick={() => onPageChange(safePage - 1)} disabled={safePage === 0} aria-label={t('home.usagePreviousPage')}>‹</button>
-            <span>{safePage + 1} / {pageCount}</span>
-            <button type="button" onClick={() => onPageChange(safePage + 1)} disabled={safePage === pageCount - 1} aria-label={t('home.usageNextPage')}>›</button>
-          </div>
-        )}
-      </div>
-      <div className="usage-summary-group-grid">
-        {pageCards.map(card => (
-          <UsageGroupItem
-            key={card.id}
-            card={card}
-            alert={alerts.find(item => item.providerId === card.id)}
-            t={t}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -245,7 +166,7 @@ export default function UsageSummary() {
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const visibleAlerts = alerts.filter(a => !dismissedKeys.has(a.notifyKey));
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [activeKind, setActiveKind] = useState<UsageKind>('quota');
   const [quotaPage, setQuotaPage] = useState(0);
   const [balancePage, setBalancePage] = useState(0);
 
@@ -293,12 +214,18 @@ export default function UsageSummary() {
       return { id, name: providerNames[id] || id, usage: u, tone: cardTone };
     });
 
-  // The backend's supported-provider order is the curated common-provider
-  // order. Keep the home glance familiar; risk remains visible in the status
-  // pill, border tone, alert center, and full usage page.
-  const compactCards = cards.slice(0, 2);
   const quotaCards = cards.filter(card => card.usage.kind !== 'prepaid');
   const balanceCards = cards.filter(card => card.usage.kind === 'prepaid');
+  const activeCards = activeKind === 'quota' ? quotaCards : balanceCards;
+  const activePage = activeKind === 'quota' ? quotaPage : balancePage;
+  const setActivePage = activeKind === 'quota' ? setQuotaPage : setBalancePage;
+  const activePageCount = Math.max(1, Math.ceil(activeCards.length / GROUP_PAGE_SIZE));
+  const safeActivePage = Math.min(activePage, activePageCount - 1);
+  const pageCards = activeCards.slice(
+    safeActivePage * GROUP_PAGE_SIZE,
+    (safeActivePage + 1) * GROUP_PAGE_SIZE,
+  );
+  const activeTitle = activeKind === 'quota' ? t('home.usageQuotaGroup') : t('home.usageBalanceGroup');
 
   if (cards.length === 0) return null;
 
@@ -351,45 +278,52 @@ export default function UsageSummary() {
           </button>
         </div>
       </div>
-      <div className="usage-summary-overview">
-        <div className="usage-summary-compact-grid">
-          {compactCards.map(c => (
-            <UsageCompactCard
-              key={c.id}
-              card={c}
-              alert={visibleAlerts.find(item => item.providerId === c.id)}
+      <div className="usage-summary-toolbar">
+        <div className="usage-summary-kind-switch" role="tablist" aria-label={t('home.usageSummary')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeKind === 'quota'}
+            className={activeKind === 'quota' ? 'is-active' : ''}
+            onClick={() => setActiveKind('quota')}
+          >
+            <span className="usage-summary-kind-mark usage-summary-kind-mark--quota" aria-hidden="true" />
+            {t('home.usageQuotaGroup')}
+            <span className="usage-summary-kind-count">{quotaCards.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeKind === 'balance'}
+            className={activeKind === 'balance' ? 'is-active' : ''}
+            onClick={() => setActiveKind('balance')}
+          >
+            <span className="usage-summary-kind-mark usage-summary-kind-mark--balance" aria-hidden="true" />
+            {t('home.usageBalanceGroup')}
+            <span className="usage-summary-kind-count">{balanceCards.length}</span>
+          </button>
+        </div>
+        {activePageCount > 1 && (
+          <div className="usage-summary-group-pager" aria-label={activeTitle}>
+            <button type="button" onClick={() => setActivePage(safeActivePage - 1)} disabled={safeActivePage === 0} aria-label={t('home.usagePreviousPage')}>‹</button>
+            <span>{safeActivePage + 1} / {activePageCount}</span>
+            <button type="button" onClick={() => setActivePage(safeActivePage + 1)} disabled={safeActivePage === activePageCount - 1} aria-label={t('home.usageNextPage')}>›</button>
+          </div>
+        )}
+      </div>
+      <section className={`usage-summary-group usage-summary-group--${activeKind}`} role="tabpanel" aria-label={activeTitle}>
+        <div className="usage-summary-group-grid">
+          {pageCards.map(card => (
+            <UsageGroupItem
+              key={card.id}
+              card={card}
+              alert={visibleAlerts.find(item => item.providerId === card.id)}
               t={t}
             />
           ))}
+          {pageCards.length === 0 && <div className="usage-summary-empty">{t('usage.empty')}</div>}
         </div>
-      </div>
-      <div className="usage-summary-footer">
-        <button type="button" className="usage-summary-details-toggle" onClick={() => setDetailsOpen(open => !open)} aria-expanded={detailsOpen}>
-          {detailsOpen ? t('home.collapse') : t('home.usageBrowse')} <span aria-hidden="true">{detailsOpen ? '⌃' : '⌄'}</span>
-        </button>
-      </div>
-      {detailsOpen && (
-        <div className="usage-summary-groups">
-          <UsageGroupPanel
-            title={t('home.usageQuotaGroup')}
-            kind="quota"
-            cards={quotaCards}
-            page={quotaPage}
-            onPageChange={setQuotaPage}
-            alerts={visibleAlerts}
-            t={t}
-          />
-          <UsageGroupPanel
-            title={t('home.usageBalanceGroup')}
-            kind="balance"
-            cards={balanceCards}
-            page={balancePage}
-            onPageChange={setBalancePage}
-            alerts={visibleAlerts}
-            t={t}
-          />
-        </div>
-      )}
+      </section>
     </section>
   );
 }

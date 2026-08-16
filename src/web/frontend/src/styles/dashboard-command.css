@@ -189,7 +189,8 @@ body {
 
 .nav-new-btn:hover,
 .sidebar-bottom-icon:hover,
-.sidebar-bottom-icon.active {
+.sidebar-bottom-icon.active,
+.sidebar-toggle:hover {
   background: rgba(245, 243, 235, 0.08);
   color: var(--sidebar-fg);
   border-color: rgba(245, 243, 235, 0.16);
@@ -861,7 +862,8 @@ select:focus {
 [data-theme="light"] .nav-item:hover,
 [data-theme="light"] .nav-new-btn:hover,
 [data-theme="light"] .sidebar-bottom-icon:hover,
-[data-theme="light"] .sidebar-bottom-icon.active {
+[data-theme="light"] .sidebar-bottom-icon.active,
+[data-theme="light"] .sidebar-toggle:hover {
   color: #111816;
   background: rgba(23, 32, 29, 0.055);
   border-color: rgba(23, 32, 29, 0.1);

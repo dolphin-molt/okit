@@ -154,17 +154,40 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         ))}
       </div>
       <div className="sidebar-bottom">
-        <button className="sidebar-bottom-icon" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t('nav.language')}>
-          <span style={{ fontSize: 11, fontWeight: 700 }}>{lang === 'zh' ? '中' : 'EN'}</span>
+        <button
+          className="sidebar-bottom-icon sidebar-utility"
+          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+          title={t('nav.switchLanguage')}
+          aria-label={t('nav.switchLanguage')}
+        >
+          <span className="sidebar-utility-short" aria-hidden="true">{lang === 'zh' ? '中' : 'EN'}</span>
+          <span className="sidebar-utility-label">{lang === 'zh' ? t('nav.languageZh') : t('nav.languageEn')}</span>
         </button>
-        <NavLink to="/settings" className={({ isActive }) => `sidebar-bottom-icon${isActive ? ' active' : ''}`} title={t('nav.settings')}>
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => `sidebar-bottom-icon sidebar-utility${isActive ? ' active' : ''}`}
+          title={t('nav.settings')}
+          aria-label={t('nav.settings')}
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" />
             <circle cx="16" cy="6" r="2" />
             <circle cx="8" cy="12" r="2" />
             <circle cx="13" cy="18" r="2" />
           </svg>
+          <span className="sidebar-utility-label">{t('nav.settings')}</span>
         </NavLink>
+        <button
+          className="sidebar-toggle sidebar-utility"
+          onClick={toggleSidebar}
+          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m14 6-6 6 6 6" />
+          </svg>
+          <span className="sidebar-utility-label">{collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}</span>
+        </button>
       </div>
     </aside>
   );

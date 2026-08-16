@@ -11,6 +11,11 @@ export default {
   'nav.newChat': '新对话',
   'nav.noChat': '暂无对话',
   'nav.language': '语言',
+  'nav.languageZh': '中文',
+  'nav.languageEn': 'English',
+  'nav.switchLanguage': '切换语言',
+  'nav.collapseSidebar': '收起侧边栏',
+  'nav.expandSidebar': '展开侧边栏',
 
   // Landing
   'landing.nav.home': '首页',

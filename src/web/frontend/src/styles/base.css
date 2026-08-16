@@ -246,6 +246,7 @@ body {
   font-size: 8px !important;
 }
 .sidebar--collapsed .nav-item span,
+.sidebar--collapsed .sidebar-utility-label,
 .sidebar--collapsed .status-text,
 .sidebar--collapsed .nav-new-btn,
 .sidebar--collapsed .nav-sub-list,
@@ -254,7 +255,7 @@ body {
 .sidebar--collapsed .nav-item { justify-content: center; padding: 10px 8px; }
 .sidebar--collapsed .nav-item svg { width: 20px; height: 20px; stroke-width: 1.8; flex-shrink: 0; }
 .sidebar--collapsed .sidebar-bottom { flex-direction: column; padding: 8px 0 !important; gap: 6px; align-items: center; }
-.sidebar--collapsed .sidebar-bottom-icon { width: 28px; height: 28px; flex-shrink: 0; }
+.sidebar--collapsed .sidebar-utility { width: 30px; min-height: 30px; padding: 0; justify-content: center; flex-shrink: 0; }
 .sidebar--collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 
 /* ─── Sidebar Navigation ─── */
@@ -325,11 +326,12 @@ body {
 
 /* ─── Sidebar Bottom ─── */
 .sidebar-bottom {
-  padding: 12px 20px 16px;
+  padding: 10px 12px 12px;
   border-top: 1px solid rgba(255,255,255,0.08);
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
 }
 
 .theme-toggle {
@@ -393,6 +395,38 @@ body {
 .sidebar-bottom-icon.active {
   background: rgba(255,255,255,0.15);
   color: var(--sidebar-fg);
+}
+
+.sidebar-utility {
+  width: 100%;
+  min-height: 32px;
+  height: auto;
+  padding: 0 9px;
+  justify-content: flex-start;
+  gap: 9px;
+  font: inherit;
+  text-align: left;
+}
+
+.sidebar-utility-short {
+  width: 16px;
+  flex: 0 0 16px;
+  color: currentColor;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.sidebar-utility-label {
+  min-width: 0;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-moon { display: none; }

@@ -11,6 +11,11 @@ export default {
   'nav.newChat': 'New Chat',
   'nav.noChat': 'No conversations',
   'nav.language': 'Language',
+  'nav.languageZh': '中文',
+  'nav.languageEn': 'English',
+  'nav.switchLanguage': 'Switch language',
+  'nav.collapseSidebar': 'Collapse sidebar',
+  'nav.expandSidebar': 'Expand sidebar',
 
   // Landing
   'landing.nav.home': 'Home',

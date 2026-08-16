@@ -424,7 +424,7 @@
     clip-path: none;
     overflow: hidden;
   }
-  .brand-text, .brand-hand, .nav-item span, .sidebar-bottom .status-text,
+  .brand-text, .brand-hand, .nav-item span, .sidebar-bottom .status-text, .sidebar-utility-label,
   .nav-new-btn, .nav-sub-list, .nav-section-label { display: none !important; }
   .sidebar-brand {
     display: flex !important;
@@ -445,7 +445,8 @@
   .nav-item { justify-content: center; padding: 10px 8px; }
   .nav-item svg { width: 20px; height: 20px; margin: 0; flex-shrink: 0; }
   .sidebar-bottom { flex-direction: column; padding: 8px 0 !important; gap: 6px; align-items: center; }
-  .sidebar-bottom-icon { width: 28px; height: 28px; flex-shrink: 0; }
+  .sidebar-utility { width: 30px; min-height: 30px; padding: 0; justify-content: center; flex-shrink: 0; }
+  .sidebar-toggle svg { transform: rotate(180deg); }
   .main-content { padding: 20px 14px; }
   .page-title { font-size: 22px; }
   .header-paper { padding: 12px 16px; }

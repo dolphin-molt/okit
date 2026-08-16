@@ -238,6 +238,7 @@ export default {
   'models.groupOther': '其他',
   'models.statusAuthed': '已认证',
   'models.statusUnauthed': '待配置',
+  'models.statusChecking': '检测中',
   'models.statusNeedsVerification': '待验证',
   'models.statusStale': '需复核',
   'models.statusPartial': '部分可用',

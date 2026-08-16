@@ -238,6 +238,7 @@ export default {
   'models.groupOther': 'Other',
   'models.statusAuthed': 'Authed',
   'models.statusUnauthed': 'Unauthed',
+  'models.statusChecking': 'Checking',
   'models.statusNeedsVerification': 'Needs verification',
   'models.statusStale': 'Recheck needed',
   'models.statusPartial': 'Partially available',

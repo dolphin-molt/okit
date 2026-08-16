@@ -160,6 +160,9 @@ export default function ModelsPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>(PLATFORM_DEFINITIONS);
   const [authMap, setAuthMap] = useState<Record<string, AuthState>>({});
+  // Badges stay neutral until the first auth snapshot lands, so cards never
+  // flash 待配置 for providers that are actually configured.
+  const [authLoaded, setAuthLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editProvider, setEditProvider] = useState<Provider | null>(null);
@@ -212,6 +215,7 @@ export default function ModelsPage() {
         };
       }
       setAuthMap(map);
+      setAuthLoaded(true);
     } catch { /* keep last known auth state */ }
   }, [toast]);
 
@@ -771,7 +775,7 @@ export default function ModelsPage() {
               <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />
               <StatChip label={t('models.totalOfferings')} value={modelStats.offerings} tone="muted" />
               <StatChip label={t('models.totalEndpoints')} value={modelStats.endpoints} tone="muted" />
-              <StatChip label={t('models.authReady')} value={`${modelStats.authed} / ${modelStats.total}`} tone={modelStats.authed === modelStats.total ? 'success' : 'warn'} />
+              <StatChip label={t('models.authReady')} value={!authLoaded ? '—' : `${modelStats.authed} / ${modelStats.total}`} tone={!authLoaded ? 'muted' : modelStats.authed === modelStats.total ? 'success' : 'warn'} />
             </> : <>
               <StatChip label={t('models.comparisonModels')} value={comparisonModelCount} />
               <StatChip label={t('models.configuredPlatforms')} value={modelStats.total} tone="muted" />
@@ -956,7 +960,9 @@ export default function ModelsPage() {
             // 状态反映当前选中的变体(不是整个家族的并集)
             const familyAuthed = isMulti ? authed : isAuthMethodAuthed(p, selectedAuthMethod);
             const authWarning = selectedAuthMethod === 'api_key' && (auth?.authState === 'stale' || auth?.authState === 'partial');
-            const statusLabel = authWarning
+            const statusLabel = !authLoaded
+              ? t('models.statusChecking')
+              : authWarning
               ? auth?.authState === 'partial' ? t('models.statusPartial') : t('models.statusStale')
               : familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed');
             const authDetail = authWarning
@@ -987,7 +993,7 @@ export default function ModelsPage() {
                       </span>
                     )}
                     <span
-                      className={`provider-status provider-status--${authWarning ? 'warning' : familyAuthed ? 'authed' : 'unauthed'} provider-status--with-auth-tooltip`}
+                      className={`provider-status provider-status--${!authLoaded ? 'pending' : authWarning ? 'warning' : familyAuthed ? 'authed' : 'unauthed'} provider-status--with-auth-tooltip`}
                       tabIndex={0}
                       data-auth-detail={authDetail}
                     >

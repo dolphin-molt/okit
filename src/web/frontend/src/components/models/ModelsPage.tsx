@@ -185,9 +185,18 @@ export default function ModelsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [data, authData] = await Promise.all([listProviders(), getAuthStatus()]);
+      const data = await listProviders();
       setProviders(data.providers || []);
       setPlatforms(data.platforms || PLATFORM_DEFINITIONS);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+    // Auth badges are secondary decoration — fetch them after the cards are
+    // already on screen and let them pop in, instead of blocking first paint.
+    try {
+      const authData = await getAuthStatus();
       const map: Record<string, AuthState> = {};
       for (const s of authData.statuses || []) {
         map[s.id] = {
@@ -203,11 +212,7 @@ export default function ModelsPage() {
         };
       }
       setAuthMap(map);
-    } catch (err: any) {
-      toast(err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* keep last known auth state */ }
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
@@ -730,7 +735,22 @@ export default function ModelsPage() {
     ];
   }, [view, providers, activeProtocol, activePlanFilter, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
 
-  if (loading) return <div className="page-loading">{t('common.loading')}</div>;
+  if (loading) {
+    return (
+      <div className="provider-list">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <article key={i} className="provider-card provider-card--skeleton" aria-hidden="true">
+            <div className="provider-card-header">
+              <div className="skeleton-shape skeleton-shape--icon" />
+              <div className="skeleton-line skeleton-line--title" />
+            </div>
+            <div className="skeleton-line" />
+            <div className="skeleton-line skeleton-line--short" />
+          </article>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>

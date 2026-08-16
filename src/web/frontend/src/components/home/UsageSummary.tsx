@@ -52,6 +52,61 @@ function compactAlertMessage(message: string, providerName: string): string {
     .replace(' 未使用', ' 未用');
 }
 
+type UsageCard = {
+  id: string;
+  name: string;
+  usage: UsageResult;
+  tone: string;
+};
+
+function compactPrimaryValue(u: UsageResult, t: (k: string) => string): { value: string; detail: string } {
+  const windows = u.windows || [];
+  const first = windows[0];
+
+  if (u.kind === 'prepaid') {
+    const value = first?.remainingCredits != null
+      ? (first.unit ? `${first.remainingCredits.toFixed(2)} ${first.unit}` : `$${first.remainingCredits.toFixed(2)}`)
+      : '—';
+    return { value, detail: t('home.usageBalance') };
+  }
+
+  if (first?.unit) {
+    return {
+      value: first.remainingCredits != null ? `${first.remainingCredits.toFixed(2)} ${first.unit}` : '—',
+      detail: t('home.usageRemaining'),
+    };
+  }
+
+  const remaining = first ? remainingPercent(first) : null;
+  const detail = windows.slice(0, 2).map(w => {
+    const pct = remainingPercent(w);
+    return `${WINDOW_LABEL[w.label] || w.label} ${pct != null ? `${pct}%` : '?'}`;
+  }).join(' · ');
+  return { value: remaining != null ? `${remaining}%` : '—', detail };
+}
+
+function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: (k: string) => string }) {
+  const tone = alert?.severity || card.tone;
+  const { value, detail } = compactPrimaryValue(card.usage, t);
+  return (
+    <article className={`usage-summary-compact-card usage-summary-compact-card--${tone}`}>
+      <div className="usage-summary-compact-head">
+        <div className="usage-summary-provider">
+          {getProviderIcon(card.id) && <img src={getProviderIcon(card.id)} alt="" />}
+          <span>{card.name}</span>
+        </div>
+        <span className={`usage-summary-status usage-summary-status--${tone}`}>
+          {alert ? toneLabel(alert.severity, t) : card.usage.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(card.tone, t)}
+        </span>
+      </div>
+      <div className="usage-summary-compact-value">
+        <strong>{value}</strong>
+        <span>{detail}</span>
+      </div>
+    </article>
+  );
+}
+
 function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }) {
   const windows = u.windows || [];
   if (windows.length === 0) {
@@ -153,6 +208,7 @@ export default function UsageSummary() {
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const visibleAlerts = alerts.filter(a => !dismissedKeys.has(a.notifyKey));
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -163,7 +219,7 @@ export default function UsageSummary() {
   // Build cards: only include providers that actually have usable data
   // (windows present, or a meaningful balance). Skip providers whose only
   // signal is an error/empty — they would clutter the strip with "—" cards.
-  const cards = supportedIds
+  const cards: UsageCard[] = supportedIds
     .filter(id => {
       const u = usageMap[id];
       if (!u || u.supported === false) return false;
@@ -197,6 +253,11 @@ export default function UsageSummary() {
       }
       return { id, name: providerNames[id] || id, usage: u, tone: cardTone };
     });
+
+  // The backend's supported-provider order is the curated common-provider
+  // order. Keep the home glance familiar; risk remains visible in the status
+  // pill, border tone, alert center, and full usage page.
+  const compactCards = cards.slice(0, 2);
 
   if (cards.length === 0) return null;
 
@@ -252,7 +313,30 @@ export default function UsageSummary() {
           </button>
         </div>
       </div>
-      <div className="usage-summary-grid">
+      <div className="usage-summary-overview">
+        <div className="usage-summary-compact-grid">
+          {compactCards.map(c => (
+            <UsageCompactCard
+              key={c.id}
+              card={c}
+              alert={visibleAlerts.find(item => item.providerId === c.id)}
+              t={t}
+            />
+          ))}
+        </div>
+        <div className="usage-summary-overview-side">
+          <span className="usage-summary-overview-count">{cards.length}</span>
+          <span>{t('home.usageProviders', { n: cards.length })}</span>
+        </div>
+      </div>
+      <div className="usage-summary-footer">
+        <span>{cards.length > compactCards.length ? t('home.usageMoreProviders', { n: cards.length - compactCards.length }) : t('home.usageSummaryHint')}</span>
+        <button type="button" className="usage-summary-details-toggle" onClick={() => setDetailsOpen(open => !open)} aria-expanded={detailsOpen}>
+          {detailsOpen ? t('home.collapse') : t('home.showAll')} <span aria-hidden="true">{detailsOpen ? '⌃' : '⌄'}</span>
+        </button>
+      </div>
+      {detailsOpen && (
+        <div className="usage-summary-grid">
         {cards.map(c => {
           const alert = visibleAlerts.find(item => item.providerId === c.id);
           const cardTone = alert?.severity || c.tone;
@@ -271,7 +355,8 @@ export default function UsageSummary() {
           </article>
           );
         })}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

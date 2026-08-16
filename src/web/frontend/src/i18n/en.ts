@@ -860,7 +860,7 @@ export default {
 
   // Home dashboard (goal ②)
   'home.usageSummary': 'Today’s usage',
-  'home.usageSummaryHint': 'Subscription headroom and prepaid balances, prioritized by risk.',
+  'home.usageSummaryHint': 'A quick view of common providers, with risk surfaced first.',
   'home.usageAttention': 'need attention',
   'home.usageOpen': 'Open full usage',
   'home.usageRemaining': 'Remaining',
@@ -868,6 +868,8 @@ export default {
   'home.usageHealthy': 'Healthy',
   'home.usageWatch': 'Watch',
   'home.usageCritical': 'Critical',
+  'home.usageProviders': '{n} providers',
+  'home.usageMoreProviders': '{n} more providers',
   'home.showAll': 'Show all',
   'home.collapse': 'Collapse',
   'home.addProvider': 'Add provider',

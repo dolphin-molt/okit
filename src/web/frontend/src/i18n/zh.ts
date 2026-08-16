@@ -860,7 +860,7 @@ export default {
 
   // 首页驾驶舱（目标②）
   'home.usageSummary': '今日用量',
-  'home.usageSummaryHint': '订阅剩余额度与充值余额，按风险优先展示',
+  'home.usageSummaryHint': '常用平台用量摘要，异常优先提示',
   'home.usageAttention': '项需关注',
   'home.usageOpen': '打开完整统计',
   'home.usageRemaining': '剩余额度',
@@ -868,6 +868,8 @@ export default {
   'home.usageHealthy': '充足',
   'home.usageWatch': '关注',
   'home.usageCritical': '紧张',
+  'home.usageProviders': '{n} 个平台',
+  'home.usageMoreProviders': '另有 {n} 个平台',
   'home.showAll': '显示全部',
   'home.collapse': '收起',
   'home.addProvider': '添加站点',

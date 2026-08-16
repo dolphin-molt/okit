@@ -25,6 +25,26 @@ const WINDOW_LABEL: Record<string, string> = {
   'credits': '余额',
 };
 
+// Home prioritizes the shortest actionable window. When a provider reports
+// more than two windows, show 5h first, then weekly (or monthly as fallback).
+const WINDOW_PRIORITY: Record<string, number> = {
+  '5h': 0,
+  'session': 0,
+  'weekly': 1,
+  '7d': 1,
+  'monthly': 2,
+};
+
+function prioritizedWindows(windows: UsageWindow[]): UsageWindow[] {
+  return windows
+    .map((window, index) => ({ window, index }))
+    .sort((a, b) => {
+      const priorityDiff = (WINDOW_PRIORITY[a.window.label] ?? 3) - (WINDOW_PRIORITY[b.window.label] ?? 3);
+      return priorityDiff || a.index - b.index;
+    })
+    .map(({ window }) => window);
+}
+
 // Remaining percent drives the card's border color (red when nearly exhausted).
 function toneForRemaining(remainingPct: number | null): string {
   if (remainingPct == null) return 'unknown';
@@ -63,7 +83,7 @@ type Translate = (key: string, params?: Record<string, string | number>) => stri
 const GROUP_PAGE_SIZE = 4;
 
 function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; detail: string } {
-  const windows = u.windows || [];
+  const windows = prioritizedWindows(u.windows || []);
   const first = windows[0];
 
   if (u.kind === 'prepaid') {
@@ -113,7 +133,7 @@ function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnT
 function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
   const tone = alert?.severity || card.tone;
   const primary = compactPrimaryValue(card.usage, t);
-  const firstWindow = card.usage.windows?.[0];
+  const firstWindow = prioritizedWindows(card.usage.windows || [])[0];
   const detail = card.usage.kind !== 'prepaid' && firstWindow?.unit && firstWindow.usedPercent != null
     ? `${t('home.usageRemaining')} · ${t('home.usageUsed')} ${firstWindow.usedPercent.toFixed(1)}%`
     : primary.detail;
@@ -285,10 +305,7 @@ export default function UsageSummary() {
   return (
     <section className="home-section usage-summary-section">
       <div className="usage-summary-heading">
-        <div>
-          <div className="home-section-title">{t('home.usageSummary')}</div>
-          <p>{t('home.usageSummaryHint')}</p>
-        </div>
+        <div className="home-section-title">{t('home.usageSummary')}</div>
         <div className="usage-summary-heading-actions">
           {visibleAlerts.length > 0 && (
             <div className="usage-summary-alert-center">
@@ -345,13 +362,8 @@ export default function UsageSummary() {
             />
           ))}
         </div>
-        <div className="usage-summary-overview-side">
-          <span className="usage-summary-overview-count">{cards.length}</span>
-          <span>{t('home.usageProviders', { n: cards.length })}</span>
-        </div>
       </div>
       <div className="usage-summary-footer">
-        <span>{cards.length > compactCards.length ? t('home.usageMoreProviders', { n: cards.length - compactCards.length }) : t('home.usageSummaryHint')}</span>
         <button type="button" className="usage-summary-details-toggle" onClick={() => setDetailsOpen(open => !open)} aria-expanded={detailsOpen}>
           {detailsOpen ? t('home.collapse') : t('home.usageBrowse')} <span aria-hidden="true">{detailsOpen ? '⌃' : '⌄'}</span>
         </button>

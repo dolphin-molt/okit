@@ -836,14 +836,13 @@
   box-shadow: 0 10px 28px rgba(28, 25, 23, 0.06);
 }
 .usage-summary-heading {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
   margin-bottom: 11px;
 }
 .usage-summary-heading-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .usage-summary-heading .home-section-title {
-  margin: 0 0 4px; color: var(--ink); font-size: 15px; letter-spacing: 0.08em;
+  margin: 0; color: var(--ink); font-size: 15px; letter-spacing: 0.08em;
 }
-.usage-summary-heading p { margin: 0; color: var(--ink-muted); font-size: 12px; }
 .usage-summary-link {
   display: inline-flex; align-items: center; gap: 5px; flex: none;
   padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px;
@@ -921,13 +920,8 @@
 .usage-summary-compact-card--warn .usage-summary-compact-value strong { color: #b45309; }
 .usage-summary-compact-card--ok .usage-summary-compact-value strong { color: var(--green); }
 .usage-summary-compact-value span { overflow: hidden; flex: none; color: var(--ink-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.usage-summary-overview-side {
-  display: flex; flex: 0 0 76px; flex-direction: column; justify-content: center; align-items: center; gap: 1px;
-  border-left: 1px dashed var(--border); color: var(--ink-muted); font-size: 9px; line-height: 1.25; text-align: center;
-}
-.usage-summary-overview-count { color: var(--ink); font-size: 20px; font-weight: 800; line-height: 1; }
 .usage-summary-footer {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; padding: 8px 1px 0;
+  display: flex; align-items: center; justify-content: flex-end; margin-top: 9px; padding: 8px 1px 0;
   border-top: 1px solid rgba(28, 25, 23, 0.08); color: var(--ink-muted); font-size: 10px;
 }
 .usage-summary-details-toggle {
@@ -1081,7 +1075,6 @@
   .usage-summary-heading-actions { align-self: flex-start; }
   .usage-summary-overview { display: block; }
   .usage-summary-compact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .usage-summary-overview-side { display: none; }
   .usage-summary-groups { grid-template-columns: 1fr; }
   .usage-summary-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 }

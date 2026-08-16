@@ -259,7 +259,39 @@ export default function VaultPage() {
     });
   }
 
-  if (loading) return <div className="loading"><div className="loading-dots"><span></span><span></span><span></span></div>{t('common.loading')}</div>;
+  // Skeleton only for the very first paint — later reloads (after add/edit/
+  // delete) keep the current list on screen while refreshing in the background.
+  if (loading && secrets.length === 0) {
+    return (
+      <div className="vault-skeleton" aria-busy="true">
+        <div className="qs-skeleton-row">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="qs-skeleton-card qs-skeleton-card--chip">
+              <div className="skeleton-line skeleton-line--short" />
+            </div>
+          ))}
+        </div>
+        <div className="qs-skeleton-group">
+          <div className="skeleton-line skeleton-line--title qs-skeleton-heading" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="qs-skeleton-row">
+              <div className="skeleton-shape--icon" />
+              <div className="skeleton-line" />
+            </div>
+          ))}
+        </div>
+        <div className="qs-skeleton-group">
+          <div className="skeleton-line skeleton-line--title qs-skeleton-heading" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="qs-skeleton-row">
+              <div className="skeleton-shape--icon" />
+              <div className="skeleton-line" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="vault-page">

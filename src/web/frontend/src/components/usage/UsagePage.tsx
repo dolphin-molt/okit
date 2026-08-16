@@ -64,6 +64,8 @@ export default function UsagePage() {
   _t = t; // expose t to UsageBar which renders outside the hook scope
   const [credentialGuide, setCredentialGuide] = useState<CredentialGuideContext | null>(null);
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
+  // Distinguish "metadata still loading" (skeleton) from "loaded, nothing supported" (empty state).
+  const [metaLoaded, setMetaLoaded] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
@@ -78,7 +80,8 @@ export default function UsagePage() {
         setSupportedIds(sup.providers || []);
         setProviders(provData.providers || []);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMetaLoaded(true));
   }, []);
 
   const fetchOne = useCallback(async (id: string) => {
@@ -290,7 +293,22 @@ export default function UsagePage() {
         })}
       </div>
 
-      {supportedIds.length === 0 && (
+      {!metaLoaded && (
+        <div className="usage-grid" aria-busy="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="qs-skeleton-card qs-skeleton-card--usage">
+              <div className="qs-skeleton-row">
+                <div className="skeleton-shape--icon" />
+                <div className="skeleton-line skeleton-line--short" />
+              </div>
+              <div className="skeleton-line skeleton-line--title" />
+              <div className="skeleton-line" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {metaLoaded && supportedIds.length === 0 && (
         <div className="empty-state"><p>{t('usage.noProviders')}</p></div>
       )}
 

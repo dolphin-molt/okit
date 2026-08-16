@@ -1267,3 +1267,50 @@
 }
 .provider-catalog-item:hover { background: rgba(0,0,0,0.04); }
 .provider-catalog-item input[type="checkbox"] { margin: 0; }
+
+/* ─── Shared first-paint skeletons (home / vault / usage) ─── */
+.qs-skeleton-heading { margin: 0 0 14px; width: 96px; }
+
+.qs-skeleton-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: center; }
+
+.qs-skeleton-card {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 6px 0;
+}
+
+.qs-skeleton-card--chip { grid-column: span 1; }
+
+.qs-skeleton-card--usage { padding: 12px 0; }
+
+.qs-skeleton-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.qs-skeleton-group {
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.qs-skeleton-group .qs-skeleton-row { grid-template-columns: 28px minmax(0, 1fr); }
+
+.skeleton-shape--pill {
+  width: 92px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(28, 25, 23, 0.08);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.skeleton-shape--icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(28, 25, 23, 0.1);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .skeleton-shape--pill,
+[data-theme="dark"] .skeleton-shape--icon {
+  background: rgba(245, 243, 235, 0.09);
+}

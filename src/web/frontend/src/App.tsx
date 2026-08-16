@@ -55,7 +55,7 @@ function PersistentDashboardRoutes() {
     setVisited(prev => prev.has(pathname) ? prev : new Set(prev).add(pathname));
   }, [pathname]);
 
-  const keepAlivePaths = ['/', '/usage', '/models'];
+  const keepAlivePaths = ['/', '/usage', '/models', '/vault'];
   const isActive = (p: string) => pathname === p;
   // Mount the active page immediately on first navigation; the effect above
   // records it for future switches without introducing a blank frame.
@@ -78,6 +78,11 @@ function PersistentDashboardRoutes() {
       {wasVisited('/models') && (
         <div className="route-keepalive" hidden={!isActive('/models')} aria-hidden={!isActive('/models')}>
           <ModelsPage />
+        </div>
+      )}
+      {wasVisited('/vault') && (
+        <div className="route-keepalive" hidden={!isActive('/vault')} aria-hidden={!isActive('/vault')}>
+          <VaultPage />
         </div>
       )}
       {!keepAliveActive && (

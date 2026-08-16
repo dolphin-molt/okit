@@ -173,7 +173,31 @@ export default function HomePage() {
     }
   }
 
-  if (loading) return <div className="quick-start-page"><p style={{ padding: 40 }}>{t('common.loading')}</p></div>;
+  if (loading) {
+    return (
+      <div className="quick-start-page" aria-busy="true">
+        <div className="home-section">
+          <div className="skeleton-line skeleton-line--title qs-skeleton-heading" />
+          <div className="qs-skeleton-row">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="qs-skeleton-card">
+                <div className="skeleton-line skeleton-line--short" />
+                <div className="skeleton-line skeleton-line--title" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="home-section">
+          <div className="skeleton-line skeleton-line--title qs-skeleton-heading" />
+          <div className="qs-skeleton-tabs">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="skeleton-shape--pill" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="quick-start-page">

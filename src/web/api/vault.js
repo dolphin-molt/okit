@@ -3,11 +3,19 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 const {
+  QIANFAN_CODING_PROBE_MODEL,
   isQianfanCodingEndpoint,
+  isQianfanCodingAnthropicEndpoint,
   qianfanCodingErrorCode,
   qianfanCodingErrorMessage,
 } = require('./qianfan-coding');
-const { pickProbeModel } = require('./endpoint-profiles');
+const {
+  getAnthropicAuthMode,
+  getAuthenticatedResourceFailureMessage,
+  getProbeModels,
+  requiresInferenceProbe,
+  isModelAccessFailure,
+} = require('./endpoint-profiles');
 
 const store = new VaultStore();
 
@@ -159,6 +167,7 @@ async function listVault(req, res) {
     // Attach bindings to each key
     const secrets = entries.map(entry => ({
       ...entry,
+      group: normalizeVaultGroup(entry.group, entry.key),
       bindings: bindings.filter(binding => binding.key === entry.key),
     }));
 
@@ -189,7 +198,7 @@ async function setVault(req, res) {
       }
     }
 
-    await store.set(key, value, group, expiresAt, desc);
+    await store.set(key, value, normalizeVaultGroup(group, key), expiresAt, desc);
     if (isEditMove) {
       await store.delete(originalKey);
       touchOkitEnvFiles(originalKey);
@@ -455,6 +464,7 @@ async function listVaultWithProjects(req, res) {
 
     const secrets = entries.map(entry => ({
       ...entry,
+      group: normalizeVaultGroup(entry.group, entry.key),
       projects: keyProjects[entry.key] || [],
     }));
 
@@ -523,9 +533,9 @@ async function testApiKey(req, res) {
     const headers = {};
 
     if (type === 'anthropic') {
-      url = `${baseUrl}/v1/messages`;
       const isZaiAnthropic = isZaiAnthropicEndpoint(baseUrl);
       const isMiniMaxAnthropic = isMiniMaxAnthropicEndpoint(baseUrl);
+      const isQianfanCodingAnthropic = isQianfanCodingAnthropicEndpoint(baseUrl);
       if (isZaiAnthropic) {
         // Z.AI's Anthropic-compatible coding endpoint expects a GLM model
         // and the platform's standard Bearer authentication. The generic
@@ -537,6 +547,8 @@ async function testApiKey(req, res) {
         // Prefer the read-only model list below so an unavailable inference
         // entitlement is not mistaken for an invalid endpoint or credential.
         headers['X-Api-Key'] = resolvedKey;
+      } else if (getAnthropicAuthMode(baseUrl) === 'bearer') {
+        headers['Authorization'] = `Bearer ${resolvedKey}`;
       } else {
         headers['x-api-key'] = resolvedKey;
       }
@@ -590,18 +602,35 @@ async function testApiKey(req, res) {
         // protocol-compatible one-token message probe below.
       }
 
-      const body = JSON.stringify({
-        model: isZaiAnthropic ? 'glm-4.7' : pickProbeModel(baseUrl),
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      });
-      const result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+      const result = await probeAnthropicWireApi(
+        baseUrl,
+        headers,
+        isZaiAnthropic
+          ? ['glm-4.7']
+          : isQianfanCodingAnthropic
+            ? [QIANFAN_CODING_PROBE_MODEL]
+            : undefined,
+      );
       if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
-      if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+      if (isQianfanCodingAnthropic) {
+        const codingCode = qianfanCodingErrorCode(result.body);
+        const codingMessage = qianfanCodingErrorMessage(codingCode);
+        if (codingMessage) return res.json({ success: false, message: codingMessage });
+        if (result.status === 401) return res.json({ success: false, message: '百度千帆 Token Plan API Key 无效' });
+        if (result.status === 200) return res.json({ success: true, message: '百度千帆 Token Plan Anthropic 端点连接成功，Key 有效' });
+        if (result.status === 400) return res.json({ success: true, message: '百度千帆 Token Plan Anthropic 端点可达，Key 已通过鉴权' });
+        return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
+      }
       if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+      if (isModelAccessFailure(result.status, result.body)) {
+        return res.json({ success: true, message: '端点连接成功，Key 已通过鉴权；当前套餐不包含探测模型，请以套餐模型列表为准' });
+      }
+      if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
       if (isZaiAnthropic && (result.status === 429 || zaiErrorCode(result.body) === '1113')) {
         return res.json({ success: false, message: '端点可达，但 Z.AI 账户余额或资源包不足（1113），请充值或开通对应资源包后重试' });
       }
+      const resourceFailureMessage = getAuthenticatedResourceFailureMessage(result.status, result.body);
+      if (resourceFailureMessage) return res.json({ success: true, message: resourceFailureMessage });
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
     } else {
       // Qianfan Coding Plan has its own credential scope and does not accept
@@ -615,10 +644,28 @@ async function testApiKey(req, res) {
         const codingCode = qianfanCodingErrorCode(codingResult.body);
         const codingMessage = qianfanCodingErrorMessage(codingCode);
         if (codingMessage) return res.json({ success: false, message: codingMessage });
-        if (codingResult.status === 401) return res.json({ success: false, message: '百度千帆 Coding Plan API Key 无效' });
-        if (codingResult.status === 200) return res.json({ success: true, message: '百度千帆 Coding Plan 连接成功，Key 有效' });
-        if (codingResult.status === 400) return res.json({ success: true, message: '百度千帆 Coding Plan 端点可达，Key 已通过鉴权' });
+        if (codingResult.status === 401) return res.json({ success: false, message: '百度千帆 Token Plan API Key 无效' });
+        if (codingResult.status === 200) return res.json({ success: true, message: '百度千帆 Token Plan 连接成功，Key 有效' });
+        if (codingResult.status === 400) return res.json({ success: true, message: '百度千帆 Token Plan 端点可达，Key 已通过鉴权' });
         return res.json({ success: false, message: `HTTP ${codingResult.status}: ${truncateBody(codingResult.body)}` });
+      }
+
+      // Some providers expose a read-only /models route even when billable
+      // inference is unavailable. For those endpoints, validate the actual
+      // wire protocol directly and leave model listing to the sync action.
+      if (requiresInferenceProbe(baseUrl)) {
+        const probeResult = await probeOpenAIWireApi(baseUrl, headers, protocol);
+        if (probeResult.error) return res.json({ success: false, message: `连接失败: ${probeResult.error}` });
+        if (probeResult.status === 200 || probeResult.status === 400) {
+          return res.json({ success: true, message: '连接成功，Key 有效，并已完成推理探测' });
+        }
+        if (isModelAccessFailure(probeResult.status, probeResult.body)) {
+          return res.json({ success: true, message: 'Key 有效；当前探测模型不可用，请以平台模型列表为准' });
+        }
+        const resourceFailureMessage = getAuthenticatedResourceFailureMessage(probeResult.status, probeResult.body);
+        if (resourceFailureMessage) return res.json({ success: true, message: resourceFailureMessage });
+        if (probeResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        return res.json({ success: false, message: `HTTP ${probeResult.status}: ${truncateBody(probeResult.body)}` });
       }
 
       // openai compatible — try /models first, fallback to the selected wire API probe
@@ -629,8 +676,13 @@ async function testApiKey(req, res) {
         // Connection failed entirely, try the selected generation endpoint as fallback.
         result = await probeOpenAIWireApi(baseUrl, headers, protocol);
         if (result.error) return res.json({ success: false, message: `连接失败: ${result.error}` });
-        if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         if (result.status === 200 || result.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+        if (isModelAccessFailure(result.status, result.body)) {
+          return res.json({ success: true, message: '端点连接成功，Key 已通过鉴权；当前套餐不包含探测模型，请以套餐模型列表为准' });
+        }
+        const resourceFailureMessage = getAuthenticatedResourceFailureMessage(result.status, result.body);
+        if (resourceFailureMessage) return res.json({ success: true, message: resourceFailureMessage });
+        if (result.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
       }
 
@@ -644,8 +696,13 @@ async function testApiKey(req, res) {
         // /models not available, try the selected generation endpoint.
         const probeResult = await probeOpenAIWireApi(baseUrl, headers, protocol);
         if (probeResult.error) return res.json({ success: false, message: `连接失败: ${probeResult.error}` });
-        if (probeResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         if (probeResult.status === 200 || probeResult.status === 400) return res.json({ success: true, message: '连接成功，Key 有效' });
+        if (isModelAccessFailure(probeResult.status, probeResult.body)) {
+          return res.json({ success: true, message: '端点连接成功，Key 已通过鉴权；当前套餐不包含探测模型，请以套餐模型列表为准' });
+        }
+        const resourceFailureMessage = getAuthenticatedResourceFailureMessage(probeResult.status, probeResult.body);
+        if (resourceFailureMessage) return res.json({ success: true, message: resourceFailureMessage });
+        if (probeResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
         return res.json({ success: false, message: `HTTP ${probeResult.status}: ${truncateBody(probeResult.body)}` });
       }
       return res.json({ success: false, message: `HTTP ${result.status}: ${truncateBody(result.body)}` });
@@ -737,25 +794,47 @@ function zaiErrorCode(body) {
   }
 }
 
-function probeOpenAIWireApi(baseUrl, headers, protocol, probeModel) {
-  // Coding Plan endpoints reject the generic gpt-4o-mini model; the caller
-  // passes the plan-specific model via pickProbeModel so the probe is valid.
-  const model = probeModel || pickProbeModel(baseUrl);
+async function probeOpenAIWireApi(baseUrl, headers, protocol, probeModel) {
+  // Coding Plan endpoints reject the generic gpt-4o-mini model. Profiles
+  // provide one or more plan-specific candidates in priority order.
   const normalizedProtocol = protocol === 'responses' ? 'responses' : 'chat';
-  if (normalizedProtocol === 'responses') {
-    const url = baseUrl.replace(/\/+$/, '') + '/responses';
-    const body = JSON.stringify({ model, max_output_tokens: 1, input: 'hi' });
-    return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+  const models = probeModel ? [probeModel] : getProbeModels(baseUrl);
+  let result;
+  for (const model of models) {
+    if (normalizedProtocol === 'responses') {
+      const url = baseUrl.replace(/\/+$/, '') + '/responses';
+      const body = JSON.stringify({ model, max_output_tokens: 1, input: 'hi' });
+      result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+    } else {
+      const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+      const body = JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
+      result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+    }
+    if (!isModelAccessFailure(result.status, result.body)) return result;
   }
-  const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
-  const body = JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
-  return httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+  return result;
+}
+
+async function probeAnthropicWireApi(baseUrl, headers, probeModels) {
+  const url = `${baseUrl.replace(/\/+$/, '')}/v1/messages`;
+  const models = probeModels?.length ? probeModels : getProbeModels(baseUrl);
+  let result;
+  for (const model of models) {
+    const body = JSON.stringify({
+      model,
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    result = await httpRequest(url, { method: 'POST', headers, body, timeout: 10000 });
+    if (!isModelAccessFailure(result.status, result.body)) return result;
+  }
+  return result;
 }
 
 function probeQianfanCodingApi(baseUrl, headers) {
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const body = JSON.stringify({
-    model: 'qianfan-code-latest',
+    model: QIANFAN_CODING_PROBE_MODEL,
     max_tokens: 1,
     messages: [{ role: 'user', content: 'hi' }],
     stream: false,
@@ -790,6 +869,33 @@ function httpRequest(url, options) {
 // Remaps freeform group names to canonical "{平台} · {地域}" format.
 // Matching is based on key name prefixes for 国内/国际 split.
 
+function normalizeVaultGroup(group, key) {
+  const value = String(group || '').trim();
+  const normalizedKey = String(key || '').toUpperCase();
+
+  // Kimi Coding Plan was previously assigned to the international Kimi group
+  // and then temporarily to Moonshot. It is a mainland Kimi product, so repair
+  // those persisted values when the key identity makes the product unambiguous.
+  if (normalizedKey.startsWith('KIMI_CODE_') && [
+    'Kimi 国际',
+    'Kimi · 国际',
+    'Moonshot',
+    'Kimi 国内',
+    'Kimi · 国内',
+    'Kimi',
+  ].includes(value)) return 'Kimi';
+
+  const aliases = {
+    'Kimi 国际': 'Moonshot',
+    'Kimi · 国际': 'Moonshot',
+    'Kimi 国内': 'Kimi',
+    'Kimi · 国内': 'Kimi',
+    '小米 MiMo Token Plan': '小米 MiMo',
+    'StepFun': '阶跃星辰',
+  };
+  return aliases[value] || value;
+}
+
 function resolveCanonicalGroup(key) {
   const k = String(key || '').toUpperCase();
 
@@ -807,10 +913,13 @@ function resolveCanonicalGroup(key) {
   if (k.startsWith('MINIMAX_GLOBAL') || k.startsWith('OKIT-MINIMAX-GLOBAL')) return 'MiniMax · 国际';
   if (k.startsWith('MINIMAX_') || k.startsWith('OKIT-MINIMAX')) return 'MiniMax · 国内';
 
-  // ── Kimi / Moonshot (国内国际分站) ──
-  if (k.startsWith('MOONSHOT_GLOBAL')) return 'Kimi · 国际';
-  if (k.startsWith('MOONSHOT_')) return 'Kimi · 国内';
-  if (k.startsWith('KIMI_')) return 'Kimi · 国内';
+  // ── Kimi / Moonshot ──
+  // Kimi is the mainland API platform; Moonshot is the international API
+  // platform. Kimi Coding Plan belongs to the mainland Kimi product.
+  if (k.startsWith('MOONSHOT_GLOBAL')) return 'Moonshot';
+  if (k.startsWith('MOONSHOT_')) return 'Moonshot';
+  if (k.startsWith('KIMI_CODE_')) return 'Kimi';
+  if (k.startsWith('KIMI_')) return 'Kimi';
 
   // ── 仅国内 ──
   if (k.startsWith('DEEPSEEK_') || k === 'OKIT-DEEPSEEK' || k.startsWith('DEEPSEEK')) return 'DeepSeek';
@@ -841,7 +950,7 @@ async function migrateGroups(req, res) {
     let migrated = 0;
 
     for (const s of data.secrets) {
-      const canonical = resolveCanonicalGroup(s.key);
+      const canonical = resolveCanonicalGroup(s.key) || normalizeVaultGroup(s.group, s.key);
       if (canonical && canonical !== s.group) {
         const from = s.group || '(ungrouped)';
         s.group = canonical;

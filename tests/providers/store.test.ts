@@ -56,6 +56,47 @@ describe('loadProviders', () => {
     expect(result[0].models.length).toBe(2);
   });
 
+  it('updates only an unchanged stale Token Plan model snapshot', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'qwen-token-plan',
+        name: '阿里云百炼 Token Plan',
+        type: 'openai',
+        baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+        authMode: 'api_key',
+        models: [
+          { id: 'qwen3.8-max' },
+          { id: 'qwen3.7-max' },
+          { id: 'qwen3.7-plus' },
+          { id: 'qwen3.6-plus' },
+          { id: 'qwen3-coder-plus' },
+        ],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const tokenPlan = result.find(provider => provider.id === 'qwen-token-plan')!;
+    expect(tokenPlan.models.map(model => model.id)).toContain('qwen3.8-max-preview');
+    expect(tokenPlan.models.map(model => model.id)).not.toContain('qwen3.8-max');
+  });
+
+  it('preserves a user-curated Token Plan model list', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'qwen-token-plan',
+        name: '阿里云百炼 Token Plan',
+        type: 'openai',
+        baseUrl: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+        authMode: 'api_key',
+        models: [{ id: 'my-private-model' }],
+      }],
+    }));
+
+    const result = await loadProviders();
+    expect(result.find(provider => provider.id === 'qwen-token-plan')?.models)
+      .toEqual([{ id: 'my-private-model' }]);
+  });
+
   it('fails loudly for invalid JSON so corrupted data is not overwritten', async () => {
     mocks.files.set(PROVIDERS_PATH, 'not json');
     await expect(loadProviders()).rejects.toThrow('无法读取 providers.json');
@@ -124,6 +165,27 @@ describe('loadProviders', () => {
     ]);
     expect(coding?.baseUrl).toBe('https://qianfan.baidubce.com/v2/tokenplan/personal');
     expect(coding?.vaultKey).toBeUndefined();
+  });
+
+  it('backfills missing plan metadata on an exact built-in endpoint URL', async () => {
+    mocks.files.set(PROVIDERS_PATH, JSON.stringify({
+      providers: [{
+        id: 'qianfan-coding',
+        name: '百度千帆 Token Plan',
+        type: 'openai',
+        baseUrl: 'https://qianfan.baidubce.com/v2/tokenplan/personal',
+        endpoints: [
+          { type: 'openai', protocol: 'chat', baseUrl: 'https://qianfan.baidubce.com/v2/tokenplan/personal' },
+          { type: 'anthropic', baseUrl: 'https://qianfan.baidubce.com/anthropic/tokenplan/personal' },
+        ],
+        authMode: 'api_key',
+        models: [{ id: 'qianfan-code-latest' }],
+      }],
+    }));
+
+    const result = await loadProviders();
+    const provider = result.find(item => item.id === 'qianfan-coding')!;
+    expect(provider.endpoints?.every(endpoint => endpoint.plan === 'token')).toBe(true);
   });
 
   it('migrates the Xiaomi Token Plan endpoints to the signed-in region', async () => {

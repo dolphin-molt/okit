@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, type FormEvent, type ReactNode } from 'react';
 import { getUsage, getSupportedUsageProviders, listProviders, openUsageLogin, UsageResult, UsageWindow, Provider } from '../../api/providers';
+import { setVault } from '../../api/vault';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import { useUsagePolling } from '../../lib/useUsagePolling';
@@ -47,10 +48,21 @@ const PROVIDER_META: Record<string, { name: string; type: string; kind: 'subscri
   'qwen': { name: '通义千问', type: '充值制', kind: 'prepaid' },
 };
 
+type CloudBalanceGuide = 'aliyun-billing' | 'baidu-billing' | 'tencent-billing';
+type CredentialGuide = 'volcengine' | CloudBalanceGuide;
+type CredentialGuideContext = { guide: CredentialGuide; providerId: string };
+type SaveUsageCredentials = (input: {
+  providerId: string;
+  key: string;
+  value: string;
+  group: string;
+}) => Promise<UsageResult>;
+
 export default function UsagePage() {
   const { showToast: toast } = useApp() as any;
   const { t } = useI18n();
   _t = t; // expose t to UsageBar which renders outside the hook scope
+  const [credentialGuide, setCredentialGuide] = useState<CredentialGuideContext | null>(null);
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
@@ -80,6 +92,29 @@ export default function UsagePage() {
       setFetchingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     }
   }, []);
+
+  const saveAndTestCredentials = useCallback<SaveUsageCredentials>(async ({ providerId, key, value, group }) => {
+    await setVault({
+      key,
+      value,
+      group,
+      desc: t('usage.credentials.description'),
+    });
+
+    setFetchingIds(prev => new Set(prev).add(providerId));
+    try {
+      const result = await getUsage(providerId);
+      setUsageMap(prev => ({ ...prev, [providerId]: result }));
+      setLastRefresh(Date.now());
+      return result;
+    } catch (error: any) {
+      const result: UsageResult = { supported: true, error: error?.message || t('usage.credentials.testFailed') };
+      setUsageMap(prev => ({ ...prev, [providerId]: result }));
+      return result;
+    } finally {
+      setFetchingIds(prev => { const next = new Set(prev); next.delete(providerId); return next; });
+    }
+  }, [t]);
 
   const fetchAll = useCallback(async () => {
     for (const id of supportedIds) {
@@ -238,29 +273,64 @@ export default function UsagePage() {
       </div>
 
       <div className="usage-grid">
-        {visibleCards.map(card => (
-          <UsageCard
-            key={card.id}
-            id={card.id}
-            name={card.name}
-            type={card.type}
-            usage={card.usage}
-            fetching={card.fetching}
-            onRefresh={() => fetchOne(card.id)}
-            onLogin={() => handleUsageLogin(card.id)}
-            t={t}
-          />
-        ))}
+        {visibleCards.map(card => {
+          const guide = credentialGuideForProvider(card.id);
+          return (
+            <UsageCard
+              key={card.id}
+              id={card.id}
+              name={card.name}
+              type={card.type}
+              usage={card.usage}
+              fetching={card.fetching}
+              onRefresh={() => fetchOne(card.id)}
+              onLogin={() => handleUsageLogin(card.id)}
+              onOpenGuide={guide ? () => setCredentialGuide({ guide, providerId: card.id }) : undefined}
+              t={t}
+            />
+          );
+        })}
       </div>
 
       {supportedIds.length === 0 && (
         <div className="empty-state"><p>{t('usage.noProviders')}</p></div>
       )}
+
+      {credentialGuide?.guide === 'volcengine' && (
+        <VolcengineUsageGuide
+          providerId={credentialGuide.providerId}
+          onSaveAndTest={saveAndTestCredentials}
+          onClose={() => setCredentialGuide(null)}
+          t={t}
+        />
+      )}
+      {credentialGuide && credentialGuide.guide !== 'volcengine' && (
+        <CloudBalanceUsageGuide
+          provider={credentialGuide.guide}
+          providerId={credentialGuide.providerId}
+          onSaveAndTest={saveAndTestCredentials}
+          onClose={() => setCredentialGuide(null)}
+          t={t}
+        />
+      )}
     </div>
   );
 }
 
-function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
+function credentialGuideForProvider(id: string): CredentialGuide | null {
+  if (id === 'volcengine' || id === 'volcengine-coding' || id === 'volcengine-agent') return 'volcengine';
+  if (id === 'qwen') return 'aliyun-billing';
+  if (id === 'qianfan') return 'baidu-billing';
+  if (id === 'tencent') return 'tencent-billing';
+  return null;
+}
+
+function isGuidedConfigurationMessage(message?: string): boolean {
+  if (!message) return false;
+  return /(AK\/SK|SecretId|SecretKey|_[A-Z0-9_]*(?:CREDENTIALS|ACCESS_KEY|SECRET_KEY|TEAM_ID)|密钥管理|管理凭证|查询权限|手动添加|手动录入|授予)/i.test(message);
+}
+
+function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, onOpenGuide, t }: {
   id: string;
   name: string;
   type: string;
@@ -268,12 +338,15 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
   fetching: boolean;
   onRefresh: () => void;
   onLogin: () => void;
+  onOpenGuide?: () => void;
   t: (k: string, ...args: any[]) => string;
 }) {
   const hasData = usage?.supported && (usage.windows?.length || 0) > 0;
   const hasError = usage?.error;
   const hasNotice = usage?.notice;
   const externalSource = usage?.source === 'console' || usage?.source === 'cli';
+  const compactGuideError = !!onOpenGuide && isGuidedConfigurationMessage(usage?.error);
+  const compactGuideNotice = !!onOpenGuide && isGuidedConfigurationMessage(usage?.notice);
 
   // Compute overall status for card border color.
   const maxPct = usage?.windows?.reduce((max, w) => {
@@ -291,16 +364,23 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
           {type && <span className="usage-card-type">{type}</span>}
           {externalSource && <span className="usage-card-source">控制台查看</span>}
         </div>
-        <button className="btn-icon usage-card-refresh" onClick={onRefresh} disabled={fetching} title={t('usage.refresh')}>
-          {fetching ? (
-            <span className="provider-status-spinner" aria-hidden="true" />
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 1 1-2.6-6.4" />
-              <path d="M21 3v6h-6" />
-            </svg>
+        <div className="usage-card-header-actions">
+          {onOpenGuide && (
+            <button className="usage-card-guide" type="button" onClick={onOpenGuide}>
+              <span aria-hidden="true">?</span>{t('usage.configureGuide')}
+            </button>
           )}
-        </button>
+          <button className="btn-icon usage-card-refresh" onClick={onRefresh} disabled={fetching} title={t('usage.refresh')}>
+            {fetching ? (
+              <span className="provider-status-spinner" aria-hidden="true" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="usage-card-body">
@@ -308,14 +388,26 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
           <div className="usage-card-loading">{t('usage.loading')}</div>
         )}
         {hasError && !fetching && (
-          <div className="usage-card-error">{usage!.error}</div>
+          <div className="usage-card-error">
+            <span>{compactGuideError ? t('usage.configurationRequired') : usage!.error}</span>
+            {!compactGuideError && usage!.action && (
+              <a className="usage-card-action" href={usage!.action.url} target="_blank" rel="noopener noreferrer">
+                {usage!.action.label}
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5.5 3.5h7v7" />
+                  <path d="M12.5 3.5 7 9" />
+                  <path d="M11 8.5v3a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1 1h3" />
+                </svg>
+              </a>
+            )}
+          </div>
         )}
         {hasNotice && !fetching && (
           <div className="usage-card-notice">
             <span className="usage-card-notice-mark" aria-hidden="true">↗</span>
             <div className="usage-card-notice-content">
-              <span>{usage!.notice}</span>
-              {usage!.action && (
+              <span>{compactGuideNotice ? t('usage.configurationRequired') : usage!.notice}</span>
+              {!compactGuideNotice && usage!.action && (
                 usage!.action.mode === 'extension' ? (
                   <button className="usage-card-action" type="button" onClick={onLogin}>
                     {usage!.action.label}
@@ -347,6 +439,349 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, t }: {
         )}
       </div>
     </div>
+  );
+}
+
+function VolcengineUsageGuide({ providerId, onSaveAndTest, onClose, t }: {
+  providerId: string;
+  onSaveAndTest: SaveUsageCredentials;
+  onClose: () => void;
+  t: (k: string, ...args: any[]) => string;
+}) {
+  const iamUrl = 'https://console.volcengine.com/iam/keymanage/';
+  const docsUrl = 'https://www.volcengine.com/docs/6469/1166573?lang=zh';
+
+  return (
+    <div className="usage-guide-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="usage-guide-panel" role="dialog" aria-modal="true" aria-labelledby="volcengine-usage-guide-title" onMouseDown={event => event.stopPropagation()}>
+        <header className="usage-guide-header">
+          <div>
+            <span className="usage-guide-eyebrow">{t('usage.volcGuide.eyebrow')}</span>
+            <h2 id="volcengine-usage-guide-title">{t('usage.volcGuide.title')}</h2>
+            <p>{t('usage.volcGuide.lede')}</p>
+          </div>
+          <button className="usage-guide-close" type="button" onClick={onClose} aria-label={t('common.close')}>×</button>
+        </header>
+
+        <div className="usage-guide-warning">
+          <span className="usage-guide-warning-mark" aria-hidden="true">!</span>
+          <span>{t('usage.volcGuide.warning')}</span>
+        </div>
+
+        <div className="usage-guide-steps">
+          <GuideStep number="01" title={t('usage.volcGuide.step1Title')}>
+            <p>{t('usage.volcGuide.step1Body')}</p>
+            <a className="usage-guide-external" href={iamUrl} target="_blank" rel="noopener noreferrer">{t('usage.volcGuide.openIam')} ↗</a>
+          </GuideStep>
+          <GuideStep number="02" title={t('usage.volcGuide.step2Title')}>
+            <p>{t('usage.volcGuide.step2Body')}</p>
+            <div className="usage-guide-permissions">
+              <div><code>{t('usage.volcGuide.accessMode')}</code><span>{t('usage.volcGuide.accessModeLabel')}</span></div>
+            </div>
+          </GuideStep>
+          <GuideStep number="03" title={t('usage.volcGuide.step3Title')}>
+            <p>{t('usage.volcGuide.step3Body')}</p>
+            <div className="usage-guide-permissions">
+              <div><code>BillingCenterReadOnlyAccess</code><span>{t('usage.volcGuide.balancePermission')}</span></div>
+              <div><code>ArkReadOnlyAccess</code><span>{t('usage.volcGuide.planPermission')}</span></div>
+            </div>
+          </GuideStep>
+          <GuideStep number="04" title={t('usage.volcGuide.step4Title')}>
+            <p>{t('usage.volcGuide.step4Body')}</p>
+          </GuideStep>
+          <GuideStep number="05" title={t('usage.volcGuide.step5Title')}>
+            <CredentialSetupForm
+              providerId={providerId}
+              combinedName="VOLCENGINE_BILLING_CREDENTIALS"
+              group="火山引擎"
+              accessKeyLabel="Access Key ID"
+              secretKeyLabel="Secret Access Key"
+              onSaveAndTest={onSaveAndTest}
+              t={t}
+            />
+          </GuideStep>
+        </div>
+
+        <footer className="usage-guide-footer">
+          <a className="usage-guide-doc-link" href={docsUrl} target="_blank" rel="noopener noreferrer">{t('usage.volcGuide.officialDocs')} ↗</a>
+          <div className="usage-guide-footer-actions">
+            <button className="usage-guide-secondary" type="button" onClick={onClose}>{t('common.close')}</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function CloudBalanceUsageGuide({ provider, providerId, onSaveAndTest, onClose, t }: {
+  provider: CloudBalanceGuide;
+  providerId: string;
+  onSaveAndTest: SaveUsageCredentials;
+  onClose: () => void;
+  t: (k: string, ...args: any[]) => string;
+}) {
+  const configs: Record<CloudBalanceGuide, {
+    title: string;
+    lede: string;
+    userBody: string;
+    accessMode: string;
+    accessModeLabel: string;
+    permissionBody: string;
+    permission: string;
+    permissionLabel: string;
+    permissionUrl?: string;
+    permissionUrlLabel?: string;
+    consoleUrl: string;
+    consoleLabel: string;
+    docsUrl: string;
+    docsLabel: string;
+    combinedName: string;
+    group: string;
+    accessKeyLabel: string;
+    secretKeyLabel: string;
+    credentialBody: string;
+  }> = {
+    'aliyun-billing': {
+      title: t('usage.aliyunGuide.title'),
+      lede: t('usage.aliyunGuide.lede'),
+      userBody: t('usage.aliyunGuide.userBody'),
+      accessMode: t('usage.aliyunGuide.accessMode'),
+      accessModeLabel: t('usage.cloudGuide.accessModeRequired'),
+      permissionBody: t('usage.aliyunGuide.permissionBody'),
+      permission: 'AliyunBSSReadOnlyAccess',
+      permissionLabel: t('usage.aliyunGuide.permissionLabel'),
+      consoleUrl: 'https://ram.console.aliyun.com/users',
+      consoleLabel: t('usage.aliyunGuide.openConsole'),
+      docsUrl: 'https://help.aliyun.com/zh/ram/developer-reference/aliyunbssreadonlyaccess',
+      docsLabel: t('usage.aliyunGuide.officialDocs'),
+      combinedName: 'ALIYUN_BILLING_CREDENTIALS',
+      group: '阿里云百炼',
+      accessKeyLabel: 'AccessKey ID',
+      secretKeyLabel: 'AccessKey Secret',
+      credentialBody: t('usage.aliyunGuide.credentialBody'),
+    },
+    'baidu-billing': {
+      title: t('usage.baiduGuide.title'),
+      lede: t('usage.baiduGuide.lede'),
+      userBody: t('usage.baiduGuide.userBody'),
+      accessMode: t('usage.baiduGuide.accessMode'),
+      accessModeLabel: t('usage.cloudGuide.accessModeRequired'),
+      permissionBody: t('usage.baiduGuide.permissionBody'),
+      permission: t('usage.baiduGuide.permissionName'),
+      permissionLabel: t('usage.baiduGuide.permissionLabel'),
+      consoleUrl: 'https://console.bce.baidu.com/iam/',
+      consoleLabel: t('usage.baiduGuide.openConsole'),
+      docsUrl: 'https://cloud.baidu.com/doc/Finance/s/Zlbu72qyo',
+      docsLabel: t('usage.baiduGuide.officialDocs'),
+      combinedName: 'QIANFAN_BCE_CREDENTIALS',
+      group: '百度千帆',
+      accessKeyLabel: 'AccessKey ID',
+      secretKeyLabel: 'Secret Access Key',
+      credentialBody: t('usage.baiduGuide.credentialBody'),
+    },
+    'tencent-billing': {
+      title: t('usage.tencentBillingGuide.title'),
+      lede: t('usage.tencentBillingGuide.lede'),
+      userBody: t('usage.tencentBillingGuide.userBody'),
+      accessMode: t('usage.tencentBillingGuide.accessMode'),
+      accessModeLabel: t('usage.cloudGuide.accessModeRequired'),
+      permissionBody: t('usage.tencentBillingGuide.permissionBody'),
+      permission: 'finance:DescribeAccountBalance',
+      permissionLabel: t('usage.tencentBillingGuide.permissionLabel'),
+      permissionUrl: 'https://console.cloud.tencent.com/cam/policy',
+      permissionUrlLabel: t('usage.tencentBillingGuide.openPolicyConsole'),
+      consoleUrl: 'https://console.cloud.tencent.com/cam/user',
+      consoleLabel: t('usage.tencentBillingGuide.openConsole'),
+      docsUrl: 'https://cloud.tencent.com/document/product/555/61542',
+      docsLabel: t('usage.tencentBillingGuide.officialDocs'),
+      combinedName: 'TENCENT_CLOUD_CREDENTIALS',
+      group: '腾讯云',
+      accessKeyLabel: 'SecretId',
+      secretKeyLabel: 'SecretKey',
+      credentialBody: t('usage.tencentBillingGuide.credentialBody'),
+    },
+  };
+  const config = configs[provider];
+
+  return (
+    <div className="usage-guide-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="usage-guide-panel" role="dialog" aria-modal="true" aria-labelledby={`${provider}-usage-guide-title`} onMouseDown={event => event.stopPropagation()}>
+        <header className="usage-guide-header">
+          <div>
+            <span className="usage-guide-eyebrow">{t('usage.cloudGuide.eyebrow')}</span>
+            <h2 id={`${provider}-usage-guide-title`}>{config.title}</h2>
+            <p>{config.lede}</p>
+          </div>
+          <button className="usage-guide-close" type="button" onClick={onClose} aria-label={t('common.close')}>×</button>
+        </header>
+
+        <div className="usage-guide-warning">
+          <span className="usage-guide-warning-mark" aria-hidden="true">!</span>
+          <span>{t('usage.cloudGuide.warning')}</span>
+        </div>
+
+        <div className="usage-guide-steps">
+          <GuideStep number="01" title={t('usage.cloudGuide.step1Title')}>
+            <p>{config.userBody}</p>
+            <div className="usage-guide-permissions">
+              <div><code>{config.accessMode}</code><span>{config.accessModeLabel}</span></div>
+            </div>
+            <a className="usage-guide-external" href={config.consoleUrl} target="_blank" rel="noopener noreferrer">{config.consoleLabel} ↗</a>
+          </GuideStep>
+          <GuideStep number="02" title={t('usage.cloudGuide.step2Title')}>
+            <p>{config.permissionBody}</p>
+            <div className="usage-guide-permissions">
+              <div><code>{config.permission}</code><span>{config.permissionLabel}</span></div>
+            </div>
+            {config.permissionUrl && config.permissionUrlLabel && (
+              <a className="usage-guide-external" href={config.permissionUrl} target="_blank" rel="noopener noreferrer">{config.permissionUrlLabel} ↗</a>
+            )}
+          </GuideStep>
+          <GuideStep number="03" title={t('usage.cloudGuide.step3Title')}>
+            <p>{config.credentialBody}</p>
+          </GuideStep>
+          <GuideStep number="04" title={t('usage.cloudGuide.step4Title')}>
+            <CredentialSetupForm
+              providerId={providerId}
+              combinedName={config.combinedName}
+              group={config.group}
+              accessKeyLabel={config.accessKeyLabel}
+              secretKeyLabel={config.secretKeyLabel}
+              onSaveAndTest={onSaveAndTest}
+              t={t}
+            />
+          </GuideStep>
+        </div>
+
+        <footer className="usage-guide-footer">
+          <a className="usage-guide-doc-link" href={config.docsUrl} target="_blank" rel="noopener noreferrer">{config.docsLabel} ↗</a>
+          <div className="usage-guide-footer-actions">
+            <button className="usage-guide-secondary" type="button" onClick={onClose}>{t('common.close')}</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function CredentialSetupForm({
+  providerId,
+  combinedName,
+  group,
+  accessKeyLabel,
+  secretKeyLabel,
+  onSaveAndTest,
+  t,
+}: {
+  providerId: string;
+  combinedName: string;
+  group: string;
+  accessKeyLabel: string;
+  secretKeyLabel: string;
+  onSaveAndTest: SaveUsageCredentials;
+  t: (k: string, ...args: any[]) => string;
+}) {
+  const [accessKey, setAccessKey] = useState('');
+  const [secretKey, setSecretKey] = useState('');
+  const [showValues, setShowValues] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'warning' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  const canSubmit = accessKey.trim().length > 0 && secretKey.trim().length > 0 && status !== 'saving';
+
+  const resetFeedback = () => {
+    if (status !== 'idle' && status !== 'saving') {
+      setStatus('idle');
+      setMessage('');
+    }
+  };
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmit) return;
+
+    setStatus('saving');
+    setMessage(t('usage.credentials.saving'));
+    try {
+      const result = await onSaveAndTest({
+        providerId,
+        key: combinedName,
+        value: JSON.stringify({ accessKey: accessKey.trim(), secretKey: secretKey.trim() }),
+        group,
+      });
+      if (result.error) {
+        setStatus('warning');
+        setMessage(t('usage.credentials.savedButFailed', { message: result.error }));
+      } else if (result.notice || !result.windows?.length) {
+        setStatus('warning');
+        setMessage(t('usage.credentials.savedButUnavailable', { message: result.notice || t('usage.empty') }));
+      } else {
+        setStatus('success');
+        setMessage(t('usage.credentials.success'));
+      }
+    } catch (error: any) {
+      setStatus('error');
+      setMessage(t('usage.credentials.saveFailed', { message: error?.message || t('usage.credentials.testFailed') }));
+    }
+  }
+
+  return (
+    <form className="usage-guide-form" onSubmit={handleSubmit}>
+      <div className="usage-guide-form-heading">
+        <p>{t('usage.credentials.pasteHint')}</p>
+        <button className="usage-guide-visibility" type="button" onClick={() => setShowValues(value => !value)}>
+          {showValues ? t('usage.credentials.hide') : t('usage.credentials.show')}
+        </button>
+      </div>
+      <div className="usage-guide-form-grid">
+        <label className="usage-guide-field">
+          <span>{accessKeyLabel}</span>
+          <input
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            type={showValues ? 'text' : 'password'}
+            value={accessKey}
+            placeholder={t('usage.credentials.pasteAccessKey', { label: accessKeyLabel })}
+            onChange={event => { setAccessKey(event.target.value); resetFeedback(); }}
+          />
+        </label>
+        <label className="usage-guide-field">
+          <span>{secretKeyLabel}</span>
+          <input
+            autoComplete="new-password"
+            spellCheck={false}
+            type={showValues ? 'text' : 'password'}
+            value={secretKey}
+            placeholder={t('usage.credentials.pasteSecretKey', { label: secretKeyLabel })}
+            onChange={event => { setSecretKey(event.target.value); resetFeedback(); }}
+          />
+        </label>
+      </div>
+      <div className="usage-guide-form-actions">
+        <span className="usage-guide-save-target">{t('usage.credentials.savedAs', { name: combinedName })}</span>
+        <button className="usage-guide-primary" type="submit" disabled={!canSubmit}>
+          {status === 'saving' ? t('usage.credentials.saving') : t('usage.credentials.saveAndTest')}
+        </button>
+      </div>
+      {status !== 'idle' && (
+        <div className={`usage-guide-result usage-guide-result--${status}`} role="status" aria-live="polite">
+          <span aria-hidden="true">{status === 'success' ? '✓' : status === 'saving' ? '…' : '!'}</span>
+          <span>{message}</span>
+        </div>
+      )}
+    </form>
+  );
+}
+
+function GuideStep({ number, title, children }: { number: string; title: string; children: ReactNode }) {
+  return (
+    <article className="usage-guide-step">
+      <span className="usage-guide-step-number">{number}</span>
+      <div className="usage-guide-step-content">
+        <h3>{title}</h3>
+        {children}
+      </div>
+    </article>
   );
 }
 

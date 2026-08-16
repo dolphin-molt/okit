@@ -335,6 +335,18 @@ describe('isValidZhipuApiKey', () => {
   });
 });
 
+describe('MiniMax response extraction', () => {
+  it('extracts a token from the backend creation response', () => {
+    const token = `sk-api-${'a'.repeat(32)}`;
+    expect(extractKeyFromCaptures([{
+      method: 'POST',
+      responseStatus: 200,
+      url: 'https://www.minimaxi.com/backend/token',
+      responsePreview: JSON.stringify({ data: { token } }),
+    }], 'minimax')).toBe(token);
+  });
+});
+
 describe('classifyXiaomiTokenPlanIcon', () => {
   it('classifies the 20x20 two-path icon as copy', () => {
     expect(classifyXiaomiTokenPlanIcon({ viewBox: '0 0 20 20', pathCount: 2 })).toBe('copy');

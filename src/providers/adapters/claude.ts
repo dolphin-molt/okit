@@ -20,6 +20,19 @@ function shellQuote(value: string): string {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+// Claude Code exposes two credential variables with different wire semantics:
+// ANTHROPIC_API_KEY/apiKeyHelper sends x-api-key, while
+// ANTHROPIC_AUTH_TOKEN sends Authorization: Bearer. Several compatible
+// gateways document only the latter, so credential delivery must follow the
+// selected endpoint instead of applying one header to every provider.
+function usesAnthropicBearerAuth(baseUrl: string): boolean {
+  return [
+    /^https?:\/\/(?:coding(?:-intl)?\.dashscope\.aliyuncs\.com|token-plan\.cn-beijing\.maas\.aliyuncs\.com)\//i,
+    /^https?:\/\/(?:open\.bigmodel\.cn|api\.z\.ai)\/api\/anthropic\/?$/i,
+    /^https?:\/\/ark\.cn-beijing\.volces\.com\/api\/(?:coding|plan)\/?$/i,
+  ].some(pattern => pattern.test(String(baseUrl || '').trim()));
+}
+
 // Detect whether Claude Code has an OAuth session in macOS Keychain. Claude
 // Code stores its OAuth token under the "Claude Code-credentials" service. We
 // don't read the secret (that would prompt for keychain access) — we only
@@ -150,25 +163,26 @@ export class ClaudeAdapter extends BaseAdapter {
       env.ANTHROPIC_DEFAULT_HAIKU_MODEL = tierMap?.haiku || modelId;
       env.ANTHROPIC_DEFAULT_SONNET_MODEL = tierMap?.sonnet || modelId;
       env.ANTHROPIC_DEFAULT_OPUS_MODEL = tierMap?.opus || modelId;
-      // Deliver the API key via apiKeyHelper instead of ANTHROPIC_API_KEY env.
-      // Claude Code treats apiKeyHelper output as an x-api-key credential
-      // (required by OpenCode Zen, DeepSeek, GLM etc.), but — unlike
-      // ANTHROPIC_API_KEY — it does NOT trigger the "Auth conflict: Both a
-      // token and an API key" check when the user also has a claude.ai OAuth
-      // session. ANTHROPIC_AUTH_TOKEN would avoid the conflict too, but sends
-      // Authorization: Bearer which those gateways reject.
+      // Deliver the credential using the header semantics required by this
+      // endpoint. Bearer gateways use ANTHROPIC_AUTH_TOKEN; x-api-key gateways
+      // use apiKeyHelper so an existing Claude OAuth session does not trigger
+      // the "both a token and an API key" conflict.
       if (apiKey) {
-        // The helper is a tiny script that echoes the key. We write it to a
-        // file under ~/.claude/ so it persists across Claude Code restarts.
-        const helperPath = path.join(os.homedir(), ".claude", ".okit-key-helper.sh");
-        await atomicWrite(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
-        data.apiKeyHelper = helperPath;
+        if (usesAnthropicBearerAuth(effectiveBaseUrl)) {
+          env.ANTHROPIC_AUTH_TOKEN = apiKey;
+          delete data.apiKeyHelper;
+        } else {
+          const helperPath = path.join(os.homedir(), ".claude", ".okit-key-helper.sh");
+          await atomicWrite(helperPath, `#!/bin/sh\necho ${shellQuote(apiKey)}\n`, { mode: 0o700 });
+          data.apiKeyHelper = helperPath;
+          delete env.ANTHROPIC_AUTH_TOKEN;
+        }
       } else {
         delete data.apiKeyHelper;
+        delete env.ANTHROPIC_AUTH_TOKEN;
       }
       // Never leave ANTHROPIC_API_KEY in env — that's what triggers the conflict.
       delete env.ANTHROPIC_API_KEY;
-      delete env.ANTHROPIC_AUTH_TOKEN;
     }
 
     if (Object.keys(env).length === 0) delete data.env;

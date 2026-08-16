@@ -31,7 +31,7 @@
 
 | 状态 | 数量 | 具体 Provider |
 |---|---|---|
-| ✅ 实时查询 | 7 | `glm-coding`、`kimi-coding-plan`、`minimax-coding`、`openrouter`、`openai-codex`、`anthropic-agent`、`volcengine-coding` |
+| ✅ 实时查询 | 7 | `glm-coding`、`kimi-coding-plan`、MiniMax Token Plan、`openrouter`、`openai-codex`、`anthropic-agent`、`volcengine-coding` |
 | ⚠️ 仅控制台提示 | 3 | `google-agent`、`github-copilot`、`xai-grok-build` |
 | ❌ 完全不支持 | 29 | `anthropic`(API)、`openai`(API)、`google`(API)、`deepseek`、`siliconflow`、`moonshot`、`qwen`、`qianfan`、`qianfan-coding`、`tencent-tokenhub`、`tencent-coding`、`mistral`、`stepfun`、`xiaomi`、`xai`、`zai`、`minimax` 等 |
 

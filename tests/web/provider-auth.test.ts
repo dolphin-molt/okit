@@ -69,9 +69,19 @@ describe('provider authentication lifecycle', () => {
     expect(value).toMatchObject({ authVerified: false, authState: 'invalid' });
   });
 
-  it('treats an explicit HTTP 403 as an invalid credential response', async () => {
+  it('does not treat a generic HTTP 403 as proof that the credential is invalid', async () => {
     const value = provider({ endpoints: [{ id: 'gateway:openai', type: 'openai', baseUrl: 'https://gateway.example/v1' }] });
     probe.mockResolvedValue({ success: false, message: 'HTTP 403' });
+
+    await __testing.revalidateProviderAuth(value, { force: true, probe });
+
+    expect(value).toMatchObject({ authState: 'needs_verification' });
+    expect(value.authVerified).not.toBe(false);
+  });
+
+  it('still treats an explicit 403 invalid-api-key response as invalid', async () => {
+    const value = provider({ endpoints: [{ id: 'gateway:openai', type: 'openai', baseUrl: 'https://gateway.example/v1' }] });
+    probe.mockResolvedValue({ success: false, message: 'HTTP 403: invalid api-key' });
 
     await __testing.revalidateProviderAuth(value, { force: true, probe });
 
@@ -98,6 +108,21 @@ describe('provider authentication lifecycle', () => {
     expect(probe).toHaveBeenCalledTimes(1);
   });
 
+  it('removes auth states whose generated endpoint IDs no longer exist', async () => {
+    const value = provider({
+      authEndpointStates: {
+        'gateway:old-id': { state: 'verified', checkedAt: new Date().toISOString() },
+      },
+    });
+    probe.mockResolvedValue({ success: true, message: '连接成功' });
+
+    await __testing.revalidateProviderAuth(value, { force: true, probe });
+
+    expect(value.authEndpointStates).not.toHaveProperty('gateway:old-id');
+    expect(value.authEndpointStates).toHaveProperty('gateway:openai');
+    expect(value.authEndpointStates).toHaveProperty('gateway:anthropic');
+  });
+
   it('checks only the selected model source endpoint before switching', async () => {
     const value = provider();
     probe.mockResolvedValue({ success: true, message: '连接成功' });
@@ -119,5 +144,40 @@ describe('provider authentication lifecycle', () => {
       'gateway:anthropic': { state: 'verified' },
     });
     expect(value.authEndpointStates).not.toHaveProperty('gateway:openai');
+  });
+
+  it('repairs a deleted auto-generated Vault reference when one replacement remains', async () => {
+    const value = provider({
+      vaultKey: 'GATEWAY_API_KEY-old1',
+      authVerified: true,
+      authVerifiedKey: 'GATEWAY_API_KEY-old1',
+      authState: 'verified',
+    });
+
+    const result = await __testing.repairMissingVaultBindings([value], {
+      listVaultKeys: async () => [
+        { key: 'GATEWAY_API_KEY-new2' },
+        { key: 'OTHER_API_KEY-abcd' },
+      ],
+    });
+
+    expect(result).toEqual({ changed: true });
+    expect(value).toMatchObject({ vaultKey: 'GATEWAY_API_KEY-new2' });
+    expect(value.authVerified).toBeUndefined();
+    expect(value.authState).toBeUndefined();
+  });
+
+  it('does not guess when multiple replacement Vault keys exist', async () => {
+    const value = provider({ vaultKey: 'GATEWAY_API_KEY-old1' });
+
+    const result = await __testing.repairMissingVaultBindings([value], {
+      listVaultKeys: async () => [
+        { key: 'GATEWAY_API_KEY-new2' },
+        { key: 'GATEWAY_API_KEY-new3' },
+      ],
+    });
+
+    expect(result).toEqual({ changed: false });
+    expect(value.vaultKey).toBe('GATEWAY_API_KEY-old1');
   });
 });

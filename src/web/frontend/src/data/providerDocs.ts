@@ -16,6 +16,10 @@ export type ProviderDocsKind =
 export interface ProviderDocumentation {
   url: string;
   kind: ProviderDocsKind;
+  /** Optional console surface where the credential itself is created. */
+  consoleUrl?: string;
+  consoleLabelKey?: string;
+  setupHintKey?: string;
 }
 
 export const PROVIDER_DOCS_LAST_AUDITED_AT = '2026-08-14';
@@ -126,11 +130,14 @@ export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
   },
   tencent: {
     kind: 'api',
-    url: 'https://cloud.tencent.com/document/product/1772/115969',
+    url: 'https://cloud.tencent.com/document/product/1823/130079',
   },
   'tencent-token-plan': {
     kind: 'token_plan',
-    url: 'https://cloud.tencent.com/act/pro/tokenplan',
+    url: 'https://cloud.tencent.com/document/product/1823/130660',
+    consoleUrl: 'https://console.cloud.tencent.com/tokenhub/tokenplan',
+    consoleLabelKey: 'models.providerConsoleTokenPlan',
+    setupHintKey: 'models.tencentTokenPlanSetupHint',
   },
   volcengine: {
     kind: 'api',

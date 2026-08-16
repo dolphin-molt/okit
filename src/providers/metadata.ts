@@ -31,6 +31,8 @@ export const PRESET_BASE_URL_MIGRATIONS = new Map<string, { from: string; to: st
   ["qianfan-coding", { from: "https://qianfan.baidubce.com/v2/coding", to: "https://qianfan.baidubce.com/v2/tokenplan/personal" }],
   ["xiaomi-coding", { from: "https://token-plan-cn.xiaomimimo.com/v1", to: "https://token-plan-sgp.xiaomimimo.com/v1" }],
   ["qwen-coding", { from: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", to: "https://coding.dashscope.aliyuncs.com/v1" }],
+  ["tencent", { from: "https://api.lkeap.cloud.tencent.com/v1", to: "https://tokenhub.tencentmaas.com/v1" }],
+  ["tencent-token-plan", { from: "https://api.lkeap.cloud.tencent.com/v1", to: "https://api.lkeap.cloud.tencent.com/plan/v3" }],
 ]);
 
 type EndpointBaseUrlMigration = {
@@ -52,11 +54,26 @@ export const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map<string, EndpointBaseU
   ["qwen-coding", [
     { type: "anthropic", from: "https://coding.dashscope.aliyuncs.com/compatible-mode/v1", to: "https://coding.dashscope.aliyuncs.com/apps/anthropic" },
   ]],
+  ["tencent-token-plan", [
+    { type: "anthropic", from: "https://api.lkeap.cloud.tencent.com/api/anthropic", to: "https://api.lkeap.cloud.tencent.com/plan/anthropic" },
+  ]],
+  ["tencent", [
+    { type: "anthropic", from: "https://api.lkeap.cloud.tencent.com/api/anthropic", to: "https://tokenhub.tencentmaas.com" },
+  ]],
 ]);
 
 export const PRESET_AUTH_MODE_MIGRATIONS = new Map<string, { from: string; to: string }>([
   ["anthropic", { from: "both", to: "api_key" }],
   ["openai", { from: "both", to: "api_key" }],
+]);
+
+// Exact model lists shipped by older builds. Replace only when the persisted
+// list still matches one of these snapshots, so user-curated or remotely
+// discovered model catalogs are never overwritten.
+export const PRESET_MODEL_ID_MIGRATIONS = new Map<string, string[][]>([
+  ["qwen-coding", [["qwen3-coder-plus", "glm-5", "kimi-k2.5", "deepseek-v3.2"]]],
+  ["qwen-token-plan", [["qwen3.8-max", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus", "qwen3-coder-plus"]]],
+  ["tencent-token-plan", [["deepseek-v4-flash", "deepseek-v4-pro", "minimax-m2.7", "minimax-m2.5", "glm-5.1", "glm-5", "kimi-k2.5", "hy3"]]],
 ]);
 
 // ── Provider groups (left-nav in models page) ────────────────

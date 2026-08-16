@@ -86,7 +86,7 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 2600);
+    }, 4000);
   }, []);
 
   const confirm = useCallback((message: string, options: ConfirmOptions = {}) => {
@@ -123,7 +123,15 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
       {/* Toast container */}
       <div className="toast-container">
         {toasts.map(t => (
-          <div key={t.id} className={`toast ${t.type} show`}>{t.message}</div>
+          <div
+            key={t.id}
+            className={`toast ${t.type} show`}
+            role={t.type === 'error' ? 'alert' : 'status'}
+            aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+            aria-atomic="true"
+          >
+            {t.message}
+          </div>
         ))}
       </div>
       {/* Confirm modal */}

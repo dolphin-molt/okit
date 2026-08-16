@@ -1936,9 +1936,16 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
                 </div>
                 <div className="provider-editor-header-actions">
                   {providerDocs && (
-                    <a href={providerDocs.url} target="_blank" rel="noopener noreferrer" className="provider-docs-link">
-                      {t(providerDocsLabelKeys[providerDocs.kind])} ↗
-                    </a>
+                    <div className="provider-docs-actions">
+                      <a href={providerDocs.url} target="_blank" rel="noopener noreferrer" className="provider-docs-link">
+                        {t(providerDocsLabelKeys[providerDocs.kind])} ↗
+                      </a>
+                      {providerDocs.consoleUrl && (
+                        <a href={providerDocs.consoleUrl} target="_blank" rel="noopener noreferrer" className="provider-docs-link provider-console-link">
+                          {providerDocs.consoleLabelKey ? t(providerDocs.consoleLabelKey) : t('models.providerConsole')} ↗
+                        </a>
+                      )}
+                    </div>
                   )}
                   <button type="button" className="provider-editor-close" onClick={onClose} aria-label={t('common.close')}>×</button>
                 </div>
@@ -1954,6 +1961,13 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
                   <span className="provider-editor-nav-copy"><strong>{t('models.modelsSection')}</strong><small>{models.length} {t('models.totalModels')}</small></span>
                 </button>
               </nav>
+
+              {providerDocs?.setupHintKey && (
+                <div className="provider-setup-hint">
+                  <span className="provider-setup-hint-mark" aria-hidden="true">i</span>
+                  <span>{t(providerDocs.setupHintKey)}</span>
+                </div>
+              )}
 
               <main className="provider-editor-content">
               {editorPane === 'connection' && (
@@ -2040,7 +2054,7 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
                         {authMode !== 'none' && (
                           <div className="provider-secret-field settings-workspace settings-workspace--light">
                             <div className="settings-field--secret">
-                              <label>Vault</label>
+                              <label>{t('models.keyReference')}</label>
                               <div className="vault-ref-field">
                                 {vaultKey ? (
                                   <div className="vault-ref-selected">

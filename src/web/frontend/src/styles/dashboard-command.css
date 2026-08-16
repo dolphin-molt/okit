@@ -2273,18 +2273,20 @@ select:focus {
   }
 }
 
-/* Keep transient feedback in the user's visual focus. The toast layer is a
- * centered stack; cards and dialogs continue to own their own inline states. */
+/* Keep transient feedback lightweight and out of the work area. Short
+ * confirmations should feel like a status tick, while long errors still wrap
+ * inside a readable card. */
 .toast-container {
   position: fixed;
-  inset: 0;
+  right: 20px;
+  bottom: 20px;
   z-index: 1000;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-end;
   flex-direction: column;
-  gap: 12px;
-  padding: 24px;
+  gap: 8px;
+  width: min(360px, calc(100vw - 40px));
   pointer-events: none;
 }
 
@@ -2292,10 +2294,30 @@ select:focus {
   position: relative;
   left: auto;
   bottom: auto;
-  transform: translateY(14px) scale(0.96);
-  pointer-events: auto;
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  transform: translateY(8px) scale(0.98);
+  pointer-events: none;
 }
 
 .toast-container .toast.show {
   transform: translateY(0) scale(1);
+}
+
+@media (max-width: 600px) {
+  .toast-container {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+
+  .toast-container .toast {
+    width: auto;
+  }
 }

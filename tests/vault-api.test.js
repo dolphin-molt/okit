@@ -73,6 +73,51 @@ describe('vault api setVault', () => {
     expect(mockStore.delete).toHaveBeenCalledWith('OLD_KEY');
   });
 
+  it('repairs a legacy Kimi Coding Plan group when saving', async () => {
+    const res = createResponse();
+
+    await setVault({
+      body: {
+        key: 'KIMI_CODE_API_KEY-abc123',
+        value: 'sk-kimi-test',
+        group: 'Kimi 国际',
+      },
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(mockStore.set).toHaveBeenCalledWith('KIMI_CODE_API_KEY-abc123', 'sk-kimi-test', 'Kimi', undefined, undefined);
+  });
+
+  it('repairs a legacy MiMo Token Plan group when saving', async () => {
+    const res = createResponse();
+
+    await setVault({
+      body: {
+        key: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY',
+        value: 'tp-mimo-test',
+        group: '小米 MiMo Token Plan',
+      },
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(mockStore.set).toHaveBeenCalledWith('XIAOMI_MIMO_TOKEN_PLAN_API_KEY', 'tp-mimo-test', '小米 MiMo', undefined, undefined);
+  });
+
+  it('repairs a legacy StepFun group when saving', async () => {
+    const res = createResponse();
+
+    await setVault({
+      body: {
+        key: 'STEPFUN_API_KEY-new',
+        value: 'stepfun-test-key',
+        group: 'StepFun',
+      },
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(mockStore.set).toHaveBeenCalledWith('STEPFUN_API_KEY-new', 'stepfun-test-key', '阶跃星辰', undefined, undefined);
+  });
+
   it('rejects editing onto an existing target secret', async () => {
     mockStore.get
       .mockResolvedValueOnce('old-value')
@@ -112,6 +157,57 @@ describe('vault api key records', () => {
     expect(res.body.secrets).toEqual([
       expect.objectContaining({ key: 'SERVICE_KEY', desc: 'Production', masked: 'sk-***123' }),
     ]);
+  });
+
+  it('repairs a legacy Kimi Coding Plan group in list responses', async () => {
+    mockStore.list.mockResolvedValue([{
+      key: 'KIMI_CODE_API_KEY-abc123',
+      masked: 'sk-***123',
+      desc: '',
+      group: 'Kimi 国际',
+      expiresAt: '',
+      updatedAt: '2026-08-15T00:00:00.000Z',
+    }]);
+    mockStore.getBindings.mockResolvedValue([]);
+    const res = createResponse();
+
+    await listVault({}, res);
+
+    expect(res.body.secrets[0].group).toBe('Kimi');
+  });
+
+  it('repairs a legacy MiMo Token Plan group in list responses', async () => {
+    mockStore.list.mockResolvedValue([{
+      key: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY',
+      masked: 'tp-***123',
+      desc: '',
+      group: '小米 MiMo Token Plan',
+      expiresAt: '',
+      updatedAt: '2026-08-16T00:00:00.000Z',
+    }]);
+    mockStore.getBindings.mockResolvedValue([]);
+    const res = createResponse();
+
+    await listVault({}, res);
+
+    expect(res.body.secrets[0].group).toBe('小米 MiMo');
+  });
+
+  it('repairs a legacy StepFun group in list responses', async () => {
+    mockStore.list.mockResolvedValue([{
+      key: 'STEPFUN_API_KEY-new',
+      masked: 'abc***xyz',
+      desc: '',
+      group: 'StepFun',
+      expiresAt: '',
+      updatedAt: '2026-08-16T00:00:00.000Z',
+    }]);
+    mockStore.getBindings.mockResolvedValue([]);
+    const res = createResponse();
+
+    await listVault({}, res);
+
+    expect(res.body.secrets[0].group).toBe('阶跃星辰');
   });
 
   it('deletes a key directly without alias lookup', async () => {

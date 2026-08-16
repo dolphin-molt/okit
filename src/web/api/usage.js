@@ -9,8 +9,8 @@
 //   Claude Code (sub)    → OAuth token from ~/.claude/.credentials.json
 //   GLM Coding Plan      → Coding Plan API key (same as inference)
 //   Kimi Coding Plan     → Coding Plan API key (same as inference)
-//   MiniMax Token Plan   → Coding Plan API key (same as inference)
-//   OpenRouter           → API key (same as inference)
+//   MiniMax Token Plan   → Token Plan API key (same as inference)
+//   OpenRouter           → Management Key (account credits; separate from inference)
 //
 // Unified response shape:
 //   { providerId, supported: true, windows: [{ label, usedPercent, resetAt }], raw }
@@ -25,6 +25,8 @@ const os = require('os');
 const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
 const MIMO_CONSOLE_URL = 'https://platform.xiaomimimo.com/console/plan-manage';
+const MIMO_BALANCE_CONSOLE_URL = 'https://platform.xiaomimimo.com/console/balance';
+const MIMO_BALANCE_URL = 'https://platform.xiaomimimo.com/api/v1/balance';
 const MIMO_SESSION_VAULT_KEY = 'XIAOMI_MIMO_TOKEN_PLAN_SESSION_COOKIE';
 
 // Providers we can query. Keyed by provider preset id.
@@ -38,8 +40,8 @@ const SUPPORTED = new Set([
   'glm-coding',      // GLM Coding Plan
   'zai-global-coding', // Z.AI Coding Plan
   'kimi-coding-plan',// Kimi Coding Plan
-  'minimax-coding',  // MiniMax Token Plan
-  'minimax-global-coding', // MiniMax Token Plan (international)
+  'minimax-coding',  // Legacy provider ID; product name is MiniMax Token Plan
+  'minimax-global-coding', // Legacy provider ID; product name is MiniMax Token Plan (international)
   'minimax',         // MiniMax API (console-only balance)
   'minimax-global',  // MiniMax API (international, console-only balance)
   'zai',              // 智谱 API (console-only balance)
@@ -438,34 +440,68 @@ async function queryMinimaxGlobalCodingUsage(apiKey) {
   return queryMinimaxCodingUsage(apiKey, 'api.minimax.io');
 }
 
-// OpenRouter — returns remaining credits / usage directly.
-async function queryOpenRouterUsage(apiKey) {
-  if (!apiKey) return { supported: true, windows: [], error: '无可用 API Key' };
-  const result = await httpRequest('https://openrouter.ai/api/v1/key', {
+// OpenRouter — account credits require a Management Key. The normal inference
+// key endpoint (/api/v1/key) only describes that one key's usage/limit and
+// must not be presented as the account's prepaid balance.
+async function queryOpenRouterUsage() {
+  const managementKey = await resolveFirstVaultKey(['OPENROUTER_MANAGEMENT_KEY']);
+  if (!managementKey) {
+    return managementCredentialNotice(
+      'OpenRouter',
+      ['OPENROUTER_MANAGEMENT_KEY'],
+      'https://openrouter.ai/settings/management-keys',
+    );
+  }
+
+  const result = await httpRequest('https://openrouter.ai/api/v1/credits', {
     method: 'GET',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
+    headers: { 'Authorization': `Bearer ${managementKey}` },
     timeout: 10000,
   });
   if (result.error) return { supported: true, windows: [], error: result.error };
-  if (result.status === 401) return { supported: true, windows: [], error: 'API Key 无效' };
+  if (result.status === 401 || result.status === 403) {
+    return {
+      supported: true,
+      windows: [],
+      error: 'OpenRouter Management Key 无效或没有读取 Credits 的权限',
+      action: { label: '打开 OpenRouter Management Keys', url: 'https://openrouter.ai/settings/management-keys' },
+    };
+  }
   if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
 
-  const d = JSON.parse(result.body);
-  const data = d.data || d;
-  const usage = data.usage || 0;
-  const limit = data.limit;
-  const usagePercent = limit ? round1((usage / limit) * 100) : null;
+  let data;
+  try {
+    data = JSON.parse(result.body);
+  } catch {
+    return { supported: true, windows: [], error: 'OpenRouter Credits 接口返回了无法识别的数据' };
+  }
+
+  return parseOpenRouterCredits(data)
+    || { supported: true, windows: [], error: 'OpenRouter Credits 接口暂未返回可识别余额' };
+}
+
+function parseOpenRouterCredits(payload) {
+  const data = payload?.data || payload;
+  const totalCredits = Number(data?.total_credits);
+  const totalUsage = Number(data?.total_usage);
+  if (!Number.isFinite(totalCredits) || !Number.isFinite(totalUsage)) return null;
+
+  const remainingCredits = Math.max(0, totalCredits - totalUsage);
+  const usedPercent = totalCredits > 0
+    ? round1(Math.min(100, Math.max(0, (totalUsage / totalCredits) * 100)))
+    : (totalUsage > 0 ? 100 : 0);
   return {
     supported: true,
     windows: [{
       label: 'credits',
-      usedPercent: usagePercent,
-      usedCredits: round4(usage),
-      limitCredits: limit != null ? round4(limit) : null,
-      remainingCredits: limit != null ? round4(limit - usage) : null,
-      isPrepaid: limit == null,
+      usedPercent,
+      usedCredits: round4(totalUsage),
+      limitCredits: round4(totalCredits),
+      remainingCredits: round4(remainingCredits),
+      unit: 'USD',
+      isPrepaid: true,
     }],
-    raw: d,
+    raw: payload,
   };
 }
 
@@ -518,13 +554,43 @@ function accountBalanceResult(amount, unit = 'CNY', raw) {
   };
 }
 
+/** Parse xAI's prepaid ledger balance.
+ *
+ * The current Management API returns USD cents as a signed ledger value:
+ * `{ total: { val: "-1000" } }` represents $10 of prepaid credit. Older
+ * responses exposed a flat numeric balance, so keep that format compatible.
+ */
+function parseXaiPrepaidBalance(data) {
+  const root = data?.data || data;
+  if (!root || typeof root !== 'object') return null;
+
+  if (root.total && typeof root.total === 'object') {
+    const cents = Number(root.total.val ?? root.total.value ?? root.total.amount);
+    if (!Number.isFinite(cents)) return null;
+    return accountBalanceResult(Math.abs(cents) / 100, 'USD', data);
+  }
+
+  const flatAmount = root.total ?? root.balance ?? root.remaining ?? root.amount;
+  return accountBalanceResult(flatAmount, 'USD', data);
+}
+
 function managementCredentialNotice(label, keyNames, url) {
   return {
     supported: true,
     windows: [],
     source: 'console',
-    notice: `${label}需要单独的管理凭证才能查询余额，请在密钥管理中添加：${keyNames.join('、')}。推理 API Key 不能替代该凭证。`,
-    action: { label: `打开${label}控制台`, url },
+    notice: `${label} 需要单独的管理凭证才能查询余额，请在密钥管理中添加：${keyNames.join('、')}。推理 API Key 不能替代该凭证。`,
+    action: { label: `打开 ${label} 控制台`, url },
+  };
+}
+
+function manualCredentialPairNotice(label, combinedName, accessKeyName, secretKeyName, url) {
+  return {
+    supported: true,
+    windows: [],
+    source: 'console',
+    notice: `${label}余额查询需要单独的云账号管理凭证，推理 API Key 不能替代。请在云控制台创建具有账务只读权限的 IAM/CAM 用户凭证，再到密钥管理手动录入 ${combinedName}，密钥值格式：{"accessKey":"...","secretKey":"..."}；也可分别录入 ${accessKeyName} 和 ${secretKeyName}。`,
+    action: { label: `打开${label}凭证控制台`, url },
   };
 }
 
@@ -568,7 +634,7 @@ async function queryAlibabaBalance() {
     accessKey: ['ALIYUN_ACCESS_KEY_ID', 'ALIBABA_CLOUD_ACCESS_KEY_ID', 'QWEN_ACCESS_KEY_ID'],
     secretKey: ['ALIYUN_ACCESS_KEY_SECRET', 'ALIBABA_CLOUD_ACCESS_KEY_SECRET', 'QWEN_ACCESS_KEY_SECRET'],
   });
-  if (!credentials) return managementCredentialNotice('阿里云百炼', ['ALIYUN_ACCESS_KEY_ID', 'ALIYUN_ACCESS_KEY_SECRET'], 'https://usercenter2.aliyun.com/home');
+  if (!credentials) return managementCredentialNotice('阿里云百炼', ['ALIYUN_ACCESS_KEY_ID（手动录入）', 'ALIYUN_ACCESS_KEY_SECRET（手动录入）'], 'https://ram.console.aliyun.com/profile/accessKey');
 
   const result = await callAlibabaRpc(credentials.accessKey, credentials.secretKey, 'QueryAccountBalance', '2017-12-14');
   if (result.error) return { supported: true, windows: [], error: result.error };
@@ -618,25 +684,56 @@ async function queryQianfanBalance() {
     accessKey: ['QIANFAN_ACCESS_KEY_ID', 'BCE_ACCESS_KEY_ID', 'BAIDU_BCE_ACCESS_KEY_ID'],
     secretKey: ['QIANFAN_SECRET_ACCESS_KEY', 'BCE_SECRET_ACCESS_KEY', 'BAIDU_BCE_SECRET_ACCESS_KEY'],
   });
-  if (!credentials) return managementCredentialNotice('百度千帆', ['QIANFAN_ACCESS_KEY_ID', 'QIANFAN_SECRET_ACCESS_KEY'], 'https://console.bce.baidu.com/iam/#/iam/apikey/list');
+  if (!credentials) {
+    return manualCredentialPairNotice(
+      '百度千帆',
+      'QIANFAN_BCE_CREDENTIALS',
+      'QIANFAN_ACCESS_KEY_ID',
+      'QIANFAN_SECRET_ACCESS_KEY',
+      'https://console.bce.baidu.com/iam/#/iam/accesslist',
+    );
+  }
   const host = 'billing.baidubce.com';
   const pathName = '/v1/finance/cash/balance';
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const signedHeaders = 'host;x-bce-date';
-  const authPrefix = `bce-auth-v1/${credentials.accessKey}/${timestamp}/1800/${signedHeaders}`;
-  const canonicalHeaders = `host:${host}\nx-bce-date:${timestamp}\n`;
-  const canonicalRequest = `POST\n${pathName}\n\n${canonicalHeaders}\n${signedHeaders}\n${cryptoHash('{}')}`;
-  const signingKey = hmacSha256(credentials.secretKey, authPrefix);
-  const authorization = `${authPrefix}/${hmacSha256(signingKey, canonicalRequest, 'hex')}`;
+  const headers = {
+    Host: host,
+    'x-bce-date': timestamp,
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': '0',
+  };
+  const { authorization } = buildBceAuthorization({
+    accessKey: credentials.accessKey,
+    secretKey: credentials.secretKey,
+    method: 'POST',
+    pathName,
+    headers,
+    timestamp,
+  });
   const result = await httpRequest(`https://${host}${pathName}`, {
     method: 'POST',
-    headers: { Host: host, 'x-bce-date': timestamp, Authorization: authorization, 'Content-Type': 'application/json' },
-    body: '{}',
+    headers: { ...headers, Authorization: authorization },
     timeout: 10000,
   });
   if (result.error) return { supported: true, windows: [], error: result.error };
-  if (result.status === 401 || result.status === 403) return { supported: true, windows: [], error: '百度 BCE AccessKey 无财务查询权限' };
-  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
+  if (result.status !== 200) {
+    const bceError = parseBceError(result.body);
+    const detail = [bceError.code, bceError.message].filter(Boolean).join('：');
+    if (/accessdenied|forbidden|permission|not authorized|no.?permission/i.test(detail)) {
+      return { supported: true, windows: [], error: '百度 BCE AccessKey 已通过签名验证，但缺少 FCReadAccessPolicy（财务中心只读权限）' };
+    }
+    if (/signaturedoesnotmatch|signature|authentication|authfailure/i.test(detail)) {
+      return { supported: true, windows: [], error: `百度 BCE 请求签名失败${bceError.code ? `（${bceError.code}）` : ''}` };
+    }
+    if (/invalidaccesskey|could not find credential|credential.*not found/i.test(detail)) {
+      return { supported: true, windows: [], error: `百度 BCE AccessKey 无效或 AK/SK 不匹配${bceError.code ? `（${bceError.code}）` : ''}` };
+    }
+    return {
+      supported: true,
+      windows: [],
+      error: `百度余额查询失败（HTTP ${result.status}${bceError.code ? ` · ${bceError.code}` : ''}）${bceError.message ? `：${bceError.message}` : ''}`,
+    };
+  }
   let data;
   try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: '百度余额接口返回了无效 JSON' }; }
   const root = data.data || data;
@@ -644,8 +741,77 @@ async function queryQianfanBalance() {
   return parsed || { supported: true, windows: [], error: '百度余额接口暂未返回可识别余额' };
 }
 
-function cryptoHash(value) {
-  return require('crypto').createHash('sha256').update(value).digest('hex');
+function bceUriEncode(value, encodeSlash = true) {
+  const encoded = encodeURIComponent(String(value))
+    .replace(/[!'()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return encodeSlash ? encoded : encoded.replace(/%2F/gi, '/');
+}
+
+function canonicalizeBceQuery(query) {
+  return Object.entries(query || {})
+    .filter(([key]) => key.toLowerCase() !== 'authorization')
+    .map(([key, value]) => `${bceUriEncode(key)}=${bceUriEncode(value == null ? '' : value)}`)
+    .sort()
+    .join('&');
+}
+
+function buildBceAuthorization({
+  accessKey,
+  secretKey,
+  method,
+  pathName,
+  query = {},
+  headers = {},
+  timestamp,
+  expiration = 1800,
+  signedHeaderNames,
+}) {
+  const normalizedHeaders = Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [name.toLowerCase(), String(value).trim()]),
+  );
+  const selectedNames = (signedHeaderNames?.length
+    ? signedHeaderNames.map(name => name.toLowerCase())
+    : Object.keys(normalizedHeaders).filter(name => (
+      name === 'host'
+      || name === 'content-length'
+      || name === 'content-type'
+      || name === 'content-md5'
+      || name.startsWith('x-bce-')
+    )))
+    .sort();
+  const signedHeaders = signedHeaderNames?.length ? selectedNames.join(';') : '';
+  const canonicalHeaders = selectedNames
+    .map(name => `${bceUriEncode(name)}:${bceUriEncode(normalizedHeaders[name])}`)
+    .join('\n');
+  const canonicalRequest = [
+    String(method).toUpperCase(),
+    bceUriEncode(pathName || '/', false),
+    canonicalizeBceQuery(query),
+    canonicalHeaders,
+  ].join('\n');
+  const authPrefix = `bce-auth-v1/${accessKey}/${timestamp}/${expiration}`;
+  // BCE uses the hexadecimal SigningKey text as the key of the second HMAC.
+  const signingKey = hmacSha256(secretKey, authPrefix, 'hex');
+  const signature = hmacSha256(signingKey, canonicalRequest, 'hex');
+  return {
+    authorization: `${authPrefix}/${signedHeaders}/${signature}`,
+    canonicalRequest,
+    signingKey,
+    signature,
+  };
+}
+
+function parseBceError(body) {
+  try {
+    const data = JSON.parse(body);
+    return {
+      code: data.code || data.Code || data.error_code || data.error?.code || '',
+      message: data.message || data.Message || data.error_msg || data.error?.message || '',
+      requestId: data.requestId || data.request_id || '',
+    };
+  } catch {
+    return { code: '', message: String(body || '').trim(), requestId: '' };
+  }
 }
 
 function hmacSha256(key, value, encoding) {
@@ -656,8 +822,28 @@ function hmacSha256(key, value, encoding) {
 // normal inference XAI_API_KEY. SuperGrok subscription is a separate product.
 async function queryXaiApiBalance() {
   const managementKey = await resolveFirstVaultKey(['XAI_MANAGEMENT_KEY', 'XAI_BILLING_MANAGEMENT_KEY']);
-  const teamId = await resolveFirstVaultKey(['XAI_TEAM_ID', 'XAI_MANAGEMENT_TEAM_ID']);
-  if (!managementKey || !teamId) return managementCredentialNotice('xAI API', ['XAI_MANAGEMENT_KEY', 'XAI_TEAM_ID'], 'https://console.x.ai/');
+  let teamId = await resolveFirstVaultKey(['XAI_TEAM_ID', 'XAI_MANAGEMENT_TEAM_ID']);
+  if (!managementKey) return managementCredentialNotice('xAI API', ['XAI_MANAGEMENT_KEY'], 'https://console.x.ai/team/default/settings/management-keys');
+
+  // The management-key validation endpoint returns the scope/team id. This
+  // keeps the auto-create flow to one secret and avoids asking users to copy a
+  // non-secret team identifier into Vault manually.
+  if (!teamId) {
+    const validation = await httpRequest('https://management-api.x.ai/auth/management-keys/validation', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
+      timeout: 10000,
+    });
+    if (validation.error) return { supported: true, windows: [], error: validation.error };
+    if (validation.status === 401 || validation.status === 403) return { supported: true, windows: [], error: 'xAI Management Key 无权限或已失效' };
+    if (validation.status !== 200) return { supported: true, windows: [], error: `xAI Management Key 校验失败（HTTP ${validation.status}）` };
+    try {
+      const data = JSON.parse(validation.body);
+      teamId = data.scopeId || data.teamId || data.scope_id || data.team_id;
+    } catch {}
+    if (!teamId) return { supported: true, windows: [], error: 'xAI Management Key 未返回可识别的 Team ID，请添加 XAI_TEAM_ID' };
+  }
+
   const result = await httpRequest(`https://management-api.x.ai/v1/billing/teams/${encodeURIComponent(teamId)}/prepaid/balance`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${managementKey}`, Accept: 'application/json' },
@@ -668,9 +854,7 @@ async function queryXaiApiBalance() {
   if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
   let data;
   try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: 'xAI 余额接口返回了无效 JSON' }; }
-  const root = data.data || data;
-  const amount = root.total ?? root.balance ?? root.remaining ?? root.amount;
-  const parsed = accountBalanceResult(amount, 'USD', data);
+  const parsed = parseXaiPrepaidBalance(data);
   return parsed || { supported: true, windows: [], error: 'xAI 余额接口暂未返回可识别余额' };
 }
 
@@ -942,60 +1126,77 @@ function normalizeQianfanDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-// Tencent's Token Plan page documents the shared model endpoint/key for the
-// general and Hy plans, but does not publish a personal quota endpoint for an
-// inference key. Link to the official plan page where token usage is shown.
+// Tencent Token Plan support in OKIT is currently limited to the personal
+// plan. Tencent does not publish a reusable personal quota endpoint, so keep
+// this card console-only instead of mixing in enterprise CAM credentials.
 async function queryTencentTokenPlanUsage(_apiKey) {
-  const credentials = await resolveCredentialPair({
-    combined: ['TENCENT_CLOUD_CREDENTIALS'],
-    accessKey: ['TENCENT_SECRET_ID', 'TENCENT_CLOUD_SECRET_ID', 'TECENT_SECRET_ID'],
-    secretKey: ['TENCENT_SECRET_KEY', 'TENCENT_CLOUD_SECRET_KEY', 'TECENT_SECRET_KEY'],
-  });
-  const teamId = await resolveFirstVaultKey(['TENCENT_TOKEN_PLAN_TEAM_ID', 'TENCENT_TEAM_ID']);
-  if (!credentials || !teamId) {
-    return {
-      supported: true,
-      windows: [],
-      source: 'console',
-      notice: '腾讯云企业 Token Plan 可通过 TokenHub 管理 API 查询；请在密钥管理中添加 TENCENT_SECRET_ID、TENCENT_SECRET_KEY 和 TENCENT_TOKEN_PLAN_TEAM_ID。个人版仍需在控制台查看。',
-      action: { label: '打开腾讯云 Token Plan', url: 'https://console.cloud.tencent.com/lke/token-plan' },
-    };
-  }
-  const result = await callTencentApi(credentials.accessKey, credentials.secretKey, 'DescribeTokenPlan', { TeamId: teamId });
-  if (result.error) return { supported: true, windows: [], error: result.error };
-  if (result.status === 401 || result.status === 403) return { supported: true, windows: [], error: '腾讯云 SecretId/SecretKey 无 TokenHub 查询权限' };
-  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
-  let data;
-  try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: '腾讯云 Token Plan 接口返回了无效 JSON' }; }
-  const root = data.Response || data.response || data;
-  const pkg = root.PackageInfo || root.packageInfo || {};
-  const summary = root.TokenSummary || root.tokenSummary || {};
-  const total = toNumber(pkg.TotalQuota ?? pkg.CycleQuota);
-  const used = toNumber(pkg.TotalUsed ?? pkg.CycleUsed);
-  if (!(total > 0)) return { supported: true, windows: [], error: '腾讯云 Token Plan 接口暂未返回主额度包' };
-  const quotaUnit = String(root.ProductType || '').toLowerCase() === 'enterprise' ? 'Credits' : 'Tokens';
-  const scale = quotaUnit === 'Credits' ? scaleCredits(total) : scaleTokenAmount(total);
   return {
     supported: true,
-    windows: [{
-      label: 'monthly',
-      usedPercent: round1((used / total) * 100),
-      resetAt: summary.CycleEndTime || pkg.ExpireTime || null,
-      usedCredits: round4(used / scale.divisor),
-      limitCredits: round4(total / scale.divisor),
-      remainingCredits: round4(Math.max(0, total - used) / scale.divisor),
-      unit: scale.unit,
-    }],
-    raw: data,
+    windows: [],
+    source: 'console',
+    notice: '腾讯云 Token Plan 个人版用量暂不支持自动查询，请在控制台查看。',
+    action: { label: '打开腾讯云 Token Plan', url: 'https://console.cloud.tencent.com/tokenhub/tokenplan' },
   };
 }
 
-function callTencentApi(secretId, secretKey, action, payload) {
+// Tencent Cloud account balance is exposed by the Billing API, not by the
+// TokenHub inference API or the browser session. Keep this credential path
+// separate from TENCENT_API_KEY: a TokenHub key cannot query cloud billing.
+async function queryTencentBalance() {
+  const credentials = await resolveCredentialPair({
+    combined: ['TENCENT_CLOUD_CREDENTIALS', 'TENCENT_BILLING_CREDENTIALS'],
+    accessKey: ['TENCENT_SECRET_ID', 'TENCENT_CLOUD_SECRET_ID', 'TECENT_SECRET_ID'],
+    secretKey: ['TENCENT_SECRET_KEY', 'TENCENT_CLOUD_SECRET_KEY', 'TECENT_SECRET_KEY', 'TENCENT'],
+  });
+  if (!credentials) {
+    return manualCredentialPairNotice(
+      '腾讯云',
+      'TENCENT_CLOUD_CREDENTIALS',
+      'TENCENT_SECRET_ID',
+      'TENCENT_SECRET_KEY',
+      'https://console.cloud.tencent.com/cam/capi',
+    );
+  }
+
+  const result = await callTencentApi(
+    credentials.accessKey,
+    credentials.secretKey,
+    'DescribeAccountBalance',
+    {},
+    { host: 'billing.tencentcloudapi.com', service: 'billing', version: '2018-07-09' },
+  );
+  if (result.error) return { supported: true, windows: [], error: result.error };
+  if (result.status === 401 || result.status === 403) {
+    return { supported: true, windows: [], error: '腾讯云 SecretId/SecretKey 无费用中心查询权限，请授予费用中心只读权限' };
+  }
+  if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
+
+  let data;
+  try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: '腾讯云费用中心接口返回了无效 JSON' }; }
+  const response = data.Response || data.response || data;
+  if (response.Error) {
+    const code = response.Error.Code ? `（${response.Error.Code}）` : '';
+    const permissionDenied = /CamNoAuth|UnauthorizedOperation|AuthFailure/i.test(String(response.Error.Code || ''));
+    return {
+      supported: true,
+      windows: [],
+      error: permissionDenied
+        ? '腾讯云费用中心查询权限未配置，请点击“配置”。'
+        : `腾讯云费用中心查询失败${code}`,
+      action: { label: '查看费用中心权限说明', url: 'https://cloud.tencent.com/document/product/555/61542' },
+    };
+  }
+  const amountInFen = response.RealBalance ?? response.Balance;
+  const parsed = accountBalanceResult(Number(amountInFen) / 100, 'CNY', data);
+  return parsed || { supported: true, windows: [], error: '腾讯云费用中心接口暂未返回可识别余额' };
+}
+
+function callTencentApi(secretId, secretKey, action, payload, options = {}) {
   const crypto = require('crypto');
-  const host = 'tokenhub.tencentcloudapi.com';
-  const service = 'tokenhub';
-  const version = '2026-03-22';
-  const region = 'ap-guangzhou';
+  const host = options.host || 'tokenhub.tencentcloudapi.com';
+  const service = options.service || 'tokenhub';
+  const version = options.version || '2026-03-22';
+  const region = options.region || 'ap-guangzhou';
   const timestamp = Math.floor(Date.now() / 1000);
   const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
   const body = JSON.stringify(payload || {});
@@ -1244,7 +1445,10 @@ async function queryXiaomiCodingUsage(apiKey, baseUrl) {
   // one refresh from the OKIT browser extension below.
   const cachedSession = await loadXiaomiSession();
   if (cachedSession?.cookie) {
-    const cachedUsage = await queryXiaomiUsageWithCookie(cachedSession.cookie, cachedSession.endpoint);
+    const cachedEndpoint = /^https:\/\/platform\.xiaomimimo\.com\/api\/v1\/tokenPlan\/usage/.test(cachedSession.endpoint || '')
+      ? cachedSession.endpoint
+      : undefined;
+    const cachedUsage = await queryXiaomiUsageWithCookie(cachedSession.cookie, cachedEndpoint);
     if (cachedUsage) return cachedUsage;
     await clearXiaomiSession();
   }
@@ -1302,6 +1506,24 @@ async function queryXiaomiCodingUsage(apiKey, baseUrl) {
 }
 
 async function queryXiaomiUsageViaExtension() {
+  const browserSession = await getXiaomiBrowserSession();
+  if (!browserSession) return null;
+  const { cookieHeader, cookies, tabs } = browserSession;
+
+  const apiTab = tabs
+    .filter(tab => /^https:\/\/platform\.xiaomimimo\.com\/api\/v1\/tokenPlan\/usage/.test(tab?.url || ''))
+    .sort((a, b) => Number(/\?/.test(b.url || '')) - Number(/\?/.test(a.url || '')))[0];
+  let endpoint = 'https://platform.xiaomimimo.com/api/v1/tokenPlan/usage';
+  if (apiTab?.url) endpoint = apiTab.url;
+
+  const usage = await queryXiaomiUsageWithCookie(cookieHeader, endpoint);
+  if (usage && !usage.error) {
+    await saveXiaomiSession(cookieHeader, endpoint, getCookieExpiry(cookies));
+  }
+  return usage;
+}
+
+async function getXiaomiBrowserSession() {
   let bridge;
   try { bridge = require('./ws-extension'); } catch { return null; }
   if (!bridge.isExtensionConnected()) return null;
@@ -1332,17 +1554,7 @@ async function queryXiaomiUsageViaExtension() {
     tabsResult = await bridge.sendCommand('tabs', { op: 'list', workspace: 'okit' }, 10000);
   } catch { tabsResult = { data: [] }; }
   const tabs = Array.isArray(tabsResult?.data) ? tabsResult.data : [];
-  const apiTab = tabs
-    .filter(tab => /^https:\/\/platform\.xiaomimimo\.com\/api\/v1\/tokenPlan\/usage/.test(tab?.url || ''))
-    .sort((a, b) => Number(/\?/.test(b.url || '')) - Number(/\?/.test(a.url || '')))[0];
-  let endpoint = 'https://platform.xiaomimimo.com/api/v1/tokenPlan/usage';
-  if (apiTab?.url) endpoint = apiTab.url;
-
-  const usage = await queryXiaomiUsageWithCookie(cookieHeader, endpoint);
-  if (usage && !usage.error) {
-    await saveXiaomiSession(cookieHeader, endpoint, getCookieExpiry(cookies));
-  }
-  return usage;
+  return { cookieHeader, cookies, tabs };
 }
 
 async function queryXiaomiUsageWithCookie(cookieHeader, endpoint = 'https://platform.xiaomimimo.com/api/v1/tokenPlan/usage') {
@@ -1391,7 +1603,7 @@ async function saveXiaomiSession(cookie, endpoint, expiresAt) {
       JSON.stringify({ cookie, endpoint, expiresAt: expiresAt || '' }),
       '小米 MiMo',
       expiresAt || '',
-      'MiMo Token Plan 浏览器会话缓存（仅在接口过期后重新获取）',
+      'MiMo 控制台浏览器会话缓存（仅在接口过期后重新获取）',
     );
   } catch {
     // Usage remains functional even if the optional session cache cannot be
@@ -1439,6 +1651,75 @@ function parseXiaomiTokenPlanUsage(data) {
   };
 }
 
+async function queryXiaomiBalance() {
+  const cachedSession = await loadXiaomiSession();
+  if (cachedSession?.cookie) {
+    const cachedBalance = await queryXiaomiBalanceWithCookie(cachedSession.cookie);
+    if (cachedBalance) return cachedBalance;
+    await clearXiaomiSession();
+  }
+
+  const browserSession = await getXiaomiBrowserSession();
+  if (browserSession?.cookieHeader) {
+    const browserBalance = await queryXiaomiBalanceWithCookie(browserSession.cookieHeader);
+    if (browserBalance) {
+      if (!browserBalance.error) {
+        await saveXiaomiSession(
+          browserSession.cookieHeader,
+          undefined,
+          getCookieExpiry(browserSession.cookies),
+        );
+      }
+      return browserBalance;
+    }
+  }
+
+  return {
+    supported: true,
+    windows: [],
+    source: 'console',
+    notice: '小米 MiMo 余额接口需要控制台登录态。请在 OKIT 浏览器插件打开的 MiMo 控制台中登录，完成后回到这里刷新。',
+    action: { label: '在 OKIT 插件中登录', url: MIMO_BALANCE_CONSOLE_URL, mode: 'extension' },
+  };
+}
+
+async function queryXiaomiBalanceWithCookie(cookieHeader) {
+  try {
+    const result = await httpRequest(MIMO_BALANCE_URL, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Cookie': cookieHeader,
+        'Referer': MIMO_BALANCE_CONSOLE_URL,
+        'X-Timezone': 'Asia/Shanghai',
+        'User-Agent': 'OKIT/usage',
+      },
+      timeout: 10000,
+    });
+    if (result.status === 401 || result.status === 403) return null;
+    if (result.error) return { supported: true, windows: [], error: result.error };
+    if (result.status !== 200) return { supported: true, windows: [], error: `小米 MiMo 余额查询失败（HTTP ${result.status}）` };
+    const data = JSON.parse(result.body);
+    const parsed = parseXiaomiBalance(data);
+    if (parsed.error) return { supported: true, windows: [], error: parsed.error };
+    return { supported: true, windows: parsed.windows, source: 'browser', raw: data };
+  } catch {
+    return { supported: true, windows: [], error: '小米 MiMo 余额接口返回了无法识别的数据' };
+  }
+}
+
+function parseXiaomiBalance(data) {
+  if (data?.code != null && Number(data.code) !== 0) {
+    return { error: data.message || `MiMo API ${data.code}` };
+  }
+  const root = data?.data || data;
+  const amount = root?.balance ?? root?.availableBalance ?? root?.available_balance;
+  const currency = root?.currency || 'USD';
+  const parsed = accountBalanceResult(amount, currency, data);
+  return parsed || { error: '小米 MiMo 余额接口暂未返回可识别余额' };
+}
+
 function scaleCredits(value) {
   if (value >= 1e9) return { divisor: 1e9, unit: 'B Credits' };
   if (value >= 1e6) return { divisor: 1e6, unit: 'M Credits' };
@@ -1472,21 +1753,25 @@ function getTrustedXiaomiLoginUrl(body) {
 async function resolveVolcCredentials() {
   const credentials = await resolveCredentialPair({
     combined: ['VOLCENGINE_BILLING_CREDENTIALS', 'VOLCENGINE_CREDENTIALS'],
-    accessKey: ['VOLC_ARK_AK', 'VOLCENGINE_ACCESS_KEY', 'VOLC_KMS_ACCESS_KEY'],
-    secretKey: ['VOLC_ARK_SK', 'VOLCENGINE_SECRET_KEY', 'VOLC_KMS_SECRET_KEY'],
+    accessKey: ['VOLC_ARK_AK', 'VOLCENGINE_ACCESS_KEY'],
+    secretKey: ['VOLC_ARK_SK', 'VOLCENGINE_SECRET_KEY'],
   });
   return credentials;
 }
 
 async function queryVolcengineBalance() {
   const credentials = await resolveVolcCredentials();
-  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
+  if (!credentials) return managementCredentialNotice('火山引擎', ['VOLCENGINE_BILLING_CREDENTIALS（请按文档手动录入）', 'VOLCENGINE_ACCESS_KEY', 'VOLCENGINE_SECRET_KEY'], 'https://console.volcengine.com/iam/keymanage/');
   const result = await callVolcApi(credentials.accessKey, credentials.secretKey, 'QueryBalanceAcct', {
     service: 'billing',
     version: '2022-01-01',
   });
   if (result.error) return { supported: true, windows: [], error: result.error };
-  if (result.status === 401 || result.status === 403) return { supported: true, windows: [], error: '火山引擎 AK/SK 无费用中心查询权限' };
+  if (result.status === 401 || result.status === 403) return {
+    supported: true,
+    windows: [],
+    error: '火山引擎 AK/SK 无费用中心查询权限。请给当前 IAM 用户授予 BillingCenterReadOnlyAccess（仅查询余额），或按需授予 BillingCenterFullAccess；无需再创建主账号 Access Key。',
+  };
   if (result.status !== 200) return { supported: true, windows: [], error: `HTTP ${result.status}` };
   let data;
   try { data = JSON.parse(result.body); } catch { return { supported: true, windows: [], error: '火山引擎余额接口返回了无效 JSON' }; }
@@ -1524,14 +1809,13 @@ async function openXiaomiLogin(req, res) {
 // Keep the two plan APIs separate: an account may have either plan, and a
 // successful response from one must never be shown on the other card.
 async function queryVolcengineUsage(plan = 'coding') {
-  // Resolve AK/SK from vault. These are typically stored under VOLC_KMS_ACCESS_KEY
-  // or a dedicated VOLC_ARK_AK / VOLC_ARK_SK pair.
-  let ak = await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
-  let sk = await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
-  // Fallback: try the KMS AK/SK (works if the IAM user has ark permissions too)
-  if (!ak) ak = await resolveVaultKey('VOLC_KMS_ACCESS_KEY') || await resolveVaultKey('VOLC_KMS_ACCESS_KEY/火山引擎KMS Access Key');
-  if (!sk) sk = await resolveVaultKey('VOLC_KMS_SECRET_KEY') || await resolveVaultKey('VOLC_KMS_SECRET_KEY/火山引擎KMS Secret Access key');
-  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请在密钥管理中添加 VOLC_ARK_AK 和 VOLC_ARK_SK' };
+  // Resolve only explicitly named Volcengine credentials. A local Vault name
+  // is not provider-side synchronization, so KMS entries must never be
+  // treated as Volcengine AK/SK merely because their old name looks similar.
+  const combined = await resolveVolcCredentials();
+  let ak = combined?.accessKey || await resolveVaultKey('VOLC_ARK_AK') || await resolveVaultKey('VOLC_ARK_AK-default');
+  let sk = combined?.secretKey || await resolveVaultKey('VOLC_ARK_SK') || await resolveVaultKey('VOLC_ARK_SK-default');
+  if (!ak || !sk) return { supported: true, windows: [], error: '未找到火山引擎 AK/SK，请按文档手动添加 VOLCENGINE_BILLING_CREDENTIALS，或分别添加 VOLC_ARK_AK 和 VOLC_ARK_SK' };
 
   if (plan === 'agent') {
     // Agent Plan exposes absolute quota windows through GetAFPUsage.
@@ -1699,7 +1983,7 @@ async function queryUsage(providerId) {
     case 'qianfan':
       return queryQianfanBalance();
     case 'tencent':
-      return queryConsoleOnlyUsage('腾讯云', 'https://console.cloud.tencent.com/expense/overview');
+      return queryTencentBalance();
     case 'xai':
       return queryXaiApiBalance();
     case 'stepfun':
@@ -1707,7 +1991,7 @@ async function queryUsage(providerId) {
     case 'stepfun-global':
       return queryConsoleOnlyUsage('StepFun Global', 'https://platform.stepfun.ai/console/billing');
     case 'xiaomi':
-      return queryConsoleOnlyUsage('小米 MiMo API', 'https://platform.xiaomimimo.com/console/');
+      return queryXiaomiBalance();
     case 'glm-coding':
       return queryGlmCodingUsage(apiKey);
     case 'zai-global-coding':
@@ -1731,7 +2015,7 @@ async function queryUsage(providerId) {
     case 'xiaomi-coding':
       return queryXiaomiCodingUsage(apiKey, provider.baseUrl);
     case 'openrouter':
-      return queryOpenRouterUsage(apiKey);
+      return queryOpenRouterUsage();
     // Goal ①: prepaid balance providers.
     case 'deepseek':
       return queryDeepseekUsage(apiKey);
@@ -1784,4 +2068,4 @@ function getSupportedUsageProviders(_req, res) {
   res.json({ providers: Array.from(SUPPORTED) });
 }
 
-module.exports = { getUsage, getSupportedUsageProviders, queryUsage, parseXiaomiTokenPlanUsage, parseOpenCodeGoUsage, parseQianfanTokenPlanUsage, openXiaomiLogin };
+module.exports = { getUsage, getSupportedUsageProviders, queryUsage, parseOpenRouterCredits, parseXaiPrepaidBalance, parseXiaomiBalance, parseXiaomiTokenPlanUsage, parseOpenCodeGoUsage, parseQianfanTokenPlanUsage, buildBceAuthorization, openXiaomiLogin };

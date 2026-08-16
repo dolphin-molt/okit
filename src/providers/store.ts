@@ -9,6 +9,7 @@ import {
   PRESET_AUTH_MODE_MIGRATIONS,
   PRESET_BASE_URL_MIGRATIONS,
   PRESET_ENDPOINT_BASE_URL_MIGRATIONS,
+  PRESET_MODEL_ID_MIGRATIONS,
   RETIRED_PRESET_PROVIDER_IDS,
 } from "./metadata";
 import { atomicWriteJSON } from "../utils/atomicWrite";
@@ -111,6 +112,29 @@ export async function loadProviders(): Promise<Provider[]> {
               changed = true;
             }
           }
+          // Older builds may already have the correct built-in URL but lack
+          // its newer protocol/plan metadata. Fill only missing fields on an
+          // exact URL+type match; never rewrite a customized endpoint.
+          let endpointMetadataChanged = false;
+          existing.endpoints = (existing.endpoints || []).map(endpoint => {
+            const presetEndpoint = preset.endpoints?.find(candidate =>
+              candidate.type === endpoint.type
+              && candidate.baseUrl === endpoint.baseUrl
+              && (!endpoint.protocol || !candidate.protocol || candidate.protocol === endpoint.protocol),
+            );
+            if (!presetEndpoint) return endpoint;
+            const next = { ...endpoint };
+            if (!next.protocol && presetEndpoint.protocol) {
+              next.protocol = presetEndpoint.protocol;
+              endpointMetadataChanged = true;
+            }
+            if (!next.plan && presetEndpoint.plan) {
+              next.plan = presetEndpoint.plan;
+              endpointMetadataChanged = true;
+            }
+            return next;
+          });
+          if (endpointMetadataChanged) changed = true;
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
@@ -134,6 +158,12 @@ export async function loadProviders(): Promise<Provider[]> {
         }
         if (preset.authMode === "none" && existing.authMode !== "none" && !existing.vaultKey) {
           existing.authMode = "none";
+          changed = true;
+        }
+        const modelSnapshots = PRESET_MODEL_ID_MIGRATIONS.get(preset.id) || [];
+        const existingModelIds = existing.models.map(model => model.id);
+        if (modelSnapshots.some(snapshot => JSON.stringify(snapshot) === JSON.stringify(existingModelIds))) {
+          existing.models = preset.models.map(model => ({ ...model }));
           changed = true;
         }
         if (

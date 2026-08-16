@@ -105,7 +105,6 @@ export default function UsagePage() {
     try {
       const result = await getUsage(providerId);
       setUsageMap(prev => ({ ...prev, [providerId]: result }));
-      setLastRefresh(Date.now());
       return result;
     } catch (error: any) {
       const result: UsageResult = { supported: true, error: error?.message || t('usage.credentials.testFailed') };

@@ -294,12 +294,14 @@
   width: min(760px, 100%);
   max-height: min(860px, calc(100vh - 48px));
   overflow: auto;
-  border: 1.5px solid var(--ink);
+  scrollbar-width: none;
+  border: 0;
   border-radius: 14px;
   background: var(--paper);
   color: var(--ink);
   box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.15);
 }
+.usage-guide-panel::-webkit-scrollbar { display: none; }
 .usage-guide-header {
   display: flex;
   justify-content: space-between;

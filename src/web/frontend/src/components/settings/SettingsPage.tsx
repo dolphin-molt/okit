@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const [vaultFormVisible, setVaultFormVisible] = useState(false);
   const [syncPassword, setSyncPassword] = useState('');
   const syncFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [syncStatus, setSyncStatus] = useState<{ machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{ machineId: string | null; machineName: string | null; lastSyncAt: string | null; platformId: string | null; platforms: string[]; hasPassword: boolean; autoSync: boolean; autoBusy: boolean; localDirty: boolean } | null>(null);
   const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
   const [syncCodeBusy, setSyncCodeBusy] = useState<'export' | 'import' | null>(null);
   const [syncImportState, setSyncImportState] = useState<SyncImportState>({ phase: 'idle' });
@@ -47,6 +47,21 @@ export default function SettingsPage() {
   const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => { loadData(); }, []);
+
+  // Keep the sync meta (last sync time, auto-sync state) fresh without a full reload.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const status = await getSyncStatus();
+        if (!cancelled) setSyncStatus(status);
+      } catch { /* server unreachable; keep last known state */ }
+      if (!cancelled) timer = setTimeout(tick, 60_000);
+    };
+    timer = setTimeout(tick, 60_000);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, []);
 
   async function loadData() {
     try {
@@ -249,12 +264,9 @@ export default function SettingsPage() {
     } catch { showToast(t('settings.testConnFail'), 'error'); } finally { setTestingPlatform(null); }
   }
 
-  const currentProvider = modelProviders.find(p => p.id === agent.provider);
   const platformEntries = Object.entries(PLATFORM_FIELDS);
   const activePlatformEntries = platformEntries.filter(([id]) => platforms[id]?.enabled);
   const inactivePlatformEntries = platformEntries.filter(([id]) => !platforms[id]?.enabled);
-  const enabledPlatformCount = activePlatformEntries.length;
-  const syncReady = !!syncStatus?.platformId && !!syncStatus?.hasPassword;
 
   function handleAddPlatform(platId: string) {
     if (!platId) return;
@@ -263,15 +275,6 @@ export default function SettingsPage() {
 
   return (
     <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
-      <header className="access-hero settings-hero">
-        <div className="access-hero-stats" aria-label="Settings summary">
-          <div><span>{t('settings.enabledPlatforms')}</span><strong>{enabledPlatformCount}</strong></div>
-          <div><span>{t('settings.vaultKeys')}</span><strong>{vaultKeys.length}</strong></div>
-          <div><span>{t('settings.agentProvider')}</span><strong>{currentProvider?.name || agent.provider || '-'}</strong></div>
-          <div><span>{t('common.sync')}</span><strong>{syncReady ? t('settings.syncReady') : t('settings.syncOff')}</strong></div>
-        </div>
-      </header>
-
       {/* Appearance */}
       <div className="settings-section settings-section--top">
         <div className="settings-section-title">{t('settings.appearance')}</div>
@@ -355,24 +358,27 @@ export default function SettingsPage() {
                 value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
                 onBlur={() => { if (syncPassword) saveAll(undefined, undefined, undefined, syncPassword); }} />
             </div>
-            <div className="settings-field settings-field--quiet settings-field--quiet-select">
-              <label>{t('settings.syncPlatform')}</label>
-              <CustomSelect
-                className="settings-select-wrap"
-                value={syncStatus?.platformId || ''}
-                onChange={v => { updateSettings({ sync: { syncPlatform: v } }).then(() => loadData()); }}
-                placeholder={t('settings.selectSyncPlatform')}
-                options={Object.entries(platforms).filter(([, p]: any) => p.enabled).map(([id]: any) => ({ value: id, label: PLATFORM_IDS[id] || id }))}
-              />
-            </div>
             </div>
             <div className="settings-sync-meta">
               <div className="settings-meta-field">
+                <label>{t('settings.syncPlatform')}</label>
+                <div className="settings-meta-value">
+                  {(syncStatus?.platforms?.length
+                    ? syncStatus.platforms.map((id: string) => PLATFORM_IDS[id] || id).join('、')
+                    : Object.entries(platforms).filter(([, p]: any) => p.enabled).map(([id]: any) => PLATFORM_IDS[id] || id).join('、')) || t('settings.noSyncPlatform')}
+                </div>
+              </div>
+              <div className="settings-meta-field">
                 <label>{t('settings.machineId')}</label>
                 <div className="settings-meta-value settings-meta-value--mono">
-                  <span>{syncStatus?.machineId || t('settings.notGenerated')}</span>
-                  {syncStatus?.machineId && (
-                    <button className="settings-vault-new-btn settings-meta-copy" onClick={() => { navigator.clipboard.writeText(syncStatus.machineId!); showToast(t('common.copied')); }} title={t('vault.copy')}>
+                  <span>
+                    {syncStatus?.machineName || syncStatus?.machineId || t('settings.notGenerated')}
+                    {syncStatus?.machineName && syncStatus?.machineId && (
+                      <span className="settings-machine-id-suffix"> · {syncStatus.machineId}</span>
+                    )}
+                  </span>
+                  {(syncStatus?.machineName || syncStatus?.machineId) && (
+                    <button className="settings-vault-new-btn settings-meta-copy" onClick={() => { navigator.clipboard.writeText(syncStatus!.machineId || syncStatus!.machineName!); showToast(t('common.copied')); }} title={t('vault.copy')}>
                       <svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="5" width="10" height="10" rx="1.5" /><path d="M3 13V3a1.5 1.5 0 011.5-1.5H13" /></svg>
                     </button>
                   )}
@@ -382,6 +388,15 @@ export default function SettingsPage() {
                 <label>{t('settings.lastSync')}</label>
                 <div className="settings-meta-value">
                   {syncStatus?.lastSyncAt ? new Date(syncStatus.lastSyncAt).toLocaleString('zh-CN') : t('settings.neverSynced')}
+                </div>
+              </div>
+              <div className="settings-meta-field">
+                <label>{t('settings.autoSync')}</label>
+                <div className="settings-meta-value">
+                  {!syncStatus?.autoSync ? t('settings.autoOff')
+                    : syncStatus?.autoBusy ? t('settings.autoBusy')
+                    : syncStatus?.localDirty ? t('settings.autoPending')
+                    : t('settings.autoOn')}
                 </div>
               </div>
             </div>
@@ -499,32 +514,34 @@ export default function SettingsPage() {
                     </label>
                   </div>
                 </div>
-                <div className="settings-plat-body">
-                  {fields.map(field => {
-                    const isSecret = VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field));
-                    return (
-                      <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
-                        <label>{field}</label>
-                        {isSecret ? (
-                          <div className="vault-ref-field">
-                            {plat[field] ? (
-                              <div className="vault-ref-selected">
-                                <span className="vault-ref-key">{plat[field]}</span>
-                                <button type="button" className="vault-ref-clear" onClick={() => updatePlatform(platId, field, '')}>×</button>
-                                <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('common.replace')}</button>
-                              </div>
-                            ) : (
-                              <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
-                            )}
-                          </div>
-                        ) : (
-                          <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
-                            onChange={e => updatePlatform(platId, field, e.target.value)} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {fields.length > 0 && (
+                  <div className="settings-plat-body">
+                    {fields.map(field => {
+                      const isSecret = VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field));
+                      return (
+                        <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
+                          <label>{field}</label>
+                          {isSecret ? (
+                            <div className="vault-ref-field">
+                              {plat[field] ? (
+                                <div className="vault-ref-selected">
+                                  <span className="vault-ref-key">{plat[field]}</span>
+                                  <button type="button" className="vault-ref-clear" onClick={() => updatePlatform(platId, field, '')}>×</button>
+                                  <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('common.replace')}</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
+                              )}
+                            </div>
+                          ) : (
+                            <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
+                              onChange={e => updatePlatform(platId, field, e.target.value)} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -588,17 +605,19 @@ export default function SettingsPage() {
                     {doc.steps.map((step, i) => <li key={i}>{renderStep(step.text, step.links)}</li>)}
                   </ol>
                 </div>
-                <div className="platdoc-section">
-                  <div className="platdoc-section-title">{t('settings.fieldDesc')}</div>
-                  <div className="platdoc-fields">
-                    {Object.entries(doc.fields).map(([key, f]) => (
-                      <div key={key} className="platdoc-field">
-                        <span className="platdoc-field-label">{f.label}</span>
-                        <span className="platdoc-field-hint">{f.hint}</span>
-                      </div>
-                    ))}
+                {Object.keys(doc.fields).length > 0 && (
+                  <div className="platdoc-section">
+                    <div className="platdoc-section-title">{t('settings.fieldDesc')}</div>
+                    <div className="platdoc-fields">
+                      {Object.entries(doc.fields).map(([key, f]) => (
+                        <div key={key} className="platdoc-field">
+                          <span className="platdoc-field-label">{f.label}</span>
+                          <span className="platdoc-field-hint">{f.hint}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 {doc.code && (
                   <div className="platdoc-section">
                     <div className="platdoc-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

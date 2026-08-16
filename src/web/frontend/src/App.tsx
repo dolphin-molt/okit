@@ -42,9 +42,9 @@ function DeepLinkHandler() {
 }
 
 /**
- * Keep the two daily-driver pages mounted after their first visit. Switching
- * between routes then changes visibility instead of throwing away their
- * fetched data, scroll position, and local UI state.
+ * Keep the frequently revisited pages mounted after their first visit.
+ * Switching between routes then changes visibility instead of throwing away
+ * their fetched data, scroll position, and local UI state.
  */
 function PersistentDashboardRoutes() {
   const location = useLocation();
@@ -55,26 +55,32 @@ function PersistentDashboardRoutes() {
     setVisited(prev => prev.has(pathname) ? prev : new Set(prev).add(pathname));
   }, [pathname]);
 
-  const homeActive = pathname === '/';
-  const usageActive = pathname === '/usage';
+  const keepAlivePaths = ['/', '/usage', '/models'];
+  const isActive = (p: string) => pathname === p;
   // Mount the active page immediately on first navigation; the effect above
   // records it for future switches without introducing a blank frame.
-  const homeVisited = visited.has('/') || homeActive;
-  const usageVisited = visited.has('/usage') || usageActive;
+  const wasVisited = (p: string) => visited.has(p) || isActive(p);
+
+  const keepAliveActive = keepAlivePaths.some(isActive);
 
   return (
     <>
-      {homeVisited && (
-        <div className="route-keepalive" hidden={!homeActive} aria-hidden={!homeActive}>
+      {wasVisited('/') && (
+        <div className="route-keepalive" hidden={!isActive('/')} aria-hidden={!isActive('/')}>
           <HomePage />
         </div>
       )}
-      {usageVisited && (
-        <div className="route-keepalive" hidden={!usageActive} aria-hidden={!usageActive}>
+      {wasVisited('/usage') && (
+        <div className="route-keepalive" hidden={!isActive('/usage')} aria-hidden={!isActive('/usage')}>
           <UsagePage />
         </div>
       )}
-      {!homeActive && !usageActive && (
+      {wasVisited('/models') && (
+        <div className="route-keepalive" hidden={!isActive('/models')} aria-hidden={!isActive('/models')}>
+          <ModelsPage />
+        </div>
+      )}
+      {!keepAliveActive && (
         <Routes>
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/vault" element={<VaultPage />} />

@@ -962,10 +962,19 @@ select:focus {
   background: rgba(246, 243, 236, 0.72);
 }
 
-[data-theme="light"] .settings-theme-switch button:hover,
+[data-theme="light"] .settings-theme-switch {
+  border-color: var(--border);
+  background: rgba(28, 25, 23, 0.045);
+}
+
+[data-theme="light"] .settings-theme-switch button:hover {
+  color: var(--ink);
+}
+
 [data-theme="light"] .settings-theme-switch button.active {
-  background: rgba(2, 132, 199, 0.12);
-  color: var(--text);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(28, 25, 23, 0.1);
 }
 
 [data-theme="light"] .logs-pagination-actions button,
@@ -1247,7 +1256,7 @@ select:focus {
 [data-theme="dark"] .settings-workspace .settings-field--quiet,
 [data-theme="dark"] .settings-workspace .settings-value-pill {
   background:
-    linear-gradient(90deg, rgba(125, 211, 252, 0.08), transparent 44%),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.08), transparent 44%),
     rgba(245, 243, 235, 0.075);
   border-color: rgba(245, 243, 235, 0.12);
 }
@@ -1364,7 +1373,7 @@ select:focus {
 
 [data-theme="light"] .page-sidebar-title,
 [data-theme="light"] .cat-sidebar-title {
-  color: #0284c7;
+  color: #059669;
 }
 
 [data-theme="light"] .page-sidebar-item,
@@ -1396,7 +1405,7 @@ select:focus {
 [data-theme="light"] .home-subtle-link,
 [data-theme="light"] .provider-card-label,
 [data-theme="light"] .model-meta-label {
-  color: #0284c7;
+  color: #059669;
 }
 
 [data-theme="light"] .home-hero h1,
@@ -2094,7 +2103,6 @@ select:focus {
 
 [data-theme="dark"] .settings-workspace .vault-picker-search-field,
 [data-theme="dark"] .settings-workspace .vault-picker-create-form,
-[data-theme="dark"] .settings-workspace .platdoc-section,
 [data-theme="dark"] .settings-workspace .platdoc-steps li,
 [data-theme="dark"] .settings-workspace .platdoc-field,
 [data-theme="dark"] .provider-form-body .form-group,
@@ -2180,8 +2188,8 @@ select:focus {
 }
 
 [data-theme="dark"] .settings-workspace .platdoc-inline-link {
-  color: #7dd3fc !important;
-  border-bottom-color: rgba(125, 211, 252, 0.32) !important;
+  color: #34d399 !important;
+  border-bottom-color: rgba(52, 211, 153, 0.32) !important;
 }
 
 [data-theme="dark"] .settings-workspace .platdoc-code {

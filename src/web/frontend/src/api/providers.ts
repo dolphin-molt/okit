@@ -122,8 +122,23 @@ export interface AgentInfo {
   availableProviders?: { id: string; name: string; type: string; added: boolean }[];
 }
 
+// The providers payload is ~0.5 MB of JSON; parsing it on every page visit is
+// the dominant cost (the backend responds in ~20 ms). Cache it in memory for a
+// short window and invalidate on any mutation.
+let providersCache: { data: { providers: Provider[]; platforms: Platform[] }; at: number } | null = null;
+const PROVIDERS_CACHE_TTL_MS = 30_000;
+
+function invalidateProvidersCache() {
+  providersCache = null;
+}
+
 export async function listProviders(): Promise<{ providers: Provider[]; platforms: Platform[] }> {
-  return api('/api/providers');
+  if (providersCache && Date.now() - providersCache.at < PROVIDERS_CACHE_TTL_MS) {
+    return providersCache.data;
+  }
+  const data = await api('/api/providers') as { providers: Provider[]; platforms: Platform[] };
+  providersCache = { data, at: Date.now() };
+  return data;
 }
 
 export async function getAdapters(): Promise<{ adapters: AgentInfo[] }> {
@@ -131,6 +146,7 @@ export async function getAdapters(): Promise<{ adapters: AgentInfo[] }> {
 }
 
 export async function createProvider(data: Partial<Provider> & { id: string; name: string; type: string; baseUrl: string }): Promise<{ success: boolean; provider: Provider }> {
+  invalidateProvidersCache();
   return api('/api/providers', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -138,6 +154,7 @@ export async function createProvider(data: Partial<Provider> & { id: string; nam
 }
 
 export async function updateProvider(id: string, data: Partial<Provider>): Promise<{ success: boolean; provider: Provider }> {
+  invalidateProvidersCache();
   return api(`/api/providers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -145,6 +162,7 @@ export async function updateProvider(id: string, data: Partial<Provider>): Promi
 }
 
 export async function deleteProvider(id: string): Promise<{ success: boolean }> {
+  invalidateProvidersCache();
   return api(`/api/providers/${id}`, { method: 'DELETE' });
 }
 
@@ -231,6 +249,7 @@ export async function verifyProviderAuth(providerId: string): Promise<{
   status: { id: string; hasApiKey: boolean; authVerified: boolean; oauthLoggedIn: boolean | null; authMode: string; authState?: string; authLastCheckedAt?: string; authLastError?: string; authEndpointStates?: Provider['authEndpointStates'] };
   results: { endpointId: string; success: boolean; message: string }[];
 }> {
+  invalidateProvidersCache();
   return api(`/api/providers/${encodeURIComponent(providerId)}/verify-auth`, { method: 'POST' });
 }
 
@@ -242,6 +261,7 @@ export async function triggerOAuthLogin(providerId: string): Promise<{ success: 
 }
 
 export async function fetchModels(providerId?: string, config?: { endpoints?: ProviderEndpoint[]; vaultKey?: string }): Promise<{ success: boolean; models: ProviderModel[]; errors?: { endpoint: string; error: string }[]; kept?: ProviderModel[] }> {
+  invalidateProvidersCache();
   return api('/api/providers/fetch-models', {
     method: 'POST',
     body: JSON.stringify({ providerId, ...config }),
@@ -295,6 +315,7 @@ export async function exportProviderCode(id: string, password?: string): Promise
 }
 
 export async function importProviderCode(code: string, password?: string): Promise<{ success: boolean; provider: Provider; created: boolean }> {
+  invalidateProvidersCache();
   return api('/api/providers/import-code', {
     method: 'POST',
     body: JSON.stringify({ code, password }),

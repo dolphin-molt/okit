@@ -8,7 +8,7 @@ export async function pullSync(): Promise<{ success: boolean; message: string; a
   return api('/api/sync/pull', { method: 'POST' });
 }
 
-export async function getSyncStatus(): Promise<{ machineId: string | null; lastSyncAt: string | null; platformId: string | null; hasPassword: boolean }> {
+export async function getSyncStatus(): Promise<{ machineId: string | null; machineName: string | null; lastSyncAt: string | null; platformId: string | null; platforms: string[]; hasPassword: boolean; autoSync: boolean; autoBusy: boolean; localDirty: boolean }> {
   return api('/api/sync/status');
 }
 

@@ -136,10 +136,13 @@ export const PLATFORM_DOCS: Record<string, { fields: Record<string, { label: str
   icloud: {
     fields: {},
     steps: [
-      { text: 'iCloud 同步仅支持 macOS，且需要已在系统设置中登录 iCloud 并开启 iCloud Drive' },
-      { text: '无需任何配置，启用后同步文件会自动写入 iCloud Drive 的 okit-sync 目录' },
-      { text: 'macOS 会自动在所有登录同一 iCloud 账号的设备间同步' },
-      { text: 'Linux / Windows 用户请使用 WebDAV 或其他平台' },
+      { text: '前提：Mac 已登录 Apple 账户。打开「系统设置」，点顶部的姓名（Apple 账户），进入「iCloud」' },
+      { text: '在「已存至 iCloud」区域找到「云盘」：如果显示"开启"可跳到第 4 步；如果显示"关闭"，点击云盘卡片，打开「同步此 Mac」开关' },
+      { text: '云盘内的「桌面与文稿文件夹」等选项无需勾选——OKIT 只使用 iCloud Drive 根目录的独立文件夹，不会碰你的桌面和文稿' },
+      { text: '回到本页设置「同步密码」（自定义，所有机器填相同的密码），在下方平台列表打开 iCloud 的启用开关即可——所有启用的平台会同时同步，互为备份' },
+      { text: '无需填任何账号密码，启用后同步数据会自动加密写入 iCloud Drive 的 okit-sync 文件夹（可在访达边栏「iCloud 云盘」中查看，内容为密文）' },
+      { text: '建议开启「自动同步」：本地改动自动推送，远端数据定时自动合并，无需手动操作' },
+      { text: '其他 Mac 登录同一 iCloud 账户、在 OKIT 中输入相同同步密码并启用 iCloud，即可互相同步；Linux / Windows 用户请改用 WebDAV' },
     ],
   },
 };

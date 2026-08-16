@@ -145,17 +145,17 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
       <div className="sidebar-brand">
         <img className="sidebar-brand-logo" src="/okit-icon.png" alt="" />
         <span className="sidebar-brand-name">OKIT</span>
+        <button
+          className="sidebar-toggle sidebar-collapse-trigger"
+          onClick={toggleSidebar}
+          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m14 6-6 6 6 6" />
+          </svg>
+        </button>
       </div>
-      <button
-        className="sidebar-toggle sidebar-collapse-trigger"
-        onClick={toggleSidebar}
-        title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-        aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m14 6-6 6 6 6" />
-        </svg>
-      </button>
       <div className="nav-scroll">
         {NAV_SECTIONS.map(section => (
           <div className="nav-section" key={section.labelKey}>

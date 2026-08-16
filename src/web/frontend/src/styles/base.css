@@ -229,8 +229,8 @@ body {
 }
 
 /* ─── Sidebar Collapsed ─── */
-.sidebar--collapsed { width: 56px; min-width: 56px; clip-path: none; overflow: visible; }
-.sidebar--collapsed .sidebar-brand { display: flex !important; justify-content: center; align-items: center; padding: 14px 0 8px !important; }
+.sidebar--collapsed { width: 56px; min-width: 56px; clip-path: none; overflow: hidden; }
+.sidebar--collapsed .sidebar-brand { display: flex !important; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 14px 0 10px !important; }
 .sidebar--collapsed .brand-text,
 .sidebar--collapsed .brand-hand { display: none !important; }
 .sidebar--collapsed .brand-shape {
@@ -395,14 +395,15 @@ body {
 }
 
 .sidebar-collapse-trigger {
-  position: absolute;
-  z-index: 7;
-  top: 54px;
-  right: -11px;
-  width: 22px;
+  width: 28px;
   height: 28px;
+  margin-left: auto;
+  flex: 0 0 28px;
   border-radius: 7px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar--collapsed .sidebar-collapse-trigger {
+  margin-left: 0;
 }
 
 .icon-moon { display: none; }

@@ -1089,6 +1089,10 @@
 /* Agent configuration section gets a bit of top spacing to separate it from
    the dashboard blocks above. */
 .home-section--agent { margin-top: 8px; }
+.home-agent-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;
+}
+.home-agent-heading .home-section-title { margin: 0; }
 
 /* Home provider card: remove button + add-provider button + picker modal */
 .provider-card-remove-btn {
@@ -1164,6 +1168,10 @@
 }
 .home-view-config-btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
 .home-view-config-btn:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 640px) {
+  .home-agent-heading { align-items: flex-start; flex-direction: column; }
+}
 
 /* Config file viewer modal */
 .home-config-viewer {

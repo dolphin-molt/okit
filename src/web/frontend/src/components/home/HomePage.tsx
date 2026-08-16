@@ -181,7 +181,29 @@ export default function HomePage() {
       <UsageSummary />
       {/* Agent configuration section — tab + provider cards */}
       <section className="home-section home-section--agent">
-        <h3 className="home-section-title">{t('home.agentConfig')}</h3>
+        <div className="home-agent-heading">
+          <h3 className="home-section-title">{t('home.agentConfig')}</h3>
+          {activeAgent && (
+            <div className="home-provider-actions">
+              <button
+                type="button"
+                className="home-add-provider-btn"
+                onClick={() => setShowAddPicker(true)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                {t('home.addProvider')}
+              </button>
+              <button
+                type="button"
+                className="home-view-config-btn"
+                onClick={handleViewConfig}
+                disabled={configLoading}
+              >
+                {configLoading ? t('common.loading') : t('home.viewConfig')}
+              </button>
+            </div>
+          )}
+        </div>
 
       {/* Agent Tabs */}
       <div className="agent-tabs">
@@ -389,24 +411,6 @@ export default function HomePage() {
           {activeAgent.compatibleProviders.length === 0 && (
             <div className="home-empty-hint">{t('home.noProvidersHint')}</div>
           )}
-          <div className="home-provider-actions">
-            <button
-              type="button"
-              className="home-add-provider-btn"
-              onClick={() => setShowAddPicker(true)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {t('home.addProvider')}
-            </button>
-            <button
-              type="button"
-              className="home-view-config-btn"
-              onClick={handleViewConfig}
-              disabled={configLoading}
-            >
-              {configLoading ? t('common.loading') : t('home.viewConfig')}
-            </button>
-          </div>
         </div>
       )}
       {showAddPicker && activeAgent && (

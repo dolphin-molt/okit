@@ -75,7 +75,7 @@ type UsageCard = {
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type UsageKind = 'quota' | 'balance';
-const GROUP_PAGE_SIZE = 4;
+const GROUP_PAGE_SIZE = 8;
 
 function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; detail: string } {
   const windows = prioritizedWindows(u.windows || []);

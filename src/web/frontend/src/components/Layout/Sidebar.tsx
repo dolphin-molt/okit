@@ -146,6 +146,16 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         <img className="sidebar-brand-logo" src="/okit-icon.png" alt="" />
         <span className="sidebar-brand-name">OKIT</span>
       </div>
+      <button
+        className="sidebar-toggle sidebar-collapse-trigger"
+        onClick={toggleSidebar}
+        title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+        aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m14 6-6 6 6 6" />
+        </svg>
+      </button>
       <div className="nav-scroll">
         {NAV_SECTIONS.map(section => (
           <div className="nav-section" key={section.labelKey}>
@@ -155,17 +165,19 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
       </div>
       <div className="sidebar-bottom">
         <button
-          className="sidebar-bottom-icon sidebar-utility"
+          className="sidebar-bottom-icon"
           onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
           title={t('nav.switchLanguage')}
           aria-label={t('nav.switchLanguage')}
         >
-          <span className="sidebar-utility-short" aria-hidden="true">{lang === 'zh' ? '中' : 'EN'}</span>
-          <span className="sidebar-utility-label">{lang === 'zh' ? t('nav.languageZh') : t('nav.languageEn')}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+          </svg>
         </button>
         <NavLink
           to="/settings"
-          className={({ isActive }) => `sidebar-bottom-icon sidebar-utility${isActive ? ' active' : ''}`}
+          className={({ isActive }) => `sidebar-bottom-icon${isActive ? ' active' : ''}`}
           title={t('nav.settings')}
           aria-label={t('nav.settings')}
         >
@@ -175,19 +187,7 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             <circle cx="8" cy="12" r="2" />
             <circle cx="13" cy="18" r="2" />
           </svg>
-          <span className="sidebar-utility-label">{t('nav.settings')}</span>
         </NavLink>
-        <button
-          className="sidebar-toggle sidebar-utility"
-          onClick={toggleSidebar}
-          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m14 6-6 6 6 6" />
-          </svg>
-          <span className="sidebar-utility-label">{collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}</span>
-        </button>
       </div>
     </aside>
   );

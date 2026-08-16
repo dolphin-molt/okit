@@ -10,6 +10,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getUsage, getSupportedUsageProviders, listProviders, UsageResult, UsageWindow } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useUsagePolling } from '../../lib/useUsagePolling';
+import { useCoalescedUsageMap } from '../../lib/useCoalescedUsageMap';
 import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 import { useNavigate } from 'react-router-dom';
 import { getProviderIcon } from '../../assets/providers';
@@ -132,7 +133,7 @@ export default function UsageSummary() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
-  const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
+  const { usageMap, enqueue } = useCoalescedUsageMap();
   // Provider display names from API (single source of truth = presets.ts).
   const [providerNames, setProviderNames] = useState<Record<string, string>>({});
 
@@ -152,8 +153,8 @@ export default function UsageSummary() {
 
   // Silent polling via shared hook (5-min base, 1-min if reset is imminent).
   const handlePollResult = useCallback((id: string, result: UsageResult) => {
-    setUsageMap(prev => ({ ...prev, [id]: result }));
-  }, []);
+    enqueue(id, result);
+  }, [enqueue]);
 
   useUsagePolling({
     supportedIds,

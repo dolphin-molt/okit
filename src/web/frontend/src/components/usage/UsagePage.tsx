@@ -4,6 +4,7 @@ import { setVault } from '../../api/vault';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import { useUsagePolling } from '../../lib/useUsagePolling';
+import { useCoalescedUsageMap } from '../../lib/useCoalescedUsageMap';
 import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 
 // Display metadata for known supported providers (icon + human-readable name).
@@ -67,7 +68,7 @@ export default function UsagePage() {
   // Distinguish "metadata still loading" (skeleton) from "loaded, nothing supported" (empty state).
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [usageMap, setUsageMap] = useState<Record<string, UsageResult>>({});
+  const { usageMap, enqueue } = useCoalescedUsageMap();
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
   // Goal ①: subscription vs prepaid split. Defaults to subscription (the
   // historically-supported set); the tab surfaces the new balance providers.
@@ -88,9 +89,9 @@ export default function UsagePage() {
     setFetchingIds(prev => new Set(prev).add(id));
     try {
       const res = await getUsage(id);
-      setUsageMap(prev => ({ ...prev, [id]: res }));
+      enqueue(id, res);
     } catch (err: any) {
-      setUsageMap(prev => ({ ...prev, [id]: { supported: true, error: err.message } }));
+      enqueue(id, { supported: true, error: err.message });
     } finally {
       setFetchingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     }
@@ -107,11 +108,11 @@ export default function UsagePage() {
     setFetchingIds(prev => new Set(prev).add(providerId));
     try {
       const result = await getUsage(providerId);
-      setUsageMap(prev => ({ ...prev, [providerId]: result }));
+      enqueue(providerId, result);
       return result;
     } catch (error: any) {
       const result: UsageResult = { supported: true, error: error?.message || t('usage.credentials.testFailed') };
-      setUsageMap(prev => ({ ...prev, [providerId]: result }));
+      enqueue(providerId, result);
       return result;
     } finally {
       setFetchingIds(prev => { const next = new Set(prev); next.delete(providerId); return next; });
@@ -133,8 +134,8 @@ export default function UsagePage() {
   }, [providers]);
 
   const handlePollResult = useCallback((id: string, result: UsageResult) => {
-    setUsageMap(prev => ({ ...prev, [id]: result }));
-  }, []);
+    enqueue(id, result);
+  }, [enqueue]);
 
   useUsagePolling({
     supportedIds,

@@ -864,6 +864,7 @@ export default {
   'home.usageAttention': '项需关注',
   'home.usageOpen': '打开完整统计',
   'home.usageRemaining': '剩余额度',
+  'home.usageUsed': '已用',
   'home.usageBalance': '余额',
   'home.usageHealthy': '充足',
   'home.usageWatch': '关注',

@@ -864,6 +864,7 @@ export default {
   'home.usageAttention': 'need attention',
   'home.usageOpen': 'Open full usage',
   'home.usageRemaining': 'Remaining',
+  'home.usageUsed': 'Used',
   'home.usageBalance': 'Balance',
   'home.usageHealthy': 'Healthy',
   'home.usageWatch': 'Watch',

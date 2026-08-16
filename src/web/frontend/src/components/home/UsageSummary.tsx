@@ -132,9 +132,23 @@ function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }
   if (windows[0]?.unit) {
     const w = windows[0];
     return (
-      <span className="usage-summary-balance">
-        {w.remainingCredits != null ? `${w.remainingCredits.toFixed(2)} ${w.unit}` : '—'}
-      </span>
+      <div className="usage-summary-token-wrap">
+        <div className="usage-summary-balance-wrap">
+          <span className="usage-summary-balance">
+            {w.remainingCredits != null ? `${w.remainingCredits.toFixed(2)} ${w.unit}` : '—'}
+          </span>
+          <span className="usage-summary-balance-label">{t('home.usageRemaining')}</span>
+        </div>
+        {w.usedPercent != null && (
+          <div className="usage-summary-token-meta">
+            <span>{t('home.usageUsed')}</span>
+            <span className="usage-summary-token-used">{w.usedPercent.toFixed(1)}%</span>
+            <span className="usage-summary-token-track" aria-hidden="true">
+              <span style={{ width: `${Math.max(0, Math.min(100, w.usedPercent))}%` }} />
+            </span>
+          </div>
+        )}
+      </div>
     );
   }
 

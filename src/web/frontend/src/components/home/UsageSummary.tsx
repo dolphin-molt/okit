@@ -246,7 +246,6 @@ export default function UsageSummary() {
               >
                 <span className="usage-summary-alert-toggle-dot" aria-hidden="true" />
                 <span>{visibleAlerts.length} {t('home.usageAttention')}</span>
-                <span className="usage-summary-alert-toggle-chevron" aria-hidden="true">⌄</span>
               </button>
               {alertCenterOpen && (
                 <div id="usage-summary-alert-list" className="usage-summary-alert-popover" role="region" aria-label={t('home.usageAttention')}>

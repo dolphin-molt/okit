@@ -862,7 +862,6 @@
 .usage-summary-alert-toggle.is-open { border-color: rgba(220, 38, 38, 0.55); background: rgba(220, 38, 38, 0.12); }
 .usage-summary-alert-toggle-dot,
 .usage-summary-alert-item-dot { display: block; width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--red); }
-.usage-summary-alert-toggle-chevron { margin-left: 1px; font-size: 14px; line-height: 0.7; }
 .usage-summary-alert-popover {
   position: absolute; z-index: 10; top: calc(100% + 8px); right: 0; width: min(340px, 78vw);
   padding: 10px; border: 1px solid var(--border); border-radius: 13px;

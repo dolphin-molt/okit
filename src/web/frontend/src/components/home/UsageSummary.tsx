@@ -225,6 +225,8 @@ export default function UsageSummary() {
     safeActivePage * GROUP_PAGE_SIZE,
     (safeActivePage + 1) * GROUP_PAGE_SIZE,
   );
+  const visibleColumnCount = Math.min(4, Math.max(1, pageCards.length));
+  const usesTwoRows = pageCards.length > 4;
   const activeTitle = activeKind === 'quota' ? t('home.usageQuotaGroup') : t('home.usageBalanceGroup');
 
   if (cards.length === 0) return null;
@@ -312,7 +314,7 @@ export default function UsageSummary() {
         )}
       </div>
       <section className={`usage-summary-group usage-summary-group--${activeKind}`} role="tabpanel" aria-label={activeTitle}>
-        <div className="usage-summary-group-grid">
+        <div className={`usage-summary-group-grid usage-summary-group-grid--columns-${visibleColumnCount}${usesTwoRows ? ' usage-summary-group-grid--two-rows' : ''}`}>
           {pageCards.map(card => (
             <UsageGroupItem
               key={card.id}

@@ -145,6 +145,15 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
       <div className="sidebar-brand">
         <img className="sidebar-brand-logo" src="/okit-icon.png" alt="" />
         <span className="sidebar-brand-name">OKIT</span>
+      </div>
+      <div className="nav-scroll">
+        {NAV_SECTIONS.map(section => (
+          <div className="nav-section" key={section.labelKey}>
+            {section.items.map(renderNavItem)}
+          </div>
+        ))}
+      </div>
+      <div className="sidebar-bottom">
         <button
           className="sidebar-toggle sidebar-collapse-trigger"
           onClick={toggleSidebar}
@@ -155,15 +164,6 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
             <path d="m14 6-6 6 6 6" />
           </svg>
         </button>
-      </div>
-      <div className="nav-scroll">
-        {NAV_SECTIONS.map(section => (
-          <div className="nav-section" key={section.labelKey}>
-            {section.items.map(renderNavItem)}
-          </div>
-        ))}
-      </div>
-      <div className="sidebar-bottom">
         <button
           className="sidebar-bottom-icon"
           onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}

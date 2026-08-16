@@ -428,13 +428,10 @@
   .nav-new-btn, .nav-sub-list, .nav-section-label { display: none !important; }
   .sidebar-brand {
     display: flex !important;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 6px;
     padding: 14px 0 8px !important;
   }
-  .sidebar-collapse-trigger { margin-left: 0; }
   .brand-shape {
     position: static !important;
     width: 26px !important;

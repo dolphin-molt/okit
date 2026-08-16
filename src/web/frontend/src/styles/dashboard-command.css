@@ -71,7 +71,7 @@ body {
 
 .sidebar-brand {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  grid-template-columns: 34px minmax(0, 1fr);
   grid-template-rows: 34px;
   column-gap: 12px;
   row-gap: 2px;
@@ -81,7 +81,6 @@ body {
 
 .sidebar-brand-logo { grid-column: 1; grid-row: 1; }
 .sidebar-brand-name { grid-column: 2; grid-row: 1; }
-.sidebar-collapse-trigger { grid-column: 3; grid-row: 1; }
 
 .brand-shape {
   grid-area: mark;

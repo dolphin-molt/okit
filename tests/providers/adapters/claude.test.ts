@@ -104,6 +104,19 @@ describe('ClaudeAdapter.applyConfig', () => {
     expect(written.env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('glm-4.7');
   });
 
+  it('uses apiKeyHelper for an x-api-key Anthropic gateway', async () => {
+    const adapter = new ClaudeAdapter();
+    await adapter.applyConfig({
+      ...testProvider,
+      id: 'kimi-coding-plan',
+      baseUrl: 'https://api.kimi.com/coding',
+    }, 'kimi-for-coding');
+
+    const written = JSON.parse(mocks.files.get(SETTINGS_PATH)!);
+    expect(written.env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(written.apiKeyHelper).toBe(path.join(os.homedir(), '.claude', '.okit-key-helper.sh'));
+  });
+
   it('clears env overrides for official Anthropic (no apiKey)', async () => {
     mocks.files.set(SETTINGS_PATH, JSON.stringify({
       env: {

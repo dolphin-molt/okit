@@ -4,6 +4,8 @@ import { formatDate } from '../../lib/utils';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
+import { normalizeGroupName } from '../../data/vault-groups';
+import { compareGroupNames, sortGroupEntries } from '../../lib/groupOrdering';
 
 type IconName = 'plus' | 'download' | 'upload' | 'copy' | 'edit' | 'trash' | 'search' | 'more';
 
@@ -97,7 +99,10 @@ export default function VaultPage() {
     setLoading(true);
     try {
       const data = await listVault();
-      setSecrets(data.secrets || []);
+      setSecrets((data.secrets || []).map((secret: VaultSecret) => ({
+        ...secret,
+        group: normalizeGroupName(secret.group),
+      })));
       setConnectionStatus('connected');
     } catch { setConnectionStatus('error'); } finally { setLoading(false); }
   }
@@ -118,11 +123,8 @@ export default function VaultPage() {
   }, [secrets]);
 
   const orderedGroupFilters = useMemo(() => (
-    [...groups].sort((a, b) => {
-      const countDifference = (groupCounts.get(b) || 0) - (groupCounts.get(a) || 0);
-      return countDifference || a.localeCompare(b);
-    })
-  ), [groups, groupCounts]);
+    [...groups].sort(compareGroupNames)
+  ), [groups]);
 
   const visibleGroupFilters = useMemo(() => {
     if (showAllGroups || orderedGroupFilters.length <= COLLAPSED_GROUP_LIMIT) {
@@ -246,12 +248,7 @@ export default function VaultPage() {
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(s);
     }
-    const sorted = [...map.entries()].sort(([a], [b]) => {
-      if (a === '') return 1;
-      if (b === '') return -1;
-      return a.localeCompare(b);
-    });
-    return sorted;
+    return sortGroupEntries([...map.entries()]);
   }, [filtered]);
 
   function toggleGroup(group: string) {

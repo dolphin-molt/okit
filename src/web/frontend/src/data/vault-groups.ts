@@ -3,7 +3,8 @@
 //
 // Naming convention: "{平台名}" or "{平台名} · {地域}".
 // 国内/国际 key 不通用的平台才加地域后缀;只有一个地域的不加。
-// Coding Plan 和开放平台的 key 放同一组(不区分),只区分地域。
+// Kimi 表示国内 API 平台，Moonshot 表示国际 API 平台。Kimi Coding Plan
+// 仅属于国内 Kimi，因此和国内 API Key 一起归入 Kimi 分组。
 
 export const PREDEFINED_GROUPS: string[] = [
   // ── 国际大厂 ──
@@ -16,8 +17,8 @@ export const PREDEFINED_GROUPS: string[] = [
   '智谱AI · 国际',
   'MiniMax · 国内',
   'MiniMax · 国际',
-  'Kimi · 国内',
-  'Kimi · 国际',
+  'Kimi',
+  'Moonshot',
   // ── 仅国内 ──
   'DeepSeek',
   '阿里云百炼',
@@ -33,3 +34,18 @@ export const PREDEFINED_GROUPS: string[] = [
   // ── 基础设施 ──
   'Cloudflare',
 ];
+
+const LEGACY_GROUP_ALIASES: Record<string, string> = {
+  'Kimi 国际': 'Moonshot',
+  'Kimi · 国际': 'Moonshot',
+  'Kimi 国内': 'Kimi',
+  'Kimi · 国内': 'Kimi',
+  '小米 MiMo Token Plan': '小米 MiMo',
+  'StepFun': '阶跃星辰',
+};
+
+/** Keep old persisted labels out of every user-visible group selector. */
+export function normalizeGroupName(group: string | undefined | null): string {
+  const value = String(group || '').trim();
+  return LEGACY_GROUP_ALIASES[value] || value;
+}

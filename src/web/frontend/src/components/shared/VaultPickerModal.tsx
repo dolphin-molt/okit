@@ -3,6 +3,8 @@ import { api } from '../../api/client';
 import { setVault } from '../../api/vault';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
+import { normalizeGroupName } from '../../data/vault-groups';
+import { sortGroupEntries } from '../../lib/groupOrdering';
 
 interface TestEndpoint {
   baseUrl: string;
@@ -35,7 +37,10 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
 
   function reload() {
     api('/api/vault').then((data: any) => {
-      setSecrets(data.secrets || []);
+      setSecrets((data.secrets || []).map((secret: any) => ({
+        ...secret,
+        group: normalizeGroupName(secret.group),
+      })));
     }).catch(() => {});
   }
 
@@ -48,7 +53,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(s);
     }
-    return Array.from(map.entries());
+    return sortGroupEntries(Array.from(map.entries()), t('common.ungrouped'));
   }, [secrets, t]);
 
   const groupNames = useMemo(() => groups.map(([g]) => g).filter(g => g !== t('common.ungrouped')), [groups, t]);

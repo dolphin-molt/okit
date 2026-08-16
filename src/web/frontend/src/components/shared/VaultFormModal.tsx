@@ -4,7 +4,7 @@ import { apiRaw } from '../../api/client';
 import { useI18n } from '../../i18n';
 import CustomSelect from './CustomSelect';
 import { getAutoCreatePlatformFields } from './autoCreateFormState';
-import { PREDEFINED_GROUPS } from '../../data/vault-groups';
+import { normalizeGroupName, PREDEFINED_GROUPS } from '../../data/vault-groups';
 
 interface VaultFormModalProps {
   groups: string[];
@@ -214,7 +214,7 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
     setVerificationHandoff(null);
     try {
       const platform = autoPlatforms.find(p => p.id === autoPlatform)!;
-      const tokenName = formKey || platform.keyHint;
+      const tokenName = formKey || platform.defaultKeyName || platform.keyHint;
 
       const body: any = { platform: autoPlatform, tokenName, interactive: platform.mode === 'browser' };
       if (platform.mode === 'api') {
@@ -255,6 +255,25 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
   }
 
   const selectedPlatform = autoPlatforms.find(p => p.id === autoPlatform);
+
+  function formatKeyLimit(limit: NonNullable<AutoCreatePlatform['keyLimits']>[number]) {
+    const scopeLabels: Record<string, string> = {
+      user: t('vault.autoCreateKeyLimitScopeUser'),
+      account: t('vault.autoCreateKeyLimitScopeAccount'),
+      personal: t('vault.autoCreateKeyLimitScopePersonal'),
+      'access-key-owner': t('vault.autoCreateKeyLimitScopeAccessKeyOwner'),
+      organization: t('vault.autoCreateKeyLimitScopeOrganization'),
+      'coding-plan': t('vault.autoCreateKeyLimitScopeCodingPlan'),
+      seat: t('vault.autoCreateKeyLimitScopeSeat'),
+      region: t('vault.autoCreateKeyLimitScopeRegion'),
+      'us-region': t('vault.autoCreateKeyLimitScopeUsRegion'),
+      'account-or-subuser': t('vault.autoCreateKeyLimitScopeAccountOrSubuser'),
+    };
+    const scope = scopeLabels[limit.scope] || limit.scope;
+    if (limit.kind === 'observed') return t('vault.autoCreateKeyLimitObserved', { max: limit.max, scope });
+    if (limit.kind === 'default') return t('vault.autoCreateKeyLimitDefault', { max: limit.max, scope });
+    return t('vault.autoCreateKeyLimitHard', { max: limit.max, scope });
+  }
 
   function selectManualMode() {
     setShowAutoCreate(false);
@@ -323,12 +342,20 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                   {selectedPlatform?.permissionNote === 'volcengine-identity' && (
                     <small className="vault-field-hint">{t('vault.autoCreateVolcenginePermissionHint')}</small>
                   )}
+                  {selectedPlatform?.permissionNote === 'openrouter-management' && (
+                    <small className="vault-field-hint">{t('vault.autoCreateOpenRouterManagementHint')}</small>
+                  )}
+                  {selectedPlatform?.keyLimits?.length ? (
+                    <small className="vault-field-hint">
+                      {t('vault.autoCreateKeyLimitHint', { limits: selectedPlatform.keyLimits.map(formatKeyLimit).join('；') })}
+                    </small>
+                  ) : null}
                 </div>
                 <div className="vault-form-field">
                   <div className="vault-field-heading">
                     <label htmlFor="vault-auto-key-name">{t('vault.keyNameLabel')}</label>
                   </div>
-                  <input id="vault-auto-key-name" type="text" className="vault-input" placeholder={selectedPlatform ? t('vault.autoCreateKeyExample', { name: selectedPlatform.keyHint }) : t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} />
+                  <input id="vault-auto-key-name" type="text" className="vault-input" placeholder={selectedPlatform ? t('vault.autoCreateKeyExample', { name: selectedPlatform.defaultKeyName || selectedPlatform.keyHint }) : t('vault.keyExample')} value={formKey} onChange={e => setFormKey(e.target.value)} />
                 </div>
                 <div className="vault-form-field">
                   <div className="vault-field-heading"><label htmlFor="vault-auto-key-desc">{t('vault.descriptionLabel')}</label></div>
@@ -383,7 +410,9 @@ export default function VaultFormModal({ groups, initialSecret, onBeforeSave, on
                       options={[
                         { value: '__custom__', label: t('vault.newGroup') },
                         ...PREDEFINED_GROUPS.map(g => ({ value: g, label: g })),
-                        ...groups.filter(g => !PREDEFINED_GROUPS.includes(g)).map(g => ({ value: g, label: g })),
+                        ...[...new Set(groups.map(normalizeGroupName))]
+                          .filter(g => g && !PREDEFINED_GROUPS.includes(g))
+                          .map(g => ({ value: g, label: g })),
                       ]}
                     />
                     {formGroup === '__custom__' && <input type="text" className="vault-input vault-custom-group-input" placeholder={t('common.enterGroup')} value={formGroupCustom} onChange={e => setFormGroupCustom(e.target.value)} />}

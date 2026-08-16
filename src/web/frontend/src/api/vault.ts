@@ -15,9 +15,15 @@ export interface AutoCreatePlatform {
   id: string;
   label: string;
   keyHint: string;
+  defaultKeyName?: string;
   groupHint: string;
   mode: 'api' | 'browser';
-  permissionNote?: 'volcengine-identity';
+  permissionNote?: 'volcengine-identity' | 'openrouter-management';
+  keyLimits?: Array<{
+    max: number;
+    scope: string;
+    kind?: 'hard' | 'default' | 'observed';
+  }>;
 }
 
 export async function listVault(): Promise<{ secrets: VaultSecret[] }> {

@@ -26,6 +26,7 @@ type NetworkCaptureState = {
   patterns: string[];
   entries: NetworkCaptureEntry[];
   requestToIndex: Map<string, number>;
+  pendingBodyReads: Set<Promise<void>>;
 };
 
 const networkCaptures = new Map<number, NetworkCaptureState>();
@@ -327,12 +328,24 @@ export async function startNetworkCapture(
     patterns: normalizeCapturePatterns(pattern),
     entries: [],
     requestToIndex: new Map(),
+    pendingBodyReads: new Set(),
   });
 }
 
 export async function readNetworkCapture(tabId: number): Promise<NetworkCaptureEntry[]> {
   const state = networkCaptures.get(tabId);
   if (!state) return [];
+  // Network.responseReceived arrives before loadingFinished, and the response
+  // body is fetched asynchronously from CDP. Wait for all body reads already
+  // scheduled for this capture before draining it; otherwise callers can see
+  // a 200 status with an empty responsePreview and lose a one-time API key.
+  // Give the event queue a short settle window as well: a read request can be
+  // issued in the narrow gap between responseReceived and loadingFinished,
+  // before the body-read promise has been registered.
+  await new Promise(resolve => setTimeout(resolve, 75));
+  if (state.pendingBodyReads.size > 0) {
+    await Promise.all([...state.pendingBodyReads]);
+  }
   const entries = state.entries.slice();
   state.entries = [];
   state.requestToIndex.clear();
@@ -422,19 +435,26 @@ export function registerListeners(): void {
       if (stateEntryIndex === undefined) return;
       const entry = state.entries[stateEntryIndex];
       if (!entry) return;
-      try {
-        const body = await chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId }) as {
-          body?: string;
-          base64Encoded?: boolean;
-        };
-        if (typeof body?.body === 'string') {
-          entry.responsePreview = body.base64Encoded
-            ? `base64:${body.body.slice(0, 4000)}`
-            : body.body.slice(0, 4000);
+      const bodyRead = (async () => {
+        try {
+          const body = await chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId }) as {
+            body?: string;
+            base64Encoded?: boolean;
+          };
+          if (typeof body?.body === 'string') {
+            entry.responsePreview = body.base64Encoded
+              ? `base64:${body.body.slice(0, 4000)}`
+              : body.body.slice(0, 4000);
+          }
+        } catch {
+          // Optional; bodies are unavailable for some requests (e.g. uploads).
         }
-      } catch {
-        // Optional; bodies are unavailable for some requests (e.g. uploads).
-      }
+      })();
+      state.pendingBodyReads.add(bodyRead);
+      void bodyRead.then(
+        () => state.pendingBodyReads.delete(bodyRead),
+        () => state.pendingBodyReads.delete(bodyRead),
+      );
     }
   });
 }

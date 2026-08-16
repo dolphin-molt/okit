@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 const autoCreate = await import('../src/web/api/auto-create.js');
 
-const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, isLoginUrl, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, serializeCredentialPair } = autoCreate as {
+const { AUTO_CREATE_PLATFORMS, BROWSER_LOGIN_VERIFICATION_PLATFORMS, isLoginFailure, classifyKeyCreationLimitFailure, isLoginUrl, classifyInteractiveVerificationState, isOpenRouterPublicPage, hasOpenRouterPublicNavigation, extractKeyFromCaptures, describeCapturedSecretFields, capturesContainMaskedSecret, isAssetData, serializeCredentialPair } = autoCreate as {
   AUTO_CREATE_PLATFORMS: Array<{ id: string; keyHint: string; groupHint: string; mode: string; url?: string }>;
   BROWSER_LOGIN_VERIFICATION_PLATFORMS: Array<{ id: string; label: string; url: string }>;
   isLoginFailure: (message: string) => boolean;
+  classifyKeyCreationLimitFailure: (message: string, platformLabel?: string) => string | null;
   isLoginUrl: (url: string) => boolean;
+  classifyInteractiveVerificationState: (state: { bodyText?: string; dialogTexts?: string[]; iframeSecurity?: boolean; challengeControl?: boolean; challengeNode?: boolean }, platform?: string) => { matched: boolean; reason: string | null };
   isOpenRouterPublicPage: (state: { publicHome?: boolean; keyWorkspace?: boolean }) => boolean;
   hasOpenRouterPublicNavigation: (labels: string[]) => boolean;
   extractKeyFromCaptures: (entries: Array<{ responsePreview: string; url?: string; method?: string; timestamp?: number }>, platform: string) => string | null;
@@ -26,7 +28,7 @@ describe('auto-create key platforms', () => {
       'minimax', 'minimax-global', 'deepseek', 'moonshot', 'kimi-coding',
       'qwen', 'qwen-token-plan', 'qianfan', 'qianfan-coding', 'xiaomi', 'xiaomi-coding', 'stepfun', 'xai', 'mistral', 'openrouter',
       'tencent-token-plan', 'opencode-go',
-      'aliyun-usage-credentials', 'baidu-usage-credentials', 'tencent-usage-credentials', 'xai-management',
+      'xai-management', 'openrouter-management',
     ]));
   });
 
@@ -53,6 +55,47 @@ describe('auto-create key platforms', () => {
     expect(isLoginFailure('当前账号未登录')).toBe(true);
     expect(isLoginFailure('401 Unauthorized')).toBe(true);
     expect(isLoginFailure('未找到创建密钥按钮')).toBe(false);
+  });
+
+  it('classifies provider credential-count limits without treating ordinary errors as limits', () => {
+    const message = classifyKeyCreationLimitFailure('normal token quota exceeded: limit=10, current=10 (1000)', 'MiniMax');
+    expect(message).toContain('MiniMax 已达到平台的密钥数量或创建上限');
+    expect(message).toContain('删除/撤销旧密钥');
+    expect(classifyKeyCreationLimitFailure('单个账号最多可以保留 100 个 API Key', 'DeepSeek')).toContain('DeepSeek 已达到平台的密钥数量或创建上限');
+    expect(classifyKeyCreationLimitFailure('network request failed', 'MiniMax')).toBeNull();
+    expect(classifyKeyCreationLimitFailure('429 rate limit exceeded', 'MiniMax')).toBeNull();
+  });
+
+  it('records confirmed provider-side credential limits without pretending Vault is synchronized', () => {
+    const limit = (id: string) => (AUTO_CREATE_PLATFORMS.find(platform => platform.id === id) as any).keyLimits;
+    expect(limit('deepseek')).toEqual([{ max: 100, scope: 'account', kind: 'hard' }]);
+    expect(limit('minimax')).toEqual([{ max: 10, scope: 'account', kind: 'observed' }]);
+    expect(limit('tencent-token-plan')).toEqual([{ max: 1, scope: 'personal', kind: 'hard' }]);
+    expect(limit('qwen-coding')).toEqual([{ max: 1, scope: 'coding-plan', kind: 'hard' }]);
+    expect(limit('qianfan')).toEqual([{ max: 200, scope: 'account-or-subuser', kind: 'hard' }]);
+    expect(limit('stepfun')).toEqual([{ max: 10, scope: 'account', kind: 'hard' }]);
+  });
+
+  it('separates MiniMax domestic and international keys into matching groups', () => {
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'minimax')?.groupHint).toBe('MiniMax · 国内');
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'minimax-coding')?.groupHint).toBe('MiniMax · 国内');
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'minimax-global')?.groupHint).toBe('MiniMax · 国际');
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'minimax-global-coding')?.groupHint).toBe('MiniMax · 国际');
+  });
+
+  it('does not treat Zhipu security copy in the signed-in shell as an active challenge', () => {
+    expect(classifyInteractiveVerificationState({
+      bodyText: 'API Key 管理 安全验证设置 最近创建记录',
+      dialogTexts: [],
+    }, 'zhipu').matched).toBe(false);
+    expect(classifyInteractiveVerificationState({
+      bodyText: '请完成安全验证后继续',
+      dialogTexts: [],
+    }, 'zhipu').matched).toBe(true);
+    expect(classifyInteractiveVerificationState({
+      bodyText: 'API Key 管理',
+      dialogTexts: ['安全验证 请拖动下方滑块完成验证'],
+    }, 'zhipu').matched).toBe(true);
   });
 
   it('recognizes OpenRouter sign-in redirects before searching for a create button', () => {
@@ -86,6 +129,15 @@ describe('auto-create key platforms', () => {
     expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'volcengine-usage-credentials')).toBeUndefined();
   });
 
+  it('keeps Alibaba Cloud management AccessKey out of browser auto-create', () => {
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'aliyun-usage-credentials')).toBeUndefined();
+  });
+
+  it('keeps Tencent and Baidu account management credentials out of browser auto-create', () => {
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'tencent-usage-credentials')).toBeUndefined();
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'baidu-usage-credentials')).toBeUndefined();
+  });
+
   it('does not persist internal credential provenance as part of the AK/SK value', () => {
     expect(JSON.parse(serializeCredentialPair({
       accessKey: 'AKL-existing-access',
@@ -97,28 +149,8 @@ describe('auto-create key platforms', () => {
     });
   });
 
-  it('acknowledges Tencent primary-account key risk only in its exact warning dialog', () => {
-    const tencent = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'tencent-usage-credentials') as any;
-    expect(tencent.url).toBe('https://console.cloud.tencent.com/cam/capi');
-    expect(tencent.credentialPair).toBe(true);
-    expect(tencent.preCreateAcknowledge.dialogTexts).toContain('不建议使用主账号 API 访问密钥');
-    expect(tencent.preCreateAcknowledge.checkboxTexts).toContain('我已知晓使用主账号 API 访问密钥的风险');
-    expect(tencent.preCreateAcknowledge.continueTexts).toEqual(['继续使用', '仍需创建主账号密钥']);
-  });
-
-  it('uses the live BCE Access Key route and acknowledges its primary-account warning', () => {
-    const baidu = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'baidu-usage-credentials') as any;
-    expect(baidu.url).toBe('https://console.bce.baidu.com/iam/#/iam/accesslist');
-    expect(baidu.preCreateAcknowledge.dialogTexts).toContain('不建议使用主账号 AccessKey');
-    expect(baidu.preCreateAcknowledge.checkboxTexts).toContain('我确认知晓使用主账号 AccessKey 的安全风险');
-    expect(baidu.preCreateAcknowledge.continueTexts).toEqual(['继续使用主账号 AccessKey']);
-  });
-
   it('registers every management credential needed by usage cards', () => {
     const expected = {
-      'aliyun-usage-credentials': ['ALIYUN_BILLING_CREDENTIALS', 'https://ram.console.aliyun.com/profile/accessKey'],
-      'baidu-usage-credentials': ['QIANFAN_BCE_CREDENTIALS', 'https://console.bce.baidu.com/iam/#/iam/accesslist'],
-      'tencent-usage-credentials': ['TENCENT_CLOUD_CREDENTIALS', 'https://console.cloud.tencent.com/cam/capi'],
       'xai-management': ['XAI_MANAGEMENT_KEY', 'https://console.x.ai/team/default/settings/management-keys'],
     } as Record<string, [string, string]>;
     for (const [id, [keyHint, url]] of Object.entries(expected)) {
@@ -160,6 +192,16 @@ describe('auto-create key platforms', () => {
     expect(openRouter.confirmTexts).toContain('Create');
   });
 
+  it('keeps OpenRouter account-balance credentials separate from inference keys', () => {
+    const management = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'openrouter-management') as any;
+    expect(management).toMatchObject({
+      keyHint: 'OPENROUTER_MANAGEMENT_KEY',
+      groupHint: 'OpenRouter',
+      url: 'https://openrouter.ai/settings/management-keys',
+      permissionNote: 'openrouter-management',
+    });
+  });
+
   it('opens MiMo directly on its authenticated API Keys screen and completes its dialog', () => {
     const xiaomi = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'xiaomi') as { url?: string; createTexts?: string[]; nameSelectors?: string[]; confirmTexts?: string[]; deleteTextOnly?: boolean; deleteConfirmInputText?: string };
     expect(xiaomi.url).toBe('https://platform.xiaomimimo.com/console/api-keys');
@@ -173,10 +215,11 @@ describe('auto-create key platforms', () => {
 
   it('uses MiMo Token Plan’s separate subscription page and one-time Copy action', () => {
     const tokenPlan = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'xiaomi-coding') as {
-      url?: string; createTexts?: string[]; creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingMaskedKeyPrefix?: string; postCreateCopyTexts?: string[];
+      url?: string; groupHint?: string; createTexts?: string[]; creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingMaskedKeyPrefix?: string; postCreateCopyTexts?: string[];
       postCreateCopyNeedsForeground?: boolean; postCreateCopyByMaskedKeyPrefix?: string; allowExtensionClipboardRead?: boolean; postCreateReadAttempts?: number; keyPatterns?: string[];
     };
     expect(tokenPlan.url).toBe('https://platform.xiaomimimo.com/console/plan-manage');
+    expect(tokenPlan.groupHint).toBe('小米 MiMo');
     expect(tokenPlan.createTexts).toEqual(['创建 API Key', 'Create API Key']);
     expect(tokenPlan.creationActionOnly).toBe(true);
     expect(tokenPlan.reuseExistingMaskedKey).toBe(true);
@@ -229,11 +272,7 @@ describe('auto-create key platforms', () => {
     const tencent = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent') as {
       deleteSecurityVerificationTexts?: string[];
     };
-    const usage = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent-usage-credentials') as {
-      deleteSecurityVerificationTexts?: string[];
-    };
     expect(tencent.deleteSecurityVerificationTexts).toEqual(expect.arrayContaining(['身份验证', '微信扫码验证', 'MFA']));
-    expect(usage.deleteSecurityVerificationTexts).toEqual(expect.arrayContaining(['身份验证', '微信扫码验证', 'MFA']));
   });
 
   it('uses SiliconFlow’s exact creation and dynamic deletion confirmation', () => {
@@ -274,12 +313,18 @@ describe('auto-create key platforms', () => {
   it('uses the verified OpenAI and Bailian creation forms', () => {
     const openai = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'openai') as { nameSelectors?: string[]; confirmTexts?: string[] };
     const qwen = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qwen') as { nameSelectors?: string[]; confirmTexts?: string[]; createWaitAttempts?: number; keyPatterns?: string[] };
+    const qwenCoding = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'qwen-coding') as { creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingKeyRequired?: boolean; existingMaskedKeyPrefix?: string; keyPatterns?: string[] };
     expect(openai.nameSelectors).toContain('input[placeholder="My Test Key"]');
     expect(openai.confirmTexts).toEqual(['Create secret key']);
     expect(qwen.nameSelectors).toContain('textarea#description');
     expect(qwen.confirmTexts).toEqual(['确定']);
     expect(qwen.createWaitAttempts).toBeGreaterThan(1);
     expect(new RegExp(qwen.keyPatterns![0]).test('sk-ws-H.ERYRYPR.eiTC.abc123')).toBe(true);
+    expect(qwenCoding.creationActionOnly).toBe(true);
+    expect(qwenCoding.reuseExistingMaskedKey).toBe(true);
+    expect(qwenCoding.existingKeyRequired).toBe(true);
+    expect(qwenCoding.existingMaskedKeyPrefix).toBe('sk-sp-');
+    expect(new RegExp(qwenCoding.keyPatterns![0]).test('sk-sp-abcdefghijklmnopqrstuvwxyz123456')).toBe(true);
   });
 
   it('keeps dedicated Token Plan keys separate from ordinary provider keys', () => {
@@ -302,11 +347,10 @@ describe('auto-create key platforms', () => {
     };
     expect(tencentToken.keyHint).toBe('TENCENT_TOKEN_PLAN_API_KEY');
     expect(tencentToken.groupHint).toBe('腾讯云');
-    expect(tencentToken.url).toBe('https://console.cloud.tencent.com/tokenhub/apikey');
-    expect(tencentToken.inlineFormScope).toBe(true);
+    expect(tencentToken.url).toBe('https://console.cloud.tencent.com/tokenhub/tokenplan');
     expect(tencentToken.reuseExistingMaskedKey).toBe(true);
     expect(tencentToken.existingKeyRequired).toBe(true);
-    expect(tencentToken.existingMaskedKeyPrefix).toBe('sk-');
+    expect(tencentToken.existingMaskedKeyPrefix).toBe('sk-tp-');
 
     const tencentNormal = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'tencent') as {
       url?: string; inlineFormScope?: boolean; postCreateCopyByMaskedKeyPrefix?: string;
@@ -315,12 +359,6 @@ describe('auto-create key platforms', () => {
     expect(tencentNormal.inlineFormScope).toBe(true);
     expect(tencentNormal.postCreateCopyByMaskedKeyPrefix).toBe('sk-');
 
-    const aliyunUsage = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'aliyun-usage-credentials') as {
-      url?: string; createWaitAttempts?: number; preCreateAcknowledge?: { dialogTexts?: string[] };
-    };
-    expect(aliyunUsage.url).toBe('https://ram.console.aliyun.com/profile/accessKey');
-    expect(aliyunUsage.createWaitAttempts).toBeGreaterThan(10);
-    expect(aliyunUsage.preCreateAcknowledge?.dialogTexts).toContain('创建主账号 AccessKey');
   });
 
   it('matches DeepSeek’s current name-input and custom-button creation flow', () => {
@@ -346,8 +384,8 @@ describe('auto-create key platforms', () => {
     expect(international.label).not.toContain('Coding Plan');
   });
 
-  it('never creates Code/Token subscription keys when the provider exposes only reuse', () => {
-    for (const id of ['moonshot-coding-plan', 'kimi-coding-plan', 'xiaomi-coding']) {
+  it('never creates subscription keys when the provider exposes only reuse', () => {
+    for (const id of ['qwen-coding', 'xiaomi-coding']) {
       const platform = AUTO_CREATE_PLATFORMS.find((candidate) => candidate.id === id) as {
         creationActionOnly?: boolean; reuseExistingMaskedKey?: boolean; existingKeyRequired?: boolean;
       };
@@ -357,10 +395,15 @@ describe('auto-create key platforms', () => {
     }
   });
 
+  it('does not offer the unavailable Moonshot Coding Plan auto-create entry', () => {
+    expect(AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'moonshot-coding-plan')).toBeUndefined();
+  });
+
   it('uses the verified Kimi international console and its visible default project', () => {
     const moonshot = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'moonshot') as {
       label?: string;
       url?: string;
+      groupHint?: string;
       createTexts?: string[];
       formEntryTexts?: string[];
       nameSelectors?: string[];
@@ -370,7 +413,7 @@ describe('auto-create key platforms', () => {
       confirmNeedsForeground?: boolean;
       createWaitAttempts?: number;
     };
-    expect(moonshot.label).toBe('Moonshot');
+    expect(moonshot.label).toBe('Moonshot API 平台');
     expect(moonshot.url).toBe('https://platform.kimi.ai/console/api-keys');
     expect(moonshot.createTexts).toContain('Create API Key');
     expect(moonshot.nameSelectors).toContain('input[placeholder*="Maximum 32"]');
@@ -398,6 +441,7 @@ describe('auto-create key platforms', () => {
       postCreateKeySelectors?: string[];
     };
     expect(kimi.label).toBe('Kimi（国内站）');
+    expect(kimi.groupHint).toBe('Kimi');
     expect(kimi.url).toBe('https://platform.kimi.com/console/api-keys');
     expect(kimi.createTexts).toContain('新建 API Key');
     expect(kimi.nameSelectors).toContain('input[placeholder*="最多输入32"]');
@@ -410,18 +454,64 @@ describe('auto-create key platforms', () => {
     expect(kimi.confirmNeedsForeground).toBe(false);
   });
 
-  it('fills the required StepFun key name before confirming creation', () => {
-    const stepfun = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'stepfun') as {
+  it('keeps Kimi Code subscription keys in the mainland Kimi group', () => {
+    const kimiCodingPlan = AUTO_CREATE_PLATFORMS.find(platform => platform.id === 'kimi-coding-plan') as {
+      label?: string;
+      keyHint?: string;
+      defaultKeyName?: string;
+      groupHint?: string;
       url?: string;
+      loginRequiredOnPublicRoot?: boolean;
+      createDirectSelector?: string;
+      createSelectors?: string[];
       createTexts?: string[];
       nameSelectors?: string[];
       confirmTexts?: string[];
+      confirmSelectors?: string[];
+      keyLimits?: Array<{ max: number; scope: string; kind?: string }>;
+      reuseExistingMaskedKey?: boolean;
+    };
+    expect(kimiCodingPlan?.label).toBe('Kimi Coding Plan');
+    expect(kimiCodingPlan?.keyHint).toBe('KIMI_CODE_API_KEY');
+    expect(kimiCodingPlan?.defaultKeyName).toBe('KIMI_CODING_PLAN_API_KEY');
+    expect(kimiCodingPlan?.groupHint).toBe('Kimi');
+    expect(kimiCodingPlan?.url).toBe('https://www.kimi.com/code/console');
+    expect(kimiCodingPlan?.loginRequiredOnPublicRoot).toBe(true);
+    expect(kimiCodingPlan?.createDirectSelector).toBe('button.create-api-btn');
+    expect(kimiCodingPlan?.createSelectors).toContain('button.create-api-btn');
+    expect(kimiCodingPlan?.createTexts).toContain('Create New API Key');
+    expect(kimiCodingPlan?.createTexts).toContain('创建新的 API Key');
+    expect(kimiCodingPlan?.nameSelectors).toContain('input[placeholder*="名称"]');
+    expect(kimiCodingPlan?.confirmTexts).toContain('新建');
+    expect(kimiCodingPlan?.confirmSelectors).toContain('.modal-mask .modal-actions button.kimi-button.primary');
+    expect(kimiCodingPlan?.reuseExistingMaskedKey).toBeUndefined();
+  });
+
+  it('fills the required StepFun key name before confirming creation', () => {
+    const stepfun = AUTO_CREATE_PLATFORMS.find((platform) => platform.id === 'stepfun') as {
+      url?: string;
+      groupHint?: string;
+      createTexts?: string[];
+      nameSelectors?: string[];
+      formReadyAttempts?: number;
+      requireNameInput?: boolean;
+      confirmAfterNameInput?: boolean;
+      confirmByExactText?: boolean;
+      confirmTexts?: string[];
+      postCreateDomReadAttempts?: number;
       postCreateReadAttempts?: number;
     };
     expect(stepfun.url).toBe('https://platform.stepfun.com/interface-key');
+    expect(stepfun.groupHint).toBe('阶跃星辰');
     expect(stepfun.createTexts).toEqual(['创建新的密钥']);
+    expect(stepfun.nameSelectors).toContain('input[placeholder="请输入密钥名称"]');
     expect(stepfun.nameSelectors).toContain('input[placeholder*="最多输入20"]');
+    expect(stepfun.formReadyAttempts).toBeGreaterThan(1);
+    expect(stepfun.requireNameInput).toBe(true);
+    expect(stepfun.confirmAfterNameInput).toBe(true);
+    expect(stepfun.confirmByExactText).toBe(true);
     expect(stepfun.confirmTexts).toEqual(['确认']);
+    expect(stepfun.postCreateDomReadAttempts).toBeGreaterThan(1);
     expect(stepfun.postCreateReadAttempts).toBeGreaterThan(1);
   });
 

@@ -21,7 +21,7 @@ describe('getAdapter', () => {
   it('finds codex adapter by id', () => {
     const adapter = getAdapter('codex');
     expect(adapter).toBeDefined();
-    expect(adapter!.name).toBe('Codex');
+    expect(adapter!.name).toBe('ChatGPT');
     expect(adapter!.supportedTypes).toEqual(['openai']);
   });
 

@@ -590,20 +590,44 @@
       "authMode": "api_key",
       "models": [
         {
-          "id": "qwen3-coder-plus",
-          "name": "Qwen3 Coder Plus"
+          "id": "qwen3.7-plus",
+          "name": "Qwen3.7 Plus"
         },
         {
-          "id": "glm-5",
-          "name": "GLM-5"
+          "id": "qwen3.6-plus",
+          "name": "Qwen3.6 Plus"
+        },
+        {
+          "id": "qwen3.5-plus",
+          "name": "Qwen3.5 Plus"
         },
         {
           "id": "kimi-k2.5",
           "name": "Kimi K2.5"
         },
         {
-          "id": "deepseek-v3.2",
-          "name": "DeepSeek V3.2"
+          "id": "glm-5",
+          "name": "GLM-5"
+        },
+        {
+          "id": "MiniMax-M2.5",
+          "name": "MiniMax M2.5"
+        },
+        {
+          "id": "qwen3-max-2026-01-23",
+          "name": "Qwen3 Max"
+        },
+        {
+          "id": "qwen3-coder-next",
+          "name": "Qwen3 Coder Next"
+        },
+        {
+          "id": "qwen3-coder-plus",
+          "name": "Qwen3 Coder Plus"
+        },
+        {
+          "id": "glm-4.7",
+          "name": "GLM-4.7"
         }
       ]
     },
@@ -628,8 +652,8 @@
       "authMode": "api_key",
       "models": [
         {
-          "id": "qwen3.8-max",
-          "name": "Qwen3.8 Max"
+          "id": "qwen3.8-max-preview",
+          "name": "Qwen3.8 Max Preview"
         },
         {
           "id": "qwen3.7-max",
@@ -644,8 +668,48 @@
           "name": "Qwen3.6 Plus"
         },
         {
-          "id": "qwen3-coder-plus",
-          "name": "Qwen3 Coder Plus"
+          "id": "qwen3.6-flash",
+          "name": "Qwen3.6 Flash"
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro"
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash"
+        },
+        {
+          "id": "deepseek-v3.2",
+          "name": "DeepSeek V3.2"
+        },
+        {
+          "id": "kimi-k2.7-code",
+          "name": "Kimi K2.7 Code"
+        },
+        {
+          "id": "kimi-k2.6",
+          "name": "Kimi K2.6"
+        },
+        {
+          "id": "kimi-k2.5",
+          "name": "Kimi K2.5"
+        },
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2"
+        },
+        {
+          "id": "glm-5.1",
+          "name": "GLM-5.1"
+        },
+        {
+          "id": "glm-5",
+          "name": "GLM-5"
+        },
+        {
+          "id": "MiniMax-M2.5",
+          "name": "MiniMax M2.5"
         }
       ]
     },
@@ -878,15 +942,15 @@
       "id": "tencent",
       "name": "腾讯云",
       "type": "openai",
-      "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+      "baseUrl": "https://tokenhub.tencentmaas.com/v1",
       "endpoints": [
         {
           "type": "openai",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/v1"
+          "baseUrl": "https://tokenhub.tencentmaas.com/v1"
         },
         {
           "type": "anthropic",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/api/anthropic"
+          "baseUrl": "https://tokenhub.tencentmaas.com"
         }
       ],
       "authMode": "api_key",
@@ -929,37 +993,37 @@
       "id": "tencent-token-plan",
       "name": "腾讯云 Token Plan",
       "type": "openai",
-      "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+      "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
       "endpoints": [
         {
           "type": "openai",
           "protocol": "chat",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+          "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
           "plan": "token"
         },
         {
           "type": "anthropic",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/api/anthropic",
+          "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/anthropic",
           "plan": "token"
         }
       ],
       "authMode": "api_key",
       "models": [
         {
-          "id": "deepseek-v4-flash",
+          "id": "tc-code-latest",
+          "name": "Auto"
+        },
+        {
+          "id": "deepseek-v4-flash-202605",
           "name": "DeepSeek V4 Flash"
         },
         {
-          "id": "deepseek-v4-pro",
+          "id": "deepseek-v4-pro-202606",
           "name": "DeepSeek V4 Pro"
         },
         {
           "id": "minimax-m2.7",
           "name": "MiniMax M2.7"
-        },
-        {
-          "id": "minimax-m2.5",
-          "name": "MiniMax M2.5"
         },
         {
           "id": "glm-5.1",
@@ -970,12 +1034,12 @@
           "name": "GLM-5"
         },
         {
-          "id": "kimi-k2.5",
-          "name": "Kimi K2.5"
-        },
-        {
           "id": "hy3",
           "name": "Hy3"
+        },
+        {
+          "id": "hy3-preview",
+          "name": "Hy3 Preview"
         }
       ]
     },
@@ -1803,14 +1867,14 @@
           ]
         },
         {
-          "id": "qwen3-coder-plus",
-          "name": "Qwen3 Coder Plus",
+          "id": "qwen3.7-plus",
+          "name": "Qwen3.7 Plus",
           "availability": [
             {
               "offeringId": "qwen-coding",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "qwen3-coder-plus",
+              "remoteModelId": "qwen3.7-plus",
               "status": "unknown",
               "source": "legacy_unknown"
             },
@@ -1818,21 +1882,43 @@
               "offeringId": "qwen-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "qwen3-coder-plus",
+              "remoteModelId": "qwen3.7-plus",
               "status": "unknown",
               "source": "legacy_unknown"
             }
           ]
         },
         {
-          "id": "glm-5",
-          "name": "GLM-5",
+          "id": "qwen3.6-plus",
+          "name": "Qwen3.6 Plus",
           "availability": [
             {
               "offeringId": "qwen-coding",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "glm-5",
+              "remoteModelId": "qwen3.6-plus",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            },
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3.6-plus",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3.5-plus",
+          "name": "Qwen3.5 Plus",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3.5-plus",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -1849,32 +1935,126 @@
               "remoteModelId": "kimi-k2.5",
               "status": "unknown",
               "source": "legacy_unknown"
-            }
-          ]
-        },
-        {
-          "id": "deepseek-v3.2",
-          "name": "DeepSeek V3.2",
-          "availability": [
+            },
             {
-              "offeringId": "qwen-coding",
+              "offeringId": "qwen-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "deepseek-v3.2",
+              "remoteModelId": "kimi-k2.5",
               "status": "unknown",
               "source": "legacy_unknown"
             }
           ]
         },
         {
-          "id": "qwen3.8-max",
-          "name": "Qwen3.8 Max",
+          "id": "glm-5",
+          "name": "GLM-5",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            },
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "MiniMax-M2.5",
+          "name": "MiniMax M2.5",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "MiniMax-M2.5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            },
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "MiniMax-M2.5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3-max-2026-01-23",
+          "name": "Qwen3 Max",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3-max-2026-01-23",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3-coder-next",
+          "name": "Qwen3 Coder Next",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3-coder-next",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3-coder-plus",
+          "name": "Qwen3 Coder Plus",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3-coder-plus",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "glm-4.7",
+          "name": "GLM-4.7",
+          "availability": [
+            {
+              "offeringId": "qwen-coding",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-4.7",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3.8-max-preview",
+          "name": "Qwen3.8 Max Preview",
           "availability": [
             {
               "offeringId": "qwen-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "qwen3.8-max",
+              "remoteModelId": "qwen3.8-max-preview",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -1895,28 +2075,112 @@
           ]
         },
         {
-          "id": "qwen3.7-plus",
-          "name": "Qwen3.7 Plus",
+          "id": "qwen3.6-flash",
+          "name": "Qwen3.6 Flash",
           "availability": [
             {
               "offeringId": "qwen-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "qwen3.7-plus",
+              "remoteModelId": "qwen3.6-flash",
               "status": "unknown",
               "source": "legacy_unknown"
             }
           ]
         },
         {
-          "id": "qwen3.6-plus",
-          "name": "Qwen3.6 Plus",
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
           "availability": [
             {
               "offeringId": "qwen-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "qwen3.6-plus",
+              "remoteModelId": "deepseek-v4-pro",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "deepseek-v4-flash",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "deepseek-v3.2",
+          "name": "DeepSeek V3.2",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "deepseek-v3.2",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "kimi-k2.7-code",
+          "name": "Kimi K2.7 Code",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "kimi-k2.7-code",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "kimi-k2.6",
+          "name": "Kimi K2.6",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "kimi-k2.6",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-5.2",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "glm-5.1",
+          "name": "GLM-5.1",
+          "availability": [
+            {
+              "offeringId": "qwen-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-5.1",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -4453,8 +4717,8 @@
           "label": "API 平台",
           "providerId": "tencent",
           "endpointIds": [
-            "tencent:endpoint:4640ke",
-            "tencent:endpoint:8h2p5y"
+            "tencent:endpoint:d0u47k",
+            "tencent:endpoint:1k63pts"
           ],
           "authMethodIds": [
             "tencent:api-key"
@@ -4467,8 +4731,8 @@
           "label": "Token Plan",
           "providerId": "tencent-token-plan",
           "endpointIds": [
-            "tencent-token-plan:endpoint:12x3rk5",
-            "tencent-token-plan:endpoint:1n6nkkt"
+            "tencent-token-plan:endpoint:1pogbyj",
+            "tencent-token-plan:endpoint:1vj6zga"
           ],
           "authMethodIds": [
             "tencent-token-plan:api-key"
@@ -4494,10 +4758,10 @@
       ],
       "endpoints": [
         {
-          "id": "tencent:endpoint:4640ke",
+          "id": "tencent:endpoint:d0u47k",
           "name": "OPENAI",
           "offeringId": "tencent",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+          "baseUrl": "https://tokenhub.tencentmaas.com/v1",
           "protocol": {
             "family": "openai",
             "mode": "chat"
@@ -4511,10 +4775,10 @@
           }
         },
         {
-          "id": "tencent:endpoint:8h2p5y",
+          "id": "tencent:endpoint:1k63pts",
           "name": "ANTHROPIC",
           "offeringId": "tencent",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/api/anthropic",
+          "baseUrl": "https://tokenhub.tencentmaas.com",
           "protocol": {
             "family": "anthropic",
             "mode": "messages"
@@ -4528,10 +4792,10 @@
           }
         },
         {
-          "id": "tencent-token-plan:endpoint:12x3rk5",
+          "id": "tencent-token-plan:endpoint:1pogbyj",
           "name": "OPENAI chat",
           "offeringId": "tencent-token-plan",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/v1",
+          "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
           "protocol": {
             "family": "openai",
             "mode": "chat"
@@ -4545,10 +4809,10 @@
           }
         },
         {
-          "id": "tencent-token-plan:endpoint:1n6nkkt",
+          "id": "tencent-token-plan:endpoint:1vj6zga",
           "name": "ANTHROPIC",
           "offeringId": "tencent-token-plan",
-          "baseUrl": "https://api.lkeap.cloud.tencent.com/api/anthropic",
+          "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/anthropic",
           "protocol": {
             "family": "anthropic",
             "mode": "messages"
@@ -4569,14 +4833,6 @@
           "availability": [
             {
               "offeringId": "tencent",
-              "endpointIds": [],
-              "executionMode": "http_endpoint",
-              "remoteModelId": "deepseek-v4-pro",
-              "status": "unknown",
-              "source": "legacy_unknown"
-            },
-            {
-              "offeringId": "tencent-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-pro",
@@ -4692,14 +4948,42 @@
           ]
         },
         {
-          "id": "deepseek-v4-flash",
+          "id": "tc-code-latest",
+          "name": "Auto",
+          "availability": [
+            {
+              "offeringId": "tencent-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "tc-code-latest",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "deepseek-v4-flash-202605",
           "name": "DeepSeek V4 Flash",
           "availability": [
             {
               "offeringId": "tencent-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "deepseek-v4-flash",
+              "remoteModelId": "deepseek-v4-flash-202605",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "deepseek-v4-pro-202606",
+          "name": "DeepSeek V4 Pro",
+          "availability": [
+            {
+              "offeringId": "tencent-token-plan",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "deepseek-v4-pro-202606",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -4714,20 +4998,6 @@
               "endpointIds": [],
               "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m2.7",
-              "status": "unknown",
-              "source": "legacy_unknown"
-            }
-          ]
-        },
-        {
-          "id": "minimax-m2.5",
-          "name": "MiniMax M2.5",
-          "availability": [
-            {
-              "offeringId": "tencent-token-plan",
-              "endpointIds": [],
-              "executionMode": "http_endpoint",
-              "remoteModelId": "minimax-m2.5",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -4762,14 +5032,14 @@
           ]
         },
         {
-          "id": "kimi-k2.5",
-          "name": "Kimi K2.5",
+          "id": "hy3-preview",
+          "name": "Hy3 Preview",
           "availability": [
             {
               "offeringId": "tencent-token-plan",
               "endpointIds": [],
               "executionMode": "http_endpoint",
-              "remoteModelId": "kimi-k2.5",
+              "remoteModelId": "hy3-preview",
               "status": "unknown",
               "source": "legacy_unknown"
             }
@@ -6413,6 +6683,14 @@
     "qwen-coding": {
       "from": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
       "to": "https://coding.dashscope.aliyuncs.com/v1"
+    },
+    "tencent": {
+      "from": "https://api.lkeap.cloud.tencent.com/v1",
+      "to": "https://tokenhub.tencentmaas.com/v1"
+    },
+    "tencent-token-plan": {
+      "from": "https://api.lkeap.cloud.tencent.com/v1",
+      "to": "https://api.lkeap.cloud.tencent.com/plan/v3"
     }
   },
   "endpointUrlMigrations": {
@@ -6441,6 +6719,20 @@
         "type": "anthropic",
         "from": "https://coding.dashscope.aliyuncs.com/compatible-mode/v1",
         "to": "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+      }
+    ],
+    "tencent-token-plan": [
+      {
+        "type": "anthropic",
+        "from": "https://api.lkeap.cloud.tencent.com/api/anthropic",
+        "to": "https://api.lkeap.cloud.tencent.com/plan/anthropic"
+      }
+    ],
+    "tencent": [
+      {
+        "type": "anthropic",
+        "from": "https://api.lkeap.cloud.tencent.com/api/anthropic",
+        "to": "https://tokenhub.tencentmaas.com"
       }
     ]
   }

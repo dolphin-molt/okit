@@ -13,15 +13,32 @@ const QIANFAN_CODING_MODELS = [
   'deepseek-v4-flash-0731',
 ];
 
+const QIANFAN_CODING_PROBE_MODEL = 'qianfan-code-latest';
+
 function isQianfanCodingEndpoint(baseUrl) {
   return /^https?:\/\/qianfan\.baidubce\.com\/v2\/(?:coding|tokenplan\/personal)\/?$/i.test(String(baseUrl || '').trim());
+}
+
+function isQianfanCodingAnthropicEndpoint(baseUrl) {
+  return /^https?:\/\/qianfan\.baidubce\.com\/anthropic\/(?:coding|tokenplan\/personal)\/?$/i.test(String(baseUrl || '').trim());
 }
 
 function qianfanCodingErrorCode(body) {
   try {
     const parsed = JSON.parse(body || '{}');
-    const code = parsed?.error?.code ?? parsed?.code;
-    return code === undefined || code === null ? '' : String(code);
+    const directCode = parsed?.error?.code ?? parsed?.code;
+    if (directCode !== undefined && directCode !== null) return String(directCode);
+
+    // Anthropic-compatible gateways can wrap the provider response inside an
+    // api_error message, for example: "Error code: 403 - {'error': {'code':
+    // 'token_plan_person_model_not_supported', ...}}". Extract only the code;
+    // never echo the full nested response back to the UI.
+    const messages = [parsed?.error?.message, parsed?.message].filter(value => typeof value === 'string');
+    for (const message of messages) {
+      const match = message.match(/["']code["']\s*:\s*["']([^"']+)["']/i);
+      if (match) return match[1];
+    }
+    return '';
   } catch {
     return '';
   }
@@ -53,7 +70,9 @@ function qianfanCodingModels() {
 
 module.exports = {
   QIANFAN_CODING_MODELS,
+  QIANFAN_CODING_PROBE_MODEL,
   isQianfanCodingEndpoint,
+  isQianfanCodingAnthropicEndpoint,
   qianfanCodingErrorCode,
   qianfanCodingErrorMessage,
   qianfanCodingModels,

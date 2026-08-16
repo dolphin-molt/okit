@@ -128,6 +128,25 @@ describe('PRESET_PROVIDERS alignment', () => {
       { type: 'openai', protocol: 'chat', baseUrl: 'https://coding.dashscope.aliyuncs.com/v1', plan: 'coding' },
       { type: 'anthropic', baseUrl: 'https://coding.dashscope.aliyuncs.com/apps/anthropic', plan: 'coding' },
     ]);
+    expect(coding.models.map(model => model.id)).toContain('qwen3.7-plus');
+
+    const tokenPlan = PRESET_PROVIDERS.find(provider => provider.id === 'qwen-token-plan')!;
+    expect(tokenPlan.models.map(model => model.id)).toContain('qwen3.8-max-preview');
+    expect(tokenPlan.models.map(model => model.id)).not.toContain('qwen3.8-max');
+  });
+
+  it('uses current Tencent Token Plan model IDs', () => {
+    const provider = PRESET_PROVIDERS.find(item => item.id === 'tencent-token-plan')!;
+    expect(provider.models.map(model => model.id)).toEqual([
+      'tc-code-latest',
+      'deepseek-v4-flash-202605',
+      'deepseek-v4-pro-202606',
+      'minimax-m2.7',
+      'glm-5.1',
+      'glm-5',
+      'hy3',
+      'hy3-preview',
+    ]);
   });
 
   it('authMode is valid for all providers', () => {

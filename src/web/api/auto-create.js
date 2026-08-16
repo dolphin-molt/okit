@@ -127,11 +127,10 @@ function isValidExtractionForPlatform(value, platform) {
 // AccessKey pair rather than the provider's inference API key. Store the pair
 // as JSON in one Vault entry so the usage adapters can consume it atomically:
 // { accessKey, secretKey }.
-const CREDENTIAL_PAIR_PLATFORMS = new Set([
-  'aliyun-usage-credentials',
-  'baidu-usage-credentials',
-  'tencent-usage-credentials',
-]);
+// Account-level cloud management credentials are manual-only. Automatic key
+// creation is reserved for product API keys whose scope and lifecycle OKIT can
+// safely verify. Pair parsing remains available for manually stored JSON.
+const CREDENTIAL_PAIR_PLATFORMS = new Set();
 
 function normalizeCredentialFieldName(name) {
   return String(name || '').replace(/[_-]/g, '').toLowerCase();
@@ -296,6 +295,30 @@ function isLoginFailure(message) {
   return /login|log\s*in|sign\s*in|continue with (?:google|email|sso)|未登录|登录|401|authentication required/i.test(message || '');
 }
 
+/**
+ * Provider key creation can be rejected because the account has reached a
+ * credential-count limit. This is different from a transient API rate limit:
+ * retrying the create action cannot help and may create confusing duplicates
+ * when the provider accepted the mutation but hid the one-time secret.
+ */
+function classifyKeyCreationLimitFailure(message, platformLabel = '该平台', keyLimits = []) {
+  const raw = String(message || '').replace(/[\r\n]+/g, ' ').trim();
+  if (!raw) return null;
+  const looksLikeKeyLimit = /(?:normal\s+)?token\s+quota\s+exceeded|(?:limit|maximum|max)\s*[=:]?\s*\d+\s*[,; ]+[^.]{0,80}\bcurrent\s*[=:]?\s*\d+|\bcurrent\s*[=:]?\s*\d+[^.]{0,80}\b(?:limit|maximum|max)\s*[=:]?\s*\d+|(?:api\s*key|access\s*key|secret\s*key|credential|token|密钥|凭证).{0,80}(?:limit|quota|maximum|max|上限|最多|达到|已满)|(?:limit|quota|maximum|max|上限|最多|达到|已满).{0,80}(?:api\s*key|access\s*key|secret\s*key|credential|token|密钥|凭证)/i.test(raw);
+  if (!looksLikeKeyLimit) return null;
+  const safeMessage = raw
+    .replace(/sk-(?:api-)?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
+    .slice(0, 240);
+  const configuredLimits = Array.isArray(keyLimits)
+    ? keyLimits
+      .map(limit => Number(limit?.max))
+      .filter(limit => Number.isFinite(limit) && limit > 0)
+      .filter((limit, index, all) => all.indexOf(limit) === index)
+    : [];
+  const limitHint = configuredLimits.length ? `（已知平台上限：${configuredLimits.join(' / ')}）` : '';
+  return `${platformLabel} 已达到平台的密钥数量或创建上限${limitHint}，自动创建已停止。请删除/撤销旧密钥，或复用已有密钥后再试。平台提示：${safeMessage}`;
+}
+
 function isLoginUrl(url) {
   return /\/(?:login|log-in|sign-in|signin|auth)(?:[/?#]|$)/i.test(url || '');
 }
@@ -305,7 +328,7 @@ function isLoginUrl(url) {
  * error. Probe only stable, non-sensitive page signals so the UI can hand the
  * browser over to the user instead of reporting a vague creation failure.
  */
-async function detectLoginRequired() {
+async function detectLoginRequired(platform = null) {
   try {
     const raw = await execJs(`(() => {
       const isVisible = (el) => {
@@ -327,8 +350,13 @@ async function detectLoginRequired() {
       const hasLoginAction = [...document.querySelectorAll('a, button, [role="button"]')]
         .filter(isVisible)
         .some((el) => /(?:登录|登入|sign in|log in)/i.test((el.textContent || '').trim()));
-      const credentialPage = /API\s*Key|密钥管理|调用凭证|credential/i.test(bodyText);
-      return JSON.stringify({ loginRequired: loginRoute || hasPasswordField || (hasLoginInput && hasLoginAction) || (hasLoginPrompt && hasLoginAction) || (credentialPage && hasLoginAction), url });
+      const publicRootLoginSurface = ${Boolean(platform?.loginRequiredOnPublicRoot)}
+        && /^https:\/\/www\.kimi\.com\/(?:zh\/)?(?:\?.*)?(?:#.*)?$/i.test(url)
+        && hasLoginAction;
+      // A signed-in console may keep a “登录/Sign in” navigation item in its
+      // shell. That label is not proof that the credential page is signed out;
+      // require an actual login surface or a contextual login prompt instead.
+      return JSON.stringify({ loginRequired: loginRoute || hasPasswordField || (hasLoginInput && hasLoginAction) || (hasLoginPrompt && hasLoginAction) || publicRootLoginSurface, url });
     })()`);
     const state = JSON.parse(raw || '{}');
     return { loginRequired: Boolean(state.loginRequired), url: typeof state.url === 'string' ? state.url : undefined };
@@ -343,7 +371,51 @@ async function detectLoginRequired() {
  * handoff, not as a missing create button; the user can complete the official
  * verification in the focused automation window and retry the same flow.
  */
-async function detectInteractiveVerification() {
+const INTERACTIVE_VERIFICATION_PROFILES = {
+  default: {
+    dialogPattern: '安全验证|身份验证|短信验证码|微信扫码验证|拖动下方滑块|完成拼图|MFA|使用其他校验方式|CAPTCHA|Turnstile|security verification',
+    // Do not use bare “安全验证” here. Provider pages often mention the
+    // account-security feature in normal navigation/help text even when no
+    // challenge is active.
+    pagePattern: '需要(?:完成|进行)?安全验证|请(?:先)?完成安全验证|请验证后(?:继续|操作)|请(?:输入|填写)(?:短信)?验证码|拖动下方滑块|完成拼图|captcha challenge|security verification required',
+    challengeSelectorPattern: 'captcha|turnstile|slider|security-check|security_check|verify-code|verification-code',
+  },
+  // Zhipu has a normal signed-in API-key page that can contain account-security
+  // copy outside the challenge. Only an active dialog, challenge control, or
+  // explicit “please complete verification” surface may pause its run.
+  zhipu: {
+    dialogPattern: '安全验证|身份验证|短信验证码|微信扫码验证|拖动下方滑块|完成拼图|MFA|使用其他校验方式|图形验证码|验证码',
+    pagePattern: '需要(?:完成|进行)?安全验证|请(?:先)?完成安全验证|请验证后(?:继续|操作)|请(?:输入|填写)(?:短信)?验证码|拖动下方滑块|完成拼图|图形验证码|captcha challenge|security verification required',
+    challengeSelectorPattern: 'captcha|turnstile|slider|security-check|security_check|verify-code|verification-code|安全验证|验证码',
+  },
+};
+
+function getInteractiveVerificationProfile(platform) {
+  const platformId = typeof platform === 'string' ? platform : platform?.id;
+  return INTERACTIVE_VERIFICATION_PROFILES[platformId] || INTERACTIVE_VERIFICATION_PROFILES.default;
+}
+
+/**
+ * Classify a read-only browser probe. Keeping this separate from execJs makes
+ * the false-positive boundary testable without a live provider session.
+ */
+function classifyInteractiveVerificationState(state = {}, platform) {
+  const profile = getInteractiveVerificationProfile(platform);
+  const matches = (pattern, value) => {
+    try { return new RegExp(pattern, 'i').test(String(value || '')); } catch { return false; }
+  };
+  const dialogMatch = (state.dialogTexts || []).some(text => matches(profile.dialogPattern, text));
+  const explicitPageMatch = matches(profile.pagePattern, state.bodyText);
+  const challengeSurface = Boolean(state.iframeSecurity || state.challengeControl || state.challengeNode);
+  const pageMatch = explicitPageMatch && (challengeSurface || /拖动下方滑块|完成拼图|需要(?:完成|进行)?安全验证|请(?:先)?完成安全验证|security verification required/i.test(String(state.bodyText || '')));
+  return {
+    matched: Boolean(dialogMatch || pageMatch),
+    reason: dialogMatch ? 'dialog' : (pageMatch ? 'page' : null),
+  };
+}
+
+async function detectInteractiveVerification(platform) {
+  const profile = getInteractiveVerificationProfile(platform);
   try {
     const raw = await execJs(`(() => {
       const visible = el => {
@@ -352,13 +424,31 @@ async function detectInteractiveVerification() {
         return Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden');
       };
       const bodyText = (document.body?.innerText || '').slice(0, 16000);
-      const securityText = /安全验证|身份验证|短信验证码|微信扫码验证|拖动下方滑块|完成拼图|MFA|使用其他校验方式|CAPTCHA|Turnstile|security verification/i.test(bodyText);
+      const dialogSelector = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], .ant-modal, .el-dialog, .modal, [class*="dialog"], [class*="modal"]';
+      const dialogs = [...document.querySelectorAll(dialogSelector)]
+        .filter(visible)
+        .map(dialog => (dialog.innerText || '').trim().slice(0, 1200))
+        .filter(Boolean)
+        .slice(0, 20);
       const iframeSecurity = [...document.querySelectorAll('iframe')].some(frame => visible(frame) && /captcha|verify|security/i.test(
         String(frame.src || '') + ' ' + String(frame.title || '')
       ));
-      return JSON.stringify({ blocked: securityText || iframeSecurity });
+      const challengeSelectorPattern = ${JSON.stringify(profile.challengeSelectorPattern)};
+      const challengeNode = [...document.querySelectorAll('body *')].some(el => {
+        if (!visible(el)) return false;
+        const identity = [el.id, el.className, el.getAttribute('data-testid'), el.getAttribute('aria-label'), el.getAttribute('title')]
+          .filter(value => typeof value === 'string').join(' ');
+        return new RegExp(challengeSelectorPattern, 'i').test(identity);
+      });
+      const challengeControl = [...document.querySelectorAll('input, textarea, button, [role="button"]')].some(el => {
+        if (!visible(el)) return false;
+        const identity = [el.getAttribute('placeholder'), el.getAttribute('aria-label'), el.getAttribute('name'), el.getAttribute('title'), el.textContent]
+          .filter(value => typeof value === 'string').join(' ');
+        return /验证码|图形验证|安全码|verification code|security code|captcha|滑块|slider/i.test(identity);
+      });
+      return JSON.stringify({ bodyText, dialogTexts: dialogs, iframeSecurity, challengeNode, challengeControl });
     })()`);
-    return Boolean(JSON.parse(raw || '{}').blocked);
+    return classifyInteractiveVerificationState(JSON.parse(raw || '{}'), platform).matched;
   } catch {
     return false;
   }
@@ -429,7 +519,7 @@ async function waitForInteractiveVerification({ run, platform, stage }) {
     run.verification = null;
     run.updatedAt = new Date().toISOString();
     await sleep(400);
-    if (!(await detectInteractiveVerification())) return;
+    if (!(await detectInteractiveVerification(platform))) return;
     // The user may have clicked Continue before the provider finished closing
     // its challenge. Keep the same run paused until the gate is really gone.
   }
@@ -446,7 +536,7 @@ async function waitForSecurityVerificationToClear({ platform, stage }) {
   await focusAutomationWindow().catch(() => false);
   const deadline = Date.now() + AUTO_CREATE_VERIFICATION_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (!(await detectInteractiveVerification())) return;
+    if (!(await detectInteractiveVerification(platform))) return;
     await sleep(1000);
   }
   throw new Error(`${label} ${stage === 'delete' ? '删除' : '操作'}安全验证等待超时，请完成官方验证后重试`);
@@ -495,7 +585,12 @@ async function executeAutoCreateRun(run) {
       markAutoCreateRun(run, 'failed', { error: msg });
       return;
     }
-    const loginState = await detectLoginRequired().catch(() => ({ loginRequired: false }));
+    const keyLimitError = classifyKeyCreationLimitFailure(msg, platformConfig.label || platformConfig.id, platformConfig.keyLimits);
+    if (keyLimitError) {
+      markAutoCreateRun(run, 'failed', { error: keyLimitError, errorKind: 'platform_key_limit' });
+      return;
+    }
+    const loginState = await detectLoginRequired(platformConfig).catch(() => ({ loginRequired: false }));
     if (isLoginFailure(msg) || loginState.loginRequired) {
       const browserFocused = await focusAutomationWindow().catch(() => false);
       markAutoCreateRun(run, 'login_required', {
@@ -541,7 +636,7 @@ function serializeAutoCreateRun(run) {
       error: run.error,
     };
   }
-  return { ...base, success: false, error: run.error || '自动创建失败' };
+  return { ...base, success: false, ...(run.errorKind ? { errorKind: run.errorKind } : {}), error: run.error || '自动创建失败' };
 }
 
 async function autoCreateRunStatus(req, res) {
@@ -916,6 +1011,29 @@ function describeCapturedResponses(entries) {
   });
 }
 
+/** Safe MiniMax creation-result diagnostics. The backend wraps business
+ * failures in base_resp and omits the token; expose only the numeric code and
+ * short human-readable status, never arbitrary response fields or secrets. */
+function describeMinimaxBackendResults(entries) {
+  return (entries || [])
+    .filter(entry => /\/backend\/token(?:[/?#]|$)/i.test(entry?.url || '')
+      && String(entry?.method || '').toUpperCase() === 'POST')
+    .map(entry => {
+      let parsed = null;
+      try { parsed = JSON.parse(entry.responsePreview || ''); } catch {}
+      const base = parsed?.base_resp;
+      if (!base || typeof base !== 'object') return null;
+      const statusCode = base.status_code ?? base.code ?? null;
+      const rawMessage = base.status_msg ?? base.message ?? '';
+      const statusMessage = String(rawMessage || '')
+        .replace(/sk-(?:api-)?[A-Za-z0-9_-]{12,}/gi, '[REDACTED]')
+        .replace(/[\r\n]+/g, ' ')
+        .slice(0, 200);
+      return { statusCode, statusMessage };
+    })
+    .filter(Boolean);
+}
+
 /** Return only whether a provider redacted a returned secret. This is
  * deliberately boolean-only: diagnostics must never surface credentials. */
 function capturesContainMaskedSecret(entries) {
@@ -965,7 +1083,7 @@ async function createZhipuKey({ tokenName, run }) {
   let createFatal = false;
   for (let wait = 0; wait < 15; wait++) {
     await sleep(1000);
-    if (await detectInteractiveVerification()) {
+    if (await detectInteractiveVerification('zhipu')) {
       await waitForInteractiveVerification({ run, platform: { id: 'zhipu', label: '智谱 AI' }, stage: 'before-create' });
     }
     // Dismiss leftover modals each iteration
@@ -1032,7 +1150,7 @@ async function createZhipuKey({ tokenName, run }) {
   //    fingerprint/scope/selector recheck → click. Missing, disabled or
   //    ambiguous results fail closed: an error is returned and nothing clicks.
   await sleep(500);
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification('zhipu')) {
     await waitForInteractiveVerification({ run, platform: { id: 'zhipu', label: '智谱 AI' }, stage: 'create-action' });
   }
   const confirmState = await clickZhipuConfirm();
@@ -1042,6 +1160,15 @@ async function createZhipuKey({ tokenName, run }) {
       throw new Error(`确认按钮存在多个候选且无法安全区分，为避免误点已停止。候选: ${(confirmState.buttons || []).join('、') || '无'}`);
     }
     throw new Error('确认按钮未找到或不可用(在 modal 内)，未执行点击');
+  }
+
+  // Zhipu may open the account-security challenge only after the final Create
+  // click. Reuse the same resumable handoff before attempting to read the
+  // one-time secret; otherwise a valid logged-in session is reported as a
+  // generic extraction failure.
+  await sleep(250);
+  if (await detectInteractiveVerification('zhipu')) {
+    await waitForInteractiveVerification({ run, platform: { id: 'zhipu', label: '智谱 AI' }, stage: 'post-create-security-verification' });
   }
 
   // 7. IMMEDIATELY after confirm, check DOM for the full key. zhipu shows the
@@ -1513,7 +1640,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
     if (currentLoginState.loginRequired || await detectVolcengineLoginSurface()) {
       throw new Error(`需要登录火山引擎${url === VOLC_AGENT_PLAN_URL ? ' Agent Plan' : ''}`);
     }
-    if (await detectInteractiveVerification()) {
+    if (await detectInteractiveVerification('volcengine')) {
       await waitForInteractiveVerification({ run, platform: { id: 'volcengine', label: '火山引擎' }, stage: 'before-create' });
     }
     const result = await execJs(`(() => {
@@ -1545,7 +1672,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
     throw new Error('未找到火山方舟“创建 API Key”按钮');
   }
 
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification('volcengine')) {
     await waitForInteractiveVerification({ run, platform: { id: 'volcengine', label: '火山引擎' }, stage: 'create-action' });
   }
   await sleep(500);
@@ -1622,11 +1749,24 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
     return { value: key, name: uniqueName };
   }
 
-  await sleep(700);
-  const read = await sendCommand('network-capture-read',
-    { workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);
-  if (!read.ok) throw new Error(read.error || 'network-capture-read failed');
-  const entries = read.data || [];
+  const entries = [];
+  const entryIdentity = entry => [entry?.url || '', entry?.method || '', entry?.timestamp || ''].join('|');
+  let capturedCandidate = '';
+  for (let attempt = 0; attempt < 5 && !capturedCandidate; attempt += 1) {
+    await sleep(700);
+    const read = await sendCommand('network-capture-read',
+      { workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);
+    if (!read.ok) throw new Error(read.error || 'network-capture-read failed');
+    for (const entry of (read.data || [])) {
+      const identity = entryIdentity(entry);
+      const previous = entries.find(candidate => entryIdentity(candidate) === identity);
+      if (!previous) entries.push(entry);
+      else if (!previous.responsePreview && entry.responsePreview) Object.assign(previous, entry);
+    }
+    const candidate = extractKeyFromCaptures(entries, 'volcengine');
+    // Do not mistake Ark's 32-character internal ID for a usable credential.
+    if (/^[A-Za-z0-9_-]{40,}$/.test(candidate || '')) capturedCandidate = candidate;
+  }
   console.log('[auto-create] volcengine: captured ' + entries.length + ' requests');
   // Response bodies can contain a one-time credential. Keep diagnostics to
   // field paths, lengths and shapes so an Ark UI/API change is observable
@@ -1636,9 +1776,7 @@ async function createVolcengineKey({ tokenName, url = VOLC_URL, run }) {
     console.log('[auto-create] volcengine: safe key-field diagnostics ' + JSON.stringify(volcSecretFields));
   }
 
-  const capturedCandidate = extractKeyFromCaptures(entries, 'volcengine');
-  // Do not mistake Ark's 32-character internal ID for a usable credential.
-  key = /^[A-Za-z0-9_-]{40,}$/.test(capturedCandidate || '') ? capturedCandidate : '';
+  key = capturedCandidate;
 
   if (!key) {
     const domKey = await execJs(`(() => {
@@ -1691,7 +1829,7 @@ async function createMinimaxKey({ tokenName, run }) {
   console.log('[auto-create] minimax: capture armed');
 
   await sleep(3000);
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification('minimax')) {
     await waitForInteractiveVerification({ run, platform: { id: 'minimax', label: 'MiniMax' }, stage: 'before-create' });
   }
 
@@ -1728,7 +1866,7 @@ async function createMinimaxKey({ tokenName, run }) {
     return 'clicked';
   })()`);
   console.log('[auto-create] minimax: create clicked');
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification('minimax')) {
     await waitForInteractiveVerification({ run, platform: { id: 'minimax', label: 'MiniMax' }, stage: 'create-action' });
   }
 
@@ -1779,22 +1917,117 @@ async function createMinimaxKey({ tokenName, run }) {
   })()`);
 
   await sleep(3000);
-  const read = await sendCommand('network-capture-read',
-    { workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);
-  if (!read.ok) throw new Error(read.error || 'network-capture-read failed');
-  const entries = read.data || [];
+  const entries = [];
+  const entryIdentity = entry => [entry?.url || '', entry?.method || '', entry?.timestamp || ''].join('|');
+  const collectCapture = async () => {
+    const read = await sendCommand('network-capture-read',
+      { workspace: 'okit', ...(tabId ? { tabId } : {}) }, 10000);
+    if (!read.ok) throw new Error(read.error || 'network-capture-read failed');
+    for (const entry of (read.data || [])) {
+      const identity = entryIdentity(entry);
+      const previous = entries.find(candidate => entryIdentity(candidate) === identity);
+      if (!previous) entries.push(entry);
+      else if (!previous.responsePreview && entry.responsePreview) Object.assign(previous, entry);
+    }
+  };
+
+  let key = null;
+  // The create mutation can finish after the UI has closed its dialog. Keep a
+  // short bounded read window so delayed response bodies are not mistaken for
+  // a failed creation. The extension now waits for already-scheduled CDP body
+  // reads before draining, while this loop covers providers that render late.
+  for (let attempt = 0; attempt < 6 && !key; attempt += 1) {
+    if (attempt > 0) await sleep(700);
+    await collectCapture();
+    key = extractKeyFromCaptures(entries, 'minimax');
+
+    // DOM fallback — MiniMax keys are usually sk-api-... but some accounts
+    // receive the ordinary sk- form. Read one-time result fields as well as
+    // visible text because the modal may use an input or copy attribute.
+    if (!key) {
+      const domKey = await execJs(`(() => {
+        const sources = [document.body?.innerText || ''];
+        for (const el of document.querySelectorAll('input, textarea, code, pre, [data-clipboard-text], [data-copy], [data-key]')) {
+          sources.push(el.value || el.textContent || el.getAttribute('data-clipboard-text') || el.getAttribute('data-copy') || el.getAttribute('data-key') || '');
+        }
+        for (const source of sources) {
+          const m = String(source).match(/(sk-api-[a-zA-Z0-9\\-_]{20,})/) || String(source).match(/(sk-[a-zA-Z0-9\\-_]{30,})/);
+          if (m) return m[1];
+        }
+        return '';
+      })()`).catch(() => '');
+      if (domKey && !isAssetData(domKey)) key = domKey;
+    }
+  }
   console.log(`[auto-create] minimax: captured ${entries.length} requests`);
 
-  let key = extractKeyFromCaptures(entries, 'minimax');
-
-  // DOM fallback — minimax key format is sk-api-...
+  // MiniMax documents that the newly-created secret is shown once and must be
+  // copied immediately. Some console builds return only a success envelope
+  // from /backend/token and place the secret exclusively behind the result
+  // dialog's Copy control. Use that control only when it is uniquely scoped
+  // to an API-key dialog; never click an ambiguous page-wide copy button.
   if (!key) {
-    const domKey = await execJs(`(() => {
-      const text = document.body.innerText || '';
-      const m = text.match(/(sk-api-[a-zA-Z0-9\-_]{20,})/) || text.match(/(sk-[a-zA-Z0-9\-_]{30,})/);
-      return m ? m[1] : '';
-    })()`).catch(() => '');
-    if (domKey && !isAssetData(domKey)) key = domKey;
+    await execJs(`(() => {
+      window.__okitMinimaxCopiedKey = '';
+      const capture = value => {
+        const text = String(value || '');
+        const match = text.match(/sk-(?:api-)?[A-Za-z0-9_-]{20,}/);
+        if (match) window.__okitMinimaxCopiedKey = match[0];
+      };
+      try {
+        const clipboard = navigator.clipboard;
+        const original = clipboard?.writeText?.bind(clipboard);
+        if (original) {
+          const wrapped = text => { capture(text); return original(text); };
+          try { Object.defineProperty(clipboard, 'writeText', { configurable: true, value: wrapped }); } catch {}
+          try { Object.defineProperty(Object.getPrototypeOf(clipboard), 'writeText', { configurable: true, value: wrapped }); } catch {}
+        }
+      } catch {}
+      document.addEventListener('copy', event => {
+        capture(event.clipboardData?.getData('text/plain') || window.getSelection()?.toString() || '');
+      }, true);
+      return 'minimax-copy-capture-ready';
+    })()`).catch(() => 'minimax-copy-capture-failed');
+    const copyStateRaw = await execJs(`(() => {
+      const visible = el => {
+        const rect = el?.getBoundingClientRect?.();
+        const style = el ? getComputedStyle(el) : null;
+        return Boolean(rect && rect.width > 0 && rect.height > 0 && style?.display !== 'none' && style?.visibility !== 'hidden' && !el.disabled);
+      };
+      const dialogSelectors = '[role="dialog"], [role="alertdialog"], .ant-modal, .modal, [class*="dialog"], [class*="modal"]';
+      const dialogs = [...document.querySelectorAll(dialogSelectors)].filter(visible).filter(dialog => {
+        const text = String(dialog.innerText || '');
+        return /API\\s*Key|密钥|secret|sk-/i.test(text);
+      });
+      const candidates = dialog => [...dialog.querySelectorAll('button, a, [role="button"]')].filter(visible).filter(el => {
+        const label = [el.textContent, el.getAttribute('aria-label'), el.getAttribute('title'), el.id, el.className]
+          .filter(value => typeof value === 'string').join(' ');
+        return /复制|copy/i.test(label);
+      });
+      const matches = dialogs.flatMap(dialog => candidates(dialog).map(control => ({ dialog, control })));
+      if (matches.length !== 1) return JSON.stringify({ ok: false, dialogs: dialogs.length, copies: matches.length });
+      const rect = matches[0].control.getBoundingClientRect();
+      return JSON.stringify({ ok: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    })()`).catch(() => '{"ok":false}');
+    let copyState = {};
+    try { copyState = JSON.parse(copyStateRaw || '{}'); } catch {}
+    if (copyState.ok) {
+      const clicked = await foregroundClick({ x: copyState.x, y: copyState.y, tabId });
+      if (clicked) {
+        await sleep(500);
+        const pageCopied = await execJs('window.__okitMinimaxCopiedKey || ""').catch(() => '');
+        if (pageCopied && !isAssetData(pageCopied)) key = pageCopied;
+        if (!key) {
+          const clipboardRead = await sendCommand('clipboard-read', {
+            workspace: 'okit',
+            clipboardPattern: 'sk-(?:api-)?[A-Za-z0-9_-]{20,}',
+          }, 5000).catch(() => ({ ok: false, data: {} }));
+          const clipboardValue = clipboardRead.ok && clipboardRead.data?.matched ? clipboardRead.data.value : '';
+          if (clipboardValue && !isAssetData(clipboardValue)) key = clipboardValue;
+        }
+      }
+    }
+
   }
 
   if (!key) {
@@ -1802,7 +2035,20 @@ async function createMinimaxKey({ tokenName, run }) {
       .filter(e => /key|token|interface|api/i.test(e.url))
       .map(e => `${e.method} ${e.responseStatus} ${e.url.slice(0, 120)}`)
       .join('\n  ');
-    throw new Error(`minimax 未捕获到 key (抓包 ${entries.length} 条,API 相关:\n  ${apiUrls || '(无)'})`);
+    const responseDiagnostics = describeCapturedResponses(entries)
+      .filter(entry => /backend\/token|key|token|interface|api/i.test(entry.path));
+    const secretFieldDiagnostics = describeCapturedSecretFields(entries)
+      .filter(entry => /backend\/token|key|token|interface|api/i.test(entry.path));
+    const backendResults = describeMinimaxBackendResults(entries);
+    console.log('[auto-create] minimax: safe response diagnostics', JSON.stringify(responseDiagnostics));
+    if (backendResults.length) {
+      console.log('[auto-create] minimax: backend result diagnostics', JSON.stringify(backendResults));
+    }
+    if (secretFieldDiagnostics.length) {
+      console.log('[auto-create] minimax: safe secret-field diagnostics', JSON.stringify(secretFieldDiagnostics));
+    }
+    const backendSummary = backendResults.length ? `,后端结果:${JSON.stringify(backendResults)}` : '';
+    throw new Error(`minimax 未捕获到 key (抓包 ${entries.length} 条,API 相关:\n  ${apiUrls || '(无)'},响应体诊断:${JSON.stringify(responseDiagnostics)}${backendSummary})`);
   }
 
   await closeAutomationWindow();
@@ -1831,26 +2077,30 @@ const AUTO_CREATE_PLATFORMS = [
   // IAM identity credential, not an API key, and its permissions/rotation
   // limits cannot be safely managed by this browser key flow. See
   // docs/volcengine-usage-credentials.md.
-  // Tencent Cloud — unified model platform (TokenHub + LKE merged). API keys
-  // are ordinary Bearer tokens shared across all plans.
+  // Tencent Cloud's normal TokenHub API Key is separate from the Token Plan
+  // key. The normal key is created in API Key management and must be granted
+  // an access scope/model binding there.
   { id: 'tencent', label: '腾讯云', keyHint: 'TENCENT_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
-  // Tencent's general Token Plan and Hy Token Plan use the same model API
-  // key. Keep a separate vault hint so the Model Management family can bind
-  // the Token Plan offering without silently reusing an unrelated key.
-  { id: 'tencent-token-plan', label: '腾讯云 Token Plan', keyHint: 'TENCENT_TOKEN_PLAN_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/apikey', createTexts: ['创建 API Key', '创建API Key', '创建 API 密钥', '创建API密钥', '新建 API 密钥', '新建API密钥'], nameSelectors: ['input[placeholder*="生产环境"]', 'input[placeholder*="Key"]', 'input[placeholder*="密钥名称"]', 'input[placeholder*="API Key"]', 'input[placeholder*="名称"]'], inlineFormScope: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-', missingExistingKeyMessage: '腾讯云 Token Plan 当前没有可复用的订阅 Key；自动化不会创建新的用户 Key。', confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'sk-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
-  { id: 'tencent-usage-credentials', label: '腾讯云 SecretId/SecretKey（用量）', keyHint: 'TENCENT_CLOUD_CREDENTIALS', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/cam/capi', credentialPair: true, createTexts: ['新建密钥', '新建 API 密钥', '创建密钥', '创建 API 密钥', 'Create Key'], nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="备注"]', 'input[name*="name" i]'], confirmTexts: ['确定', '确认', '创建', 'Create'], deleteSecurityVerificationTexts: ['身份验证', '微信扫码验证', 'MFA'], preCreateAcknowledge: { dialogTexts: ['不建议使用主账号 API 访问密钥', '主账号 API 密钥拥有对账号下所有云资源的完全控制权', '创建主账号 API 密钥', '主账号密钥拥有账户所有资源的完全控制权'], checkboxTexts: ['我已知晓使用主账号 API 访问密钥的风险', '我已知晓使用主账号访问 API 密钥的风险，但仍需要创建主账号 API 密钥'], continueTexts: ['继续使用', '仍需创建主账号密钥'] }, postCreateReadAttempts: 6 },
+  // Token Plan keys live on the Token Plan tabs, are reused/copied only, and
+  // are not interchangeable with normal TokenHub API Keys. The official key
+  // format is sk-tp-... .
+  { id: 'tencent-token-plan', label: '腾讯云 Token Plan', keyHint: 'TENCENT_TOKEN_PLAN_API_KEY', groupHint: '腾讯云', mode: 'browser', url: 'https://console.cloud.tencent.com/tokenhub/tokenplan', createTexts: ['生成密钥', '生成 API Key', '生成API Key', '创建 API Key', '创建API Key', '复制'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-tp-', missingExistingKeyMessage: '腾讯云 Token Plan 当前没有可复用的订阅 Key；请在 Token Plan 页面生成或复制 sk-tp- 开头的专属 Key，自动化不会重置已有 Key。', confirmTexts: ['确认', '确定', '创建'], postCreateCopyTexts: ['复制', '复制密钥', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'sk-tp-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['sk-tp-[A-Za-z0-9_-]{10,}'], postCreateCopyFailureMessage: '腾讯云 Token Plan 页面没有读取到 sk-tp- 开头的明文 Key；为避免误存普通 API Key 或重置已有 Key，请在 Token Plan 页面手动复制后重试。' },
+  // Tencent SecretId/SecretKey is a CAM identity credential used by the
+  // Billing API. Keep it manual-only: OKIT must not acknowledge primary-account
+  // risk dialogs, choose an IAM identity, or create a credential it cannot
+  // synchronize after deletion in the cloud console.
   { id: 'zhipu', label: '智谱 AI（国内站）', keyHint: 'ZHIPUAI_API_KEY', groupHint: '智谱AI', mode: 'browser', deleteConfirmWaitAttempts: 20, deleteConfirmTexts: ['确定'], deleteDialogText: '此操作将永久删除该行数据' },
   // Verified on the signed-in Z.AI console: the entry is "Add API Key", then
   // the dialog requires an "API key name" before its "Create" action is enabled.
   { id: 'zai-global', label: 'Z.AI（国际站）', keyHint: 'ZAI_API_KEY', groupHint: 'Z.AI', mode: 'browser', url: 'https://z.ai/manage-apikey/apikey-list', deleteButtonSelector: 'td.ant-table-cell-fix-end > div', deleteConfirmWaitAttempts: 10, deleteConfirmTexts: ['Remove'], deleteDialogText: 'This operation will permanently delete the data', createTexts: ['Add API Key'], nameSelectors: ['input#apiKeyName', 'input[placeholder="API key name"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, postCreateRowCopySelector: 'svg.lucide-copy', postCreateCopyAttempts: 20, postCreateCopyRetryMs: 1000, allowExtensionClipboardRead: true, requirePostCreateCopy: true, keyPatterns: ['[^.\\s]{8,128}\\.[^.\\s]{8,256}'], postCreateCopyFailureMessage: 'Z.AI 已创建 API Key，但列表复制控件没有返回可保存的明文；为避免保存掩码，已停止写入 Vault。' },
-  { id: 'minimax', label: 'MiniMax（国内站）', keyHint: 'MINIMAX_API_KEY', groupHint: 'MiniMax', mode: 'browser', deleteDomRetry: true, deleteConfirmTexts: ['删 除'], deleteDialogText: '此 API Key 将立即被禁用', deleteConfirmWaitAttempts: 10 },
+  { id: 'minimax', label: 'MiniMax（国内站）', keyHint: 'MINIMAX_API_KEY', groupHint: 'MiniMax · 国内', mode: 'browser', deleteDomRetry: true, deleteConfirmTexts: ['删 除'], deleteDialogText: '此 API Key 将立即被禁用', deleteConfirmWaitAttempts: 10 },
   // Token Plan uses a dedicated sk-cp key that is not interchangeable with
   // the ordinary pay-as-you-go API key. The subscribed account exposes the
   // key on the Token Plan page and may already have generated it.
   { id: 'minimax-coding', label: 'MiniMax Token Plan（国内）', keyHint: 'MINIMAX_TOKEN_PLAN_API_KEY', groupHint: 'MiniMax · 国内', mode: 'browser', url: 'https://platform.minimaxi.com/console/plan', createTexts: ['复制', '复 制', 'Copy'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-cp-', missingExistingKeyMessage: 'MiniMax Token Plan（国内）页面没有显示可复制的订阅 Key。请确认账户已获得订阅 Key；自动化不会点击“重置 Key”。', postCreateCopyTexts: ['复制', '复 制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'sk-cp-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-cp-[A-Za-z0-9_-]{10,}'], postCreateCopyFailureMessage: 'MiniMax Token Plan（国内）页面已打开，但没有从订阅 Key 旁的复制按钮读取到明文。自动化不会点击“重置 Key”，以免现有 Key 失效。' },
   // Verified on the signed-in international console: "Create new API Key"
   // opens a named form whose final action is simply "Create".
-  { id: 'minimax-global', label: 'MiniMax（国际站）', keyHint: 'MINIMAX_GLOBAL_API_KEY', groupHint: 'MiniMax', mode: 'browser', url: 'https://platform.minimax.io/user-center/basic-information/interface-key', deleteDomRetry: true, createTexts: ['Create new API Key'], deleteDisplayNameLength: 45, deleteConfirmTexts: ['Revoke'], deleteDialogText: 'This API Key will be immediately disabled', nameSelectors: ['input#token_name', 'input[placeholder="Please enter a key name"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, keyPatterns: ['sk-(?:api-)?[A-Za-z0-9_-]{20,}'] },
+  { id: 'minimax-global', label: 'MiniMax（国际站）', keyHint: 'MINIMAX_GLOBAL_API_KEY', groupHint: 'MiniMax · 国际', mode: 'browser', url: 'https://platform.minimax.io/user-center/basic-information/interface-key', deleteDomRetry: true, createTexts: ['Create new API Key'], deleteDisplayNameLength: 45, deleteConfirmTexts: ['Revoke'], deleteDialogText: 'This API Key will be immediately disabled', nameSelectors: ['input#token_name', 'input[placeholder="Please enter a key name"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, keyPatterns: ['sk-(?:api-)?[A-Za-z0-9_-]{20,}'] },
   // The international Token Plan mirrors the mainland console: one account
   // subscription key is shown on Plan details and copied in place. Never use
   // the ordinary API Keys page or click Reset key during automatic capture.
@@ -1865,22 +2115,23 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified against the signed-in Kimi international console. The form
   // requires both a name and a project; only its visible `default` project is
   // eligible for automatic selection.
-  { id: 'moonshot', label: 'Moonshot', keyHint: 'MOONSHOT_API_KEY', groupHint: 'Moonshot', mode: 'browser', url: 'https://platform.kimi.ai/console/api-keys', createTexts: ['Create API Key'], createWaitAttempts: 10, nameMaxLength: 30, nameSelectors: ['input[placeholder*="Maximum 32"]'], defaultProjectLabel: 'default', confirmTexts: ['OK'], confirmNeedsForeground: true, confirmKeyboardFallback: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value^="sk-"]'], deleteConfirmWaitAttempts: 10, deleteConfirmTexts: ['Confirm'], deleteConfirmSelector: 'button.ant-btn-primary', deleteDialogText: 'Confirm Delete API Key?', deleteConfirmDomRetry: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
-  // The current Kimi Code console exposes a subscription credential, not the
-  // ordinary API-key creation form. Reuse/copy only; never create or reset a
-  // live Code-plan key during the vault check.
-  { id: 'moonshot-coding-plan', label: 'Moonshot Coding Plan', keyHint: 'MOONSHOT_CODING_PLAN_API_KEY', groupHint: 'Moonshot', mode: 'browser', url: 'https://www.kimi.com/code/console', preNavigationTexts: ['API Keys', 'API 密钥', '密钥管理'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-', missingExistingKeyMessage: 'Moonshot/Kimi Code 当前没有可复用的订阅 Key；自动化不会创建或重置新的用户 Key。', postCreateCopyTexts: ['Copy key', 'Copy', '复制密钥', '复制'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
+  { id: 'moonshot', label: 'Moonshot API 平台', keyHint: 'MOONSHOT_API_KEY', groupHint: 'Moonshot', mode: 'browser', url: 'https://platform.kimi.ai/console/api-keys', createTexts: ['Create API Key'], createWaitAttempts: 10, nameMaxLength: 30, nameSelectors: ['input[placeholder*="Maximum 32"]'], defaultProjectLabel: 'default', confirmTexts: ['OK'], confirmNeedsForeground: true, confirmKeyboardFallback: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 5, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', 'input[value^="sk-"]'], deleteConfirmWaitAttempts: 10, deleteConfirmTexts: ['Confirm'], deleteConfirmSelector: 'button.ant-btn-primary', deleteDialogText: 'Confirm Delete API Key?', deleteConfirmDomRetry: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Keep the stable ID for existing configurations. The Kimi product uses the
   // mainland API console, not the separate Kimi Code subscription page.
-  { id: 'kimi-coding', label: 'Kimi（国内站）', keyHint: 'KIMI_API_KEY', groupHint: 'Kimi（国内站）', mode: 'browser', url: 'https://platform.kimi.com/console/api-keys', createTexts: ['新建 API Key'], createWaitAttempts: 10, nameMaxLength: 32, nameSelectors: ['input[placeholder*="最多输入32"]'], defaultProjectLabel: 'default', confirmTexts: ['确定', '确 定'], confirmByExactText: true, confirmNeedsForeground: false, confirmKeyboardFallback: false, confirmForceKeyboardFallback: false, postCreateDomReadAttempts: 20, postCreateCopyTexts: ['复制', 'Copy', 'copy'], postCreateCopyAttempts: 20, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 10, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] input', 'input[value^="sk-"]'], deleteConfirmWaitAttempts: 10, deleteConfirmTexts: ['确 认', '确认'], deleteDialogText: '确定删除 API Key', keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], postCreateCopyFailureMessage: 'Kimi API Key 已创建，但没有从创建结果的复制按钮读取到一次性明文；请在结果弹窗中手动点击复制后重试。' },
+  { id: 'kimi-coding', label: 'Kimi（国内站）', keyHint: 'KIMI_API_KEY', groupHint: 'Kimi', mode: 'browser', url: 'https://platform.kimi.com/console/api-keys', createTexts: ['新建 API Key'], createWaitAttempts: 10, nameMaxLength: 32, nameSelectors: ['input[placeholder*="最多输入32"]'], defaultProjectLabel: 'default', confirmTexts: ['确定', '确 定'], confirmByExactText: true, confirmNeedsForeground: false, confirmKeyboardFallback: false, confirmForceKeyboardFallback: false, postCreateDomReadAttempts: 20, postCreateCopyTexts: ['复制', 'Copy', 'copy'], postCreateCopyAttempts: 20, postCreateCopyRetryMs: 800, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 10, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] input', 'input[value^="sk-"]'], deleteConfirmWaitAttempts: 10, deleteConfirmTexts: ['确 认', '确认'], deleteDialogText: '确定删除 API Key', keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], postCreateCopyFailureMessage: 'Kimi API Key 已创建，但没有从创建结果的复制按钮读取到一次性明文；请在结果弹窗中手动点击复制后重试。' },
   // Kimi Code subscription keys are managed separately from Kimi Open
-  // Platform keys, are shown only once, and must not reuse KIMI_API_KEY.
-  { id: 'kimi-coding-plan', label: 'Kimi（国际站）', keyHint: 'KIMI_CODE_API_KEY', groupHint: 'Kimi（国际站）', mode: 'browser', url: 'https://www.kimi.com/code/console', preNavigationTexts: ['API Keys', 'API 密钥', '密钥管理'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-', missingExistingKeyMessage: 'Kimi Code 当前没有可复用的订阅 Key；自动化不会创建或重置新的用户 Key。', postCreateCopyTexts: ['Copy key', 'Copy', '复制密钥', '复制'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], postCreateCopyFailureMessage: 'Kimi Code 订阅 Key 的复制控件没有返回可保存的明文；自动化不会创建或重置 Key。' },
+  // Platform keys. The console allows up to five named keys and only shows a
+  // newly-created secret once, so create a uniquely named key and capture its
+  // one-time result instead of trying to reuse a masked row.
+  { id: 'kimi-coding-plan', label: 'Kimi Coding Plan', keyHint: 'KIMI_CODE_API_KEY', defaultKeyName: 'KIMI_CODING_PLAN_API_KEY', groupHint: 'Kimi', mode: 'browser', url: 'https://www.kimi.com/code/console', loginRequiredOnPublicRoot: true, createDirectSelector: 'button.create-api-btn', createSelectors: ['button.create-api-btn'], createTexts: ['Create New API Key', 'Create API Key', '创建新的 API Key', '创建新 API Key', '创建 API Key', '新建 API Key'], createWaitAttempts: 12, nameMaxLength: 32, nameSelectors: ['input[placeholder*="名称"]', 'input[placeholder*="name" i]', 'input[name*="name" i]', 'textarea[placeholder*="名称"]', 'textarea[placeholder*="name" i]'], confirmTexts: ['Create', 'Create API Key', '创建', '创建 API Key', '新建 API Key', '新建', '确定'], confirmSelectors: ['.modal-mask .modal-actions button.kimi-button.primary'], allowConfirmCreateText: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 8, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] input[type="text"]', '[role="dialog"] code', '[role="dialog"] [data-clipboard-text]', 'input[value^="sk-"]', 'code'], postCreateCopyTexts: ['Copy key', 'Copy', '复制密钥', '复制'], postCreateCopyAttempts: 12, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'], postCreateCopyFailureMessage: 'Kimi Code API Key 已创建，但创建结果的复制控件没有返回可保存的明文；该 Key 只在创建时显示一次，请在 Kimi Code 控制台手动复制后再录入 Vault。' },
   // Verified in the signed-in Bailian console: the default workspace is
   // already selected; fill its optional description textarea before "确定".
   { id: 'qwen', label: '阿里云百炼', keyHint: 'DASHSCOPE_API_KEY', groupHint: '阿里云百炼', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key', deleteReadyAttempts: 20, deleteTexts: ['删除'], deleteNoConfirm: true, deleteNoConfirmDomRetry: true, deleteNoConfirmReload: true, deleteNoConfirmReloadWaitMs: 900, createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
   // 阿里云百炼 Coding Plan — 套餐专属 key，同一个控制台但独立管理页
-  { id: 'qwen-coding', label: '阿里云百炼 Coding Plan', keyHint: 'DASHSCOPE_CODING_API_KEY', groupHint: '阿里云百炼 Coding Plan', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key?plan=coding', deleteReadyAttempts: 20, deleteTexts: ['删除'], deleteNoConfirm: true, deleteNoConfirmDomRetry: true, deleteNoConfirmReload: true, deleteNoConfirmReloadWaitMs: 900, createTexts: ['创建API Key'], createWaitAttempts: 10, nameSelectors: ['textarea#description'], confirmTexts: ['确定'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, keyPatterns: ['sk-[A-Za-z0-9._-]{20,}'] },
+  // Alibaba Coding Plan supports one dedicated sk-sp- key per subscription.
+  // Reuse/copy it instead of submitting a second create action; the provider
+  // exposes Reset separately and resetting would invalidate existing clients.
+  { id: 'qwen-coding', label: '阿里云百炼 Coding Plan', keyHint: 'DASHSCOPE_CODING_API_KEY', groupHint: '阿里云百炼 Coding Plan', mode: 'browser', url: 'https://bailian.console.aliyun.com/?tab=model#/api-key?plan=coding', createTexts: ['复制', 'Copy'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'sk-sp-', missingExistingKeyMessage: '阿里云百炼 Coding Plan 当前没有可复用的专属 Key；请在 Coding Plan 页面获取或复制 sk-sp- 开头的 Key，自动化不会点击“重置 API Key”。', postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'sk-sp-', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 6, keyPatterns: ['sk-sp-[A-Za-z0-9._-]{20,}'], postCreateCopyFailureMessage: '阿里云百炼 Coding Plan 已有专属 Key，但没有读取到可保存的明文；自动化不会重置 Key，请在 Coding Plan 页面手动复制后重试。' },
   // Token Plan keys are generated on the signed-in My Subscription page and
   // start with sk-sp-. Reuse an existing masked key and copy it; do not reset
   // a live subscription key just to automate vault setup.
@@ -1889,7 +2140,10 @@ const AUTO_CREATE_PLATFORMS = [
   // surface. The signed-in account page is /profile/accessKey; RAM-user keys
   // are created from 身份管理 > 用户 > 凭证管理, so this flow must never guess
   // which RAM user to mutate.
-  { id: 'aliyun-usage-credentials', label: '阿里云 AccessKey（用量）', keyHint: 'ALIYUN_BILLING_CREDENTIALS', groupHint: '阿里云百炼', mode: 'browser', url: 'https://ram.console.aliyun.com/profile/accessKey', credentialPair: true, createWaitAttempts: 20, formReadyAttempts: 10, createTexts: ['创建 AccessKey', '创建AccessKey', '创建 Access Key', '创建访问密钥', 'Create AccessKey', 'Create Access Key'], preCreateAcknowledge: { dialogTexts: ['创建主账号 AccessKey', '主账号 AccessKey 具有所有权限', '不建议使用主账号 AccessKey', 'AccessKey 使用建议'], checkboxTexts: ['我确认知晓使用主账号 AccessKey 的安全风险', '我确认必须创建 AccessKey', '我已知晓'], continueTexts: ['继续使用主账号 AccessKey', '继续创建', '确认创建'] }, confirmTexts: ['确定', '确认', '创建', '继续', 'Create'], postCreateReadAttempts: 8 },
+  // Alibaba Cloud AccessKey is an account-level RAM credential. Keep it out
+  // of browser auto-create so OKIT never acknowledges a root-account risk
+  // dialog or creates an identity credential on the user's behalf. The usage
+  // adapter continues to accept manually stored, least-privilege RAM keys.
   // SiliconFlow exposes OpenAI-compatible Bearer keys from its account page.
   { id: 'siliconflow', label: '硅基流动', keyHint: 'SILICONFLOW_API_KEY', groupHint: '硅基流动', mode: 'browser', url: 'https://cloud.siliconflow.cn/account/ak', createTexts: ['新建API密钥', '新建 API 密钥', '创建API密钥', '创建 API 密钥'], nameSelectors: ['input[placeholder*="密钥名称"]', 'input[placeholder*="请输入描述"]', 'input[placeholder*="描述"]', 'input[placeholder*="名称"]'], confirmTexts: ['新建密钥'], deleteDomFirst: true, deleteConfirmWaitAttempts: 10, deleteDialogText: '确认删除密钥', deleteConfirmInputFromDialog: true, deleteConfirmTexts: ['确认删除'], postCreateDomReadAttempts: 5, postCreateReadAttempts: 5, postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyAttempts: 8, postCreateCopyRetryMs: 500, allowExtensionClipboardRead: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
   // Verified on the signed-in BCE API Key page: clicking the list toolbar
@@ -1902,7 +2156,9 @@ const AUTO_CREATE_PLATFORMS = [
   // through the page's verified Copy action. Reuse it when already present;
   // do not reset a live subscription key.
   { id: 'qianfan-coding', label: '百度千帆 Token Plan', keyHint: 'QIANFAN_CODING_PLAN_API_KEY', groupHint: '百度千帆', mode: 'browser', url: 'https://console.bce.baidu.com/qianfan/resource/token-plan', createTexts: ['点击生成', '复制'], createWaitAttempts: 12, creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'bce-v3/', postCreateCopyTexts: ['复制'], postCreateCopyByMaskedKeyPrefix: 'bce-v3/', postCreateCopyAttempts: 10, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['bce-v3/[A-Za-z0-9_./=-]{20,}'], existingMaskedCopyFailureMessage: '百度千帆 Token Plan 已存在专属 API Key，但复制控件没有返回可保存的明文；自动化不会点击重置，请在 Token Plan 页面手动点击复制后重试。', postCreateCopyFailureMessage: '百度千帆 Token Plan 已打开，但没有从专属 API Key 旁的复制按钮读取到明文；自动化不会点击重置，请在 Token Plan 页面手动点击复制后重试。' },
-  { id: 'baidu-usage-credentials', label: '百度 BCE AK/SK（用量）', keyHint: 'QIANFAN_BCE_CREDENTIALS', groupHint: '百度千帆', mode: 'browser', url: 'https://console.bce.baidu.com/iam/#/iam/accesslist', credentialPair: true, createTexts: ['创建Access Key', '创建 Access Key', '创建 AccessKey', '创建AccessKey', '创建 AK/SK', '创建密钥', '新建密钥'], preCreateAcknowledge: { dialogTexts: ['不建议使用主账号 AccessKey', '主账号 AccessKey 具有所有权限'], checkboxTexts: ['我确认知晓使用主账号 AccessKey 的安全风险'], continueTexts: ['继续使用主账号 AccessKey'] }, nameSelectors: ['input[placeholder*="描述"]', 'input[placeholder*="名称"]', 'input[name*="name" i]'], confirmTexts: ['确定', '确认', '创建', '继续'], postCreateReadAttempts: 6 },
+  // BCE AK/SK is likewise an IAM identity credential for finance APIs. Users
+  // create a least-privilege IAM credential themselves and save it manually;
+  // browser auto-create must never cross the primary-account risk prompt.
   // MiMo serves the public product page and Console from one origin. Going to
   // the homepage first leaves automation at marketing navigation; the real
   // signed-in API key screen is this exact Console route.
@@ -1912,10 +2168,11 @@ const AUTO_CREATE_PLATFORMS = [
   // Token Plan keys are managed on MiMo's separate subscription page. The
   // page reveals an existing dedicated key through a verified "复制/Copy"
   // action; automatic checks never create or reset a live subscription key.
-  { id: 'xiaomi-coding', label: '小米 MiMo Token Plan', keyHint: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY', groupHint: '小米 MiMo Token Plan', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/plan-manage', createTexts: ['创建 API Key', 'Create API Key'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'tp-', missingExistingKeyMessage: '小米 MiMo Token Plan 当前没有可复用的订阅 Key；自动化不会创建或重置新的用户 Key。', existingMaskedCopyFailureMessage: '小米 MiMo Token Plan 已存在 API Key，但复制控件没有返回可保存的明文；为避免重复创建，请在订阅管理页面手动点击复制后重试。An existing Token Plan API Key was found, but its Copy control returned no storable plaintext; to avoid a duplicate, copy it manually on the plan page and retry.', postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'tp-', postCreateCopyAttempts: 8, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['tp-[A-Za-z0-9_-]{5,}'], postCreateCopyFailureMessage: '小米 MiMo Token Plan 已有订阅 Key，但没有读取到可保存的明文；自动化不会创建或重置 Key。' },
+  { id: 'xiaomi-coding', label: '小米 MiMo Token Plan', keyHint: 'XIAOMI_MIMO_TOKEN_PLAN_API_KEY', groupHint: '小米 MiMo', mode: 'browser', url: 'https://platform.xiaomimimo.com/console/plan-manage', createTexts: ['创建 API Key', 'Create API Key'], creationActionOnly: true, reuseExistingMaskedKey: true, existingKeyRequired: true, existingMaskedKeyPrefix: 'tp-', missingExistingKeyMessage: '小米 MiMo Token Plan 当前没有可复用的订阅 Key；自动化不会创建或重置新的用户 Key。', existingMaskedCopyFailureMessage: '小米 MiMo Token Plan 已存在 API Key，但复制控件没有返回可保存的明文；为避免重复创建，请在订阅管理页面手动点击复制后重试。An existing Token Plan API Key was found, but its Copy control returned no storable plaintext; to avoid a duplicate, copy it manually on the plan page and retry.', postCreateCopyTexts: ['复制', 'Copy'], postCreateCopyByMaskedKeyPrefix: 'tp-', postCreateCopyAttempts: 8, postCreateCopyRetryMs: 700, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateReadAttempts: 5, keyPatterns: ['tp-[A-Za-z0-9_-]{5,}'], postCreateCopyFailureMessage: '小米 MiMo Token Plan 已有订阅 Key，但没有读取到可保存的明文；自动化不会创建或重置 Key。' },
   // Verified on the signed-in interface-key page: creation requires a name in
-  // the "最多输入20个字" field before the "确认" action becomes enabled.
-  { id: 'stepfun', label: '阶跃星辰（StepFun）', keyHint: 'STEPFUN_API_KEY', groupHint: 'StepFun', mode: 'browser', url: 'https://platform.stepfun.com/interface-key', createTexts: ['创建新的密钥'], nameMaxLength: 20, nameSelectors: ['input[placeholder*="最多输入20"]'], confirmTexts: ['确认'], postCreateReadAttempts: 5, keyPatterns: ['[A-Za-z0-9_-]{32,}'] },
+  // the current "请输入密钥名称" field (older builds said "最多输入20个字")
+  // before the "确认" action becomes enabled.
+  { id: 'stepfun', label: '阶跃星辰（StepFun）', keyHint: 'STEPFUN_API_KEY', groupHint: '阶跃星辰', mode: 'browser', url: 'https://platform.stepfun.com/interface-key', createTexts: ['创建新的密钥'], formReadyAttempts: 8, nameMaxLength: 20, nameSelectors: ['input[placeholder="请输入密钥名称"]', 'input[placeholder*="请输入密钥名称"]', 'input[placeholder*="最多输入20"]'], requireNameInput: true, confirmAfterNameInput: true, confirmByExactText: true, confirmTexts: ['确认'], postCreateDomReadAttempts: 8, postCreateReadAttempts: 5, keyPatterns: ['[A-Za-z0-9_-]{32,}'] },
   // The signed-in xAI console redirects / to a team-scoped Dashboard route.
   // Follow the real sidebar link so the opaque team ID is never hard-coded.
   // Its create dialog uses the same "Create API key" label for its final
@@ -1931,11 +2188,43 @@ const AUTO_CREATE_PLATFORMS = [
   // Verified in the workspace keys screen: "New Key" opens a form whose
   // required name is #name and final submit action is "Create".
   { id: 'openrouter', label: 'OpenRouter', keyHint: 'OPENROUTER_API_KEY', groupHint: 'OpenRouter', mode: 'browser', url: 'https://openrouter.ai/keys', deleteReadyAttempts: 20, deleteMenuTexts: ['Row actions'], deleteMenuGlobal: true, deleteTexts: ['Delete'], deleteConfirmTexts: ['Delete'], createTexts: ['New Key'], nameSelectors: ['input#name', 'input[placeholder*="Chatbot Key"]'], confirmTexts: ['Create'], postCreateReadAttempts: 5, keyPatterns: ['sk-or-v1-[A-Za-z0-9_-]{20,}'] },
+  // Account credit totals are exposed only to a Management Key. OpenRouter
+  // does not offer a billing-only permission selector for this key type, so
+  // the Vault UI must disclose that it has broad key-management capability.
+  { id: 'openrouter-management', label: 'OpenRouter Management Key（用量）', keyHint: 'OPENROUTER_MANAGEMENT_KEY', groupHint: 'OpenRouter', mode: 'browser', permissionNote: 'openrouter-management', url: 'https://openrouter.ai/settings/management-keys', deleteReadyAttempts: 20, deleteMenuTexts: ['Row actions'], deleteMenuGlobal: true, deleteTexts: ['Delete'], deleteConfirmTexts: ['Delete'], createTexts: ['Create Management Key', 'Create management key', 'New Management Key', 'New management key', 'New Key'], nameSelectors: ['input#name', 'input[placeholder*="name" i]', 'input[name*="name" i]'], confirmTexts: ['Create Management Key', 'Create management key', 'Create'], allowConfirmCreateText: true, postCreateReadAttempts: 6, postCreateCopyTexts: ['Copy Management Key', 'Copy key', 'Copy'], postCreateCopyAttempts: 8, postCreateCopyRetryMs: 500, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, keyPatterns: ['sk-or-v1-[A-Za-z0-9_-]{20,}'] },
   // OpenCode Go keys are issued from the signed-in OpenCode workspace after a
   // Go subscription is active. The auth route resolves the current workspace,
   // so no workspace identifier is hard-coded here.
   { id: 'opencode-go', label: 'OpenCode Go', keyHint: 'OPENCODE_API_KEY', groupHint: 'OpenCode Go', mode: 'browser', url: 'https://opencode.ai/auth', deletePreNavigationTexts: ['API 密钥'], deletePreNavigationUseHref: true, deleteReadyAttempts: 20, deleteTexts: ['删除'], deleteNoConfirm: true, deleteNoConfirmDomRetry: true, deleteNoConfirmReload: true, deleteNoConfirmReloadWaitMs: 900, preNavigationTexts: ['API 密钥', 'API Keys'], createTexts: ['创建 API 密钥', 'Create API Key', 'Create API key'], nameSelectors: ['[role="dialog"] input[placeholder*="名称"]', '[role="dialog"] input[placeholder*="name" i]', '[role="dialog"] input[name*="name" i]', 'input[placeholder*="名称"]', 'input[placeholder*="name" i]'], confirmTexts: ['创建 API 密钥', 'Create API Key', 'Create API key', '创建', 'Create'], allowConfirmCreateText: true, postCreateKeySelectors: ['[role="dialog"] input[readonly]', '[role="dialog"] code', '[role="dialog"] [data-clipboard-text]', '[role="dialog"] input[type="text"]', 'input[value^="sk-"]', 'code'], postCreateCopyTexts: ['复制密钥', '复制', 'Copy API key', 'Copy key', 'Copy'], postCreateCopyAttempts: 10, postCreateCopyRetryMs: 500, postCreateCopyNeedsForeground: true, allowExtensionClipboardRead: true, postCreateDomReadAttempts: 10, postCreateReadAttempts: 6, captureBeforeConfirm: true, keyPatterns: ['sk-[A-Za-z0-9_-]{20,}'] },
 ];
+
+// Provider-side credential limits. These are deliberately metadata and
+// warnings, not a local Vault count: users can create/delete keys outside
+// OKIT and there is no cross-platform synchronization API. The actual hard
+// stop happens when the provider returns a limit error; reuse-only plans are
+// blocked from submitting a duplicate create action above.
+const AUTO_CREATE_KEY_LIMITS = {
+  cloudflare: [{ max: 50, scope: 'user', kind: 'hard' }],
+  tencent: [{ max: 50, scope: 'account', kind: 'default' }],
+  'tencent-token-plan': [{ max: 1, scope: 'personal', kind: 'hard' }],
+  minimax: [{ max: 10, scope: 'account', kind: 'observed' }],
+  deepseek: [{ max: 100, scope: 'account', kind: 'hard' }],
+  moonshot: [{ max: 50, scope: 'organization', kind: 'default' }],
+  'kimi-coding-plan': [{ max: 5, scope: 'coding-plan', kind: 'hard' }],
+  qwen: [
+    { max: 50, scope: 'region', kind: 'hard' },
+    { max: 20, scope: 'us-region', kind: 'hard' },
+  ],
+  'qwen-coding': [{ max: 1, scope: 'coding-plan', kind: 'hard' }],
+  'qwen-token-plan': [{ max: 1, scope: 'seat', kind: 'hard' }],
+  qianfan: [{ max: 200, scope: 'account-or-subuser', kind: 'hard' }],
+  stepfun: [{ max: 10, scope: 'account', kind: 'hard' }],
+};
+
+for (const platform of AUTO_CREATE_PLATFORMS) {
+  const keyLimits = AUTO_CREATE_KEY_LIMITS[platform.id];
+  if (keyLimits) platform.keyLimits = keyLimits;
+}
 
 const AUTO_CREATE_PLATFORM_MAP = new Map(AUTO_CREATE_PLATFORMS.map(platform => [platform.id, platform]));
 
@@ -1972,11 +2261,38 @@ function keyFromText(text, platform) {
 
 async function clickCreateAction(platform) {
   const createTexts = platform.createTexts || CREATE_ACTION_STRONG_PHRASES;
+  const createSelectors = platform.createSelectors || [];
+  if (platform.createDirectSelector) {
+    const directRaw = await execJs(`(() => {
+      const selector = ${JSON.stringify(platform.createDirectSelector)};
+      const phrases = ${JSON.stringify(createTexts)};
+      const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
+      const target = document.querySelector(selector);
+      if (!target) return JSON.stringify({ error: 'not-found' });
+      const rect = target.getBoundingClientRect();
+      const style = getComputedStyle(target);
+      if (!(rect.width > 0 && rect.height > 0) || style.visibility === 'hidden' || style.display === 'none' || target.disabled) {
+        return JSON.stringify({ error: 'not-visible-or-disabled' });
+      }
+      const label = normalize(target.textContent || '');
+      const verifiedText = phrases.some(phrase => {
+        const expected = normalize(phrase);
+        return expected && (label === expected || label.includes(expected));
+      });
+      if (!verifiedText) return JSON.stringify({ error: 'text-mismatch', text: (target.textContent || '').trim().slice(0, 120) });
+      target.click();
+      return JSON.stringify({ ok: true, text: (target.textContent || '').trim().slice(0, 120), selector });
+    })()`).catch(() => '{"error":"direct-click-failed"}');
+    let directState = {};
+    try { directState = JSON.parse(directRaw || '{}'); } catch { directState = {}; }
+    if (directState.ok) return directState;
+  }
   // Phase 1: read-only. The browser only describes visible, enabled controls
   // and their stable page index; it never scores or clicks. All matching is
   // decided in Node by resolveActionCandidate against platform.createTexts.
   const collectRaw = await execJs(`(() => {
     const phrases = ${JSON.stringify(createTexts)};
+    const selectors = ${JSON.stringify(createSelectors)};
     const normalize = value => String(value == null ? '' : value).replace(/[\\s\\u3000]+/g, ' ').trim().toLowerCase();
     const visibleEnabled = el => {
       const r = el.getBoundingClientRect();
@@ -1992,6 +2308,9 @@ async function clickCreateAction(platform) {
         ariaLabel: (el.getAttribute('aria-label') || '').trim().slice(0, 120),
         title: (el.title || '').trim().slice(0, 120),
         exactPhraseMatch: Array.isArray(phrases) && phrases.some(phrase => label === normalize(phrase)),
+        selectorMatch: Array.isArray(selectors) && selectors.some(selector => {
+          try { return el.matches(selector); } catch { return false; }
+        }),
       };
     });
     return JSON.stringify({
@@ -2126,7 +2445,7 @@ async function createGenericBrowserKey({ tokenName, platform, run }) {
     })()`).catch(() => 'not-found');
     await sleep(350);
   }
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification(platform)) {
     await waitForInteractiveVerification({ run, platform, stage: 'before-create' });
   }
   if (platform.id === 'openrouter') {
@@ -2258,12 +2577,16 @@ async function createGenericBrowserKey({ tokenName, platform, run }) {
       throw new Error(platform.existingMaskedCopyFailureMessage || '已有 API Key，但复制控件没有返回可保存的明文');
     }
     if (platform.existingKeyRequired) {
+      const loginState = await detectLoginRequired(platform);
+      if (loginState.loginRequired) {
+        throw new Error(`需要登录 ${platform.label || platform.id}`);
+      }
       throw new Error(platform.missingExistingKeyMessage || '当前页面没有可复制的 API Key');
     }
   }
 
   let createState = await clickCreateAction(platform);
-  if (await detectInteractiveVerification()) {
+  if (await detectInteractiveVerification(platform)) {
     await waitForInteractiveVerification({ run, platform, stage: 'create-action' });
   }
   // The Kimi console first renders its organization/navigation shell and only
@@ -2562,7 +2885,7 @@ async function createGenericBrowserKey({ tokenName, platform, run }) {
     await sleep(250);
   }
   if (platform.requireNameInput && !nameFillState.filled) {
-    throw new Error('Anthropic 创建框的密钥名称输入框未识别，尚未提交创建');
+    throw new Error(`${platform.label || platform.id} 创建框的密钥名称输入框未识别，尚未提交创建`);
   }
 
   // Do not misreport a disabled platform prerequisite as a failed click or a
@@ -3768,7 +4091,11 @@ async function createGenericBrowserKey({ tokenName, platform, run }) {
   // Some consoles create the credential first and render its one-time secret
   // a few seconds later. Keep reading the same creation attempt rather than
   // submitting again, which would create duplicate keys.
-  const readAttempts = Math.max(1, Number(platform.postCreateReadAttempts) || 1);
+  // A provider config that omits an explicit retry budget must still tolerate
+  // the shared CDP response-body race. Keep at least three reads for every
+  // generic flow; a successful key returns immediately and no second create
+  // action is ever submitted.
+  const readAttempts = Math.max(3, Number(platform.postCreateReadAttempts) || 0);
   const entries = [];
   for (let attempt = 0; attempt < readAttempts; attempt += 1) {
     await sleep(attempt === 0 ? 2500 : 1500);
@@ -3985,9 +4312,10 @@ async function recoverLatestZaiGlobalKey() {
 function listAutoCreatePlatforms(_req, res) {
   // Do not expose selectors or implementation details to the browser.
   res.json({
-    platforms: AUTO_CREATE_PLATFORMS.map(({ id, label, keyHint, groupHint, mode, permissionNote }) => ({
-      id, label, keyHint, groupHint, mode,
+    platforms: AUTO_CREATE_PLATFORMS.map(({ id, label, keyHint, defaultKeyName, groupHint, mode, permissionNote, keyLimits }) => ({
+      id, label, keyHint, ...(defaultKeyName ? { defaultKeyName } : {}), groupHint, mode,
       ...(permissionNote ? { permissionNote } : {}),
+      ...(keyLimits ? { keyLimits } : {}),
     })),
   });
 }
@@ -4086,7 +4414,7 @@ async function autoCreateKey(req, res) {
       if (/not connected|disconnected|timed out/i.test(msg)) {
         return res.status(503).json({ success: false, error: msg });
       }
-      const loginState = await detectLoginRequired();
+      const loginState = await detectLoginRequired(platformConfig);
       if (isLoginFailure(msg) || loginState.loginRequired) {
         const browserFocused = await focusAutomationWindow();
         const label = platformConfig?.label || platform;
@@ -4099,6 +4427,10 @@ async function autoCreateKey(req, res) {
             ? `需要登录 ${label}。已将自动化浏览器窗口置前，请完成登录后回到 OKIT 重试。`
             : `需要登录 ${label}。请在 OKIT 自动化浏览器窗口完成登录后重试。`,
         });
+      }
+      const keyLimitError = classifyKeyCreationLimitFailure(msg, platformConfig?.label || platform, platformConfig?.keyLimits);
+      if (keyLimitError) {
+        return res.status(409).json({ success: false, error: keyLimitError, errorKind: 'platform_key_limit' });
       }
       return res.status(500).json({ success: false, error: `${platform} auto-create failed: ${msg}` });
     }
@@ -5382,7 +5714,9 @@ module.exports = {
   AUTO_CREATE_PLATFORMS,
   BROWSER_LOGIN_VERIFICATION_PLATFORMS,
   isLoginFailure,
+  classifyKeyCreationLimitFailure,
   isLoginUrl,
+  classifyInteractiveVerificationState,
   isOpenRouterPublicPage,
   hasOpenRouterPublicNavigation,
   extractKeyFromCaptures,

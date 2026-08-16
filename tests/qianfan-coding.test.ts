@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  QIANFAN_CODING_PROBE_MODEL,
   isQianfanCodingEndpoint,
+  isQianfanCodingAnthropicEndpoint,
   qianfanCodingErrorCode,
   qianfanCodingErrorMessage,
   qianfanCodingModels,
@@ -15,10 +17,24 @@ describe('Qianfan Coding Plan endpoint helpers', () => {
     expect(isQianfanCodingEndpoint('https://qianfan.baidubce.com/v2')).toBe(false);
   });
 
+  it('recognizes the dedicated Anthropic-compatible Token Plan URL', () => {
+    expect(isQianfanCodingAnthropicEndpoint('https://qianfan.baidubce.com/anthropic/coding')).toBe(true);
+    expect(isQianfanCodingAnthropicEndpoint('https://qianfan.baidubce.com/anthropic/tokenplan/personal')).toBe(true);
+    expect(isQianfanCodingAnthropicEndpoint('https://qianfan.baidubce.com/anthropic')).toBe(false);
+    expect(QIANFAN_CODING_PROBE_MODEL).toBe('qianfan-code-latest');
+  });
+
   it('extracts the provider error code without exposing credentials', () => {
     expect(qianfanCodingErrorCode(JSON.stringify({ error: { code: 'coding_plan_api_key_required' } })))
       .toBe('coding_plan_api_key_required');
     expect(qianfanCodingErrorCode('not-json')).toBe('');
+    expect(qianfanCodingErrorCode(JSON.stringify({
+      type: 'error',
+      error: {
+        type: 'api_error',
+        message: "Error code: 403 - {'error': {'code': 'token_plan_person_model_not_supported', 'message': 'unsupported'}}",
+      },
+    }))).toBe('token_plan_person_model_not_supported');
   });
 
   it('explains the dedicated-key failure instead of saying the key is generically invalid', () => {

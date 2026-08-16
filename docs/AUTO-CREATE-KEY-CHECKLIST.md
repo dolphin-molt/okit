@@ -1,6 +1,6 @@
 # 自动创建密钥检测清单
 
-这份清单对应 `AUTO_CREATE_PLATFORMS` 的当前 35 个入口。检测器使用唯一的
+这份清单对应 `AUTO_CREATE_PLATFORMS` 的当前 32 个入口。检测器使用唯一的
 `OKIT_AUTOCHECK_*` 名称，调用 OKIT 实际自动创建接口；新建型密钥成功后必须
 调用删除接口并确认页面上不再出现该名称。
 
@@ -48,11 +48,11 @@ OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN='测试用父 Token' \
 - MiniMax 国内 Token Plan：当前停在官方安全验证，记为 `waiting_for_user`；产品名称统一使用 Token Plan，不再写 Coding Plan。
 - MiniMax 国际、百度千帆 Token Plan、小米 MiMo Token Plan：已验证现有 Key 复用路径为 `passed_existing_reuse`。
 - 阿里云百炼 Token Plan 当前没有可复用的密钥操作入口，记为 `blocked_prerequisite`，不会生成新 Key。
-- Moonshot/Kimi Code 当前页面没有普通 API Key 创建入口，已改为只复用订阅 Key；没有 Key 时记为 `blocked_prerequisite`。
+- 国内 Kimi API 与 Kimi Coding Plan 统一归入 `Kimi` 分组；国际 API 平台归入 `Moonshot`。各类 Key 仍然不互换。
 
-腾讯 SecretId/SecretKey、阿里云 AccessKey、百度 BCE AK/SK 的用量凭证入口支持自动化；
-火山传统 AK/SK 已明确改为手动配置，不再出现在自动创建列表。原因是它属于 IAM 身份
-凭证，权限绑定在 IAM 用户/主账号上，且 OKIT 没有平台端删除同步。请按
+腾讯 SecretId/SecretKey、百度 BCE AK/SK、阿里云 AccessKey 与火山传统 AK/SK
+均已改为手动配置，不再出现在自动创建列表。原因是它们属于账号级 IAM/RAM/CAM 身份凭证，
+权限绑定在 IAM 用户/主账号上，且 OKIT 没有平台端删除同步。请按
 [火山引擎 AK/SK 用量查询配置](volcengine-usage-credentials.md)操作。
 
 百度千帆当前仍有三条遗留测试行：
@@ -77,7 +77,7 @@ OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN='测试用父 Token' \
 | [!] | `volcengine-agent` | 火山 Agent Plan API Key | 删除测试 Key | 控制台无创建按钮/套餐前置 |
 | [!] | `tencent` | 腾讯云 API Key | 删除测试 Key | 当前页面无创建入口 |
 | [x] | `tencent-token-plan` | 腾讯云 Token Plan | 仅验证复制，不删除已有订阅 Key | passed_existing_reuse |
-| [!] | `tencent-usage-credentials` | 腾讯云 SecretId/SecretKey | 删除测试凭证 | 双层主账号风险确认后要求微信扫码身份验证，自动化停止，未创建 |
+| [—] | `tencent-usage-credentials` | 腾讯云 SecretId/SecretKey | 手动配置 | 账号级 CAM 凭证，不提供自动创建；用量页展示名称、JSON 格式和控制台入口 |
 | [x] | `zhipu` | 智谱 AI | 删除测试 Key | passed/deleted；使用 `/apikey/platform`、列表复制和精确行删除 |
 | [x] | `zai-global` | Z.AI | 删除测试 Key | passed/deleted；固定操作列精确删除 |
 | [x] | `minimax` | MiniMax 国内 | 删除测试 Key | passed/deleted |
@@ -87,16 +87,15 @@ OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN='测试用父 Token' \
 | [x] | `deepseek` | DeepSeek | 删除测试 Key | passed/deleted |
 | [x] | `moonshot` | Moonshot | 删除测试 Key | passed/deleted；提交 `default` 项目并读取一次性 Secret |
 | [!] | `moonshot-coding-plan` | Moonshot Coding Plan | 仅验证复制，不创建/删除订阅 Key | 当前 Code 页面无密钥操作入口，blocked_prerequisite |
-| [!] | `kimi-coding` | Kimi 国内 | 删除测试 Key | 全量实测仍停在创建弹窗，未读取一次性明文；未观察到测试行 |
-| [!] | `kimi-coding-plan` | Kimi 国际 | 仅验证复制，不创建/删除订阅 Key | 当前 Code 页面无密钥操作入口，blocked_prerequisite |
+| [!] | `kimi-coding` | Kimi | 删除测试 Key | 全量实测仍停在创建弹窗，未读取一次性明文；未观察到测试行 |
+| [!] | `kimi-coding-plan` | Kimi | 创建 API Key 后读取一次性明文 | Coding Plan 仅属于国内 Kimi；控制台最多 5 个 Key，创建后仅显示一次 |
 | [x] | `qwen` | 阿里云百炼 | 删除测试 Key | passed/deleted |
 | [x] | `qwen-coding` | 阿里云百炼 Coding Plan | 删除测试 Key | passed/deleted |
 | [!] | `qwen-token-plan` | 阿里云百炼 Token Plan | 仅验证复制，不创建/删除订阅 Key | 没有可复用的密钥操作入口，blocked_prerequisite |
-| [!] | `aliyun-usage-credentials` | 阿里云 AccessKey | 删除测试 AccessKey | RAM 创建前置设置未完成 |
 | [x] | `siliconflow` | 硅基流动 | 删除测试 Key | passed/deleted；动态确认码已自动填写并复核名称消失 |
 | [!] | `qianfan` | 百度千帆 | 删除测试 Key | 创建/读取已通过；删除确认未命中，当前遗留 3 条测试行，需短信安全验证 |
 | [!] | `qianfan-coding` | 百度千帆 Token Plan | 删除测试生成的 Key | 当前页面无密钥操作入口 |
-| [!] | `baidu-usage-credentials` | 百度 BCE AK/SK | 删除测试 AK/SK | 实际入口已修正；主账号风险确认后要求短信安全验证 |
+| [—] | `baidu-usage-credentials` | 百度 BCE AK/SK | 手动配置 | 账号级 IAM 凭证，不提供自动创建；用量页展示名称、JSON 格式和控制台入口 |
 | [x] | `xiaomi` | 小米 MiMo | 删除测试 Key | passed/deleted；支持“新建 API Key”和“确认删除”输入 |
 | [x] | `xiaomi-coding` | 小米 MiMo Token Plan | 仅验证复制，不删除已有订阅 Key | passed_existing_reuse |
 | [!] | `stepfun` | 阶跃星辰 | 删除测试 Key | 创建后未读到一次性明文；页面无本次测试名 |
@@ -104,6 +103,7 @@ OKIT_AUTOCHECK_CLOUDFLARE_PARENT_TOKEN='测试用父 Token' \
 | [x] | `xai-management` | xAI Management Key | 删除测试 Management Key | passed/deleted；Billing 权限设为 Read only |
 | [x] | `mistral` | Mistral | 删除/撤销测试 Key | passed/deleted |
 | [x] | `openrouter` | OpenRouter | 删除测试 Key | passed/deleted |
+| [!] | `openrouter-management` | OpenRouter Management Key（用量） | 登录后创建/读取/删除测试 Key | 已接入独立余额凭证；当前应用内浏览器未登录，待端到端验证；该 Key 无账务只读权限范围 |
 | [x] | `opencode-go` | OpenCode Go | 删除测试 Key | passed/deleted |
 
 ## 判定规则

@@ -1,6 +1,83 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOpenCodeGoUsage, parseQianfanTokenPlanUsage, parseXiaomiTokenPlanUsage } from '../src/web/api/usage.js';
+import { buildBceAuthorization, parseOpenCodeGoUsage, parseOpenRouterCredits, parseQianfanTokenPlanUsage, parseXaiPrepaidBalance, parseXiaomiBalance, parseXiaomiTokenPlanUsage } from '../src/web/api/usage.js';
+
+describe('Baidu BCE V1 request signer', () => {
+  it('matches the official BCE signing test vector', () => {
+    const result = buildBceAuthorization({
+      accessKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      secretKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      method: 'PUT',
+      pathName: '/v1/test/myfolder/readme.txt',
+      query: {
+        partNumber: '9',
+        uploadId: 'a44cc9bab11cbd156984767aad637851',
+      },
+      headers: {
+        Host: 'bj.bcebos.com',
+        Date: 'Mon, 27 Apr 2015 16:23:49 +0800',
+        'Content-Type': 'text/plain',
+        'Content-Length': '8',
+        'Content-Md5': 'NFzcPqhviddjRNnSOGo4rw==',
+        'x-bce-date': '2015-04-27T08:23:49Z',
+      },
+      timestamp: '2015-04-27T08:23:49Z',
+    });
+
+    expect(result.signingKey).toBe('1d5ce5f464064cbee060330d973218821825ac6952368a482a592e6615aef479');
+    expect(result.signature).toBe('d74a04362e6a848f5b39b15421cb449427f419c95a480fd6b8cf9fc783e2999e');
+    expect(result.authorization).toBe(
+      'bce-auth-v1/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/2015-04-27T08:23:49Z/1800//d74a04362e6a848f5b39b15421cb449427f419c95a480fd6b8cf9fc783e2999e',
+    );
+    expect(result.canonicalRequest).toContain('x-bce-date:2015-04-27T08%3A23%3A49Z');
+    expect(result.canonicalRequest).not.toContain('UNSIGNED-PAYLOAD');
+  });
+});
+
+describe('OpenRouter account credits parser', () => {
+  it('uses account totals returned by the Management Credits API', () => {
+    expect(parseOpenRouterCredits({
+      data: { total_credits: 100.5, total_usage: 25.75 },
+    })?.windows?.[0]).toMatchObject({
+      usedPercent: 25.6,
+      usedCredits: 25.75,
+      limitCredits: 100.5,
+      remainingCredits: 74.75,
+      unit: 'USD',
+      isPrepaid: true,
+    });
+  });
+
+  it('recognizes a real zero account balance without inventing missing data', () => {
+    expect(parseOpenRouterCredits({ data: { total_credits: 0, total_usage: 0 } })?.windows?.[0])
+      .toMatchObject({ usedPercent: 0, remainingCredits: 0, unit: 'USD' });
+    expect(parseOpenRouterCredits({ data: { usage: 0, limit: null } })).toBeNull();
+  });
+});
+
+describe('xAI prepaid balance parser', () => {
+  it('converts the signed USD-cent ledger balance into available dollars', () => {
+    expect(parseXaiPrepaidBalance({
+      changes: [],
+      total: { val: '-1000' },
+    })?.windows?.[0]).toMatchObject({
+      limitCredits: 10,
+      remainingCredits: 10,
+      unit: 'USD',
+      isPrepaid: true,
+    });
+  });
+
+  it('recognizes a zero prepaid balance', () => {
+    expect(parseXaiPrepaidBalance({ total: { val: '0' } })?.windows?.[0])
+      .toMatchObject({ remainingCredits: 0, unit: 'USD' });
+  });
+
+  it('keeps the legacy flat-dollar response compatible', () => {
+    expect(parseXaiPrepaidBalance({ balance: '12.34' })?.windows?.[0])
+      .toMatchObject({ remainingCredits: 12.34, unit: 'USD' });
+  });
+});
 
 describe('OpenCode Go usage parser', () => {
   it('maps the Go page rolling, weekly, and monthly windows', () => {
@@ -46,6 +123,34 @@ describe('MiMo Token Plan usage parser', () => {
   it('does not turn an empty console response into a zero balance', () => {
     expect(parseXiaomiTokenPlanUsage({ code: 0, data: { usage: { items: [] } } }))
       .toEqual({ error: 'MiMo 接口暂未返回 Token Plan 额度' });
+  });
+});
+
+describe('MiMo API balance parser', () => {
+  it('maps the console balance response without treating a real zero as missing', () => {
+    expect(parseXiaomiBalance({
+      code: 0,
+      message: '',
+      data: {
+        balance: '0.00',
+        frozenBalance: '0.00',
+        currency: 'USD',
+        overdraftLimit: '0.00',
+        remainingOverdraftLimit: '0.00',
+        giftBalance: '0.00',
+        cashBalance: '0.00',
+      },
+    })?.windows?.[0]).toMatchObject({
+      remainingCredits: 0,
+      limitCredits: 0,
+      unit: 'USD',
+      isPrepaid: true,
+    });
+  });
+
+  it('does not invent a balance when the console response omits it', () => {
+    expect(parseXiaomiBalance({ code: 0, data: {} }))
+      .toEqual({ error: '小米 MiMo 余额接口暂未返回可识别余额' });
   });
 });
 

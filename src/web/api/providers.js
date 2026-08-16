@@ -3,12 +3,20 @@ const path = require('path');
 const os = require('os');
 const { backupImportantData } = require('./backup');
 const {
+  QIANFAN_CODING_PROBE_MODEL,
   isQianfanCodingEndpoint,
+  isQianfanCodingAnthropicEndpoint,
   qianfanCodingErrorCode,
   qianfanCodingErrorMessage,
   qianfanCodingModels,
 } = require('./qianfan-coding');
-const { pickProbeModel, getFallbackModels } = require('./endpoint-profiles');
+const {
+  getAnthropicAuthMode,
+  getAuthenticatedResourceFailureMessage,
+  getFallbackModels,
+  getProbeModels,
+  isModelAccessFailure,
+} = require('./endpoint-profiles');
 
 const OKIT_DIR = path.join(os.homedir(), '.okit');
 const PROVIDERS_PATH = path.join(OKIT_DIR, 'providers.json');
@@ -108,6 +116,9 @@ const RETIRED_PRESET_PROVIDER_IDS = _metadata.RETIRED_PRESET_PROVIDER_IDS;
 const PRESET_BASE_URL_MIGRATIONS = _metadata.PRESET_BASE_URL_MIGRATIONS;
 const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = _metadata.PRESET_ENDPOINT_BASE_URL_MIGRATIONS;
 const PRESET_AUTH_MODE_MIGRATIONS = _metadata.PRESET_AUTH_MODE_MIGRATIONS;
+// Older dist output can be loaded by unit tests before `npm run build` has
+// regenerated metadata. Treat the new migration table as empty in that case.
+const PRESET_MODEL_ID_MIGRATIONS = _metadata.PRESET_MODEL_ID_MIGRATIONS || new Map();
 const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
   ['opencode-go', { from: ['go', 'agent'], to: 'coding' }],
   ['qianfan-coding', { from: ['coding'], to: 'token' }],
@@ -210,6 +221,28 @@ async function loadProviders() {
               changed = true;
             }
           }
+          // Repair only missing metadata on an exact built-in URL+type match.
+          // User-customized endpoint URLs remain untouched.
+          let endpointMetadataChanged = false;
+          existing.endpoints = (existing.endpoints || []).map(endpoint => {
+            const presetEndpoint = preset.endpoints.find(candidate =>
+              candidate.type === endpoint.type
+              && candidate.baseUrl === endpoint.baseUrl
+              && (!endpoint.protocol || !candidate.protocol || candidate.protocol === endpoint.protocol)
+            );
+            if (!presetEndpoint) return endpoint;
+            const next = { ...endpoint };
+            if (!next.protocol && presetEndpoint.protocol) {
+              next.protocol = presetEndpoint.protocol;
+              endpointMetadataChanged = true;
+            }
+            if (!next.plan && presetEndpoint.plan) {
+              next.plan = presetEndpoint.plan;
+              endpointMetadataChanged = true;
+            }
+            return next;
+          });
+          if (endpointMetadataChanged) changed = true;
         }
         if (existing.name !== preset.name) {
           existing.name = preset.name;
@@ -233,6 +266,12 @@ async function loadProviders() {
         }
         if (preset.authMode === 'none' && existing.authMode !== 'none' && !existing.vaultKey) {
           existing.authMode = 'none';
+          changed = true;
+        }
+        const modelSnapshots = PRESET_MODEL_ID_MIGRATIONS.get(preset.id) || [];
+        const existingModelIds = existing.models.map(model => model.id);
+        if (modelSnapshots.some(snapshot => JSON.stringify(snapshot) === JSON.stringify(existingModelIds))) {
+          existing.models = preset.models.map(model => ({ ...model }));
           changed = true;
         }
         if (
@@ -894,6 +933,59 @@ async function resolveVaultKey(vaultKey) {
   }
 }
 
+function missingVaultKeyPrefix(vaultKey) {
+  const match = String(vaultKey || '').match(/^(.+)-([a-z0-9]{4})$/i);
+  return match ? match[1] : null;
+}
+
+function resetProviderAuthState(provider) {
+  provider.authVerified = undefined;
+  provider.authVerifiedKey = undefined;
+  provider.authVerifiedAt = undefined;
+  provider.authLastCheckedAt = undefined;
+  provider.authLastCheckedKey = undefined;
+  provider.authLastError = undefined;
+  provider.authState = undefined;
+  provider.authVerifiedEndpointIds = [];
+  provider.authEndpointStates = {};
+}
+
+/**
+ * Repair a provider that still points at a deleted auto-generated Vault key.
+ *
+ * Auto-created keys use a stable prefix plus a four-character uniqueness
+ * suffix. If the old reference disappeared and exactly one replacement with
+ * the same prefix remains, rebinding is deterministic. Multiple candidates
+ * are deliberately left untouched so a user's manually-created keys are
+ * never silently swapped.
+ */
+async function repairMissingVaultBindings(providers, dependencies = {}) {
+  const listVaultKeys = dependencies.listVaultKeys || (async () => {
+    const { VaultStore } = require('../../vault/store');
+    return new VaultStore().list();
+  });
+  const secrets = await listVaultKeys();
+  const keys = Array.isArray(secrets) ? secrets.map(secret => secret.key).filter(Boolean) : [];
+  const keySet = new Set(keys);
+  let changed = false;
+
+  for (const provider of providers || []) {
+    if (!provider.vaultKey || keySet.has(provider.vaultKey)) continue;
+    const prefix = missingVaultKeyPrefix(provider.vaultKey);
+    if (!prefix) continue;
+    const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const candidatePattern = new RegExp(`^${escapedPrefix}-[a-z0-9]{4}$`, 'i');
+    const candidates = keys.filter(key => key !== provider.vaultKey && candidatePattern.test(key));
+    if (candidates.length !== 1) continue;
+
+    provider.vaultKey = candidates[0];
+    resetProviderAuthState(provider);
+    changed = true;
+  }
+
+  return { changed };
+}
+
 const AUTH_REVALIDATION_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
 
@@ -910,7 +1002,7 @@ function providerEndpoints(p) {
 }
 
 function isCredentialFailure(message) {
-  return /API Key 无效|Token 已过期|尚未登录|无可用密钥|\b401\b|\b403\b/i.test(String(message || ''));
+  return /API Key 无效|invalid[ _-]*(?:api[ _-]*)?key|incorrect api key|invalid access token|token (?:已过期|expired)|尚未登录|无可用密钥|unauthori[sz]ed|authentication failed|\b401\b/i.test(String(message || ''));
 }
 
 function isFreshAuth(p, endpointId) {
@@ -971,6 +1063,10 @@ async function revalidateProviderAuth(p, { force = false, endpointId, probe } = 
   p.authLastCheckedAt = checkedAt;
   p.authLastCheckedKey = p.vaultKey;
   p.authEndpointStates = { ...(p.authEndpointStates || {}) };
+  const currentEndpointIds = new Set(providerEndpoints(p).map(entry => entry.id));
+  for (const storedEndpointId of Object.keys(p.authEndpointStates)) {
+    if (!currentEndpointIds.has(storedEndpointId)) delete p.authEndpointStates[storedEndpointId];
+  }
   for (const result of results) {
     const previousState = p.authEndpointStates[result.endpointId];
     p.authEndpointStates[result.endpointId] = result.success
@@ -1093,6 +1189,8 @@ async function ensureProviderAuth(p, allProviders, endpointId, dependencies = {}
 async function getAuthStatus(req, res) {
   try {
     const providers = await loadProviders();
+    const repaired = await repairMissingVaultBindings(providers);
+    if (repaired.changed) await saveProviders(providers);
     const snapshots = await Promise.all(providers.map(p => getProviderAuthSnapshot(p)));
     if (snapshots.some(snapshot => snapshot.revalidation?.changed)) {
       await saveProviders(providers);
@@ -1549,7 +1647,9 @@ async function fetchModels(req, res) {
             ? await fetchQianfanCodingModels(ep.baseUrl, apiKey)
             : await fetchOpenAIModels(ep.baseUrl, apiKey);
         } else if (ep.type === 'anthropic') {
-          models = await fetchAnthropicModels(ep.baseUrl, apiKey);
+          models = isQianfanCodingAnthropicEndpoint(ep.baseUrl)
+            ? await fetchQianfanCodingAnthropicModels(ep.baseUrl, apiKey)
+            : await fetchAnthropicModels(ep.baseUrl, apiKey);
         }
         successfulEndpointIds.add(endpointId);
         for (const m of models) {
@@ -1594,22 +1694,30 @@ async function fetchOpenAIModels(baseUrl, apiKey) {
   // list on success so the UI shows usable models instead of "sync failed".
   const fallback = getFallbackModels(baseUrl);
   if (fallback && (result.status === 200 || result.status === 404 || result.status === 403 || result.status === 405)) {
-    const probeModel = pickProbeModel(baseUrl);
-    const probeBody = JSON.stringify({
-      model: probeModel,
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'hi' }],
-      stream: false,
-    });
-    const probeResult = await httpReq(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST', headers, body: probeBody, timeout: 10000,
-    });
-    if (probeResult.error) throw new Error(probeResult.error);
-    // 200 or 400 (bad request for max_tokens=1 etc.) both mean the key is
-    // valid and the endpoint is reachable — return the known model list.
-    if (probeResult.status === 200 || probeResult.status === 400) return fallback;
-    if (probeResult.status === 401) throw new Error('API Key 无效');
-    throw new Error(`HTTP ${probeResult.status}`);
+    let probeResult;
+    for (const probeModel of getProbeModels(baseUrl)) {
+      const probeBody = JSON.stringify({
+        model: probeModel,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: false,
+      });
+      probeResult = await httpReq(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST', headers, body: probeBody, timeout: 10000,
+      });
+      if (probeResult.error) throw new Error(probeResult.error);
+      // 200 or 400 (bad request for max_tokens=1 etc.) both mean the key is
+      // valid and the endpoint is reachable — return the known model list.
+      if (probeResult.status === 200 || probeResult.status === 400) return fallback;
+      if (isModelAccessFailure(probeResult.status, probeResult.body)) continue;
+      if (getAuthenticatedResourceFailureMessage(probeResult.status, probeResult.body)) return fallback;
+      if (probeResult.status === 401) throw new Error('API Key 无效');
+      break;
+    }
+    // A model-level denial means authentication succeeded. Keep the offering
+    // catalog visible; entitlement is evaluated when the user selects a model.
+    if (probeResult && isModelAccessFailure(probeResult.status, probeResult.body)) return fallback;
+    throw new Error(`HTTP ${probeResult?.status || 0}`);
   }
   if (result.status !== 200) throw new Error(`HTTP ${result.status}`);
   return [];
@@ -1635,7 +1743,7 @@ async function fetchQianfanCodingModels(baseUrl, apiKey) {
   // documented model and use the known list only after the probe succeeds.
   if (listResult.status === 404 || listResult.status === 405 || listResult.status === 200) {
     const probeBody = JSON.stringify({
-      model: 'qianfan-code-latest',
+      model: QIANFAN_CODING_PROBE_MODEL,
       max_tokens: 1,
       messages: [{ role: 'user', content: 'hi' }],
       stream: false,
@@ -1656,22 +1764,79 @@ async function fetchQianfanCodingModels(baseUrl, apiKey) {
   throw new Error(`HTTP ${listResult.status}`);
 }
 
+async function fetchQianfanCodingAnthropicModels(baseUrl, apiKey) {
+  const root = String(baseUrl || '').replace(/\/+$/, '');
+  const headers = {
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  };
+  if (apiKey) headers['x-api-key'] = apiKey;
+  const body = JSON.stringify({
+    model: QIANFAN_CODING_PROBE_MODEL,
+    max_tokens: 1,
+    messages: [{ role: 'user', content: 'hi' }],
+  });
+  const result = await httpReq(`${root}/v1/messages`, {
+    method: 'POST', headers, body, timeout: 10000,
+  });
+  if (result.error) throw new Error(result.error);
+  const code = qianfanCodingErrorCode(result.body);
+  const message = qianfanCodingErrorMessage(code);
+  if (message) throw new Error(message);
+  if (result.status === 200 || result.status === 400) return qianfanCodingModels();
+  if (result.status === 401) throw new Error('百度千帆 Token Plan API Key 无效');
+  throw new Error(`HTTP ${result.status}`);
+}
+
 async function fetchAnthropicModels(baseUrl, apiKey) {
-  const url = `${String(baseUrl || '').replace(/\/+$/, '')}/v1/models`;
+  const root = String(baseUrl || '').replace(/\/+$/, '');
+  const url = `${root}/v1/models`;
   const headers = {};
-  if (/^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim())) {
+  if (getAnthropicAuthMode(baseUrl) === 'bearer') {
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-    headers['accept-language'] = 'en-US,en';
+  } else if (/^https?:\/\/api\.minimax(?:i\.com|\.io)\/anthropic\/?$/i.test(String(baseUrl || '').trim())) {
+    if (apiKey) headers['X-Api-Key'] = apiKey;
   } else if (apiKey) {
     headers['x-api-key'] = apiKey;
+  }
+  if (/^https?:\/\/api\.z\.ai\/api\/anthropic\/?$/i.test(String(baseUrl || '').trim())) {
+    headers['accept-language'] = 'en-US,en';
   }
   headers['anthropic-version'] = '2023-06-01';
   const result = await httpReq(url, { method: 'GET', headers, timeout: 10000 });
   if (result.error) throw new Error(result.error);
+  if (result.status === 401) throw new Error('API Key 无效');
+  if (result.status === 200) {
+    const d = JSON.parse(result.body);
+    const models = (d.data || []).map(m => ({ id: m.id, name: m.display_name || m.id }));
+    if (models.length) return models;
+  }
+
+  const fallback = getFallbackModels(baseUrl);
+  if (fallback && (result.status === 200 || result.status === 403 || result.status === 404 || result.status === 405)) {
+    headers['content-type'] = 'application/json';
+    let probeResult;
+    for (const probeModel of getProbeModels(baseUrl)) {
+      const body = JSON.stringify({
+        model: probeModel,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      probeResult = await httpReq(`${root}/v1/messages`, {
+        method: 'POST', headers, body, timeout: 10000,
+      });
+      if (probeResult.error) throw new Error(probeResult.error);
+      if (probeResult.status === 200 || probeResult.status === 400) return fallback;
+      if (isModelAccessFailure(probeResult.status, probeResult.body)) continue;
+      if (getAuthenticatedResourceFailureMessage(probeResult.status, probeResult.body)) return fallback;
+      if (probeResult.status === 401) throw new Error('API Key 无效');
+      break;
+    }
+    if (probeResult && isModelAccessFailure(probeResult.status, probeResult.body)) return fallback;
+    throw new Error(`HTTP ${probeResult?.status || 0}`);
+  }
   if (result.status === 404 || result.status === 405) throw new Error('不支持模型列表接口');
-  if (result.status !== 200) throw new Error(`HTTP ${result.status}`);
-  const d = JSON.parse(result.body);
-  return (d.data || []).map(m => ({ id: m.id, name: m.display_name || m.id }));
+  throw new Error(`HTTP ${result.status}`);
 }
 
 function httpReq(url, options) {
@@ -1833,6 +1998,8 @@ module.exports = {
     ensureProviderAuth,
     getProviderAuthSnapshot,
     isCredentialFailure,
+    missingVaultKeyPrefix,
+    repairMissingVaultBindings,
     revalidateProviderAuth,
   },
 };

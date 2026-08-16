@@ -59,7 +59,10 @@ type UsageCard = {
   tone: string;
 };
 
-function compactPrimaryValue(u: UsageResult, t: (k: string) => string): { value: string; detail: string } {
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+const GROUP_PAGE_SIZE = 4;
+
+function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; detail: string } {
   const windows = u.windows || [];
   const first = windows[0];
 
@@ -85,7 +88,7 @@ function compactPrimaryValue(u: UsageResult, t: (k: string) => string): { value:
   return { value: remaining != null ? `${remaining}%` : '—', detail };
 }
 
-function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: (k: string) => string }) {
+function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
   const tone = alert?.severity || card.tone;
   const { value, detail } = compactPrimaryValue(card.usage, t);
   return (
@@ -107,80 +110,80 @@ function UsageCompactCard({ card, alert, t }: { card: UsageCard; alert?: ReturnT
   );
 }
 
-function RemainingWindows({ u, t }: { u: UsageResult; t: (k: string) => string }) {
-  const windows = u.windows || [];
-  if (windows.length === 0) {
-    return <span className="usage-summary-empty">{u.notice ? t('usage.consoleOnly') : (u.error || '—')}</span>;
-  }
+function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
+  const tone = alert?.severity || card.tone;
+  const primary = compactPrimaryValue(card.usage, t);
+  const firstWindow = card.usage.windows?.[0];
+  const detail = card.usage.kind !== 'prepaid' && firstWindow?.unit && firstWindow.usedPercent != null
+    ? `${t('home.usageRemaining')} · ${t('home.usageUsed')} ${firstWindow.usedPercent.toFixed(1)}%`
+    : primary.detail;
 
-  // Prepaid: a single balance row.
-  if (u.kind === 'prepaid') {
-    const w = windows[0];
-    const rem = w.remainingCredits;
-    return (
-      <div className="usage-summary-balance-wrap">
-        <span className="usage-summary-balance">
-          {rem != null ? (w.unit ? `${rem.toFixed(2)} ${w.unit}` : `$${rem.toFixed(2)}`) : '—'}
-        </span>
-        <span className="usage-summary-balance-label">{t('home.usageBalance')}</span>
-      </div>
-    );
-  }
-
-  // Token Plan credits are quota, not currency. Keep them out of the dollar
-  // balance treatment while still surfacing the remaining amount on Home.
-  if (windows[0]?.unit) {
-    const w = windows[0];
-    return (
-      <div className="usage-summary-token-wrap">
-        <div className="usage-summary-balance-wrap">
-          <span className="usage-summary-balance">
-            {w.remainingCredits != null ? `${w.remainingCredits.toFixed(2)} ${w.unit}` : '—'}
-          </span>
-          <span className="usage-summary-balance-label">{t('home.usageRemaining')}</span>
+  return (
+    <article className={`usage-summary-group-item usage-summary-group-item--${tone}`}>
+      <div className="usage-summary-group-item-head">
+        <div className="usage-summary-provider">
+          {getProviderIcon(card.id) && <img src={getProviderIcon(card.id)} alt="" />}
+          <span>{card.name}</span>
         </div>
-        {w.usedPercent != null && (
-          <div className="usage-summary-token-meta">
-            <span>{t('home.usageUsed')}</span>
-            <span className="usage-summary-token-used">{w.usedPercent.toFixed(1)}%</span>
-            <span className="usage-summary-token-track" aria-hidden="true">
-              <span style={{ width: `${Math.max(0, Math.min(100, w.usedPercent))}%` }} />
-            </span>
+        <span className={`usage-summary-group-tone usage-summary-group-tone--${tone}`} aria-hidden="true" />
+      </div>
+      <div className="usage-summary-group-value">
+        <strong>{primary.value}</strong>
+        <span>{detail}</span>
+      </div>
+    </article>
+  );
+}
+
+function UsageGroupPanel({
+  title,
+  kind,
+  cards,
+  page,
+  onPageChange,
+  alerts,
+  t,
+}: {
+  title: string;
+  kind: 'quota' | 'balance';
+  cards: UsageCard[];
+  page: number;
+  onPageChange: (page: number) => void;
+  alerts: ReturnType<typeof checkAlerts>;
+  t: Translate;
+}) {
+  if (cards.length === 0) return null;
+  const pageCount = Math.max(1, Math.ceil(cards.length / GROUP_PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageCards = cards.slice(safePage * GROUP_PAGE_SIZE, (safePage + 1) * GROUP_PAGE_SIZE);
+
+  return (
+    <section className={`usage-summary-group usage-summary-group--${kind}`}>
+      <div className="usage-summary-group-heading">
+        <div className="usage-summary-group-title">
+          <span className="usage-summary-group-mark" aria-hidden="true" />
+          <strong>{title}</strong>
+          <span>{cards.length}</span>
+        </div>
+        {pageCount > 1 && (
+          <div className="usage-summary-group-pager" aria-label={title}>
+            <button type="button" onClick={() => onPageChange(safePage - 1)} disabled={safePage === 0} aria-label={t('home.usagePreviousPage')}>‹</button>
+            <span>{safePage + 1} / {pageCount}</span>
+            <button type="button" onClick={() => onPageChange(safePage + 1)} disabled={safePage === pageCount - 1} aria-label={t('home.usageNextPage')}>›</button>
           </div>
         )}
       </div>
-    );
-  }
-
-  // Subscription: make the most important window visual, then keep the
-  // additional reset windows compact below it.
-  const primary = windows[0];
-  const primaryRemaining = remainingPercent(primary);
-  return (
-    <div className="usage-summary-windows">
-      <div className="usage-summary-primary">
-        <div className="usage-summary-primary-head">
-          <span>{WINDOW_LABEL[primary.label] || primary.label}</span>
-          <strong>{primaryRemaining != null ? `${primaryRemaining}%` : '?'}</strong>
-        </div>
-        <div className="usage-summary-track" role="progressbar" aria-valuenow={primaryRemaining ?? undefined} aria-valuemin={0} aria-valuemax={100}>
-          <span className={`usage-summary-fill usage-summary-fill--${toneForRemaining(primaryRemaining)}`} style={{ width: `${primaryRemaining ?? 0}%` }} />
-        </div>
-        <span className="usage-summary-primary-caption">{t('home.usageRemaining')}</span>
+      <div className="usage-summary-group-grid">
+        {pageCards.map(card => (
+          <UsageGroupItem
+            key={card.id}
+            card={card}
+            alert={alerts.find(item => item.providerId === card.id)}
+            t={t}
+          />
+        ))}
       </div>
-      {windows.slice(1).map((w, i) => {
-        const remaining = remainingPercent(w);
-        return (
-          <div key={i} className="usage-summary-window">
-            <span className="usage-summary-window-label">{WINDOW_LABEL[w.label] || w.label}</span>
-            <span className="usage-summary-window-mini-track"><span style={{ width: `${remaining ?? 0}%` }} /></span>
-            <span className={`usage-summary-window-value usage-summary-window-value--${toneForRemaining(remaining)}`}>
-              {remaining != null ? `${remaining}%` : '?'}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+    </section>
   );
 }
 
@@ -223,6 +226,8 @@ export default function UsageSummary() {
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const visibleAlerts = alerts.filter(a => !dismissedKeys.has(a.notifyKey));
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [quotaPage, setQuotaPage] = useState(0);
+  const [balancePage, setBalancePage] = useState(0);
 
   useEffect(() => {
     if (alerts.length > 0) {
@@ -272,6 +277,8 @@ export default function UsageSummary() {
   // order. Keep the home glance familiar; risk remains visible in the status
   // pill, border tone, alert center, and full usage page.
   const compactCards = cards.slice(0, 2);
+  const quotaCards = cards.filter(card => card.usage.kind !== 'prepaid');
+  const balanceCards = cards.filter(card => card.usage.kind === 'prepaid');
 
   if (cards.length === 0) return null;
 
@@ -346,29 +353,29 @@ export default function UsageSummary() {
       <div className="usage-summary-footer">
         <span>{cards.length > compactCards.length ? t('home.usageMoreProviders', { n: cards.length - compactCards.length }) : t('home.usageSummaryHint')}</span>
         <button type="button" className="usage-summary-details-toggle" onClick={() => setDetailsOpen(open => !open)} aria-expanded={detailsOpen}>
-          {detailsOpen ? t('home.collapse') : t('home.showAll')} <span aria-hidden="true">{detailsOpen ? '⌃' : '⌄'}</span>
+          {detailsOpen ? t('home.collapse') : t('home.usageBrowse')} <span aria-hidden="true">{detailsOpen ? '⌃' : '⌄'}</span>
         </button>
       </div>
       {detailsOpen && (
-        <div className="usage-summary-grid">
-        {cards.map(c => {
-          const alert = visibleAlerts.find(item => item.providerId === c.id);
-          const cardTone = alert?.severity || c.tone;
-          return (
-          <article key={c.id} className={`usage-summary-card usage-summary-card--${cardTone}${c.usage?.kind === 'prepaid' ? ' usage-summary-card--prepaid' : ''}${alert ? ` usage-summary-card--alert-${alert.severity}` : ''}`}>
-            <div className="usage-summary-card-head">
-              <div className="usage-summary-provider">
-                {getProviderIcon(c.id) && <img src={getProviderIcon(c.id)} alt="" />}
-                <span>{c.name}</span>
-              </div>
-              <span className={`usage-summary-status usage-summary-status--${cardTone}`}>
-                {alert ? toneLabel(alert.severity, t) : c.usage?.kind === 'prepaid' ? t('home.usageBalance') : toneLabel(c.tone, t)}
-              </span>
-            </div>
-            <RemainingWindows u={c.usage!} t={t} />
-          </article>
-          );
-        })}
+        <div className="usage-summary-groups">
+          <UsageGroupPanel
+            title={t('home.usageQuotaGroup')}
+            kind="quota"
+            cards={quotaCards}
+            page={quotaPage}
+            onPageChange={setQuotaPage}
+            alerts={visibleAlerts}
+            t={t}
+          />
+          <UsageGroupPanel
+            title={t('home.usageBalanceGroup')}
+            kind="balance"
+            cards={balanceCards}
+            page={balancePage}
+            onPageChange={setBalancePage}
+            alerts={visibleAlerts}
+            t={t}
+          />
         </div>
       )}
     </section>

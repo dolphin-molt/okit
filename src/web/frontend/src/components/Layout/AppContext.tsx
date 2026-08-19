@@ -23,8 +23,6 @@ interface AppContextValue {
   confirm: (message: string, options?: ConfirmOptions) => Promise<boolean>;
   connectionStatus: 'connecting' | 'connected' | 'error';
   setConnectionStatus: (s: AppContextValue['connectionStatus']) => void;
-  currentConvId: string | null;
-  setCurrentConvId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppContextValue>(null!);
@@ -46,7 +44,6 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<AppContextValue['connectionStatus']>('connecting');
-  const [currentConvId, setCurrentConvId] = useState<string | null>(null);
 
   const confirmState = useRef<{
     resolve: (v: boolean) => void;
@@ -105,22 +102,20 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider
-      value={{
-        theme,
-        setThemeMode,
-        toggleTheme,
-        uiStyle,
-        setUiStyle,
-        toasts,
-        showToast,
-        confirm,
-        connectionStatus,
-        setConnectionStatus,
-        currentConvId,
-        setCurrentConvId,
-      }}
-    >
+<AppContext.Provider
+        value={{
+          theme,
+          setThemeMode,
+          toggleTheme,
+          uiStyle,
+          setUiStyle,
+          toasts,
+          showToast,
+          confirm,
+          connectionStatus,
+          setConnectionStatus,
+        }}
+      >
       {children}
       {/* Toast container */}
       <div className="toast-container">

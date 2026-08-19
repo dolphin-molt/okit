@@ -2,7 +2,6 @@ import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-rou
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import VaultPage from './components/vault/VaultPage';
-import AgentPage from './components/agent/AgentPage';
 import SettingsPage from './components/settings/SettingsPage';
 import OnboardingPage from './components/onboarding/OnboardingPage';
 import ModelsPage from './components/models/ModelsPage';
@@ -91,7 +90,6 @@ function PersistentDashboardRoutes() {
           <Route path="/vault" element={<VaultPage />} />
           <Route path="/models" element={<ModelsPage />} />
           <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/agent" element={<AgentPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

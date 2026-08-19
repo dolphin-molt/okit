@@ -1,12 +1,5 @@
 import { api } from './client';
 
-export interface AgentConfig {
-  provider: string;
-  model: string;
-  baseUrl: string;
-  apiKeyVaultKey: string;
-}
-
 export interface PlatformConfig {
   enabled: boolean;
   [key: string]: any;
@@ -19,7 +12,6 @@ export interface Settings {
     password?: string;
     platforms: Record<string, PlatformConfig>;
   };
-  agent: AgentConfig;
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -28,7 +20,6 @@ export async function getSettings(): Promise<Settings> {
 
 export async function updateSettings(data: {
   sync?: Partial<Settings['sync']>;
-  agent?: Partial<AgentConfig>;
 }): Promise<{ ok: boolean }> {
   return api('/api/settings', {
     method: 'POST',
@@ -41,10 +32,6 @@ export async function testPlatform(platform: string): Promise<{ success: boolean
     method: 'POST',
     body: JSON.stringify({ platform }),
   });
-}
-
-export async function testAgent(): Promise<{ success: boolean; message: string }> {
-  return api('/api/settings/test-agent', { method: 'POST' });
 }
 
 export async function getOnboarding(): Promise<any> {

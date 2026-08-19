@@ -264,11 +264,29 @@ export default function LandingPage() {
             </div>
           </div>
         );
-      case 'assistant':
+      case 'catalog':
         return (
-          <div className="landing-mock-section landing-chat">
-            <div className="landing-bubble landing-bubble--user">{t('landing.assistant.q')}</div>
-            <div className="landing-bubble landing-bubble--ai">{t('landing.assistant.a')}</div>
+          <div className="landing-mock-section">
+            <span className="landing-mock-title">/model</span>
+            <div className="landing-pcards">
+              {mockProviders.map((p) => {
+                const icon = getProviderIcon(p.icon);
+                return (
+                  <div className="landing-pcard" key={p.name}>
+                    <div className="landing-pcard-head">
+                      {icon && <img src={icon} alt="" className="landing-pcard-logo" />}
+                      <span className="landing-pcard-name">{p.name}</span>
+                    </div>
+                    <div className="landing-pcard-models">
+                      {p.models.map((m) => (
+                        <span className={`landing-model-chip${m === p.activeModel ? ' active' : ''}`} key={m}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="landing-mock-note">codex /model → GLM-5 · MiniMax-M2</div>
           </div>
         );
       case 'sync':
@@ -294,7 +312,7 @@ export default function LandingPage() {
     { id: 'platforms', num: '02', titleKey: 'landing.cap.platforms.title', bodyKey: 'landing.cap.platforms.body' },
     { id: 'vault', num: '03', titleKey: 'landing.cap.vault.title', bodyKey: 'landing.cap.vault.body', badgeKey: 'landing.cap.vault.badge' },
     { id: 'usage', num: '04', titleKey: 'landing.cap.usage.title', bodyKey: 'landing.cap.usage.body' },
-    { id: 'assistant', num: '05', titleKey: 'landing.cap.assistant.title', bodyKey: 'landing.cap.assistant.body' },
+    { id: 'catalog', num: '05', titleKey: 'landing.cap.catalog.title', bodyKey: 'landing.cap.catalog.body' },
     { id: 'sync', num: '06', titleKey: 'landing.cap.sync.title', bodyKey: 'landing.cap.sync.body' },
     { id: 'cli', num: '07', titleKey: 'landing.cap.cli.title', bodyKey: 'landing.cap.cli.body' },
   ];
@@ -364,7 +382,6 @@ export default function LandingPage() {
                   </span>
                   {[
                     ['nav.home', true],
-                    ['nav.ai', false],
                     ['nav.vault', false],
                     ['nav.models', false],
                     ['nav.usage', false],

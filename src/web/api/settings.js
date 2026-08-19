@@ -79,51 +79,11 @@ function mergeSensitive(current, patch) {
   return merged;
 }
 
-function getDefaultAgentConfig() {
-  return {
-    provider: 'siliconflow',
-    model: 'deepseek-ai/DeepSeek-V3',
-    baseUrl: 'https://api.siliconflow.cn/v1',
-    apiKeyVaultKey: 'SILICONFLOW_API_KEY',
-  };
-}
-
-async function resolveAgentConfigFromProvider(agentConfig) {
-  try {
-    const providersPath = path.join(os.homedir(), '.okit', 'providers.json');
-    if (!(await fs.pathExists(providersPath))) return agentConfig;
-    const data = await fs.readJson(providersPath);
-    const providers = Array.isArray(data?.providers) ? data.providers : [];
-    const provider = providers.find(p => p.id === agentConfig.provider);
-    if (!provider) return agentConfig;
-
-    const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];
-    const endpoint = endpoints.find(ep => ep.type === 'openai') || endpoints[0] || {};
-    const models = Array.isArray(provider.models) ? provider.models : [];
-    const modelExists = models.some(m => m.id === agentConfig.model);
-
-    return {
-      ...agentConfig,
-      baseUrl: endpoint.baseUrl || provider.baseUrl || agentConfig.baseUrl,
-      apiKeyVaultKey: provider.vaultKey || agentConfig.apiKeyVaultKey,
-      model: modelExists ? agentConfig.model : (models[0]?.id || agentConfig.model),
-    };
-  } catch {
-    return agentConfig;
-  }
-}
-
-async function resolveVaultValue(store, keyAlias) {
-  if (!keyAlias) return null;
-  return await store.get(keyAlias);
-}
-
 async function getSettings(req, res) {
   try {
     const config = await loadConfig();
     const sync = config.sync || { autoSync: false, platforms: {} };
-    const agent = config.agent || getDefaultAgentConfig();
-    res.json({ sync: maskConfig(sync), agent });
+    res.json({ sync: maskConfig(sync) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to load settings' });
   }
@@ -131,11 +91,10 @@ async function getSettings(req, res) {
 
 async function updateSettings(req, res) {
   try {
-    const { sync, agent } = req.body;
-    if (!sync && !agent) return res.status(400).json({ error: 'sync or agent is required' });
+    const { sync } = req.body;
+    if (!sync) return res.status(400).json({ error: 'sync is required' });
 
     const config = await loadConfig();
-    const prevAgent = config.agent || {};
     const autoSyncWasOn = !!config.sync?.autoSync;
     const prevLan = JSON.stringify(config.sync?.lan || null);
 
@@ -151,22 +110,12 @@ async function updateSettings(req, res) {
       };
     }
 
-    if (agent) {
-      config.agent = { ...getDefaultAgentConfig(), ...(config.agent || {}), ...agent };
-    }
-
     await saveConfig(config);
     const changes = [];
     if (sync) changes.push(...Object.keys(sync.platforms || {}));
-    if (agent) changes.push('agent');
     appendLog('settings-update', changes.join(',') || 'settings', true);
-    res.json({ success: true, sync: maskConfig(config.sync), agent: config.agent });
+    res.json({ success: true, sync: maskConfig(config.sync) });
 
-    // The frontend round-trips agent on every save; only a real change is a
-    // payload change for cloud sync.
-    if (agent && JSON.stringify(config.agent) !== JSON.stringify(prevAgent)) {
-      require('./sync-scheduler').markDirty('agent');
-    }
     // Toggling auto-sync on should adopt remote + flush pending without a restart
     if (sync && typeof sync.autoSync === 'boolean' && sync.autoSync && !autoSyncWasOn) {
       require('./sync-scheduler').syncNow().catch(() => {});
@@ -180,26 +129,6 @@ async function updateSettings(req, res) {
     appendLog('settings-update', 'settings', false, error.message);
     res.status(500).json({ error: 'Failed to save settings' });
   }
-}
-
-const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
-const SKIP_FIELDS = /databaseId|bucketName|region/i;
-
-const VAULT_KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,}$/;
-
-async function resolveVaultRefs(platConfig) {
-  const { VaultStore } = require('../../vault/store');
-  const store = new VaultStore();
-  const resolved = { ...platConfig };
-  for (const [key, value] of Object.entries(resolved)) {
-    if (typeof value === 'string' && SECRET_FIELD_PATTERNS.test(key) && !SKIP_FIELDS.test(key)) {
-      if (!VAULT_KEY_PATTERN.test(value)) continue;
-      const actual = await store.get(value);
-      if (!actual) throw new Error(`密钥 "${value}" 不存在，请先在密钥管理中添加`);
-      resolved[key] = actual;
-    }
-  }
-  return resolved;
 }
 
 async function testPlatformConnection(req, res) {
@@ -294,32 +223,4 @@ async function resetOnboarding(req, res) {
   }
 }
 
-async function testAgentConnection(req, res) {
-  const config = await loadConfig();
-  const agentConfig = await resolveAgentConfigFromProvider({ ...getDefaultAgentConfig(), ...(config.agent || {}) });
-
-  try {
-    const { VaultStore } = require('../../vault/store');
-    const store = new VaultStore();
-    const apiKey = await resolveVaultValue(store, agentConfig.apiKeyVaultKey);
-    if (!apiKey) {
-      return res.json({ success: false, message: `请先在密钥管理中添加 ${agentConfig.apiKeyVaultKey}` });
-    }
-
-    const { createOpenAI } = require('@ai-sdk/openai');
-    const { generateText } = require('ai');
-    const aiProvider = createOpenAI({ baseURL: agentConfig.baseUrl, apiKey });
-
-    await generateText({
-      model: aiProvider.chat(agentConfig.model),
-      prompt: 'say ok',
-      maxTokens: 5,
-    });
-
-    res.json({ success: true, message: `连接成功 (${agentConfig.model})` });
-  } catch (error) {
-    res.json({ success: false, message: error.message?.substring(0, 200) || '连接失败' });
-  }
-}
-
-module.exports = { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };
+module.exports = { getSettings, updateSettings, testPlatformConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding };

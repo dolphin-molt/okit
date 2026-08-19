@@ -49,12 +49,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.53",
-    "@earendil-works/pi-coding-agent": "^0.84.1",
     "@github/copilot-sdk": "^1.0.9",
     "@types/express": "^5.0.6",
     "@volcengine/openapi": "^1.36.1",
-    "ai": "^6.0.168",
     "commander": "^11.0.0",
     "execa": "^5.1.1",
     "express": "^5.2.1",

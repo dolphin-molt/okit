@@ -1,21 +1,11 @@
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useApp } from './AppContext';
 import { useI18n } from '../../i18n';
-import { listConversations, createConversation, deleteConversation } from '../../api/agent';
-import { useEffect, useState } from 'react';
-import { Home, User, KeyRound, Boxes, ChartColumn, Settings, Plus, Trash2, ArrowLeft, Rocket } from 'lucide-react';
-
-interface ConvItem {
-  id: string;
-  title: string;
-  updatedAt?: number;
-}
+import { KeyRound, Boxes, ChartColumn, Settings, ArrowLeft, Rocket } from 'lucide-react';
 
 const ic = 1.5;
 
 const WORKSPACE_ITEMS = [
   { path: '/', labelKey: 'nav.home', icon: <Rocket size={18} strokeWidth={ic} /> },
-  { path: '/agent', labelKey: 'nav.ai', hasConvList: true, icon: <User size={18} strokeWidth={ic} /> },
 ];
 
 const TOOL_ITEMS = [
@@ -32,7 +22,6 @@ const NAV_SECTIONS = [
 /* 设置页侧边栏锚点，与 SettingsPage 各区块 id 一一对应 */
 const SETTINGS_SECTIONS = [
   { id: 'appearance', labelKey: 'settings.appearance' },
-  { id: 'agent', labelKey: 'settings.aiAssistant' },
   { id: 'sync', labelKey: 'settings.sync2.title' },
   { id: 'snapshots', labelKey: 'settings.snapshots.title' },
   { id: 'diagnostics', labelKey: 'settings.diagnostics' },
@@ -46,56 +35,7 @@ export default function Sidebar() {
 
 /* ─── 主界面：永久收缩的图标栏 ─── */
 function MainSidebar() {
-  const { currentConvId, setCurrentConvId } = useApp() as any;
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [convList, setConvList] = useState<ConvItem[]>([]);
-
-  const isAgentActive = location.pathname === '/agent';
-
-  useEffect(() => {
-    if (isAgentActive) loadConvList();
-  }, [isAgentActive]);
-
-  async function loadConvList() {
-    try {
-      const list = await listConversations();
-      setConvList(list);
-    } catch {}
-  }
-
-  async function handleNewConv() {
-    try {
-      const conv = await createConversation();
-      setConvList(prev => [conv, ...prev]);
-      setCurrentConvId(conv.id);
-      navigate('/agent');
-    } catch {}
-  }
-
-  async function handleSwitchConv(id: string) {
-    setCurrentConvId(id);
-    navigate('/agent');
-  }
-
-  async function handleDeleteConv(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    e.preventDefault();
-    try {
-      await deleteConversation(id);
-      const newList = convList.filter(c => c.id !== id);
-      setConvList(newList);
-      if (currentConvId === id) {
-        if (newList.length > 0) setCurrentConvId(newList[0].id);
-        else {
-          const conv = await createConversation();
-          setConvList([conv]);
-          setCurrentConvId(conv.id);
-        }
-      }
-    } catch {}
-  }
 
   function renderNavItem(item: typeof WORKSPACE_ITEMS[number] | typeof TOOL_ITEMS[number]) {
     return (
@@ -110,25 +50,7 @@ function MainSidebar() {
         >
           {item.icon}
           <span>{t(item.labelKey)}</span>
-          {(item as any).hasConvList && (
-            <button className="nav-new-btn" onClick={e => { e.stopPropagation(); e.preventDefault(); handleNewConv(); }} title={t('nav.newChat')}>
-              <Plus size={14} strokeWidth={2.5} />
-            </button>
-          )}
         </NavLink>
-        {(item as any).hasConvList && isAgentActive && (
-          <div className="nav-sub-list expanded">
-            {convList.length === 0 && <div style={{ padding: '6px 20px 6px 46px', color: 'var(--ink-muted)', fontSize: 11 }}>{t('nav.noChat')}</div>}
-            {convList.map(c => (
-              <div key={c.id} className={`nav-conv-item${c.id === currentConvId ? ' active' : ''}`} onClick={() => handleSwitchConv(c.id)}>
-                <span className="conv-title">{c.title || t('nav.newChat')}</span>
-                <button className="nav-conv-delete" onClick={e => handleDeleteConv(c.id, e)} title={t('common.delete')}>
-                  <Trash2 size={12} strokeWidth={2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     );
   }

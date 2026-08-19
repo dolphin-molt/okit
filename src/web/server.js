@@ -3,9 +3,8 @@ const path = require('path');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups } = require('./api/vault');
 const { autoCreateKey, autoCreateRunStatus, resumeAutoCreateRun, deleteAutoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
+const { getSettings, updateSettings, testPlatformConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
-const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
-const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode, handleLanStatus, handleLanEnable, handleLanDisable, handleLanRegenerate, handleLanPairingPeek, handleLanPairingCreate, handleLanPair, handleSyncOverview } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
@@ -71,20 +70,10 @@ function createServer(port = 3780) {
   app.get('/api/cloudflare/store-secrets', listStoreSecrets);
   app.post('/api/cloudflare/sync', syncToCloudflare);
 
-  // Agent routes
-  app.post('/api/agent/chat', agentChat);
-  app.post('/api/agent/confirm', agentConfirm);
-  app.get('/api/agent/conversations', listConversations);
-  app.get('/api/agent/conversations/:id', getConversation);
-  app.post('/api/agent/conversations', createConversation);
-  app.put('/api/agent/conversations/:id', updateConversation);
-  app.delete('/api/agent/conversations/:id', deleteConversation);
-
   // Settings routes
   app.get('/api/settings', getSettings);
   app.post('/api/settings', updateSettings);
   app.post('/api/settings/test', testPlatformConnection);
-  app.post('/api/settings/test-agent', testAgentConnection);
   app.get('/api/settings/presets', getPresets);
   app.get('/api/settings/onboarding', getOnboarding);
   app.post('/api/settings/onboarding/dismiss', dismissOnboarding);

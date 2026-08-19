@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getSettings, updateSettings, testAgent } from '../../api/settings';
-import { listProviders, type Provider } from '../../api/providers';
+import { getSettings, updateSettings } from '../../api/settings';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
-import CustomSelect from '../shared/CustomSelect';
 import LogsPage from '../logs/LogsPage';
 import DeviceSyncSection from './DeviceSyncSection';
 import SnapshotsSection from './SnapshotsSection';
-
-const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
 
 /* 界面风格包：id 对应 <html data-style>，swatch 为 [暗色面板色, 强调色, 亮色面板色] */
 const UI_STYLES = [
@@ -23,60 +19,20 @@ const UI_STYLES = [
 export default function SettingsPage() {
   const { showToast, setConnectionStatus, theme, setThemeMode, uiStyle, setUiStyle } = useApp() as any;
   const { t, lang, setLang } = useI18n();
-  const [agent, setAgent] = useState(DEFAULT_AGENT);
-  const [modelProviders, setModelProviders] = useState<Provider[]>([]);
-  const [testingAgent, setTestingAgent] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const [settingsData, providersData] = await Promise.all([getSettings(), listProviders()]);
-      const s = settingsData as any;
-      setModelProviders(providersData.providers || []);
-      if (s.agent) {
-        setAgent({ ...DEFAULT_AGENT, ...s.agent });
-      }
+      const settingsData = await getSettings();
       setConnectionStatus('connected');
     } catch { setConnectionStatus('error'); }
   }
 
-  async function saveAgent(newAgent: typeof agent) {
-    try {
-      await updateSettings({ agent: newAgent });
-    } catch { showToast(t('settings.saveFail'), 'error'); }
-  }
-
-  // Agent settings handlers
-  function onProviderChange(provider: string) {
-    const selected = modelProviders.find(p => p.id === provider);
-    if (!selected) return;
-    const primaryEndpoint = selected.endpoints?.[0] || { type: selected.type, baseUrl: selected.baseUrl };
-    const newAgent = {
-      ...DEFAULT_AGENT,
-      ...agent,
-      provider,
-      baseUrl: primaryEndpoint.baseUrl || selected.baseUrl || '',
-      apiKeyVaultKey: selected.vaultKey || '',
-      model: selected.models?.[0]?.id || '',
-    };
-    setAgent(newAgent);
-    saveAgent(newAgent);
-  }
-
-  async function handleTestAgent() {
-    setTestingAgent(true);
-    await saveAgent(agent);
-    try {
-      const data = await testAgent();
-      showToast(data.message || (data.success ? t('settings.connSuccess') : t('settings.connFail')), data.success ? 'success' : 'error');
-    } catch { showToast(t('settings.testConnFail'), 'error'); } finally { setTestingAgent(false); }
-  }
-
   const [searchParams] = useSearchParams();
   const rawSection = searchParams.get('section') || 'appearance';
-  const section = ['appearance', 'agent', 'sync', 'snapshots', 'diagnostics'].includes(rawSection) ? rawSection : 'appearance';
+  const section = ['appearance', 'sync', 'snapshots', 'diagnostics'].includes(rawSection) ? rawSection : 'appearance';
 
   return (
     <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
@@ -171,28 +127,6 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Agent Settings */}
-      {section === 'agent' && (
-      <div className="settings-section" id="agent">
-        <div className="settings-card">
-          <div className="settings-card-body settings-card-body--agent">
-            <div className="settings-field">
-              <label>{t('settings.provider')}</label>
-              <CustomSelect
-                className="settings-select-wrap"
-                value={agent.provider}
-                onChange={onProviderChange}
-                options={modelProviders.map(p => ({ value: p.id, label: p.name }))}
-              />
-            </div>
-            <button className="settings-test-btn" onClick={handleTestAgent} disabled={testingAgent}>
-              {testingAgent ? t('common.testing') : t('common.test')}
-            </button>
           </div>
         </div>
       </div>

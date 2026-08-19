@@ -9,9 +9,15 @@ const { getSettings, updateSettings, testPlatformConnection, testAgentConnection
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode, handleLanStatus, handleLanEnable, handleLanDisable, handleLanRegenerate, handleLanPairingPeek, handleLanPairingCreate, handleLanPair, handleSyncOverview } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
+const { createGrokProxyHandler } = require('./api/grok-proxy');
 
 function createServer(port = 3780) {
   const app = express();
+
+  // Grok Build tool-schema sanitizing proxy. Must be mounted before
+  // express.json(): the proxy reads the raw request body itself, and a
+  // JSON body-parser would consume the stream first (and cap its size).
+  app.use('/api/grok-proxy/:enc', createGrokProxyHandler());
 
   // Middleware
   app.use(express.json());

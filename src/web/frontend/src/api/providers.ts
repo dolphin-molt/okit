@@ -121,7 +121,7 @@ export interface AgentInfo {
   additive?: boolean;
   current: { providerId: string; providerName: string; modelId: string } | null;
   /** Providers shown on the home page (user-curated subset). */
-  compatibleProviders: { id: string; name: string; type: string; baseUrl?: string; models: ProviderModel[]; allModels?: ProviderModel[] }[];
+  compatibleProviders: { id: string; name: string; type: string; baseUrl?: string; models: ProviderModel[]; allModels?: ProviderModel[]; enabled?: boolean }[];
   /** All configured-and-compatible providers, for the "+ add" picker. */
   availableProviders?: { id: string; name: string; type: string; added: boolean }[];
 }

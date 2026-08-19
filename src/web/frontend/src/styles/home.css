@@ -332,14 +332,21 @@
   border-radius: 10px;
   background: transparent;
   color: var(--ink-muted);
-  cursor: pointer;
+  cursor: grab;
   font-size: 11px;
   font-weight: 500;
   font-family: inherit;
   transition: all 0.15s ease;
   position: relative;
   opacity: 0.5;
+  touch-action: none;
 }
+
+.agent-tab:active { cursor: grabbing; }
+
+.agent-tab.dragging { opacity: 0.35; }
+
+.agent-tab.drop-target { background: rgba(22, 163, 74, 0.14); box-shadow: inset 0 0 0 1.5px var(--ok, #16a34a); }
 
 .agent-tab:hover {
   opacity: 0.8;
@@ -1094,7 +1101,10 @@
 .home-agent-heading {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;
 }
-.home-agent-heading .home-section-title { margin: 0; }
+.home-agent-heading .home-section-title {
+  margin: 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink); font-size: 15px; letter-spacing: 0.08em;
+}
 
 /* Home provider card: remove button + add-provider button + picker modal */
 .provider-card-remove-btn {
@@ -1107,12 +1117,11 @@
 .provider-card-remove-btn:hover { color: #dc2626; background: rgba(220,38,38,0.1); }
 
 .home-add-provider-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border: 1.5px dashed var(--border, #d4cebe); border-radius: 6px;
-  background: transparent; cursor: pointer; color: var(--ink-muted); font-size: 13px;
-  transition: border-color 0.12s, color 0.12s;
+  width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px; background: transparent; cursor: pointer;
+  color: var(--ink-muted); transition: color 0.12s;
 }
-.home-add-provider-btn:hover { border-color: var(--ink); color: var(--ink); }
+.home-add-provider-btn:hover { color: var(--ink); }
 
 /* Picker overlay */
 .home-add-picker-overlay {
@@ -1161,19 +1170,53 @@
 .quick-start-page .provider-card-title { flex: 1; min-width: 0; margin-right: 12px; }
 .quick-start-page .provider-card-header { gap: 8px; }
 
-/* Provider actions row (add + view config) */
-.home-provider-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.home-view-config-btn {
-  padding: 8px 14px; border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
-  background: var(--paper); cursor: pointer; color: var(--ink-muted); font-size: 13px;
-  transition: border-color 0.12s, color 0.12s;
+/* Narrow screens: providers.css collapses .provider-card-header to a column
+   (it's a shared class with the Models page). On the home page keep the
+   title + switch + remove on ONE row — the title truncates instead. */
+@media (max-width: 760px) {
+  .quick-start-page .provider-card-header {
+    flex-direction: row;
+    align-items: center;
+  }
+  .quick-start-page .provider-card-title h3 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
-.home-view-config-btn:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+
+/* Provider actions row (add + view config) — keep it on the title line at
+   every width; the title truncates instead of wrapping. */
+.home-provider-actions {
+  display: flex; gap: 2px; align-items: center; flex-shrink: 0;
+}
+.home-view-config-btn {
+  width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px;
+  background: transparent; cursor: pointer; color: var(--ink-muted);
+  transition: color 0.12s;
+}
+.home-view-config-btn:hover:not(:disabled) { color: var(--ink); }
 .home-view-config-btn:disabled { opacity: 0.6; cursor: default; }
 
-@media (max-width: 640px) {
-  .home-agent-heading { align-items: flex-start; flex-direction: column; }
+/* Icon-only buttons inside the config viewer */
+.home-config-refresh-btn {
+  width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px;
+  background: transparent; cursor: pointer; color: var(--ink-muted); font-size: 14px; line-height: 1;
+  transition: color 0.12s;
 }
+.home-config-refresh-btn:hover:not(:disabled) { color: var(--ink); }
+.home-config-refresh-btn:disabled { opacity: 0.6; cursor: default; }
+.home-config-viewer-actions .btn-icon { border: none; background: transparent; }
+.home-config-copy-btn {
+  width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; border-radius: 6px; flex-shrink: 0;
+  cursor: pointer; color: var(--ink-muted); font-size: 13px; line-height: 1;
+  transition: color 0.12s;
+}
+.home-config-copy-btn:hover:not(:disabled) { color: var(--ink); }
+.home-config-copy-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Config file viewer modal */
 .home-config-viewer {
@@ -1181,7 +1224,7 @@
   box-shadow: 3px 3px 0 rgba(0,0,0,0.1); width: min(680px, 92vw); max-height: 80vh;
   display: flex; flex-direction: column;
 }
-.home-config-viewer-actions { display: flex; gap: 8px; align-items: center; }
+.home-config-viewer-actions { display: flex; gap: 2px; align-items: center; }
 .home-config-viewer-body { padding: 8px 16px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
 
 /* Config viewer tab bar — pill/capsule style */
@@ -1207,7 +1250,7 @@
 [data-theme="dark"] .home-config-tab { border-color: var(--border, #3a3530); }
 [data-theme="dark"] .home-config-tab.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
 .home-config-file { display: flex; flex-direction: column; gap: 6px; }
-.home-config-file-path { display: flex; align-items: center; gap: 8px; }
+.home-config-file-path { display: flex; align-items: center; gap: 2px; }
 .home-config-file-path code { font-family: var(--mono, monospace); font-size: 12px; color: var(--ink); }
 .home-config-file-status { font-size: 11px; padding: 1px 8px; border-radius: 10px; }
 .home-config-file-status.exists { color: var(--ok, #16a34a); background: rgba(22,163,74,0.1); }
@@ -1234,9 +1277,10 @@
   background: var(--warn, #d97706); flex-shrink: 0;
 }
 .home-config-save-btn {
-  margin-left: auto; padding: 3px 14px; border: 1.5px solid var(--border, #d4cebe);
-  border-radius: 6px; background: transparent; color: var(--ink-muted);
-  cursor: not-allowed; font: inherit; font-size: 12px; font-weight: 500;
+  width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; flex-shrink: 0;
+  border-radius: 6px; color: var(--ink-muted);
+  cursor: not-allowed; font: inherit; font-size: 13px; line-height: 1;
   transition: all 0.15s ease;
 }
 .home-config-save-btn.dirty {
@@ -1247,6 +1291,59 @@
   background: var(--ok, #16a34a); color: #fff;
 }
 .home-config-save-btn:disabled { opacity: 0.5; }
+
+/* JSON tree view (collapsible) for config files */
+.jtree {
+  margin: 0; padding: 10px 8px; background: rgba(0,0,0,0.04); border: 1px solid var(--border, #d4cebe);
+  border-radius: 4px; font-family: var(--mono, monospace); font-size: 12px; color: var(--ink);
+  max-height: 50vh; overflow: auto; line-height: 1.6;
+}
+[data-theme="dark"] .jtree { background: rgba(0,0,0,0.25); }
+.jtree-row { white-space: pre-wrap; word-break: break-all; }
+.jtree-toggle {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  font: inherit; color: inherit; cursor: pointer; padding: 0; line-height: 1.6;
+  border-radius: 3px;
+}
+.jtree-toggle:hover { background: rgba(0,0,0,0.05); }
+[data-theme="dark"] .jtree-toggle:hover { background: rgba(255,255,255,0.06); }
+.jtree-caret {
+  display: inline-flex; width: 14px; color: var(--ink-muted);
+  transition: transform 0.12s ease; transform: rotate(0deg);
+}
+.jtree-caret.open { transform: rotate(90deg); }
+.jtree-key { color: #7c3aed; }
+[data-theme="dark"] .jtree-key { color: #c4b5fd; }
+.jtree-bracket { color: var(--ink-muted); }
+.jtree-summary { color: var(--ink-muted); margin-left: 4px; font-size: 11px; }
+.jtree-children { position: relative; }
+.jtree-children::before {
+  content: ''; position: absolute; left: 5px; top: 0; bottom: 0;
+  border-left: 1px dashed var(--border, #d4cebe);
+}
+.jtree-leaf { padding-left: 14px; }
+.jtree-str { color: #0a7d3f; }
+[data-theme="dark"] .jtree-str { color: #6ee7a0; }
+.jtree-num { color: #0f6ab4; }
+[data-theme="dark"] .jtree-num { color: #7dd3fc; }
+.jtree-bool { color: #b45309; }
+[data-theme="dark"] .jtree-bool { color: #fcd34d; }
+.jtree-null { color: var(--ink-muted); font-style: italic; }
+.jtree-more { color: var(--ink-muted); font-style: italic; font-size: 11px; }
+
+/* Config viewer: tree-preview toggle button */
+.home-config-preview-btn {
+  width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; flex-shrink: 0; margin-left: auto;
+  border-radius: 6px; color: var(--ink-muted); font-size: 14px; line-height: 1;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.home-config-preview-btn:hover:not(:disabled) { color: var(--ink); }
+.home-config-preview-btn.active {
+  background: var(--ink); color: var(--paper);
+}
+[data-theme="dark"] .home-config-preview-btn.active { background: var(--paper); color: var(--ink); }
+.home-config-preview-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Codex model-catalog selector inside expanded provider cards */
 .provider-catalog-section { margin-top: 8px; border-top: 1px dashed var(--border, #d4cebe); padding-top: 8px; }

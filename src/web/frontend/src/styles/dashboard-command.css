@@ -227,7 +227,6 @@ body {
 
 .main-content > .tab-content {
   position: relative;
-  z-index: 1;
 }
 
 .main-content::-webkit-scrollbar-thumb,

@@ -7,6 +7,8 @@ import { WorkBuddyAdapter } from "./adapters/workbuddy";
 import { ZCodeAdapter } from "./adapters/zcode";
 import { HermesAdapter } from "./adapters/hermes";
 import { KimiCodeAdapter } from "./adapters/kimi-code";
+import { GrokAdapter } from "./adapters/grok";
+import { MimoCodeAdapter } from "./adapters/mimo-code";
 
 const adapters: AgentAdapter[] = [
   new ClaudeAdapter(),
@@ -17,6 +19,8 @@ const adapters: AgentAdapter[] = [
   new ZCodeAdapter(),
   new HermesAdapter(),
   new KimiCodeAdapter(),
+  new GrokAdapter(),
+  new MimoCodeAdapter(),
 ];
 
 export function getAdapters(): AgentAdapter[] {

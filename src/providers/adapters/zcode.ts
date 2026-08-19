@@ -2,20 +2,129 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
-import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
+import { AgentSelection, AuthStatus, ManagedModels, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
-import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
+import { atomicWriteJSON } from "../../utils/atomicWrite";
 
-const ZCODE_CONFIG_PATH = path.join(os.homedir(), ".zcode", "config.json");
+// ZCode (zcode.z.ai, the GLM desktop coding agent) reads ~/.zcode/v2/config.json
+// — NOT ~/.zcode/config.json (that legacy path is only used by its older
+// CLI/cc-switch lineage and is ignored by the current app).
+//
+// The file is a map of provider entries, each one self-contained:
+//
+//   {
+//     "provider": {
+//       "xiaomi-coding": {
+//         "enabled": true,
+//         "name": "小米 MiMo Token Plan",
+//         "source": "custom",
+//         "kind": "openai-compatible",          // "anthropic" | "openai" | "openai-compatible"
+//         "apiFormat": "openai-chat-completions", // anthropic-messages | openai-responses | openai-chat-completions
+//         "options": { "baseURL": "...", "apiKey": "..." },
+//         "models": { "mimo-v2.5": { "name": "MiMo V2.5", "kinds": [...], "defaultKind": "..." } }
+//       }
+//     }
+//   }
+//
+// ZCode is an ADDITIVE agent: entries from every source coexist and the user
+// switches between them inside ZCode's own model picker. OKIT must therefore
+// never modify or remove entries it did not write. Ownership is tracked in
+// user.json (managedModels, keyed by OKIT providerId); entries at the same
+// base URL are adopted as OKIT's own so configs written by older OKIT versions
+// (before tracking existed) keep working.
+//
+// kind/apiFormat mapping follows the documented ZCode custom-provider format
+// (Trinity AI's ZCode cookbook + ZCode's own "Add provider" UI): Anthropic
+// Messages → kind "anthropic" + apiFormat "anthropic-messages" (base URL
+// without /v1); OpenAI Responses → kind "openai" + apiFormat
+// "openai-responses"; Chat Completions → kind "openai-compatible" + apiFormat
+// "openai-chat-completions" (base URL with /v1).
 
-// Map OKIT protocol type to the agent's `api` field. ZCode shares OpenClaw's
-// config lineage (object-keyed providers, agents.defaults.model object).
-function apiProtocolFor(type: ProviderType): string {
-  switch (type) {
-    case "anthropic": return "anthropic";
-    case "openai":
-    default: return "openai-completions";
+const ZCODE_CONFIG_PATH = path.join(os.homedir(), ".zcode", "v2", "config.json");
+
+interface ZCodeFormat {
+  kind: string;
+  apiFormat: string;
+  baseURL: string;
+}
+
+// Map an OKIT-resolved provider (endpoint already pinned by routing.ts) to the
+// ZCode provider entry fields. Anthropic endpoints get the trailing /v1
+// stripped — ZCode appends /v1/messages itself; OpenAI-style endpoints keep it.
+function zcodeFormatFor(provider: Provider): ZCodeFormat {
+  const endpoint = provider.endpoints?.[0];
+  const type = endpoint?.type || provider.type;
+  const protocol = endpoint?.protocol || "chat";
+  let baseURL = endpoint?.baseUrl || provider.baseUrl;
+
+  if (type === "anthropic") {
+    baseURL = baseURL.replace(/\/v1\/?$/, "");
+    return { kind: "anthropic", apiFormat: "anthropic-messages", baseURL };
   }
+  if (protocol === "responses") {
+    return { kind: "openai", apiFormat: "openai-responses", baseURL };
+  }
+  return { kind: "openai-compatible", apiFormat: "openai-chat-completions", baseURL };
+}
+
+// Every custom provider entry written by OKIT carries these fields. ZCode's
+// model picker reads the "provider/<modelId>" reference, e.g.
+// "xiaomi-coding/mimo-v2.5".
+function buildProviderEntry(
+  provider: Provider,
+  modelNames: Map<string, string>,
+  format: ZCodeFormat,
+  apiKey?: string,
+): Record<string, any> {
+  const models: Record<string, any> = {};
+  for (const [modelId, name] of modelNames) {
+    models[modelId] = { name: name || modelId };
+  }
+  const options: Record<string, string> = { baseURL: format.baseURL };
+  if (apiKey) options.apiKey = apiKey;
+
+  return {
+    enabled: true,
+    name: provider.name,
+    source: "custom",
+    kind: format.kind,
+    apiFormat: format.apiFormat,
+    options,
+    models,
+  };
+}
+
+async function readV2Config(): Promise<Record<string, any>> {
+  if (await fs.pathExists(ZCODE_CONFIG_PATH)) {
+    const content = await fs.readFile(ZCODE_CONFIG_PATH, "utf-8");
+    if (content.trim()) {
+      try {
+        return JSON.parse(content);
+      } catch {
+        // Corrupted file — start over rather than crash.
+      }
+    }
+  }
+  return {};
+}
+
+async function writeV2Config(data: Record<string, any>): Promise<void> {
+  await fs.ensureDir(path.dirname(ZCODE_CONFIG_PATH));
+  await atomicWriteJSON(ZCODE_CONFIG_PATH, data);
+}
+
+// OKIT owns an existing entry when the provider id is recorded in its managed
+// list, or when the entry already points at this provider's endpoint (legacy
+// OKIT writes / identical endpoint re-added via OKIT).
+function ownsProviderEntry(
+  entry: Record<string, any> | undefined,
+  providerId: string,
+  format: ZCodeFormat,
+  managed: ManagedModels,
+): boolean {
+  if ((managed[providerId] || []).length > 0) return true;
+  return Boolean(entry && typeof entry?.options?.baseURL === "string"
+    && entry.options.baseURL === format.baseURL);
 }
 
 export class ZCodeAdapter extends BaseAdapter {
@@ -34,39 +143,200 @@ export class ZCodeAdapter extends BaseAdapter {
     return null;
   }
 
+  private async readManaged(): Promise<ManagedModels> {
+    const config = await loadUserConfig();
+    const managed = (config as any).providers?.zcode?.managedModels;
+    return managed && typeof managed === "object" ? managed : {};
+  }
+
+  private modelNamesFor(provider: Provider): Map<string, string> {
+    return new Map(provider.models.map(m => [m.id, m.name || m.id]));
+  }
+
   async applyConfig(provider: Provider, modelId: string): Promise<void> {
     const apiKey = await this.resolveApiKey(provider);
+    const data = await readV2Config();
+    if (typeof data.provider !== "object" || data.provider === null) data.provider = {};
+    const managed = await this.readManaged();
 
-    await fs.ensureDir(path.dirname(ZCODE_CONFIG_PATH));
-    let data: Record<string, any> = {};
-    if (await fs.pathExists(ZCODE_CONFIG_PATH)) {
-      const content = await fs.readFile(ZCODE_CONFIG_PATH, "utf-8");
-      data = content.trim() ? JSON.parse(content) : {};
+    const format = zcodeFormatFor(provider);
+    const existing = data.provider[provider.id];
+    if (existing && !ownsProviderEntry(existing, provider.id, format, managed)) {
+      throw new Error(
+        `ZCode 中已存在站点 "${provider.id}"（非 OKIT 写入，可能是手动添加），已跳过以免覆盖。如需 OKIT 管理，请先在 ZCode 中删除该站点。`,
+      );
     }
 
-    if (typeof data.models !== "object" || data.models === null) data.models = {};
-    if (!data.models.mode) data.models.mode = "merge";
-    if (typeof data.models.providers !== "object" || data.models.providers === null) {
-      data.models.providers = {};
-    }
+    data.provider[provider.id] = buildProviderEntry(provider, this.modelNamesFor(provider), format, apiKey);
+    managed[provider.id] = provider.models.map(m => m.id);
 
-    const providerEntry: Record<string, any> = {
-      baseUrl: provider.baseUrl,
-      api: apiProtocolFor(provider.type),
-      models: provider.models.map(m => ({ id: m.id, name: m.name || m.id })),
-    };
-    if (apiKey) providerEntry.apiKey = apiKey;
-    data.models.providers[provider.id] = providerEntry;
-
-    if (typeof data.agents !== "object" || data.agents === null) data.agents = {};
-    if (typeof data.agents.defaults !== "object" || data.agents.defaults === null) {
-      data.agents.defaults = {};
-    }
-    data.agents.defaults.model = { primary: `${provider.id}/${modelId}`, fallbacks: [] };
-
-    await atomicWriteJSON(ZCODE_CONFIG_PATH, data);
+    await writeV2Config(data);
     await updateUserConfig({
-      providers: { zcode: { providerId: provider.id, modelId } },
+      providers: { zcode: { providerId: provider.id, modelId, managedModels: managed } },
+    } as any);
+  }
+
+  async applyModels(entries: Array<{ provider: Provider; modelId: string }>): Promise<{ written: string[]; skipped: string[] }> {
+    if (entries.length === 0) return { written: [], skipped: [] };
+    const data = await readV2Config();
+    if (typeof data.provider !== "object" || data.provider === null) data.provider = {};
+    const managed = await this.readManaged();
+
+    const written: string[] = [];
+    const skipped: string[] = [];
+    const apiKeys = new Map<string, string | undefined>();
+    // Group model ids per provider so one entry gets one models map.
+    const byProvider = new Map<string, { provider: Provider; modelIds: string[] }>();
+    for (const { provider, modelId } of entries) {
+      if (!byProvider.has(provider.id)) byProvider.set(provider.id, { provider, modelIds: [] });
+      byProvider.get(provider.id)!.modelIds.push(modelId);
+    }
+
+    for (const [providerId, group] of byProvider) {
+      const format = zcodeFormatFor(group.provider);
+      const existing = data.provider[providerId];
+      if (existing && !ownsProviderEntry(existing, providerId, format, managed)) {
+        for (const modelId of group.modelIds) skipped.push(modelId);
+        continue;
+      }
+      if (!apiKeys.has(providerId)) {
+        apiKeys.set(providerId, await this.resolveApiKey(group.provider));
+      }
+      // Merge into the existing models map so re-enabling a site with more
+      // models doesn't drop the ones already written.
+      const names = new Map([...(existing?.models && typeof existing.models === "object" ? Object.keys(existing.models) : []).map(id => [id, (existing.models as any)[id]?.name || id] as [string, string]), ...this.modelNamesFor(group.provider)]);
+      for (const modelId of group.modelIds) {
+        const model = group.provider.models.find(m => m.id === modelId);
+        if (model) names.set(modelId, model.name || modelId);
+        else names.set(modelId, modelId);
+      }
+      data.provider[providerId] = buildProviderEntry(group.provider, names, format, apiKeys.get(providerId));
+      managed[providerId] = [...new Set([...(managed[providerId] || []), ...group.modelIds])];
+      for (const modelId of group.modelIds) written.push(modelId);
+    }
+
+    if (written.length > 0) {
+      await writeV2Config(data);
+      // Persist tracking without moving the "current" selection — enabling a
+      // site only makes its models available; switching happens in ZCode.
+      const config = await loadUserConfig();
+      const sel = (config as any).providers?.zcode || {};
+      await updateUserConfig({
+        providers: {
+          zcode: { providerId: sel.providerId, modelId: sel.modelId, managedModels: managed },
+        },
+      } as any);
+    }
+    return { written, skipped };
+  }
+
+  async listEnabledProviders(): Promise<string[]> {
+    const data = await readV2Config();
+    if (typeof data.provider !== "object" || data.provider === null) return [];
+    return Object.entries(data.provider as Record<string, any>)
+      .filter(([, entry]) => entry && entry.enabled !== false)
+      .map(([id]) => id);
+  }
+
+  // ZCode records the model used by each task in its local sqlite index
+  // (~/.zcode/v2/tasks-index.sqlite), format "providerId/modelId$variant".
+  // The most recently updated active task is the best proxy for "what the
+  // user is using right now" — ZCode has no global current-model field.
+  async getActiveModel(): Promise<{ providerId: string; modelId: string } | null> {
+    const fallback = async (): Promise<{ providerId: string; modelId: string } | null> => {
+      const config = await loadUserConfig();
+      const sel = (config as any).providers?.zcode;
+      return sel?.providerId && sel?.modelId
+        ? { providerId: sel.providerId, modelId: sel.modelId }
+        : null;
+    };
+
+    const dbPath = path.join(os.homedir(), ".zcode", "v2", "tasks-index.sqlite");
+    if (!(await fs.pathExists(dbPath))) return fallback();
+    try {
+      // node:sqlite ships with Node ≥22.5; require it lazily so older runtimes
+      // and type-strict builds without the declarations degrade gracefully.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { DatabaseSync } = require("node:sqlite") as {
+        DatabaseSync: new (path: string, opts?: { readOnly?: boolean }) => {
+          prepare(sql: string): { get(): { model?: string } | undefined };
+          close(): void;
+        };
+      };
+      const db = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        const row = db
+          .prepare("SELECT model FROM tasks WHERE deleted = 0 AND model IS NOT NULL ORDER BY updated_at DESC LIMIT 1")
+          .get();
+        if (row?.model) {
+          const [providerId, modelPart = ""] = row.model.split("/");
+          const modelId = modelPart.split("$")[0];
+          if (providerId && modelId) return { providerId, modelId };
+        }
+      } finally {
+        db.close();
+      }
+    } catch {
+      // Database locked / sqlite unavailable — fall back to user selection.
+    }
+    return fallback();
+  }
+
+  async setProviderEnabled(providerId: string, enabled: boolean): Promise<void> {
+    const config = await loadUserConfig();
+    const sel = (config as any).providers?.zcode || {};
+    const managed = await this.readManaged();
+    // Nothing OKIT wrote for this provider and it isn't the current selection
+    // — nothing to flip.
+    if (!(providerId in managed) && sel.providerId !== providerId) return;
+
+    const data = await readV2Config();
+    const entry = data.provider?.[providerId];
+    if (entry) {
+      // Preserve the entry (models + options) — only flip the switch. ZCode's
+      // own UI keeps disabled providers in the config and hides them from the
+      // model picker, so this is the least surprising state.
+      entry.enabled = enabled;
+      await writeV2Config(data);
+    }
+
+    // A disabled provider can't stay current — clear the selection so the
+    // home page shows the switch off. managedModels is kept so re-enabling
+    // (switchProvider) continues to own the entry.
+    const wasCurrent = sel.providerId === providerId;
+    await updateUserConfig({
+      providers: {
+        zcode: {
+          providerId: wasCurrent ? undefined : sel.providerId,
+          modelId: wasCurrent ? undefined : sel.modelId,
+          managedModels: managed,
+        },
+      },
+    } as any);
+  }
+
+  async removeProvider(providerId: string): Promise<void> {
+    const config = await loadUserConfig();
+    const sel = (config as any).providers?.zcode || {};
+    const managed = await this.readManaged();
+    if (!(providerId in managed) && sel.providerId !== providerId) return;
+
+    const data = await readV2Config();
+    if (typeof data.provider === "object" && data.provider !== null && providerId in data.provider) {
+      delete data.provider[providerId];
+      await writeV2Config(data);
+    }
+
+    delete managed[providerId];
+    const wasCurrent = sel.providerId === providerId;
+    await updateUserConfig({
+      providers: {
+        zcode: {
+          providerId: wasCurrent ? undefined : sel.providerId,
+          modelId: wasCurrent ? undefined : sel.modelId,
+          managedModels: managed,
+        },
+      },
     } as any);
   }
 }

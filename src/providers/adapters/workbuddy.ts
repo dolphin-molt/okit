@@ -199,6 +199,13 @@ export class WorkBuddyAdapter extends BaseAdapter {
     return { written, skipped };
   }
 
+  async listEnabledProviders(): Promise<string[]> {
+    // WorkBuddy config has no enabled flag — an entry present IS enabled.
+    // OKIT-managed provider ids are the ones we know were written and still
+    // own entries for.
+    return Object.keys(await this.readManaged());
+  }
+
   async removeProvider(providerId: string): Promise<void> {
     const config = await loadUserConfig();
     const sel = (config as any).providers?.workbuddy || {};

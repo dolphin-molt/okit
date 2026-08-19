@@ -349,6 +349,8 @@ const ADAPTERS = [
   { id: 'zcode', name: 'ZCode', supportedTypes: ['anthropic', 'openai'], command: 'zcode', launchType: 'app', appName: 'ZCode' },
   { id: 'hermes', name: 'Hermes', supportedTypes: ['anthropic', 'openai'], command: 'hermes', launchType: 'cli' },
   { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
+  { id: 'grok', name: 'Grok Build', supportedTypes: ['openai', 'anthropic'], command: 'grok', launchType: 'cli' },
+  { id: 'mimo-code', name: 'MiMo Code', supportedTypes: ['openai', 'anthropic'], command: 'mimo', launchType: 'cli' },
 ];
 
 // Additive agents: their config files hold entries from MANY providers at
@@ -356,7 +358,7 @@ const ADAPTERS = [
 // these, adding a provider to the home page writes its models into the agent
 // config, and removing/disabling removes them. Exclusive agents
 // (claude/codex/...) keep single-active-switch semantics.
-const ADDITIVE_AGENTS = new Set(['workbuddy']);
+const ADDITIVE_AGENTS = new Set(['workbuddy', 'zcode', 'kimi-code', 'grok', 'mimo-code']);
 
 // Cap for models auto-recorded after a successful switch.
 const RECENT_MODELS_MAX = 10;
@@ -395,9 +397,8 @@ async function getAdaptersList(req, res) {
     const config = await loadUserConfig();
     const providersConfig = config.providers || {};
 
-    const result = ADAPTERS.map(adapter => {
+    const result = await Promise.all(ADAPTERS.map(async adapter => {
       const sel = providersConfig[adapter.id];
-      const currentProvider = sel?.providerId ? providers.find(p => p.id === sel.providerId) : null;
       // All type-compatible providers that are configured (have a key / verified /
       // oauth-eligible). These are candidates for the "add to home" picker.
       const isProviderReady = (p) => {
@@ -417,19 +418,56 @@ async function getAdaptersList(req, res) {
       const homeSet = new Set(homeIds);
       const homeProviders = allCompatible.filter(p => homeSet.has(p.id));
 
+      // Additive agents keep MANY sites enabled at once — ask the adapter which
+      // provider ids are actually present/enabled in its config so each card's
+      // toggle reflects the real state instead of the single "current" pick.
+      let enabledSet = new Set();
+      let activeModel = null;
+      if (ADDITIVE_AGENTS.has(adapter.id)) {
+        const instance = _getAdapter(adapter.id);
+        if (instance && typeof instance.listEnabledProviders === 'function') {
+          try {
+            enabledSet = new Set(await instance.listEnabledProviders());
+          } catch (err) {
+            console.warn(`[getAdaptersList] listEnabledProviders(${adapter.id}) failed: ${err.message}`);
+          }
+        }
+        // Prefer the model the agent is ACTUALLY using (ZCode records it per
+        // task in its sqlite index) over OKIT's last-written selection.
+        if (instance && typeof instance.getActiveModel === 'function') {
+          try {
+            const active = await instance.getActiveModel();
+            if (active?.providerId && active?.modelId) {
+              activeModel = active;
+            }
+          } catch (err) {
+            console.warn(`[getAdaptersList] getActiveModel(${adapter.id}) failed: ${err.message}`);
+          }
+        }
+      }
+      const currentSel = activeModel || (sel?.providerId && sel?.modelId
+        ? { providerId: sel.providerId, modelId: sel.modelId }
+        : null);
+      const currentProvider = currentSel?.providerId ? providers.find(p => p.id === currentSel.providerId) : null;
+
       return {
         ...adapter,
         launchType: adapter.launchType || 'cli',
         canLaunch: !!adapter.command,
         installed: adapter.launchType === 'app' ? true : (adapter.command ? !!findCommand(adapter.command) : false),
         additive: ADDITIVE_AGENTS.has(adapter.id),
-        current: sel?.providerId && sel?.modelId
-          ? { providerId: sel.providerId, providerName: currentProvider?.name || sel.providerId, modelId: sel.modelId }
+        current: currentSel
+          ? { providerId: currentSel.providerId, providerName: currentProvider?.name || currentSel.providerId, modelId: currentSel.modelId }
           : null,
         // Providers shown on the home page (user-curated subset), sorted.
         compatibleProviders: sortProviders(homeProviders).map(p => ({
           id: p.id, name: p.name, type: p.type, baseUrl: p.baseUrl,
           models: tagRecentModels(sortModels(p.models || [])),
+          // Additive: real per-site enabled state (many can be on at once).
+          // Exclusive agents: mirrors the single current selection.
+          enabled: ADDITIVE_AGENTS.has(adapter.id)
+            ? enabledSet.has(p.id) || sel?.providerId === p.id
+            : sel?.providerId === p.id,
         })),
         // All configured-and-compatible providers, for the "+ 添加" picker.
         // Excludes the official subscription presets (anthropic-agent /
@@ -442,7 +480,7 @@ async function getAdaptersList(req, res) {
             added: homeSet.has(p.id),
           })),
       };
-    });
+    }));
 
     res.json({ adapters: result });
   } catch (err) {
@@ -832,11 +870,13 @@ async function removeHomeProvider(req, res) {
   }
 }
 
-// Additive agents only (workbuddy): remove every entry OKIT wrote for a
-// provider from the agent's own config file. The provider STAYS in the home
-// list — this is the "switch off" for a site; toggling it back on rewrites
-// the entries via switchProvider. Exclusive agents don't support per-site
-// disabling (their config only holds one active provider).
+// Additive agents only (workbuddy/zcode): turn a site OFF in the agent's own
+// config. The provider STAYS in the home list — this is the "switch off" for
+// a site. Agents whose config supports an enabled flag (zcode) keep the
+// entries and only flip enabled:false; agents without one (workbuddy) remove
+// the entries entirely. Toggling back on rewrites via switchProvider.
+// Exclusive agents don't support per-site disabling (their config only holds
+// one active provider).
 async function disableAgentProvider(req, res) {
   try {
     const { agentId } = req.params;
@@ -849,10 +889,15 @@ async function disableAgentProvider(req, res) {
     }
     const agentAdapter = _getAdapter(agentId);
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
-    if (typeof agentAdapter.removeProvider !== 'function') {
-      return res.status(400).json({ error: `${agentId} adapter 不支持移除站点` });
+    if (typeof agentAdapter.setProviderEnabled === 'function') {
+      // Keep the entries, flip the enabled flag (zcode).
+      await agentAdapter.setProviderEnabled(providerId, false);
+    } else if (typeof agentAdapter.removeProvider === 'function') {
+      // No enabled flag in the agent's config — remove the entries (workbuddy).
+      await agentAdapter.removeProvider(providerId);
+    } else {
+      return res.status(400).json({ error: `${agentId} adapter 不支持停用站点` });
     }
-    await agentAdapter.removeProvider(providerId);
     res.json({ success: true, agentId, providerId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -871,9 +916,11 @@ const AGENT_CONFIG_FILES = {
   'opencode': ['.config/opencode/opencode.json'],
   'openclaw': ['.openclaw/openclaw.json'],
   'workbuddy': ['.workbuddy/models.json'],
-  'zcode': ['.zcode/config.json'],
+  'zcode': ['.zcode/v2/config.json'],
   'hermes': ['.hermes/config.json'],
-  'kimi-code': ['.kimi-code/config.toml', '.kimi-code/.env'],
+  'kimi-code': ['.kimi-code/config.toml'],
+  'grok': ['.grok/config.toml'],
+  'mimo-code': ['.config/mimocode/mimocode.jsonc'],
 };
 
 async function getAgentConfigFiles(req, res) {
@@ -2059,6 +2106,31 @@ async function importProviderCode(req, res) {
     res.status(status).json({ error: err.message });
   }
 }
+
+// Kimi Code self-heal: kimi's config re-serializer drops the REQUIRED `model`
+// field from every [models.*] entry whose provider is not the current default
+// whenever it rewrites config.toml (thinking toggle, /model switch, session
+// create), which crashes kimi at startup / on model switch. Poll the file and
+// restore the missing fields right after kimi touches it.
+const KIMI_CODE_CONFIG = path.join(os.homedir(), '.kimi-code', 'config.toml');
+let _kimiLastMtimeMs = 0;
+let _kimiHealTimer = null;
+function startKimiCodeHealer() {
+  if (_kimiHealTimer) return;
+  _kimiHealTimer = setInterval(async () => {
+    try {
+      const st = await fs.stat(KIMI_CODE_CONFIG).catch(() => null);
+      if (!st || st.mtimeMs === _kimiLastMtimeMs) return;
+      _kimiLastMtimeMs = st.mtimeMs;
+      const adapter = _getAdapter('kimi-code');
+      if (adapter && typeof adapter.healModelFields === 'function') {
+        await adapter.healModelFields();
+      }
+    } catch {}
+  }, 4000);
+  _kimiHealTimer.unref();
+}
+startKimiCodeHealer();
 
 module.exports = {
   listProviders,

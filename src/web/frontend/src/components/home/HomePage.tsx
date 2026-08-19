@@ -4,7 +4,42 @@ import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon } from '../../assets/agents';
 import { getProviderIcon } from '../../assets/providers';
+import JsonTreeView from '../shared/JsonTreeView';
+import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson } from 'lucide-react';
 import UsageSummary from './UsageSummary';
+
+const AGENT_ORDER_KEY = 'okit.agentOrder';
+
+function loadSavedAgentOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(AGENT_ORDER_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAgentOrder(ids: string[]): void {
+  try {
+    localStorage.setItem(AGENT_ORDER_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
+function applySavedAgentOrder(list: AgentInfo[]): AgentInfo[] {
+  const saved = loadSavedAgentOrder();
+  if (!saved.length) return list;
+  const byId = new Map(list.map(a => [a.id, a]));
+  const ordered: AgentInfo[] = [];
+  for (const id of saved) {
+    const agent = byId.get(id);
+    if (agent && !ordered.includes(agent)) ordered.push(agent);
+  }
+  for (const agent of list) {
+    if (!ordered.includes(agent)) ordered.push(agent);
+  }
+  return ordered;
+}
 
 export default function HomePage() {
   const { t } = useI18n();
@@ -24,6 +59,9 @@ export default function HomePage() {
   // its draft differs from the original content loaded from disk.
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [configSaving, setConfigSaving] = useState(false);
+  // Config viewer display mode: 'raw' shows the editable textarea,
+  // 'tree' toggles to a collapsible JSON tree preview.
+  const [configViewMode, setConfigViewMode] = useState<'tree' | 'raw'>('raw');
   // Per-provider model visibility filter. Maps providerId → modelIds the
   // user has UNCHECKED (hidden from the card). Absent or empty = all models
   // visible. The current/active model can't be unchecked (its checkbox is
@@ -37,17 +75,21 @@ export default function HomePage() {
   const [addModelPickerFor, setAddModelPickerFor] = useState<string | null>(null);
   // Claude Code tier maps: per-provider { haiku, sonnet, opus } model overrides.
   const [tierMaps, setTierMaps] = useState<Record<string, TierMap>>({});
+  // Agent tab drag-to-reorder.
+  const [dragTabIndex, setDragTabIndex] = useState<number | null>(null);
+  const [dropTabIndex, setDropTabIndex] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
       const data = await getAdapters();
       const list = data.adapters || [];
-      setAdapters(list);
+      const ordered = applySavedAgentOrder(list);
+      setAdapters(ordered);
       // Only seed the active agent on the very first load. Use the functional
       // form so we read the latest activeAgentId — otherwise the closure would
       // capture the initial null forever and reset the tab to list[0] on every
       // reload (e.g. after a switch), yanking the user back to Claude.
-      setActiveAgentId(prev => (prev == null && list.length > 0 ? list[0].id : prev));
+      setActiveAgentId(prev => (prev == null && ordered.length > 0 ? ordered[0].id : prev));
     } catch (err: any) {
       showToast(err.message, 'error');
     } finally {
@@ -77,12 +119,28 @@ export default function HomePage() {
     }
   }, [activeAgentId, load, showToast]);
 
+  const handleDropTab = useCallback((targetIndex: number) => {
+    setDragTabIndex(from => {
+      if (from === null || from === targetIndex) return null;
+      setAdapters(prev => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(from < targetIndex ? targetIndex - 1 : targetIndex, 0, moved);
+        saveAgentOrder(next.map(a => a.id));
+        return next;
+      });
+      return null;
+    });
+    setDropTabIndex(null);
+  }, []);
+
   const handleViewConfig = useCallback(async () => {
     if (!activeAgentId) return;
     setConfigLoading(true);
     setConfigFiles([]);
     setActiveConfigTab(0);
     setConfigDrafts({});
+    setConfigViewMode('raw');
     try {
       const res = await getAgentConfigFiles(activeAgentId);
       setConfigFiles(res.files);
@@ -110,6 +168,17 @@ export default function HomePage() {
       setConfigSaving(false);
     }
   }, [activeAgentId, configDrafts, showToast, t]);
+
+  const handleCopyConfig = useCallback(async (filePath: string) => {
+    const draft = configDrafts[filePath];
+    const original = configFiles?.find(f => f.path === filePath)?.content ?? '';
+    try {
+      await navigator.clipboard.writeText(draft !== undefined ? draft : original);
+      showToast(t('home.configCopied'), 'success');
+    } catch {
+      showToast(t('common.error'), 'error');
+    }
+  }, [configDrafts, configFiles, showToast, t]);
 
   // Load model visibility exclusions + claude tier maps once on mount.
   useEffect(() => {
@@ -229,17 +298,18 @@ export default function HomePage() {
                 type="button"
                 className="home-add-provider-btn"
                 onClick={() => setShowAddPicker(true)}
+                title={t('home.addProvider')}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                {t('home.addProvider')}
+                <Plus size={15} />
               </button>
               <button
                 type="button"
                 className="home-view-config-btn"
                 onClick={handleViewConfig}
                 disabled={configLoading}
+                title={configLoading ? t('common.loading') : t('home.viewConfig')}
               >
-                {configLoading ? t('common.loading') : t('home.viewConfig')}
+                <FileJson size={15} />
               </button>
             </div>
           )}
@@ -247,16 +317,23 @@ export default function HomePage() {
 
       {/* Agent Tabs */}
       <div className="agent-tabs">
-        {adapters.map(agent => {
+        {adapters.map((agent, i) => {
           const icon = getAgentIcon(agent.id);
           return (
             <button
               key={agent.id}
-              className={`agent-tab${activeAgentId === agent.id ? ' active' : ''}`}
+              className={`agent-tab${activeAgentId === agent.id ? ' active' : ''}${dragTabIndex === i ? ' dragging' : ''}${dropTabIndex === i && dragTabIndex !== null && dragTabIndex !== i ? ' drop-target' : ''}`}
               onClick={() => { setActiveAgentId(agent.id); setExpandedProvider(null); setShowAddPicker(false); setShowAllModels(new Set()); }}
               title={agent.name}
+              draggable
+              onDragStart={(e) => { setDragTabIndex(i); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragEnter={() => { if (dragTabIndex !== null && dragTabIndex !== i) setDropTabIndex(i); }}
+              onDragOver={(e) => e.preventDefault()}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTabIndex(null); }}
+              onDrop={(e) => { e.preventDefault(); handleDropTab(i); }}
+              onDragEnd={() => { setDragTabIndex(null); setDropTabIndex(null); }}
             >
-              {icon && <img src={icon} alt="" className="agent-tab-icon" />}
+              {icon && <img src={icon} alt="" className="agent-tab-icon" draggable={false} />}
               {agent.current && <span className="agent-tab-dot" />}
             </button>
           );
@@ -268,6 +345,12 @@ export default function HomePage() {
         <div className="agent-provider-rows">
           {activeAgent.compatibleProviders.map(p => {
             const isCurrent = activeAgent.current?.providerId === p.id;
+            // Additive agents (zcode/workbuddy) keep many sites enabled at
+            // once — the toggle reflects the real per-site config state
+            // (backend), falling back to the current selection when unknown.
+            const siteEnabled = activeAgent.additive
+              ? (p.enabled !== undefined ? p.enabled : isCurrent)
+              : isCurrent;
             const isExpanded = expandedProvider === p.id;
             // Provider-level excluded set — shared by model list and tier UI.
             const excludedSet = new Set(modelExcluded[p.id] || []);
@@ -296,13 +379,13 @@ export default function HomePage() {
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={isCurrent}
-                    className={`provider-switch${isCurrent ? ' provider-switch--on' : ''}`}
-                    title={isCurrent ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
+                    aria-checked={siteEnabled}
+                    className={`provider-switch${siteEnabled ? ' provider-switch--on' : ''}`}
+                    title={siteEnabled ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
                     disabled={(switching || '').startsWith(activeAgent.id)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isCurrent) {
+                      if (!siteEnabled) {
                         // Switch ON — set this provider as current.
                         const m = p.models[0];
                         if (m) handleSwitch(activeAgent.id, p.id, m.id);
@@ -537,12 +620,12 @@ export default function HomePage() {
         <div className="home-add-picker-overlay" onClick={() => setConfigFiles(null)}>
           <div className="home-config-viewer" onClick={e => e.stopPropagation()}>
             <div className="home-add-picker-header">
-              <h3>{t('home.configFilesTitle', { name: activeAgent?.name || '' })}</h3>
+              <h3>{t('home.configFilesTitle')}</h3>
               <div className="home-config-viewer-actions">
-                <button type="button" className="home-view-config-btn" onClick={handleViewConfig} disabled={configLoading}>
-                  {t('home.refresh')}
+                <button type="button" className="home-config-refresh-btn" onClick={handleViewConfig} disabled={configLoading} title={t('home.refresh')}>
+                  <RefreshCw size={14} />
                 </button>
-                <button type="button" className="btn-icon" onClick={() => setConfigFiles(null)}>✕</button>
+                <button type="button" className="btn-icon" onClick={() => setConfigFiles(null)} title={t('common.close')}><X size={14} /></button>
               </div>
             </div>
             {/* Tab bar — only shown when there's more than one file. Each
@@ -575,26 +658,49 @@ export default function HomePage() {
                 const current = draft !== undefined ? draft : original;
                 const dirty = draft !== undefined && draft !== original;
                 return (
-                  <div key={f.path} className="home-config-file">
+                  <div className="home-config-file">
                     <div className="home-config-file-path">
                       <code>{f.path}</code>
                       {dirty && <span className="home-config-dirty-dot" title={t('home.unsavedChanges')} />}
                       <button
                         type="button"
+                        className={`home-config-preview-btn${configViewMode === 'tree' ? ' active' : ''}`}
+                        disabled={!f.exists}
+                        onClick={() => setConfigViewMode(prev => prev === 'tree' ? 'raw' : 'tree')}
+                        title={t('home.configPreview')}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="home-config-copy-btn"
+                        disabled={!f.exists}
+                        onClick={() => handleCopyConfig(f.path)}
+                        title={t('home.configCopy')}
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        type="button"
                         className={`home-config-save-btn${dirty ? ' dirty' : ''}`}
                         disabled={!f.exists || !dirty || configSaving}
                         onClick={() => handleSaveConfig(f.path)}
+                        title={t('home.save')}
                       >
-                        {configSaving ? t('common.loading') : t('home.save')}
+                        {configSaving ? t('common.loading') : <Save size={14} />}
                       </button>
                     </div>
                     {f.exists ? (
-                      <textarea
-                        className="home-config-file-editor"
-                        value={current}
-                        spellCheck={false}
-                        onChange={(e) => setConfigDrafts(prev => ({ ...prev, [f.path]: e.target.value }))}
-                      />
+                      configViewMode === 'tree' ? (
+                        <JsonTreeView value={current} fileName={f.path} />
+                      ) : (
+                        <textarea
+                          className="home-config-file-editor"
+                          value={current}
+                          spellCheck={false}
+                          onChange={(e) => setConfigDrafts(prev => ({ ...prev, [f.path]: e.target.value }))}
+                        />
+                      )
                     ) : (
                       <p className="home-empty-hint">{t('home.fileMissing')}</p>
                     )}

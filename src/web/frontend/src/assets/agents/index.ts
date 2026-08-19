@@ -6,6 +6,8 @@ import hermes from './hermes.png';
 import kimiCode from './kimi-code.svg';
 import opencode from './opencode.svg';
 import openclaw from './openclaw.svg';
+import grok from './grok.png';
+import mimoCode from './mimo-code.svg';
 
 const ICON_MAP: Record<string, string> = {
   'claude': claude,
@@ -16,6 +18,8 @@ const ICON_MAP: Record<string, string> = {
   'kimi-code': kimiCode,
   'opencode': opencode,
   'openclaw': openclaw,
+  'grok': grok,
+  'mimo-code': mimoCode,
 };
 
 export function getAgentIcon(agentId: string): string {

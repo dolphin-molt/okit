@@ -174,6 +174,22 @@ export interface AgentAdapter {
   // (entries still claimed by another provider are kept) and clear the
   // current selection if it pointed at the removed provider.
   removeProvider?(providerId: string): Promise<void>;
+  // Additive agents only (agents whose config supports an enabled flag, e.g.
+  // ZCode): flip the provider's enabled state WITHOUT removing its entries.
+  // Used by the home-page site toggle OFF; toggling back ON rewrites entries
+  // via applyConfig. Absent = disable falls back to removeProvider.
+  setProviderEnabled?(providerId: string, enabled: boolean): Promise<void>;
+  // Additive agents only: the provider ids currently present (and, when the
+  // config carries an enabled flag, enabled) in the agent's config. Used by
+  // the home page so each site's toggle reflects its real state — additive
+  // agents keep MANY sites enabled at once. Absent = fall back to the current
+  // selection for toggle state.
+  listEnabledProviders?(): Promise<string[]>;
+  // Additive agents only: the provider/model the agent is ACTUALLY using right
+  // now, read from the agent's own state (ZCode records it per task in its
+  // local sqlite). More accurate than OKIT's last-written selection. Absent =
+  // fall back to the user.json selection for the "current" badge.
+  getActiveModel?(): Promise<{ providerId: string; modelId: string } | null>;
 }
 
 // Stored file format for providers.json

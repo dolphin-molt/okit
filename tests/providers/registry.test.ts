@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { getAdapters, getAdapter, getAdaptersByType } from '../../src/providers/registry';
 
 describe('getAdapters', () => {
-  it('returns 8 adapters', () => {
+  it('returns 10 adapters', () => {
     const adapters = getAdapters();
-    expect(adapters.length).toBe(8);
+    expect(adapters.length).toBe(10);
     const ids = adapters.map(a => a.id).sort();
-    expect(ids).toEqual(['claude', 'codex', 'hermes', 'kimi-code', 'openclaw', 'opencode', 'workbuddy', 'zcode']);
+    expect(ids).toEqual(['claude', 'codex', 'grok', 'hermes', 'kimi-code', 'mimo-code', 'openclaw', 'opencode', 'workbuddy', 'zcode']);
   });
 });
 
@@ -51,6 +51,20 @@ describe('getAdapter', () => {
     expect(adapter).toBeDefined();
     expect(adapter!.name).toBe('Kimi Code');
     expect(adapter!.supportedTypes).toEqual(['openai']);
+  });
+
+  it('finds grok adapter by id', () => {
+    const adapter = getAdapter('grok');
+    expect(adapter).toBeDefined();
+    expect(adapter!.name).toBe('Grok Build');
+    expect(adapter!.supportedTypes).toEqual(['openai', 'anthropic']);
+  });
+
+  it('finds mimo-code adapter by id', () => {
+    const adapter = getAdapter('mimo-code');
+    expect(adapter).toBeDefined();
+    expect(adapter!.name).toBe('MiMo Code');
+    expect(adapter!.supportedTypes).toEqual(['openai', 'anthropic']);
   });
 
   it('returns undefined for unknown id', () => {

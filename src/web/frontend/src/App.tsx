@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
-import { useApp } from './components/Layout/AppContext';
 import VaultPage from './components/vault/VaultPage';
 import AgentPage from './components/agent/AgentPage';
 import SettingsPage from './components/settings/SettingsPage';
@@ -12,6 +11,7 @@ import AgentsPage from './components/agents/AgentsPage';
 import LandingPage from './components/landing/LandingPage';
 import ManualPage from './components/landing/ManualPage';
 import HomePage from './components/home/HomePage';
+import ModelCatalogPage from './components/catalog/ModelCatalogPage';
 import ProviderImportModal from './components/shared/ProviderImportModal';
 
 function DeepLinkHandler() {
@@ -101,17 +101,17 @@ function PersistentDashboardRoutes() {
 }
 
 export default function App() {
-  const { sidebarCollapsed } = useApp();
-
   return (
     <Routes>
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/manual" element={<ManualPage />} />
+      {/* Standalone model catalog — outside the app shell, own design. */}
+      <Route path="/catalog" element={<ModelCatalogPage />} />
       <Route path="*" element={
         <div id="app">
           <DeepLinkHandler />
-          <Sidebar collapsed={sidebarCollapsed} />
-            <main className={`main-content${sidebarCollapsed ? ' main-content--expanded' : ''}`}>
+          <Sidebar />
+            <main className="main-content">
             <div className="tab-content">
               <PersistentDashboardRoutes />
             </div>

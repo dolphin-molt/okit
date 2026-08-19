@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogExcluded, setCatalogExcluded, getTierMaps, setTierMap, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
+import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogExcluded, setCatalogExcluded, getTierMaps, setTierMap, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon } from '../../assets/agents';
@@ -173,6 +173,22 @@ export default function HomePage() {
     }
   }
 
+  // Additive agents (workbuddy): toggling a site OFF removes the entries OKIT
+  // wrote for it from the agent's own config. Switching between sites happens
+  // inside the agent, so there is no fallback-to-official concept here.
+  async function handleDisableSite(agentId: string, providerId: string) {
+    setSwitching(`${agentId}:${providerId}`);
+    try {
+      await disableAgentProvider(agentId, providerId);
+      showToast(t('home.siteDisabled'), 'success');
+      load();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setSwitching(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="quick-start-page" aria-busy="true">
@@ -282,7 +298,7 @@ export default function HomePage() {
                     role="switch"
                     aria-checked={isCurrent}
                     className={`provider-switch${isCurrent ? ' provider-switch--on' : ''}`}
-                    title={isCurrent ? t('home.enabled') : t('home.enable')}
+                    title={isCurrent ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
                     disabled={(switching || '').startsWith(activeAgent.id)}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -290,6 +306,11 @@ export default function HomePage() {
                         // Switch ON — set this provider as current.
                         const m = p.models[0];
                         if (m) handleSwitch(activeAgent.id, p.id, m.id);
+                      } else if (activeAgent.additive) {
+                        // Switch OFF (additive) — remove this site's entries
+                        // from the agent config. Switching happens inside the
+                        // agent's own UI, so no official fallback is needed.
+                        handleDisableSite(activeAgent.id, p.id);
                       } else {
                         // Switch OFF — for single-type agents, fall back to the
                         // official subscription. The provider stays in the home

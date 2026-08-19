@@ -4357,3 +4357,25 @@ span.variant-tab:hover { background: var(--paper); }
   background: rgba(245, 243, 235, 0.08);
   color: rgba(215, 211, 201, 0.7);
 }
+
+/* 筛选行右端内联添加平台（原 header 移除后） */
+.models-add-inline {
+  margin-left: auto;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: 1px solid var(--kraft-dark);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.models-add-inline:hover {
+  border-color: var(--ink-muted);
+  background: var(--kraft);
+}

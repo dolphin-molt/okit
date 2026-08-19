@@ -151,6 +151,12 @@ export interface AgentSelection {
   modelId: string;
 }
 
+// Additive agents (workbuddy): model ids OKIT has written into the agent's own
+// config, keyed by OKIT providerId. Entries outside this map were written by
+// the agent itself (official presets / user-added in-app) and must never be
+// modified or removed by OKIT.
+export type ManagedModels = Record<string, string[]>;
+
 // Adapter interface each agent implements
 export interface AgentAdapter {
   readonly id: string;
@@ -160,6 +166,14 @@ export interface AgentAdapter {
   getCurrentConfig(): Promise<AgentSelection | null>;
   applyConfig(provider: Provider, modelId: string): Promise<void>;
   resolveApiKey(provider: Provider): Promise<string | undefined>;
+  // Additive agents only (workbuddy): batch-write routed models into the
+  // agent config without changing the "current" selection. Models whose id
+  // collides with an entry OKIT did not write are skipped, not written.
+  applyModels?(entries: Array<{ provider: Provider; modelId: string }>): Promise<{ written: string[]; skipped: string[] }>;
+  // Additive agents only: remove every entry OKIT wrote for this provider
+  // (entries still claimed by another provider are kept) and clear the
+  // current selection if it pointed at the removed provider.
+  removeProvider?(providerId: string): Promise<void>;
 }
 
 // Stored file format for providers.json

@@ -16,8 +16,8 @@ interface AppContextValue {
   theme: string;
   setThemeMode: (theme: 'dark' | 'light') => void;
   toggleTheme: () => void;
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
+  uiStyle: string;
+  setUiStyle: (style: string) => void;
   toasts: Toast[];
   showToast: (message: string, type?: Toast['type']) => void;
   confirm: (message: string, options?: ConfirmOptions) => Promise<boolean>;
@@ -40,9 +40,10 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     if (saved === 'dark' || saved === 'light') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem('okit-sidebar-collapsed') === 'true',
-  );
+  const [uiStyle, setUiStyleState] = useState(() => {
+    const saved = localStorage.getItem('okit-style');
+    return saved || 'command';
+  });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<AppContextValue['connectionStatus']>('connecting');
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
@@ -60,6 +61,15 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-style', uiStyle);
+  }, [uiStyle]);
+
+  const setUiStyle = useCallback((next: string) => {
+    localStorage.setItem('okit-style', next);
+    setUiStyleState(next);
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
@@ -71,14 +81,6 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   const setThemeMode = useCallback((next: 'dark' | 'light') => {
     localStorage.setItem('okit-theme', next);
     setTheme(next);
-  }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('okit-sidebar-collapsed', String(next));
-      return next;
-    });
   }, []);
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
@@ -108,8 +110,8 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
         theme,
         setThemeMode,
         toggleTheme,
-        sidebarCollapsed,
-        toggleSidebar,
+        uiStyle,
+        setUiStyle,
         toasts,
         showToast,
         confirm,

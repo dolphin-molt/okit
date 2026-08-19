@@ -41,6 +41,10 @@ export type UserConfig = {
   providers?: Record<string, {
     providerId?: string;
     modelId?: string;
+    // Additive agents (workbuddy): model ids OKIT wrote into the agent's own
+    // config file, keyed by OKIT providerId — used to never touch entries
+    // OKIT didn't create. See ManagedModels in providers/types.ts.
+    managedModels?: Record<string, string[]>;
   }>;
   sync?: {
     autoSync?: boolean;

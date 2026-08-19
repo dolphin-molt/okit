@@ -759,31 +759,6 @@ export default function ModelsPage() {
   return (
     <>
     <div className="access-workspace models-workspace models-page-full">
-        {!activePlatform && <header className="models-header">
-          <div className="models-header-title">
-            <div className="models-title-row">
-              <div className="view-switcher" aria-label={t('models.viewSwitch')}>
-                <span className="view-switcher-btn view-switcher-btn--active">
-                  {t('models.viewPlatform')}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="models-header-actions">
-            <div className="models-header-stats">
-            {view === 'platform' ? <>
-              <StatChip label={t('models.totalPlatforms')} value={modelStats.total} />
-              <StatChip label={t('models.totalOfferings')} value={modelStats.offerings} tone="muted" />
-              <StatChip label={t('models.totalEndpoints')} value={modelStats.endpoints} tone="muted" />
-              <StatChip label={t('models.authReady')} value={!authLoaded ? '—' : `${modelStats.authed} / ${modelStats.total}`} tone={!authLoaded ? 'muted' : modelStats.authed === modelStats.total ? 'success' : 'warn'} />
-            </> : <>
-              <StatChip label={t('models.comparisonModels')} value={comparisonModelCount} />
-              <StatChip label={t('models.configuredPlatforms')} value={modelStats.total} tone="muted" />
-            </>}
-            </div>
-            <button className="vault-toolbar-btn models-add-platform-btn" onClick={handleAdd}>{t('models.addPlatform')}</button>
-          </div>
-        </header>}
 
         {/* 平台使用分组筛选；模型对比使用单行紧凑筛选。 */}
         {MODEL_COMPARISON_ENABLED && !activePlatform && view === 'model' && !activeModel && (
@@ -886,6 +861,7 @@ export default function ModelsPage() {
                 ))}
               </div>
             </div>
+            <button className="models-add-inline" onClick={handleAdd}>+ {t('models.addPlatform')}</button>
         </div>}
 
         {MODEL_COMPARISON_ENABLED && view === 'model' && activeModel && crossData[activeModel] && (

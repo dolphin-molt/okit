@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from './AppContext';
 import { useI18n } from '../../i18n';
 import { listConversations, createConversation, deleteConversation } from '../../api/agent';
@@ -58,9 +58,24 @@ const NAV_SECTIONS = [
   { labelKey: 'nav.toolsSection', items: TOOL_ITEMS },
 ];
 
-export default function Sidebar({ collapsed }: { collapsed: boolean }) {
-  const { toggleSidebar, currentConvId, setCurrentConvId } = useApp() as any;
-  const { t, lang, setLang } = useI18n();
+/* 设置页侧边栏锚点，与 SettingsPage 各区块 id 一一对应 */
+const SETTINGS_SECTIONS = [
+  { id: 'appearance', labelKey: 'settings.appearance' },
+  { id: 'agent', labelKey: 'settings.aiAssistant' },
+  { id: 'sync', labelKey: 'settings.sync2.title' },
+  { id: 'diagnostics', labelKey: 'settings.diagnostics' },
+];
+
+export default function Sidebar() {
+  const location = useLocation();
+  const isSettings = location.pathname.startsWith('/settings');
+  return isSettings ? <SettingsSidebar /> : <MainSidebar />;
+}
+
+/* ─── 主界面：永久收缩的图标栏 ─── */
+function MainSidebar() {
+  const { currentConvId, setCurrentConvId } = useApp() as any;
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [convList, setConvList] = useState<ConvItem[]>([]);
@@ -113,16 +128,23 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   function renderNavItem(item: typeof WORKSPACE_ITEMS[number] | typeof TOOL_ITEMS[number]) {
     return (
       <div key={item.path}>
-        <NavLink to={item.path} end={item.path === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        <NavLink
+          to={item.path}
+          end={item.path === '/'}
+          data-tip={t(item.labelKey)}
+          title={t(item.labelKey)}
+          aria-label={t(item.labelKey)}
+          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+        >
           {item.icon}
           <span>{t(item.labelKey)}</span>
-          {(item as any).hasConvList && !collapsed && (
+          {(item as any).hasConvList && (
             <button className="nav-new-btn" onClick={e => { e.stopPropagation(); e.preventDefault(); handleNewConv(); }} title={t('nav.newChat')}>
               <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 3v12M3 9h12" /></svg>
             </button>
           )}
         </NavLink>
-        {(item as any).hasConvList && isAgentActive && !collapsed && (
+        {(item as any).hasConvList && isAgentActive && (
           <div className="nav-sub-list expanded">
             {convList.length === 0 && <div style={{ padding: '6px 20px 6px 46px', color: 'var(--ink-muted)', fontSize: 11 }}>{t('nav.noChat')}</div>}
             {convList.map(c => (
@@ -140,11 +162,9 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar-cut" />
+    <aside className="sidebar sidebar--collapsed">
       <div className="sidebar-brand">
-        <img className="sidebar-brand-logo" src="/okit-icon.png" alt="" />
-        <span className="sidebar-brand-name">OKIT</span>
+        <img className="sidebar-brand-logo" src="/okit-icon.png" alt="OKIT" />
       </div>
       <div className="nav-scroll">
         {NAV_SECTIONS.map(section => (
@@ -154,40 +174,52 @@ export default function Sidebar({ collapsed }: { collapsed: boolean }) {
         ))}
       </div>
       <div className="sidebar-bottom">
-        <button
-          className="sidebar-toggle sidebar-collapse-trigger"
-          onClick={toggleSidebar}
-          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m14 6-6 6 6 6" />
-          </svg>
-        </button>
-        <button
-          className="sidebar-bottom-icon"
-          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-          title={t('nav.switchLanguage')}
-          aria-label={t('nav.switchLanguage')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
-          </svg>
-        </button>
         <NavLink
           to="/settings"
-          className={({ isActive }) => `sidebar-bottom-icon${isActive ? ' active' : ''}`}
+          data-tip={t('nav.settings')}
           title={t('nav.settings')}
           aria-label={t('nav.settings')}
+          className={({ isActive }) => `sidebar-bottom-icon${isActive ? ' active' : ''}`}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" />
-            <circle cx="16" cy="6" r="2" />
-            <circle cx="8" cy="12" r="2" />
-            <circle cx="13" cy="18" r="2" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
           </svg>
         </NavLink>
+      </div>
+    </aside>
+  );
+}
+
+/* ─── 设置界面：区块导航侧边栏 + 左下角返回 ─── */
+function SettingsSidebar() {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const raw = searchParams.get('section') || 'appearance';
+  const current = SETTINGS_SECTIONS.some(s => s.id === raw) ? raw : 'appearance';
+
+  return (
+    <aside className="sidebar sidebar--settings">
+      <div className="sidebar-settings-nav">
+        {SETTINGS_SECTIONS.map(s => (
+          <button
+            key={s.id}
+            type="button"
+            className={`sidebar-settings-item${current === s.id ? ' active' : ''}`}
+            onClick={() => navigate(`/settings?section=${s.id}`)}
+          >
+            <span>{t(s.labelKey)}</span>
+          </button>
+        ))}
+      </div>
+      <div className="sidebar-settings-bottom">
+        <button type="button" className="sidebar-back" onClick={() => navigate('/')}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 6l-6 6 6 6M4 12h16" />
+          </svg>
+          <span>{t('nav.backHome')}</span>
+        </button>
       </div>
     </aside>
   );

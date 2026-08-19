@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getSettings, updateSettings, testPlatform } from '../../api/settings';
 import { listVault } from '../../api/vault';
 import {
-  pushSync, pullSync, exportSyncCode, importSyncCode,
   getSyncOverview, enableLanSync, disableLanSync, regenerateLanToken, pairLanDevice, createLanPairing, getLanPairing,
   type SyncOverview, type LanPairingSession,
 } from '../../api/sync';
@@ -12,7 +11,6 @@ import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
-import { getSyncImportStatus, type SyncImportState } from '../../lib/syncImportStatus';
 
 const VAULT_REF_FIELDS = new Set([
   'apiToken',
@@ -27,12 +25,6 @@ const VAULT_REF_FIELDS = new Set([
 // Secret-looking fields that hold a literal value (the lan pairing token),
 // not a vault reference — render as plain inputs instead of the vault picker.
 const PLAIN_SECRET_FIELDS = new Set(['token']);
-
-const CHEVRON = (
-  <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 7.5L9 10.5L12 7.5" />
-  </svg>
-);
 
 function lastSeenLabel(iso: string, t: (key: string, params?: any) => string) {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -52,8 +44,6 @@ export default function DeviceSyncSection() {
   const [syncPassword, setSyncPassword] = useState('');
 
   // Panels: add-device dialog + collapsibles (collapsed by default)
-  const [cloudOpen, setCloudOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
 
   // Platform card interactions
   const [testingPlatform, setTestingPlatform] = useState<string | null>(null);
@@ -72,12 +62,6 @@ export default function DeviceSyncSection() {
   const [pairingDone, setPairingDone] = useState(false);
   const [lanCodeAddress, setLanCodeAddress] = useState('');
   const [nowTs, setNowTs] = useState(Date.now());
-
-  // Manual sync + sync file import/export
-  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
-  const [syncCodeBusy, setSyncCodeBusy] = useState<'export' | 'import' | null>(null);
-  const [syncImportState, setSyncImportState] = useState<SyncImportState>({ phase: 'idle' });
-  const syncFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -258,104 +242,6 @@ export default function DeviceSyncSection() {
     await Promise.all([refreshOverview(), loadData()]);
   }
 
-  // --- Manual sync (More Actions) --------------------------------------------
-  async function handlePushSync() {
-    if (!syncPassword && !overview?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
-    setSyncing('push');
-    try {
-      const data = await pushSync();
-      if (data.success) {
-        showToast(t('settings.pushSuccess', { n: data.secrets || 0 }));
-        await refreshOverview();
-      } else {
-        showToast(data.message || t('settings.pushFail'), 'error');
-      }
-    } catch (e: any) { showToast(e.message || t('settings.pushFail'), 'error'); } finally { setSyncing(null); }
-  }
-
-  async function handlePullSync() {
-    if (!syncPassword && !overview?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
-    setSyncing('pull');
-    try {
-      const data = await pullSync();
-      if (data.success) {
-        showToast(t('settings.pullSuccess', { added: data.added || 0, updated: data.updated || 0, providers: data.providers || 0 }));
-        await refreshOverview();
-      } else {
-        showToast(data.message || t('settings.pullFail'), 'error');
-      }
-    } catch (e: any) { showToast(e.message || t('settings.pullFail'), 'error'); } finally { setSyncing(null); }
-  }
-
-  async function handleExportSyncCode() {
-    if (!syncPassword && !overview?.hasPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
-    setSyncCodeBusy('export');
-    try {
-      if (syncPassword) await saveSync(undefined, undefined, syncPassword);
-      const data = await exportSyncCode(syncPassword || undefined);
-      const payload = {
-        type: 'okit-sync',
-        version: 1,
-        platform: data.platform,
-        secrets: data.secrets || 0,
-        exportedAt: new Date().toISOString(),
-        code: data.code,
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `okit-sync-${data.platform}-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      showToast(t('settings.syncFileExported', { n: data.secrets || 0 }), 'success');
-    } catch (error: any) {
-      showToast(error?.message || t('settings.syncFileExportFail'), 'error');
-    } finally {
-      setSyncCodeBusy(null);
-    }
-  }
-
-  function extractSyncCodeFromFile(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed) return '';
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed?.type === 'okit-sync' && typeof parsed.code === 'string') return parsed.code;
-    } catch {}
-    return trimmed;
-  }
-
-  async function handleImportSyncFile(file?: File) {
-    if (!file) return;
-    if (!syncPassword) { showToast(t('settings.setSyncPwd'), 'error'); return; }
-    setSyncCodeBusy('import');
-    setSyncImportState({ phase: 'importing', filename: file.name });
-    try {
-      const code = extractSyncCodeFromFile(await file.text());
-      if (!code) {
-        const message = t('settings.syncFileRequired');
-        setSyncImportState({ phase: 'error', error: message });
-        showToast(message, 'error');
-        return;
-      }
-      const data = await importSyncCode(code, syncPassword);
-      const platform = PLATFORM_IDS[data.platform] || data.platform;
-      setSyncImportState({ phase: 'success', platform, secrets: data.secrets || 0 });
-      showToast(t('settings.syncFileImported', { platform, n: data.secrets || 0 }), 'success');
-      await Promise.all([refreshOverview(), loadData()]);
-    } catch (error: any) {
-      const message = error?.message || t('settings.syncFileImportFail');
-      setSyncImportState({ phase: 'error', error: message });
-      showToast(message, 'error');
-    } finally {
-      setSyncCodeBusy(null);
-      if (syncFileInputRef.current) syncFileInputRef.current.value = '';
-    }
-  }
-
   // --- Platform cards (cloud backup collapsible) -----------------------------
   function updatePlatform(id: string, field: string, value: any) {
     const newPlatforms = { ...platforms, [id]: { ...(platforms[id] || {}), [field]: value } };
@@ -391,7 +277,6 @@ export default function DeviceSyncSection() {
 
   // --- Derived ---------------------------------------------------------------
   const groups = [...new Set(vaultKeys.map(k => k.split('_')[0]).filter(Boolean))].sort();
-  const syncImportStatus = getSyncImportStatus(syncImportState, t);
   const lanCodes = pairing?.codes || [];
   const lanSelectedAddress = lanCodeAddress && lanCodes.some(c => c.address === lanCodeAddress)
     ? lanCodeAddress
@@ -409,243 +294,203 @@ export default function DeviceSyncSection() {
   const isSpoke = overview?.machine.role === 'spoke';
 
   return (
-    <div className="settings-section">
-      <div className="settings-section-title settings-section-title--row">
-        <span>{t('settings.sync2.title')}</span>
-        <div className="devsync-title-controls">
-          <span className="devsync-autosync-label">{t('settings.autoSync')}</span>
-          <label className="settings-toggle">
-            <input type="checkbox" checked={autoSync} onChange={e => { setAutoSync(e.target.checked); saveSync(undefined, e.target.checked); }} />
-            <span className="settings-toggle-slider" />
-          </label>
-        </div>
-      </div>
-      <div className="settings-card">
-        <div className="settings-card-body settings-card-body--sync">
+    <div className="settings-section devsync" id="sync">
 
-          {/* Password: prominent until set, then moved into More Actions */}
-          {overview && !overview.hasPassword ? (
-            <div className="settings-field settings-field--quiet">
-              <label>{t('settings.syncPassword')}</label>
-              <input type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
-                value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
-                onBlur={savePassword} />
-            </div>
-          ) : (
+      {/* 状态：摘要 + 自动同步 */}
+      <div className="settings-block">
+        <div className="settings-block-head">
+          <span className="settings-block-title">{t('settings.sync2.statusTitle')}</span>
+          <div className="settings-block-head-controls">
+            <span className="devsync-autosync-label">{t('settings.autoSync')}</span>
+            <label className="settings-toggle">
+              <input type="checkbox" checked={autoSync} onChange={e => { setAutoSync(e.target.checked); saveSync(undefined, e.target.checked); }} />
+              <span className="settings-toggle-slider" />
+            </label>
+          </div>
+        </div>
+        <div className="settings-card">
+          <div className="settings-card-body">
             <div className="devsync-summary">
               <span>{t('settings.lastSync')}: {overview?.lastSyncAt ? new Date(overview.lastSyncAt).toLocaleString('zh-CN') : t('settings.neverSynced')}</span>
               <span className="devsync-summary-sep">·</span>
               <span>{t('settings.sync2.targets', { devices: deviceCount, clouds: cloudCount })}</span>
             </div>
-          )}
+            {overview && !overview.hasPassword && (
+              <div className="settings-field settings-field--quiet">
+                <label>{t('settings.syncPassword')}</label>
+                <input type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
+                  value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
+                  onBlur={savePassword} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* Device list — the primary surface (Uni-style) */}
-          <div className="devsync-devices">
-            <div className="devsync-device devsync-device--self">
-              <span className="devsync-dot devsync-dot--self" />
-              <span className="devsync-device-name">
-                {overview?.machine.name || t('settings.sync2.thisDevice')}
-                {overview?.machine.id && <span className="settings-machine-id-suffix"> · {overview.machine.id}</span>}
-              </span>
-              {overview?.machine.role === 'hub' && <span className="devsync-role">{t('settings.sync2.roleHub')}</span>}
-              {isSpoke && <span className="devsync-role">{t('settings.sync2.roleSpoke')}</span>}
+      {/* 设备：本机 + 已配对设备 */}
+      <div className="settings-block">
+        <div className="settings-block-head">
+          <span className="settings-block-title">{t('settings.sync2.devicesTitle')}</span>
+          <div className="settings-block-head-controls">
+            <button type="button" className="settings-test-btn" onClick={openLanModal}>
+              + {t('settings.sync2.add')}
+            </button>
+          </div>
+        </div>
+        <div className="settings-card">
+          <div className="settings-card-body settings-card-body--sync">
+            <div className="devsync-devices">
+              <div className="devsync-device devsync-device--self">
+                <span className="devsync-dot devsync-dot--self" />
+                <span className="devsync-device-name">
+                  {overview?.machine.name || t('settings.sync2.thisDevice')}
+                  {overview?.machine.id && <span className="settings-machine-id-suffix"> · {overview.machine.id}</span>}
+                </span>
+                {overview?.machine.role === 'hub' && <span className="devsync-role">{t('settings.sync2.roleHub')}</span>}
+                {isSpoke && <span className="devsync-role">{t('settings.sync2.roleSpoke')}</span>}
+              </div>
+
+              {overview?.peer && (
+                <div className="devsync-device">
+                  <span className={`devsync-dot${overview.peer.online ? ' devsync-dot--on' : ''}`} />
+                  <span className="devsync-device-name">
+                    {overview.peer.name || overview.peer.url}
+                    <span className="settings-machine-id-suffix"> · {overview.peer.url}</span>
+                  </span>
+                  <span className={`devsync-presence${overview.peer.online ? ' devsync-presence--on' : ''}`}>
+                    {overview.peer.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
+                  </span>
+                  <div className="devsync-device-actions">
+                    <button className="settings-test-btn" onClick={() => handleTestPlatform('lan')} disabled={testingPlatform === 'lan'}>
+                      {testingPlatform === 'lan' ? t('common.testing') : t('common.test')}
+                    </button>
+                    <button className="settings-test-btn" onClick={handleDisconnectPeer}>{t('settings.sync2.disconnect')}</button>
+                  </div>
+                </div>
+              )}
+
+              {overview?.devices.map(device => (
+                <div key={device.id} className="devsync-device">
+                  <span className={`devsync-dot${device.online ? ' devsync-dot--on' : ''}`} />
+                  <span className="devsync-device-name">
+                    {device.name || device.id}
+                    <span className="settings-machine-id-suffix"> · {device.address} · {lastSeenLabel(device.lastSeen, t)}</span>
+                  </span>
+                  <span className={`devsync-presence${device.online ? ' devsync-presence--on' : ''}`}>
+                    {device.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
+                  </span>
+                </div>
+              ))}
+
+              {deviceCount === 0 && (
+                <button type="button" className="devsync-add-slot" onClick={openLanModal}>
+                  + {t('settings.sync2.addDevice')}
+                </button>
+              )}
             </div>
 
-            {overview?.peer && (
-              <div className="devsync-device">
-                <span className={`devsync-dot${overview.peer.online ? ' devsync-dot--on' : ''}`} />
-                <span className="devsync-device-name">
-                  {overview.peer.name || overview.peer.url}
-                  <span className="settings-machine-id-suffix"> · {overview.peer.url}</span>
-                </span>
-                <span className={`devsync-presence${overview.peer.online ? ' devsync-presence--on' : ''}`}>
-                  {overview.peer.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
-                </span>
-                <div className="devsync-device-actions">
-                  <button className="settings-test-btn" onClick={() => handleTestPlatform('lan')} disabled={testingPlatform === 'lan'}>
-                    {testingPlatform === 'lan' ? t('common.testing') : t('common.test')}
-                  </button>
-                  <button className="settings-test-btn" onClick={handleDisconnectPeer}>{t('settings.sync2.disconnect')}</button>
-                </div>
-              </div>
-            )}
-
-            {overview?.devices.map(device => (
-              <div key={device.id} className="devsync-device">
-                <span className={`devsync-dot${device.online ? ' devsync-dot--on' : ''}`} />
-                <span className="devsync-device-name">
-                  {device.name || device.id}
-                  <span className="settings-machine-id-suffix"> · {device.address} · {lastSeenLabel(device.lastSeen, t)}</span>
-                </span>
-                <span className={`devsync-presence${device.online ? ' devsync-presence--on' : ''}`}>
-                  {device.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
-                </span>
-              </div>
-            ))}
-
-            {deviceCount === 0 && (
-              <div className="devsync-empty">{t('settings.sync2.noDevices')}</div>
-            )}
-          </div>
-
-          {/* Add device — one button; everything else lives in the dialog */}
-          <button type="button" className="devsync-add-trigger" onClick={openLanModal}>
-            + {t('settings.sync2.addDevice')}
-          </button>
-
-          {/* Cloud backup — collapsed by default */}
-          <div className="devsync-collapse">
-            <button type="button" className="devsync-collapse-header" onClick={() => setCloudOpen(v => !v)}>
-              <span>{t('settings.sync2.cloudBackup')}{cloudCount > 0 ? ` (${cloudCount})` : ''}</span>
-              <span className={`devsync-chevron${cloudOpen ? ' devsync-chevron--open' : ''}`}>{CHEVRON}</span>
-            </button>
-            {cloudOpen && (
-              <div className="devsync-collapse-body">
-                {inactivePlatformEntries.length > 0 && (
-                  <div className="settings-add-platform">
-                    <CustomSelect
-                      className="settings-select-wrap settings-add-platform-select"
-                      value=""
-                      onChange={handleAddPlatform}
-                      placeholder={t('settings.addPlatform')}
-                      options={inactivePlatformEntries.map(([id]: any) => ({ value: id, label: PLATFORM_IDS[id] || id }))}
-                    />
-                  </div>
-                )}
-                <div className="settings-platforms">
-                  {activePlatformEntries.length === 0 ? (
-                    <div className="settings-platforms-empty">{t('settings.noActivePlatform')}</div>
-                  ) : activePlatformEntries.map(([platId, fields]) => {
-                    const plat = platforms[platId] || {};
-                    const testing = testingPlatform === platId;
-                    return (
-                      <div key={platId} className="settings-plat-card">
-                        <div className="settings-plat-header">
-                          <div className="settings-plat-info">
-                            <div className="settings-plat-name">
-                              {PLATFORM_IDS[platId] || platId}
-                              <button className="settings-doc-btn" onClick={() => setDocPlatform(platId)} title={t('settings.configDocs')}>
-                                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M5 2h7l4 4v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 014 15V3.5A1.5 1.5 0 015.5 2z" />
-                                  <path d="M11 2v4h4" />
-                                  <path d="M7 10h4M7 13h3" />
-                                </svg>
-                              </button>
-                            </div>
-                            <div className="settings-plat-status">{t('common.enabled')}</div>
-                          </div>
-                          <div className="settings-plat-actions">
-                            <button
-                              type="button"
-                              className={`settings-icon-btn settings-icon-btn--test${testing ? ' is-loading' : ''}`}
-                              onClick={() => handleTestPlatform(platId)}
-                              disabled={testing}
-                              title={testing ? t('common.testing') : t('common.test')}
-                              aria-label={testing ? t('common.testing') : t('common.test')}
-                            >
-                              <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M5.5 2.5v4M12.5 2.5v4" />
-                                <path d="M4 6.5h10v2.8a5 5 0 0 1-10 0V6.5z" />
-                                <path d="M9 14.3V16" />
-                              </svg>
-                            </button>
-                            <label className="settings-toggle">
-                              <input type="checkbox" checked={!!plat.enabled} onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }} />
-                              <span className="settings-toggle-slider" />
-                            </label>
-                          </div>
-                        </div>
-                        {fields.length > 0 && (
-                          <div className="settings-plat-body">
-                            {fields.map(field => {
-                              const isSecret = !PLAIN_SECRET_FIELDS.has(field) && (VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field)));
-                              return (
-                                <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
-                                  <label>{field}</label>
-                                  {isSecret ? (
-                                    <div className="vault-ref-field">
-                                      {plat[field] ? (
-                                        <div className="vault-ref-selected">
-                                          <span className="vault-ref-key">{plat[field]}</span>
-                                          <button type="button" className="vault-ref-clear" onClick={() => updatePlatform(platId, field, '')}>×</button>
-                                          <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('common.replace')}</button>
-                                        </div>
-                                      ) : (
-                                        <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
-                                      onChange={e => updatePlatform(platId, field, e.target.value)} />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+            {overview?.lan.enabled && (
+              <div className="devsync-quiet-actions">
+                <button type="button" className="devsync-quiet-btn" onClick={handleLanResetToken}>
+                  {t('settings.lanResetToken')}
+                </button>
+                <span className="devsync-quiet-sep">·</span>
+                <button type="button" className="devsync-quiet-btn" onClick={handleLanDisable} disabled={lanBusy === 'enable'}>
+                  {lanBusy === 'enable' ? t('common.testing') : t('settings.lanCloseSync')}
+                </button>
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* More actions — collapsed by default */}
-          <div className="devsync-collapse">
-            <button type="button" className="devsync-collapse-header" onClick={() => setMoreOpen(v => !v)}>
-              <span>{t('settings.sync2.moreActions')}</span>
-              <span className={`devsync-chevron${moreOpen ? ' devsync-chevron--open' : ''}`}>{CHEVRON}</span>
-            </button>
-            {moreOpen && (
-              <div className="devsync-collapse-body">
-                <div className="settings-sync-actions">
-                  <button className="settings-test-btn" onClick={handlePushSync} disabled={!!syncing}>
-                    {syncing === 'push' ? t('settings.pushing') : t('settings.pushLocal')}
-                  </button>
-                  <button className="settings-test-btn" onClick={handlePullSync} disabled={!!syncing}>
-                    {syncing === 'pull' ? t('settings.pulling') : t('settings.pullRemote')}
-                  </button>
-                  <input
-                    ref={syncFileInputRef}
-                    type="file"
-                    accept=".json,.okit-sync,application/json,text/plain"
-                    style={{ display: 'none' }}
-                    onChange={e => handleImportSyncFile(e.target.files?.[0])}
-                  />
-                  <button className="settings-test-btn settings-test-btn--with-icon" onClick={() => syncFileInputRef.current?.click()} disabled={!!syncCodeBusy}>
-                    {syncCodeBusy === 'import' && <span className="settings-inline-spinner" aria-hidden="true" />}
-                    <span>{syncCodeBusy === 'import' ? t('settings.importingSyncFile') : t('settings.importSyncFile')}</span>
-                  </button>
-                  <button className="settings-test-btn" onClick={handleExportSyncCode} disabled={!!syncCodeBusy}>
-                    {syncCodeBusy === 'export' ? t('settings.exportingSyncFile') : t('settings.exportSyncFile')}
-                  </button>
-                </div>
-                {overview?.lan.enabled && (
-                  <div className="settings-sync-actions">
-                    <button className="settings-test-btn" onClick={handleLanResetToken}>{t('settings.lanResetToken')}</button>
-                    <button className="settings-test-btn" onClick={handleLanDisable} disabled={lanBusy === 'enable'}>
-                      {lanBusy === 'enable' ? t('common.testing') : t('settings.lanCloseSync')}
+      {/* 云备份：平台配置（扁平结构，平台卡直接挂在分节下） */}
+      <div className="settings-block">
+        <div className="settings-block-head">
+          <span className="settings-block-title">{t('settings.sync2.cloudBackup')}{cloudCount > 0 ? ` (${cloudCount})` : ''}</span>
+          {inactivePlatformEntries.length > 0 && (
+            <div className="settings-block-head-controls">
+              <CustomSelect
+                className="settings-select-wrap settings-add-platform-select"
+                value=""
+                onChange={handleAddPlatform}
+                placeholder={t('settings.addPlatform')}
+                options={inactivePlatformEntries.map(([id]: any) => ({ value: id, label: PLATFORM_IDS[id] || id }))}
+              />
+            </div>
+          )}
+        </div>
+        <div className="settings-platforms">
+          {activePlatformEntries.length === 0 ? (
+            <div className="settings-platforms-empty">{t('settings.noActivePlatform')}</div>
+          ) : activePlatformEntries.map(([platId, fields]) => {
+            const plat = platforms[platId] || {};
+            const testing = testingPlatform === platId;
+            return (
+              <div key={platId} className="settings-plat-card">
+                <div className="settings-plat-header">
+                  <div className="settings-plat-name">
+                    {PLATFORM_IDS[platId] || platId}
+                    <button className="settings-doc-btn" onClick={() => setDocPlatform(platId)} title={t('settings.configDocs')}>
+                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 2h7l4 4v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 014 15V3.5A1.5 1.5 0 015.5 2z" />
+                        <path d="M11 2v4h4" />
+                        <path d="M7 10h4M7 13h3" />
+                      </svg>
                     </button>
                   </div>
-                )}
-                {overview?.hasPassword && (
-                  <div className="settings-field settings-field--quiet lan-pair-field">
-                    <label>{t('settings.sync2.changePassword')}</label>
-                    <input type="password" className="settings-input" placeholder={t('settings.syncPasswordSavedDesc')}
-                      value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
-                      onBlur={savePassword} />
+                  <div className="settings-plat-actions">
+                    <button
+                      type="button"
+                      className={`settings-icon-btn settings-icon-btn--test${testing ? ' is-loading' : ''}`}
+                      onClick={() => handleTestPlatform(platId)}
+                      disabled={testing}
+                      title={testing ? t('common.testing') : t('common.test')}
+                      aria-label={testing ? t('common.testing') : t('common.test')}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5.5 2.5v4M12.5 2.5v4" />
+                        <path d="M4 6.5h10v2.8a5 5 0 0 1-10 0V6.5z" />
+                        <path d="M9 14.3V16" />
+                      </svg>
+                    </button>
+                    <label className="settings-toggle">
+                      <input type="checkbox" checked={!!plat.enabled} onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }} />
+                      <span className="settings-toggle-slider" />
+                    </label>
                   </div>
-                )}
-                {syncImportStatus && (
-                  <div className={`settings-sync-import-status settings-sync-import-status--${syncImportStatus.tone}`} role="status" aria-live="polite">
-                    {syncImportStatus.tone === 'loading' && <span className="settings-inline-spinner" aria-hidden="true" />}
-                    <span>{syncImportStatus.message}</span>
+                </div>
+                {fields.length > 0 && (
+                  <div className="settings-plat-body">
+                    {fields.map(field => {
+                      const isSecret = !PLAIN_SECRET_FIELDS.has(field) && (VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field)));
+                      return (
+                        <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
+                          <label>{field}</label>
+                          {isSecret ? (
+                            <div className="vault-ref-field">
+                              {plat[field] ? (
+                                <div className="vault-ref-selected">
+                                  <span className="vault-ref-key">{plat[field]}</span>
+                                  <button type="button" className="vault-ref-clear" onClick={() => updatePlatform(platId, field, '')}>×</button>
+                                  <button type="button" className="vault-ref-change" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('common.replace')}</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="vault-ref-trigger" onClick={() => { setVaultTarget({ platId, field }); setShowVaultPicker(true); }}>{t('tools.selectFromVault')}</button>
+                              )}
+                            </div>
+                          ) : (
+                            <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
+                              onChange={e => updatePlatform(platId, field, e.target.value)} />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
 

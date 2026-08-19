@@ -421,7 +421,6 @@
   .sidebar {
     width: 56px;
     min-width: 56px;
-    clip-path: none;
     overflow: hidden;
   }
   .brand-text, .brand-hand, .nav-item span, .sidebar-bottom .status-text,
@@ -444,7 +443,7 @@
   .brand-shape::after { font-size: 8px !important; }
   .nav-item { justify-content: center; padding: 10px 8px; }
   .nav-item svg { width: 20px; height: 20px; margin: 0; flex-shrink: 0; }
-  .sidebar-bottom { flex-direction: column; padding: 8px 0 12px !important; gap: 5px; align-items: center; }
+  .sidebar-bottom { flex-direction: column; padding: 8px 0 12px; gap: 5px; align-items: center; }
   .sidebar-toggle svg { transform: rotate(180deg); }
   .main-content { padding: 20px 14px; }
   .page-title { font-size: 22px; }

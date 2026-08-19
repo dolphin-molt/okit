@@ -115,6 +115,10 @@ export interface AgentInfo {
   launchType?: 'cli' | 'app';
   canLaunch?: boolean;
   installed?: boolean;
+  /** Additive agent (workbuddy): its config holds many sites at once and
+   *  switching happens inside the agent's own UI — the toggle means
+   *  enable/disable per site instead of exclusive switch. */
+  additive?: boolean;
   current: { providerId: string; providerName: string; modelId: string } | null;
   /** Providers shown on the home page (user-curated subset). */
   compatibleProviders: { id: string; name: string; type: string; baseUrl?: string; models: ProviderModel[]; allModels?: ProviderModel[] }[];
@@ -185,6 +189,15 @@ export async function addHomeProvider(agentId: string, providerId: string): Prom
 export async function removeHomeProvider(agentId: string, providerId: string): Promise<{ success: boolean; homeProviders: string[] }> {
   return api(`/api/providers/agents/${encodeURIComponent(agentId)}/home/${encodeURIComponent(providerId)}`, {
     method: 'DELETE',
+  });
+}
+
+// Additive agents only (workbuddy): remove this site's entries from the
+// agent's own config. The provider stays in the home list.
+export async function disableAgentProvider(agentId: string, providerId: string): Promise<{ success: boolean }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/disable`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId }),
   });
 }
 

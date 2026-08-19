@@ -7,7 +7,7 @@ const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = requir
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode, handleLanStatus, handleLanEnable, handleLanDisable, handleLanRegenerate, handleLanPairingPeek, handleLanPairingCreate, handleLanPair, handleSyncOverview } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 
 function createServer(port = 3780) {
@@ -106,6 +106,9 @@ function createServer(port = 3780) {
   // Home-page provider list (curated per agent).
   app.post('/api/providers/agents/:agentId/home', addHomeProvider);
   app.delete('/api/providers/agents/:agentId/home/:providerId', removeHomeProvider);
+  // Additive agents (workbuddy): per-site disable — removes the site's entries
+  // from the agent's own config while keeping it in the home list.
+  app.post('/api/providers/agents/:agentId/disable', disableAgentProvider);
   app.get('/api/providers/agents/:agentId/config-files', getAgentConfigFiles);
   app.put('/api/providers/agents/:agentId/config-files', saveAgentConfigFile);
   // Codex model-catalog exclusion (which models show in /model).

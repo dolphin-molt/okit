@@ -4,8 +4,12 @@ import path from 'path';
 
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
+  // Stateful stand-in for ~/.okit/user.json so managedModels tracking
+  // persists across adapter calls within a test, like the real config.
+  const userConfig: any = { providers: {} };
   return {
     files,
+    userConfig,
     pathExists: vi.fn(async function(p: string) { return files.has(p); }),
     readFile: vi.fn(async function(p: string) { return files.get(p) ?? ''; }),
     writeFile: vi.fn(async function(p: string, c: string) { files.set(p, c); }),
@@ -24,8 +28,17 @@ vi.mock('../../../src/config/registry', () => ({
 }));
 
 vi.mock('../../../src/config/user', () => ({
-  loadUserConfig: vi.fn(async function() { return {}; }),
-  updateUserConfig: vi.fn(async function(patch: any) { return patch; }),
+  loadUserConfig: vi.fn(async function() { return mocks.userConfig; }),
+  updateUserConfig: vi.fn(async function(patch: any) {
+    // Mirror the real per-agent-key merge under `providers`.
+    if (patch?.providers) {
+      mocks.userConfig.providers = mocks.userConfig.providers || {};
+      for (const [key, value] of Object.entries(patch.providers)) {
+        mocks.userConfig.providers[key] = value;
+      }
+    }
+    return mocks.userConfig;
+  }),
 }));
 
 vi.mock('../../../src/vault/store', () => ({
@@ -35,7 +48,7 @@ vi.mock('../../../src/vault/store', () => ({
 }));
 
 const { WorkBuddyAdapter } = await import('../../../src/providers/adapters/workbuddy');
-const { updateUserConfig } = await import('../../../src/config/user');
+const { resolveModelCapabilities } = await import('../../../src/providers/capabilities');
 
 const MODELS_PATH = path.join(os.homedir(), '.workbuddy', 'models.json');
 
@@ -49,9 +62,52 @@ const testProvider = {
   models: [{ id: 'glm-4.7', name: 'GLM-4.7' }, { id: 'glm-4.6', name: 'GLM-4.6' }],
 };
 
+const deepseekProvider = {
+  ...testProvider,
+  id: 'deepseek',
+  name: 'DeepSeek',
+  baseUrl: 'https://api.deepseek.com',
+  models: [{ id: 'deepseek-v4-pro', name: 'DeepSeek-V4 Pro' }],
+};
+
+const otherProvider = {
+  ...testProvider,
+  id: 'glm-coding-alt',
+  name: 'GLM Coding Alt',
+  models: [{ id: 'glm-4.7', name: 'GLM-4.7' }, { id: 'glm-x', name: 'GLM X' }],
+};
+
+function readModelsFile(): any[] {
+  return JSON.parse(mocks.files.get(MODELS_PATH)!);
+}
+
 beforeEach(() => {
   mocks.files.clear();
-  vi.mocked(updateUserConfig).mockClear();
+  mocks.userConfig.providers = {};
+});
+
+describe('resolveModelCapabilities', () => {
+  it('returns template-verified data for deepseek-v4-pro', () => {
+    const caps = resolveModelCapabilities('deepseek-v4-pro');
+    expect(caps).toEqual({
+      supportsToolCall: true,
+      supportsImages: false,
+      supportsReasoning: true,
+      reasoningEfforts: ['high', 'max'],
+      defaultReasoningEffort: 'high',
+      maxInputTokens: 1_000_000,
+    });
+  });
+
+  it('applies family prefixes and conservative defaults', () => {
+    expect(resolveModelCapabilities('glm-4.7').supportsReasoning).toBe(true);
+    expect(resolveModelCapabilities('qwen-turbo').supportsReasoning).toBe(false);
+    expect(resolveModelCapabilities('totally-unknown-model')).toEqual({
+      supportsToolCall: true,
+      supportsImages: false,
+      supportsReasoning: false,
+    });
+  });
 });
 
 describe('WorkBuddyAdapter', () => {
@@ -68,25 +124,57 @@ describe('WorkBuddyAdapter', () => {
 });
 
 describe('WorkBuddyAdapter.applyConfig', () => {
-  it('writes model entry with vendor and chat completions URL', async () => {
+  it('writes a top-level array entry with vendor, URL, key and capability flags', async () => {
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(testProvider, 'glm-4.7');
 
-    const written = JSON.parse(mocks.files.get(MODELS_PATH)!);
-    expect(written.models).toHaveLength(1);
-    expect(written.models[0].id).toBe('glm-4.7');
-    expect(written.models[0].name).toBe('GLM-4.7');
-    expect(written.models[0].vendor).toBe('GLM Coding Plan');
-    expect(written.models[0].url).toBe('https://open.bigmodel.cn/api/coding/chat/completions');
-    expect(written.models[0].apiKey).toBe('sk-test-123');
+    const written = readModelsFile();
+    expect(Array.isArray(written)).toBe(true);
+    expect(written).toHaveLength(1);
+    expect(written[0]).toMatchObject({
+      id: 'glm-4.7',
+      name: 'GLM-4.7',
+      vendor: 'GLM Coding Plan',
+      url: 'https://open.bigmodel.cn/api/coding/chat/completions',
+      apiKey: 'sk-test-123',
+      supportsToolCall: true,
+      supportsImages: false,
+      supportsReasoning: true,
+    });
+    // No efforts configured for glm-4.7 → no reasoning object.
+    expect(written[0].reasoning).toBeUndefined();
   });
 
-  it('adds the model id to availableModels', async () => {
+  it('writes reasoning efforts and token limits where known', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(deepseekProvider, 'deepseek-v4-pro');
+
+    const written = readModelsFile();
+    expect(written[0].reasoning).toEqual({ defaultEffort: 'high', supportedEfforts: ['high', 'max'] });
+    expect(written[0].maxInputTokens).toBe(1_000_000);
+  });
+
+  it('NEVER writes an availableModels field (whitelist semantics)', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+    const raw = JSON.parse(mocks.files.get(MODELS_PATH)!);
+    expect(raw.availableModels).toBeUndefined();
+    expect(raw.models).toBeUndefined();
+  });
+
+  it('normalizes a legacy {models, availableModels} wrapper to the native array', async () => {
+    mocks.files.set(MODELS_PATH, JSON.stringify({
+      models: [{ id: 'glm-4.7', name: 'Old', vendor: 'Old', url: 'https://open.bigmodel.cn/api/coding/chat/completions' }],
+      availableModels: ['glm-4.7'],
+    }));
+
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(testProvider, 'glm-4.7');
 
-    const written = JSON.parse(mocks.files.get(MODELS_PATH)!);
-    expect(written.availableModels).toContain('glm-4.7');
+    const raw = JSON.parse(mocks.files.get(MODELS_PATH)!);
+    expect(Array.isArray(raw)).toBe(true);
+    expect(raw.availableModels).toBeUndefined();
+    expect(raw[0].vendor).toBe('GLM Coding Plan');
   });
 
   it('does NOT append baseUrl /chat/completions if it already ends with it', async () => {
@@ -94,32 +182,162 @@ describe('WorkBuddyAdapter.applyConfig', () => {
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(provider, 'glm-4.7');
 
-    const written = JSON.parse(mocks.files.get(MODELS_PATH)!);
-    expect(written.models[0].url).toBe('https://open.bigmodel.cn/api/coding/chat/completions');
+    const written = readModelsFile();
+    expect(written[0].url).toBe('https://open.bigmodel.cn/api/coding/chat/completions');
   });
 
-  it('updates existing model entry in place (idempotent upsert)', async () => {
-    mocks.files.set(MODELS_PATH, JSON.stringify({
-      models: [{ id: 'glm-4.7', name: 'Old', vendor: 'Old', url: 'https://old.com/chat/completions' }],
-      availableModels: ['glm-4.7'],
-    }));
+  it('records selection and managedModels in user.json', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+
+    expect(mocks.userConfig.providers.workbuddy).toEqual({
+      providerId: 'glm-coding',
+      modelId: 'glm-4.7',
+      managedModels: { 'glm-coding': ['glm-4.7'] },
+    });
+  });
+
+  it('REFUSES to overwrite an entry at a different endpoint (not written by OKIT)', async () => {
+    mocks.files.set(MODELS_PATH, JSON.stringify([
+      { id: 'glm-4.7', name: 'Official', vendor: 'WorkBuddy', url: 'https://old.com/chat/completions' },
+    ]));
+
+    const adapter = new WorkBuddyAdapter();
+    await expect(adapter.applyConfig(testProvider, 'glm-4.7')).rejects.toThrow(/非 OKIT 写入/);
+
+    const written = readModelsFile();
+    expect(written[0].vendor).toBe('WorkBuddy');
+    expect(mocks.userConfig.providers.workbuddy).toBeUndefined();
+  });
+
+  it('adopts an entry whose URL lacks the /chat/completions suffix (same endpoint base)', async () => {
+    // WorkBuddy's template UI writes base URLs without the suffix.
+    mocks.files.set(MODELS_PATH, JSON.stringify([
+      { id: 'glm-4.7', name: 'Legacy', vendor: 'Old Name', url: 'https://open.bigmodel.cn/api/coding' },
+    ]));
 
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(testProvider, 'glm-4.7');
 
-    const written = JSON.parse(mocks.files.get(MODELS_PATH)!);
-    expect(written.models).toHaveLength(1);
-    expect(written.models[0].vendor).toBe('GLM Coding Plan');
+    const written = readModelsFile();
+    expect(written).toHaveLength(1);
+    expect(written[0].vendor).toBe('GLM Coding Plan');
+    expect(written[0].url).toBe('https://open.bigmodel.cn/api/coding/chat/completions');
+    expect(mocks.userConfig.providers.workbuddy.managedModels).toEqual({ 'glm-coding': ['glm-4.7'] });
   });
 
-  it('records selection in user.json', async () => {
+  it('updates a managed entry in place (idempotent upsert)', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+
+    const written = readModelsFile();
+    expect(written).toHaveLength(1);
+    expect(mocks.userConfig.providers.workbuddy.managedModels).toEqual({ 'glm-coding': ['glm-4.7'] });
+  });
+});
+
+describe('WorkBuddyAdapter.applyModels', () => {
+  it('writes every entry with capability flags, without moving the selection', async () => {
+    const adapter = new WorkBuddyAdapter();
+    const result = await adapter.applyModels([
+      { provider: testProvider, modelId: 'glm-4.7' },
+      { provider: testProvider, modelId: 'glm-4.6' },
+    ]);
+
+    expect(result.written).toEqual(['glm-4.7', 'glm-4.6']);
+    expect(result.skipped).toEqual([]);
+
+    const written = readModelsFile();
+    expect(written.map(m => m.id).sort()).toEqual(['glm-4.6', 'glm-4.7']);
+    for (const entry of written) {
+      expect(entry.supportsToolCall).toBe(true);
+      expect(typeof entry.supportsImages).toBe('boolean');
+      expect(typeof entry.supportsReasoning).toBe('boolean');
+    }
+    expect(mocks.userConfig.providers.workbuddy.providerId).toBeUndefined();
+    expect(mocks.userConfig.providers.workbuddy.managedModels).toEqual({
+      'glm-coding': ['glm-4.7', 'glm-4.6'],
+    });
+  });
+
+  it('preserves an existing selection', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyModels([{ provider: otherProvider, modelId: 'glm-x' }]);
+
+    expect(mocks.userConfig.providers.workbuddy.providerId).toBe('glm-coding');
+    expect(mocks.userConfig.providers.workbuddy.modelId).toBe('glm-4.7');
+  });
+
+  it('skips foreign id collisions instead of overwriting them', async () => {
+    mocks.files.set(MODELS_PATH, JSON.stringify([
+      { id: 'glm-4.7', name: 'Official', vendor: 'WorkBuddy', url: 'https://old.com/chat/completions', supportsToolCall: true },
+    ]));
+
+    const adapter = new WorkBuddyAdapter();
+    const result = await adapter.applyModels([
+      { provider: testProvider, modelId: 'glm-4.7' },
+      { provider: testProvider, modelId: 'glm-4.6' },
+    ]);
+
+    expect(result.skipped).toEqual(['glm-4.7']);
+    expect(result.written).toEqual(['glm-4.6']);
+
+    const written = readModelsFile();
+    expect(written.find(m => m.id === 'glm-4.7').vendor).toBe('WorkBuddy');
+  });
+});
+
+describe('WorkBuddyAdapter.removeProvider', () => {
+  it('removes the provider entries, managed record and clears the selection', async () => {
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(testProvider, 'glm-4.7');
 
-    expect(updateUserConfig).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providers: { workbuddy: { providerId: 'glm-coding', modelId: 'glm-4.7' } },
-      }),
-    );
+    await adapter.removeProvider('glm-coding');
+
+    const written = readModelsFile();
+    expect(written).toEqual([]);
+    expect(mocks.userConfig.providers.workbuddy.managedModels).toEqual({});
+    expect(mocks.userConfig.providers.workbuddy.providerId).toBeUndefined();
+  });
+
+  it('keeps entries still claimed by another provider (shared model id)', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+    await adapter.applyModels([
+      { provider: otherProvider, modelId: 'glm-4.7' },
+      { provider: otherProvider, modelId: 'glm-x' },
+    ]);
+
+    await adapter.removeProvider('glm-coding');
+
+    const written = readModelsFile();
+    expect(written.map(m => m.id).sort()).toEqual(['glm-4.7', 'glm-x']);
+    expect(mocks.userConfig.providers.workbuddy.managedModels).toEqual({
+      'glm-coding-alt': ['glm-4.7', 'glm-x'],
+    });
+    expect(mocks.userConfig.providers.workbuddy.providerId).toBeUndefined();
+  });
+
+  it('does not touch foreign entries when removing', async () => {
+    mocks.files.set(MODELS_PATH, JSON.stringify([
+      { id: 'official-model', name: 'Official', vendor: 'WorkBuddy', url: 'https://official.example/chat/completions' },
+    ]));
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(testProvider, 'glm-4.7');
+
+    await adapter.removeProvider('glm-coding');
+
+    const written = readModelsFile();
+    expect(written.map(m => m.id)).toEqual(['official-model']);
+  });
+
+  it('is a no-op for an unknown provider', async () => {
+    const adapter = new WorkBuddyAdapter();
+    await adapter.removeProvider('never-added');
+
+    expect(mocks.files.has(MODELS_PATH)).toBe(false);
+    expect(mocks.userConfig.providers.workbuddy).toBeUndefined();
   });
 });

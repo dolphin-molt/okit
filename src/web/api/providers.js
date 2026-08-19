@@ -351,6 +351,13 @@ const ADAPTERS = [
   { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
 ];
 
+// Additive agents: their config files hold entries from MANY providers at
+// once and the user switches between them inside the agent's own UI. For
+// these, adding a provider to the home page writes its models into the agent
+// config, and removing/disabling removes them. Exclusive agents
+// (claude/codex/...) keep single-active-switch semantics.
+const ADDITIVE_AGENTS = new Set(['workbuddy']);
+
 // Cap for models auto-recorded after a successful switch.
 const RECENT_MODELS_MAX = 10;
 
@@ -415,6 +422,7 @@ async function getAdaptersList(req, res) {
         launchType: adapter.launchType || 'cli',
         canLaunch: !!adapter.command,
         installed: adapter.launchType === 'app' ? true : (adapter.command ? !!findCommand(adapter.command) : false),
+        additive: ADDITIVE_AGENTS.has(adapter.id),
         current: sel?.providerId && sel?.modelId
           ? { providerId: sel.providerId, providerName: currentProvider?.name || sel.providerId, modelId: sel.modelId }
           : null,
@@ -655,10 +663,12 @@ async function switchProvider(req, res) {
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
     await agentAdapter.applyConfig(route.provider, route.remoteModelId);
 
-    // Save selection
+    // Save selection. Merge — adapters for additive agents (workbuddy) store
+    // their managedModels tracking under the same key, and a plain replace
+    // here would wipe it right after applyConfig wrote it.
     const config = await loadUserConfig();
     if (!config.providers) config.providers = {};
-    config.providers[agentId] = { providerId, modelId };
+    config.providers[agentId] = { ...config.providers[agentId], providerId, modelId };
 
     // For Claude, also update legacy path
     if (agentId === 'claude') {
@@ -709,7 +719,42 @@ async function addHomeProvider(req, res) {
     home[agentId] = list;
     config.homeProviders = home;
     await saveUserConfig(config);
-    res.json({ success: true, homeProviders: list });
+
+    // Additive agents (workbuddy): adding a provider to the home list also
+    // writes its models into the agent's own config so the agent's model
+    // picker offers them. Which models follow the home card's visibility
+    // rules (recent + not manually hidden); ids colliding with entries OKIT
+    // didn't write are skipped by the adapter, never overwritten.
+    let skippedModels;
+    if (ADDITIVE_AGENTS.has(agentId)) {
+      try {
+        const jsAdapter = ADAPTERS.find(a => a.id === agentId);
+        const agentAdapter = _getAdapter(agentId);
+        const providers = await loadProviders();
+        const provider = providers.find(p => p.id === providerId);
+        if (jsAdapter && agentAdapter && typeof agentAdapter.applyModels === 'function' && provider) {
+          const excluded = new Set(config.codexCatalogExcluded?.[providerId] || []);
+          const tagged = tagRecentModels(provider.models || []);
+          let candidates = tagged.filter(m => m.recent && !excluded.has(m.id));
+          if (candidates.length === 0) candidates = tagged.filter(m => !excluded.has(m.id));
+          const entries = [];
+          for (const m of candidates) {
+            try {
+              const route = resolveModelRoute(provider, m.id, jsAdapter);
+              entries.push({ provider: route.provider, modelId: route.remoteModelId });
+            } catch { /* model not routable for this agent — skip */ }
+          }
+          const result = await agentAdapter.applyModels(entries);
+          skippedModels = result.skipped;
+        }
+      } catch (e) {
+        // The provider was already added to the home list — don't fail the
+        // whole request if writing entries to the agent config errors.
+        console.warn(`[addHomeProvider] applyModels failed: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, homeProviders: list, skippedModels });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -767,7 +812,48 @@ async function removeHomeProvider(req, res) {
       }
     }
 
+    // Additive agents: removing a provider from the home list also removes
+    // the entries OKIT wrote for it in the agent's own config (including
+    // their keys). Entries not written by OKIT are never touched.
+    if (ADDITIVE_AGENTS.has(agentId)) {
+      try {
+        const agentAdapter = _getAdapter(agentId);
+        if (agentAdapter && typeof agentAdapter.removeProvider === 'function') {
+          await agentAdapter.removeProvider(providerId);
+        }
+      } catch (e) {
+        console.warn(`[removeHomeProvider] removeProvider failed: ${e.message}`);
+      }
+    }
+
     res.json({ success: true, homeProviders: list });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Additive agents only (workbuddy): remove every entry OKIT wrote for a
+// provider from the agent's own config file. The provider STAYS in the home
+// list — this is the "switch off" for a site; toggling it back on rewrites
+// the entries via switchProvider. Exclusive agents don't support per-site
+// disabling (their config only holds one active provider).
+async function disableAgentProvider(req, res) {
+  try {
+    const { agentId } = req.params;
+    const { providerId } = req.body || {};
+    if (!agentId || !providerId) {
+      return res.status(400).json({ error: 'Missing agentId or providerId' });
+    }
+    if (!ADDITIVE_AGENTS.has(agentId)) {
+      return res.status(400).json({ error: `${agentId} 不支持按站点停用` });
+    }
+    const agentAdapter = _getAdapter(agentId);
+    if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
+    if (typeof agentAdapter.removeProvider !== 'function') {
+      return res.status(400).json({ error: `${agentId} adapter 不支持移除站点` });
+    }
+    await agentAdapter.removeProvider(providerId);
+    res.json({ success: true, agentId, providerId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1983,6 +2069,7 @@ module.exports = {
   switchProvider,
   addHomeProvider,
   removeHomeProvider,
+  disableAgentProvider,
   getAgentConfigFiles,
   saveAgentConfigFile,
   setCatalogExcluded,

@@ -10,6 +10,7 @@ const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 const { createGrokProxyHandler } = require('./api/grok-proxy');
+const { listSnapshotsHandler, snapshotDetailHandler, restoreSnapshotHandler } = require('./api/snapshots');
 
 function createServer(port = 3780) {
   const app = express();
@@ -132,6 +133,11 @@ function createServer(port = 3780) {
   app.post('/api/providers/fetch-models', fetchModels);
   app.post('/api/providers/export-code', exportProviderCode);
   app.post('/api/providers/import-code', importProviderCode);
+
+  // Snapshot routes (pre-switch config snapshots)
+  app.get('/api/snapshots', listSnapshotsHandler);
+  app.get('/api/snapshots/detail', snapshotDetailHandler);
+  app.post('/api/snapshots/restore', restoreSnapshotHandler);
 
   // Usage / quota routes
   app.get('/api/usage/supported', getSupportedUsageProviders);

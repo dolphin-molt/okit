@@ -8,6 +8,7 @@ import { checkAuthStatus } from "../providers/auth";
 import { loadUserConfig, updateUserConfig } from "../config/user";
 import { Provider, ProviderModel } from "../providers/types";
 import { providerSupportsAdapter, resolveModelRoute } from "../providers/routing";
+import { capturePreSwitchSnapshot } from "../providers/snapshots";
 import { VaultStore } from "../vault/store";
 
 export async function providerList(): Promise<void> {
@@ -110,6 +111,11 @@ export async function providerSwitch(agentId?: string): Promise<void> {
   if (!modelResponse.model) { console.log(kleur.gray(t("providerCancel"))); return; }
 
   const route = resolveModelRoute(selectedProvider, modelResponse.model, adapter);
+  try {
+    await capturePreSwitchSnapshot(adapter.id);
+  } catch (snapErr) {
+    console.warn(`[providerSwitch] snapshot failed: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`);
+  }
   await adapter.applyConfig(route.provider, route.remoteModelId);
   await updateUserConfig({ providers: { [adapter.id]: { providerId: selectedProvider.id, modelId: modelResponse.model } } } as any);
   console.log(kleur.green(`${t("providerSwitched")}: ${selectedProvider.name} / ${modelResponse.model}`));
@@ -143,6 +149,11 @@ export async function providerUse(
 
   for (const adapter of adapters) {
     const route = resolveModelRoute(provider, modelId, adapter!);
+    try {
+      await capturePreSwitchSnapshot(adapter!.id);
+    } catch (snapErr) {
+      console.warn(`[providerUse] snapshot failed: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`);
+    }
     await adapter!.applyConfig(route.provider, route.remoteModelId);
     await updateUserConfig({ providers: { [adapter!.id]: { providerId: provider.id, modelId } } } as any);
     console.log(kleur.green(`${adapter!.name}: ${t("providerSwitched")} → ${provider.name} / ${modelId}`));

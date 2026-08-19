@@ -109,6 +109,16 @@ try {
   _getAdapter = require('../../../dist/providers/registry').getAdapter;
 }
 
+// Pre-switch config snapshots. Required once at module load (same eager-load
+// pattern as the presets/registry requires above) so tests can mock the module.
+let _snapshots;
+try {
+  _snapshots = require('../../../providers/snapshots');
+} catch {
+  _snapshots = require('../../../dist/providers/snapshots');
+}
+const { capturePreSwitchSnapshot } = _snapshots;
+
 const PRESET_PROVIDERS = _presets.PRESET_PROVIDERS;
 const buildPlatforms = _platforms.buildPlatforms;
 const { providerEndpointEntries, providerExecutionMode, providerSupportsAdapter, resolveModelRoute } = _routing;
@@ -699,6 +709,13 @@ async function switchProvider(req, res) {
     // deleted because they had drifted from the TS adapters and were untested.
     const agentAdapter = _getAdapter(agentId);
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
+    // Snapshot the current agent config before overwriting it, so a bad switch
+    // can be reverted. A snapshot failure must not block the switch.
+    try {
+      await capturePreSwitchSnapshot(agentId);
+    } catch (snapErr) {
+      console.warn(`[switchProvider] snapshot failed: ${snapErr.message}`);
+    }
     await agentAdapter.applyConfig(route.provider, route.remoteModelId);
 
     // Save selection. Merge — adapters for additive agents (workbuddy) store
@@ -836,6 +853,11 @@ async function removeHomeProvider(req, res) {
         if (adapter && provider && adapterSupportsProvider(adapter, provider)) {
           const agentAdapter = _getAdapter(agentId);
           if (agentAdapter) {
+            try {
+              await capturePreSwitchSnapshot(agentId);
+            } catch (snapErr) {
+              console.warn(`[removeHomeProvider] snapshot failed: ${snapErr.message}`);
+            }
             await agentAdapter.applyConfig(provider, fallback.modelId);
             const cfg = await loadUserConfig();
             if (!cfg.providers) cfg.providers = {};

@@ -7,10 +7,10 @@
     "okit": "dist/main.js"
   },
   "scripts": {
-    "postinstall": "node dist/main.js hook install",
+    "postinstall": "node scripts/postinstall.js",
     "build": "tsc && npm run gen-presets && npm run copy-web && npm run build-frontend",
     "gen-presets": "node scripts/gen-presets.js",
-    "copy-web": "mkdir -p dist/web && cp src/web/server.js dist/web/ && rm -rf dist/web/api && cp -r src/web/api dist/web/",
+    "copy-web": "node scripts/copy-web.js",
     "build-frontend": "cd src/web/frontend && npm install && npm run build",
     "app:dev": "npm run build && electron dist/electron/main.js",
     "app:build": "npm run build && electron-builder --mac dir",

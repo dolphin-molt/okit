@@ -119,7 +119,6 @@ program.action(async () => {
     program.outputHelp();
     process.exit(1);
   }
-  checkPlatform();
   showBanner();
   await selectLanguageIfNeeded();
   configurePrompts(getLanguage());
@@ -132,7 +131,6 @@ program
   .command("upgrade")
   .description("升级 OKIT")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await upgradeSelf();
   });
@@ -307,7 +305,6 @@ const provider = program
   .command("provider")
   .description("模型管控 — 管理 AI Provider 和模型，一键切换 Agent 配置")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerCurrent();
@@ -317,7 +314,6 @@ provider
   .command("list")
   .description("列出所有 Provider")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerList();
@@ -327,7 +323,6 @@ provider
   .command("switch [agent]")
   .description("交互式切换 Agent 的 Provider/Model")
   .action(async (agent?: string) => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerSwitch(agent);
@@ -339,7 +334,6 @@ provider
   .option("--agent <agent>", "指定 Agent")
   .option("--model <model>", "指定 Model")
   .action(async (providerName: string, options?: { agent?: string; model?: string }) => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerUse(providerName, options);
@@ -349,7 +343,6 @@ provider
   .command("add")
   .description("添加 Provider")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await providerAdd();
   });
@@ -358,7 +351,6 @@ provider
   .command("delete <name>")
   .description("删除 Provider")
   .action(async (name: string) => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await providerDeleteAction(name);
   });
@@ -367,7 +359,6 @@ provider
   .command("current")
   .description("显示所有 Agent 当前配置")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerCurrent();
@@ -377,7 +368,6 @@ provider
   .command("auth")
   .description("查看所有 Provider 认证状态")
   .action(async () => {
-    checkPlatform();
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
     await providerAuth();
@@ -390,7 +380,6 @@ program
   .option("-p, --port <number>", "端口号", "3780")
   .option("-o, --open", "自动打开浏览器", false)
   .action(async (options: { port: string; open: boolean }) => {
-    checkPlatform();
     const port = parseInt(options.port, 10) || 3780;
 
     // 动态导入 web server
@@ -400,18 +389,29 @@ program
     // @ts-ignore
     startServer(port, options.open ? async (actualPort: number) => {
       const { exec } = await import("child_process");
-      const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
-      exec(`${openCmd} http://localhost:${actualPort}`);
+      const { platform } = process;
+      let cmd: string;
+      if (platform === "darwin") {
+        cmd = `open http://localhost:${actualPort}`;
+      } else if (platform === "win32") {
+        cmd = `start "" http://localhost:${actualPort}`;
+      } else {
+        cmd = `xdg-open http://localhost:${actualPort}`;
+      }
+      exec(cmd);
     } : undefined);
   });
 
 function checkPlatform() {
-  const supported = ["darwin", "linux"];
+  const supported = ["darwin", "linux", "win32"];
   if (!supported.includes(process.platform)) {
-    console.log(kleur.red(`✗ 当前不支持 ${process.platform} 平台 (支持: macOS, Linux)`));
+    console.log(kleur.red(`✗ 当前不支持 ${process.platform} 平台 (支持: macOS, Linux, Windows)`));
     process.exit(1);
   }
 }
+
+// 所有命令执行前统一检查平台
+program.hook("preAction", checkPlatform);
 
 async function showMainHelpHintOnce(): Promise<void> {
   const config = await loadUserConfig();

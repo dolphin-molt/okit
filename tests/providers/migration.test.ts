@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-migration';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+    PROVIDERS_PATH: p.join(d, 'providers.json'),
+    CLAUDE_PROFILES_PATH: p.join(d, 'claude-profiles.json'),
+  };
+});
+
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
   const mockSet = vi.fn(async function() {});
@@ -17,10 +30,10 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-migration',
-  REGISTRY_PATH: '/tmp/test-okit-migration/registry.json',
-  LOGS_DIR: '/tmp/test-okit-migration/logs',
-  CACHE_DIR: '/tmp/test-okit-migration/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 vi.mock('../../src/vault/store', () => ({
@@ -31,8 +44,8 @@ vi.mock('../../src/vault/store', () => ({
 
 const { migrateIfNeeded } = await import('../../src/providers/migration');
 
-const PROVIDERS_PATH = '/tmp/test-okit-migration/providers.json';
-const CLAUDE_PROFILES_PATH = '/tmp/test-okit-migration/claude-profiles.json';
+const PROVIDERS_PATH = testRoot.PROVIDERS_PATH;
+const CLAUDE_PROFILES_PATH = testRoot.CLAUDE_PROFILES_PATH;
 
 beforeEach(() => {
   mocks.files.clear();

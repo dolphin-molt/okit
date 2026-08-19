@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import os from 'os';
 import path from 'path';
 
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-kimi-code';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+    PROVIDERS_PATH: p.join(d, 'providers.json'),
+  };
+});
+
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
   return {
@@ -17,10 +29,10 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-kimi-code',
-  REGISTRY_PATH: '/tmp/test-okit-kimi-code/registry.json',
-  LOGS_DIR: '/tmp/test-okit-kimi-code/logs',
-  CACHE_DIR: '/tmp/test-okit-kimi-code/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 vi.mock('../../../src/config/user', () => ({
@@ -466,7 +478,7 @@ describe('KimiCodeAdapter multi-site (additive)', () => {
   });
 
   describe('healModelFields', () => {
-    const PROVIDERS_JSON = '/tmp/test-okit-kimi-code/providers.json';
+    const PROVIDERS_JSON = testRoot.PROVIDERS_PATH;
 
     it('restores model fields kimi stripped from non-default providers', async () => {
       mocks.files.set(PROVIDERS_JSON, JSON.stringify({

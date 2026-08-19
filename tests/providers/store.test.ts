@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'path';
 import { PRESET_PROVIDERS } from '../../src/providers/presets';
+
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-providers';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+    PROVIDERS_PATH: p.join(d, 'providers.json'),
+  };
+});
 
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
@@ -16,15 +29,15 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-providers',
-  REGISTRY_PATH: '/tmp/test-okit-providers/registry.json',
-  LOGS_DIR: '/tmp/test-okit-providers/logs',
-  CACHE_DIR: '/tmp/test-okit-providers/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 const { loadProviders, saveProviders, getProvider, addProvider, deleteProvider } = await import('../../src/providers/store');
 
-const PROVIDERS_PATH = '/tmp/test-okit-providers/providers.json';
+const PROVIDERS_PATH = testRoot.PROVIDERS_PATH;
 
 const sampleProvider = {
   id: 'test-provider',

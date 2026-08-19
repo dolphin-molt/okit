@@ -2,6 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import os from 'os';
 import path from 'path';
 
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-workbuddy';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+  };
+});
+
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
   // Stateful stand-in for ~/.okit/user.json so managedModels tracking
@@ -21,10 +32,10 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-workbuddy',
-  REGISTRY_PATH: '/tmp/test-okit-workbuddy/registry.json',
-  LOGS_DIR: '/tmp/test-okit-workbuddy/logs',
-  CACHE_DIR: '/tmp/test-okit-workbuddy/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 vi.mock('../../../src/config/user', () => ({

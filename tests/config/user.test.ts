@@ -1,4 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'path';
+
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-user';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+    CONFIG_PATH: p.join(d, 'user.json'),
+  };
+});
 
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
@@ -15,15 +28,15 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-user',
-  REGISTRY_PATH: '/tmp/test-okit-user/registry.json',
-  LOGS_DIR: '/tmp/test-okit-user/logs',
-  CACHE_DIR: '/tmp/test-okit-user/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 const { loadUserConfig, saveUserConfig, updateUserConfig } = await import('../../src/config/user');
 
-const CONFIG_PATH = '/tmp/test-okit-user/user.json';
+const CONFIG_PATH = testRoot.CONFIG_PATH;
 
 beforeEach(() => {
   mocks.files.clear();

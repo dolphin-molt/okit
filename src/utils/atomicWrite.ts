@@ -18,7 +18,19 @@ export async function atomicWrite(
 ): Promise<void> {
   const tmpPath = filePath + ".okit-tmp";
   await fs.writeFile(tmpPath, data, options);
-  await fs.rename(tmpPath, filePath);
+  await renameWithRetry(tmpPath, filePath);
+}
+
+async function renameWithRetry(src: string, dest: string, attempt = 1): Promise<void> {
+  try {
+    await fs.rename(src, dest);
+  } catch (err: any) {
+    if (err && err.code && ["EPERM", "EEXIST", "EBUSY"].includes(err.code) && attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+      return renameWithRetry(src, dest, attempt + 1);
+    }
+    throw err;
+  }
 }
 
 /**

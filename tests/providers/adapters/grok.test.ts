@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import os from 'os';
 import path from 'path';
 
+const testRoot = vi.hoisted(() => {
+  const p = require('path');
+  const d = '/tmp/test-okit-grok';
+  return {
+    OKIT_DIR: d,
+    REGISTRY_PATH: p.join(d, 'registry.json'),
+    LOGS_DIR: p.join(d, 'logs'),
+    CACHE_DIR: p.join(d, 'cache'),
+    PROVIDERS_PATH: p.join(d, 'providers.json'),
+  };
+});
+
 const mocks = vi.hoisted(() => {
   const files = new Map<string, string>();
   return {
@@ -17,10 +29,10 @@ const mocks = vi.hoisted(() => {
 vi.mock('fs-extra', () => ({ default: mocks }));
 
 vi.mock('../../../src/config/registry', () => ({
-  OKIT_DIR: '/tmp/test-okit-grok',
-  REGISTRY_PATH: '/tmp/test-okit-grok/registry.json',
-  LOGS_DIR: '/tmp/test-okit-grok/logs',
-  CACHE_DIR: '/tmp/test-okit-grok/cache',
+  OKIT_DIR: testRoot.OKIT_DIR,
+  REGISTRY_PATH: testRoot.REGISTRY_PATH,
+  LOGS_DIR: testRoot.LOGS_DIR,
+  CACHE_DIR: testRoot.CACHE_DIR,
 }));
 
 vi.mock('../../../src/config/user', () => ({
@@ -38,7 +50,7 @@ const { GrokAdapter } = await import('../../../src/providers/adapters/grok');
 const { updateUserConfig } = await import('../../../src/config/user');
 
 const CONFIG_PATH = path.join(os.homedir(), '.grok', 'config.toml');
-const PROVIDERS_JSON = '/tmp/test-okit-grok/providers.json';
+const PROVIDERS_JSON = testRoot.PROVIDERS_PATH;
 
 const openAIProvider = {
   id: 'custom-openai',

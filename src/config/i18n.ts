@@ -4,29 +4,6 @@ export type Language = "zh" | "en";
 
 export interface Translations {
   lang: Language;
-  repoSelectAction: string;
-  repoCreate: string;
-  repoSetup: string;
-  repoName: string;
-  repoVisibility: string;
-  repoPrivate: string;
-  repoPublic: string;
-  repoInitGit: string;
-  repoFirstPush: string;
-  repoYes: string;
-  repoNo: string;
-  repoGitName: string;
-  repoGitEmail: string;
-  repoGitScope: string;
-  repoGitScopeGlobal: string;
-  repoGitScopeLocal: string;
-  repoSetupSaved: string;
-  repoUsername: string;
-  repoToken: string;
-  repoNeedAuth: string;
-  repoCancelled: string;
-  repoExists: string;
-  repoUseExisting: string;
   back: string;
   success: string;
   failed: string;
@@ -90,29 +67,6 @@ const translations: Record<Language, Translations> = {
     back: "返回",
     success: "成功",
     failed: "失败",
-    repoSelectAction: "Repo 操作",
-    repoCreate: "新建仓库",
-    repoSetup: "一键设置（Git + GitHub）",
-    repoName: "仓库名称",
-    repoVisibility: "可见性",
-    repoPrivate: "私有",
-    repoPublic: "公开",
-    repoInitGit: "初始化 Git 仓库",
-    repoFirstPush: "首次自动推送",
-    repoYes: "是",
-    repoNo: "否",
-    repoGitName: "Git 用户名",
-    repoGitEmail: "Git 邮箱",
-    repoGitScope: "应用范围",
-    repoGitScopeGlobal: "全局",
-    repoGitScopeLocal: "当前项目",
-    repoSetupSaved: "已保存 Git & GitHub 配置",
-    repoUsername: "平台用户名",
-    repoToken: "平台 Token",
-    repoNeedAuth: "需要先配置平台凭据",
-    repoCancelled: "已取消",
-    repoExists: "检测到同名仓库",
-    repoUseExisting: "是否使用已有仓库并推送？",
     mainHelpHint: "提示: 在主菜单选择“帮助”可查看帮助",
     // check 命令
     // profile
@@ -170,29 +124,6 @@ const translations: Record<Language, Translations> = {
     back: "Back",
     success: "Success",
     failed: "Failed",
-    repoSelectAction: "Repo action",
-    repoCreate: "Create repository",
-    repoSetup: "One-time setup (Git + GitHub)",
-    repoName: "Repository name",
-    repoVisibility: "Visibility",
-    repoPrivate: "Private",
-    repoPublic: "Public",
-    repoInitGit: "Initialize Git repository",
-    repoFirstPush: "First push automatically",
-    repoYes: "Yes",
-    repoNo: "No",
-    repoGitName: "Git user name",
-    repoGitEmail: "Git email",
-    repoGitScope: "Apply scope",
-    repoGitScopeGlobal: "Global",
-    repoGitScopeLocal: "Current project",
-    repoSetupSaved: "Git & GitHub config saved",
-    repoUsername: "Provider username",
-    repoToken: "Provider token",
-    repoNeedAuth: "Configure provider credentials first",
-    repoCancelled: "Cancelled",
-    repoExists: "Repository already exists",
-    repoUseExisting: "Use existing repository and push?",
     mainHelpHint: "Hint: Choose \u201cHelp\u201d in the main menu to view help",
     // check command
     // profile

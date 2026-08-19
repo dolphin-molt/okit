@@ -5,7 +5,6 @@ import kleur from "kleur";
 import prompts from "prompts";
 import pkg from "../package.json";
 import { upgradeSelf } from "./commands/upgrade";
-import { showRepoMenu, createRepositoryFlow } from "./commands/repo";
 import {
   vaultSet,
   vaultGet,
@@ -136,25 +135,6 @@ program
     checkPlatform();
     await selectLanguageIfNeeded();
     await upgradeSelf();
-  });
-
-// repo 子命令
-const repo = program
-  .command("repo")
-  .description("Repo 设置与创建")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await showRepoMenu();
-  });
-
-repo
-  .command("create")
-  .description("创建远程仓库并绑定")
-  .action(async () => {
-    checkPlatform();
-    await selectLanguageIfNeeded();
-    await createRepositoryFlow();
   });
 
 // vault 子命令 - 密钥管理

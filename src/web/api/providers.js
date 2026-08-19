@@ -80,23 +80,19 @@ function sortProviders(arr) {
   );
 }
 
-// Single source of truth: import presets + metadata from the compiled TS
-// output. This eliminates the hand-maintained JS copy of 28 provider presets.
 // Try dist/ first (production), then fall back to src compiled output.
-let _presets, _metadata;
 let _platforms;
 let _routing;
+let _store;
 try {
-  _presets = require('../../../providers/presets');
-  _metadata = require('../../../providers/metadata');
   _platforms = require('../../../providers/platforms');
   _routing = require('../../../providers/routing');
+  _store = require('../../../providers/store');
 } catch {
   // Fallback for dev mode where dist/ may not be in the expected relative position
-  _presets = require('../../../dist/providers/presets');
-  _metadata = require('../../../dist/providers/metadata');
   _platforms = require('../../../dist/providers/platforms');
   _routing = require('../../../dist/providers/routing');
+  _store = require('../../../dist/providers/store');
 }
 
 // Single adapter registry (shared with the CLI). Required once at module load
@@ -119,212 +115,21 @@ try {
 }
 const { capturePreSwitchSnapshot } = _snapshots;
 
-const PRESET_PROVIDERS = _presets.PRESET_PROVIDERS;
 const buildPlatforms = _platforms.buildPlatforms;
 const { providerEndpointEntries, providerExecutionMode, providerSupportsAdapter, resolveModelRoute } = _routing;
-const RETIRED_PRESET_PROVIDER_IDS = _metadata.RETIRED_PRESET_PROVIDER_IDS;
-const PRESET_BASE_URL_MIGRATIONS = _metadata.PRESET_BASE_URL_MIGRATIONS;
-const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = _metadata.PRESET_ENDPOINT_BASE_URL_MIGRATIONS;
-const PRESET_AUTH_MODE_MIGRATIONS = _metadata.PRESET_AUTH_MODE_MIGRATIONS;
-// Older dist output can be loaded by unit tests before `npm run build` has
-// regenerated metadata. Treat the new migration table as empty in that case.
-const PRESET_MODEL_ID_MIGRATIONS = _metadata.PRESET_MODEL_ID_MIGRATIONS || new Map();
-const PRESET_ENDPOINT_PLAN_MIGRATIONS = new Map([
-  ['opencode-go', { from: ['go', 'agent'], to: 'coding' }],
-  ['qianfan-coding', { from: ['coding'], to: 'token' }],
-]);
 
 async function loadProviders() {
-  if (!(await fs.pathExists(PROVIDERS_PATH))) {
-    await saveProviders(PRESET_PROVIDERS);
-    return PRESET_PROVIDERS;
+  const providers = await _store.loadProviders();
+  const codexProvider = providers.find(p => p.id === 'openai-codex');
+  if (codexProvider) {
+    try {
+      const cachedModels = await readCodexCachedModels();
+      if (cachedModels.length > 0) codexProvider.models = cachedModels;
+    } catch {
+      // Keep the persisted list until Codex has produced a local model cache.
+    }
   }
-  try {
-    const content = await fs.readFile(PROVIDERS_PATH, 'utf-8');
-    const data = JSON.parse(content);
-    if (!Array.isArray(data.providers)) throw new Error('providers.json 中的 providers 必须是数组');
-    const sourceProviders = data.providers;
-    const providers = sourceProviders.filter(p => !RETIRED_PRESET_PROVIDER_IDS.has(p.id));
-    const codexProvider = providers.find(p => p.id === 'openai-codex');
-    if (codexProvider) {
-      try {
-        const cachedModels = await readCodexCachedModels();
-        if (cachedModels.length > 0) codexProvider.models = cachedModels;
-      } catch {
-        // Keep the persisted list until Codex has produced a local model cache.
-      }
-    }
-
-    // Merge new presets: add missing ones, update name changes, and apply
-    // narrowly-scoped endpoint migrations for known broken built-in defaults.
-    let changed = providers.length !== sourceProviders.length;
-    for (const preset of PRESET_PROVIDERS) {
-      const existing = providers.find(p => p.id === preset.id);
-      if (!existing) {
-        providers.push(preset);
-        changed = true;
-      } else {
-        const migration = PRESET_BASE_URL_MIGRATIONS.get(preset.id);
-        if (migration) {
-          if (existing.baseUrl === migration.from) {
-            existing.baseUrl = migration.to;
-            changed = true;
-          }
-          // Model Management reads `endpoints` when it is present. Migrate the
-          // same known stale URL there too; otherwise the card looks updated
-          // while its connection test still calls the old endpoint.
-          if (Array.isArray(existing.endpoints)) {
-            let endpointChanged = false;
-            existing.endpoints = existing.endpoints.map(endpoint => {
-              if (endpoint && endpoint.type === preset.type && endpoint.baseUrl === migration.from) {
-                endpointChanged = true;
-                return { ...endpoint, baseUrl: migration.to };
-              }
-              return endpoint;
-            });
-            if (endpointChanged) changed = true;
-          }
-        }
-        const endpointMigrations = PRESET_ENDPOINT_BASE_URL_MIGRATIONS.get(preset.id);
-        if (endpointMigrations?.length && Array.isArray(existing.endpoints)) {
-          let endpointChanged = false;
-          existing.endpoints = existing.endpoints.map(endpoint => {
-            const endpointMigration = endpointMigrations.find(candidate =>
-              endpoint
-              && endpoint.baseUrl === candidate.from
-              && (!candidate.type || endpoint.type === candidate.type)
-            );
-            if (endpointMigration) {
-              endpointChanged = true;
-              return { ...endpoint, baseUrl: endpointMigration.to };
-            }
-            return endpoint;
-          });
-          if (endpointChanged) changed = true;
-        }
-        const planMigration = PRESET_ENDPOINT_PLAN_MIGRATIONS.get(preset.id);
-        if (planMigration && Array.isArray(existing.endpoints)) {
-          let endpointChanged = false;
-          existing.endpoints = existing.endpoints.map(endpoint => {
-            if (endpoint?.plan && planMigration.from.includes(endpoint.plan)) {
-              endpointChanged = true;
-              return { ...endpoint, plan: planMigration.to };
-            }
-            return endpoint;
-          });
-          if (endpointChanged) changed = true;
-        }
-        const authModeMigration = PRESET_AUTH_MODE_MIGRATIONS.get(preset.id);
-        if (authModeMigration && existing.authMode === authModeMigration.from) {
-          existing.authMode = authModeMigration.to;
-          changed = true;
-        }
-        // Sync endpoints that exist in the preset but are missing from the
-        // stored provider (e.g. a newly-declared anthropic endpoint added
-        // after providers.json was first initialized). Only ADDS missing
-        // endpoint types — never overwrites user edits.
-        if (Array.isArray(preset.endpoints)) {
-          const existingTypes = new Set((existing.endpoints || []).map(e => e.type));
-          for (const presetEp of preset.endpoints) {
-            if (presetEp && !existingTypes.has(presetEp.type)) {
-              existing.endpoints = [...(existing.endpoints || []), presetEp];
-              changed = true;
-            }
-          }
-          // Repair only missing metadata on an exact built-in URL+type match.
-          // User-customized endpoint URLs remain untouched.
-          let endpointMetadataChanged = false;
-          existing.endpoints = (existing.endpoints || []).map(endpoint => {
-            const presetEndpoint = preset.endpoints.find(candidate =>
-              candidate.type === endpoint.type
-              && candidate.baseUrl === endpoint.baseUrl
-              && (!endpoint.protocol || !candidate.protocol || candidate.protocol === endpoint.protocol)
-            );
-            if (!presetEndpoint) return endpoint;
-            const next = { ...endpoint };
-            if (!next.protocol && presetEndpoint.protocol) {
-              next.protocol = presetEndpoint.protocol;
-              endpointMetadataChanged = true;
-            }
-            if (!next.plan && presetEndpoint.plan) {
-              next.plan = presetEndpoint.plan;
-              endpointMetadataChanged = true;
-            }
-            return next;
-          });
-          if (endpointMetadataChanged) changed = true;
-        }
-        if (existing.name !== preset.name) {
-          existing.name = preset.name;
-          changed = true;
-        }
-        if (preset.executionMode && existing.executionMode !== preset.executionMode) {
-          existing.executionMode = preset.executionMode;
-          changed = true;
-        }
-        if (preset.executionMode === 'agent_native' && Array.isArray(existing.endpoints)) {
-          delete existing.endpoints;
-          changed = true;
-        }
-        if (preset.nativeAgentIds && JSON.stringify(existing.nativeAgentIds) !== JSON.stringify(preset.nativeAgentIds)) {
-          existing.nativeAgentIds = [...preset.nativeAgentIds];
-          changed = true;
-        }
-        if (preset.cliOnly === true && existing.cliOnly !== true) {
-          existing.cliOnly = true;
-          changed = true;
-        }
-        if (preset.authMode === 'none' && existing.authMode !== 'none' && !existing.vaultKey) {
-          existing.authMode = 'none';
-          changed = true;
-        }
-        const modelSnapshots = PRESET_MODEL_ID_MIGRATIONS.get(preset.id) || [];
-        const existingModelIds = existing.models.map(model => model.id);
-        if (modelSnapshots.some(snapshot => JSON.stringify(snapshot) === JSON.stringify(existingModelIds))) {
-          existing.models = preset.models.map(model => ({ ...model }));
-          changed = true;
-        }
-        if (
-          preset.id === 'qianfan-coding'
-          && existing.models.some(model => ['kimi-k2.5', 'deepseek-v3.2', 'minimax-m2.5', 'ernie-4.5-turbo-20260402'].includes(model.id))
-        ) {
-          existing.models = preset.models.map(model => ({ ...model }));
-          changed = true;
-        }
-        if (
-          preset.id === 'xiaomi-coding'
-          && existing.models.length === 4
-          && existing.models.every(model => ['mimo-v2.5', 'mimo-v2.5-pro', 'mimo-v2.5-asr', 'mimo-v2.5-tts'].includes(model.id))
-        ) {
-          existing.models = preset.models.map(model => ({ ...model }));
-          changed = true;
-        }
-      }
-    }
-    // Coding Plan uses a separate API-key scope. Older builds put the Coding
-    // endpoint beside the regular Qianfan endpoint, which made one ordinary
-    // key look partially broken forever. Keep the regular provider regular;
-    // the dedicated qianfan-coding preset owns that endpoint now.
-    const qianfan = providers.find(provider => provider.id === 'qianfan');
-    if (qianfan && Array.isArray(qianfan.endpoints)) {
-      const filtered = qianfan.endpoints.filter(endpoint =>
-        !/^https?:\/\/qianfan\.baidubce\.com\/v2\/(?:coding|tokenplan\/personal)\/?$/i.test(endpoint.baseUrl),
-      );
-      if (filtered.length !== qianfan.endpoints.length) {
-        if (filtered.length) qianfan.endpoints = filtered;
-        else delete qianfan.endpoints;
-        if (qianfan.baseUrl === 'https://qianfan.baidubce.com/v2/coding') {
-          qianfan.baseUrl = 'https://qianfan.baidubce.com/v2';
-        }
-        changed = true;
-      }
-    }
-    if (changed) await saveProviders(providers);
-
-    return providers;
-  } catch (error) {
-    throw new Error(`无法读取 providers.json：${error.message || String(error)}`);
-  }
+  return providers;
 }
 
 async function saveProviders(providers) {
@@ -350,18 +155,13 @@ async function saveUserConfig(config) {
   await fs.writeFile(USER_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
-const ADAPTERS = [
-  { id: 'claude', name: 'Claude Code', supportedTypes: ['anthropic'], command: 'claude', launchType: 'cli' },
-  { id: 'codex', name: 'ChatGPT', supportedTypes: ['openai'], command: 'codex', launchType: 'cli' },
-  { id: 'opencode', name: 'OpenCode', supportedTypes: ['anthropic', 'openai'], command: 'opencode', launchType: 'cli' },
-  { id: 'openclaw', name: 'OpenClaw', supportedTypes: ['anthropic', 'openai'], command: 'openclaw', launchType: 'cli' },
-  { id: 'workbuddy', name: 'WorkBuddy', supportedTypes: ['anthropic', 'openai'], command: 'workbuddy', launchType: 'app', appName: 'WorkBuddy' },
-  { id: 'zcode', name: 'ZCode', supportedTypes: ['anthropic', 'openai'], command: 'zcode', launchType: 'app', appName: 'ZCode' },
-  { id: 'hermes', name: 'Hermes', supportedTypes: ['anthropic', 'openai'], command: 'hermes', launchType: 'cli' },
-  { id: 'kimi-code', name: 'Kimi Code', supportedTypes: ['openai'], command: 'kimi', launchType: 'cli' },
-  { id: 'grok', name: 'Grok Build', supportedTypes: ['openai', 'anthropic'], command: 'grok', launchType: 'cli' },
-  { id: 'mimo-code', name: 'MiMo Code', supportedTypes: ['openai', 'anthropic'], command: 'mimo', launchType: 'cli' },
-];
+let _agentsMeta;
+try {
+  _agentsMeta = require('../../../providers/agentsMeta');
+} catch {
+  _agentsMeta = require('../../../dist/providers/agentsMeta');
+}
+const ADAPTERS = _agentsMeta.AGENTS_META;
 
 // Additive agents: their config files hold entries from MANY providers at
 // once and the user switches between them inside the agent's own UI. For

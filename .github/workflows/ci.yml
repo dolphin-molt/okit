@@ -28,7 +28,9 @@ jobs:
       - run: npm install -g npm@11
       - run: npm ci --ignore-scripts
 
-      - run: npx tsc --noEmit
+      # Full compile (not --noEmit): tests import web/api modules that require
+      # compiled outputs under dist/.
+      - run: npx tsc
 
       - run: npx vitest run
 

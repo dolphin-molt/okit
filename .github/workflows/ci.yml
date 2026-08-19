@@ -23,6 +23,9 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # The lock is generated with npm 11; node 20 ships npm 10 whose stricter
+      # ci check rejects it. Install npm 11 for dependency install only.
+      - run: npm install -g npm@11
       - run: npm ci --ignore-scripts
 
       - run: npx tsc --noEmit

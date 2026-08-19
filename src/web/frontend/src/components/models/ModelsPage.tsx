@@ -4,7 +4,7 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
-import { getProviderIcon } from '../../assets/providers';
+import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import { getProviderDocs, ProviderDocsKind } from '../../data/providerDocs';
 import crossDataRaw from '../../data/cross_platform_models.json';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -958,7 +958,7 @@ export default function ModelsPage() {
               >
                 <div className="provider-card-header">
                   <div className="provider-card-title">
-                    {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className="provider-card-brand-icon" /> : null; })()}
+                    {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
                     <h3>{platform?.name || (isMulti && famDef ? famDef.family : providerName(p.id, p.name))}</h3>
                   </div>
                   <div className="provider-card-status">
@@ -1916,7 +1916,7 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
               <div className="provider-editor-header">
                 <div>
                   <div className="provider-editor-context">
-                    {provider && getProviderIcon(provider.id) && <img src={getProviderIcon(provider.id)} alt="" />}
+                    {provider && getProviderIcon(provider.id) && <img src={getProviderIcon(provider.id)} alt="" className={getProviderIconClass(provider.id)} />}
                     <strong>{platform?.name || provider?.name || t('models.newPlatform')}</strong>
                     {platform && platform.offerings.length > 1 && (
                       <div className="provider-editor-offering-switch" aria-label={t('models.totalOfferings')}>

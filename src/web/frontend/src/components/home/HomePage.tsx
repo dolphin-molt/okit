@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogExcluded, setCatalogExcluded, getTierMaps, setTierMap, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
-import { getAgentIcon } from '../../assets/agents';
-import { getProviderIcon } from '../../assets/providers';
+import { getAgentIcon, getAgentIconClass } from '../../assets/agents';
+import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import JsonTreeView from '../shared/JsonTreeView';
 import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson } from 'lucide-react';
 import UsageSummary from './UsageSummary';
@@ -333,7 +333,7 @@ export default function HomePage() {
               onDrop={(e) => { e.preventDefault(); handleDropTab(i); }}
               onDragEnd={() => { setDragTabIndex(null); setDropTabIndex(null); }}
             >
-              {icon && <img src={icon} alt="" className="agent-tab-icon" draggable={false} />}
+              {icon && <img src={icon} alt="" className={['agent-tab-icon', getAgentIconClass(agent.id)].filter(Boolean).join(' ')} draggable={false} />}
               {agent.current && <span className="agent-tab-dot" />}
             </button>
           );
@@ -370,7 +370,7 @@ export default function HomePage() {
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="provider-card-title">
-                    {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className="provider-card-brand-icon" /> : null; })()}
+                    {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
                     <h3>{p.name}</h3>
                     {isCurrent && (
                       <span className="provider-card-current-tag">{t('agents.current')}</span>
@@ -556,7 +556,7 @@ export default function HomePage() {
                     checked={p.added}
                     onChange={() => p.added ? handleRemoveHome(p.id) : handleAddHome(p.id)}
                   />
-                  {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className="provider-card-brand-icon" /> : null; })()}
+                  {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
                   <span>{p.name}</span>
                 </label>
               ))}

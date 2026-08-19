@@ -13,7 +13,7 @@ import { useUsagePolling } from '../../lib/useUsagePolling';
 import { useCoalescedUsageMap } from '../../lib/useCoalescedUsageMap';
 import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 import { useNavigate } from 'react-router-dom';
-import { getProviderIcon } from '../../assets/providers';
+import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 
 // Map backend window labels (english short codes) to compact UI labels.
 const WINDOW_LABEL: Record<string, string> = {
@@ -116,7 +116,7 @@ function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnTyp
     <article className={`usage-summary-group-item usage-summary-group-item--${tone}`}>
       <div className="usage-summary-group-item-head">
         <div className="usage-summary-provider">
-          {getProviderIcon(card.id) && <img src={getProviderIcon(card.id)} alt="" />}
+          {getProviderIcon(card.id) && <img src={getProviderIcon(card.id)} alt="" className={getProviderIconClass(card.id)} />}
           <span>{card.name}</span>
         </div>
         <span className={`usage-summary-group-tone usage-summary-group-tone--${tone}`} aria-hidden="true" />

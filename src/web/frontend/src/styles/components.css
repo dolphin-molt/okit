@@ -684,3 +684,8 @@
 [data-theme="dark"] .log-row--expanded { background: rgba(255,255,255,0.03) !important; }
 [data-theme="dark"] .log-detail-code,
 [data-theme="dark"] .log-detail-pre { background: rgba(0,0,0,0.25); border-color: var(--kraft-dark); }
+
+/* Brand icons whose artwork is transparent monochrome (openai/github/moonshot
+   providers, zcode agent): invert to stay legible on dark cards. img. prefix
+   keeps specificity above [data-theme] .provider-card-brand-icon brightness. */
+[data-theme="dark"] img.brand-icon-invert-dark { filter: invert(1); }

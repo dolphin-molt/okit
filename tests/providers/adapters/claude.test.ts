@@ -38,6 +38,13 @@ vi.mock('../../../src/providers/auth', () => ({
   checkClaudeOAuth: vi.fn(async function() { return false; }),
 }));
 
+// hasKeychainOAuth shells out to `/usr/bin/security`; without this mock the
+// probe hits the real keychain, making the test machine-dependent (a developer
+// machine with Claude OAuth logged in would take the apiKeyHelper path).
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(function() { throw new Error('no keychain entry'); }),
+}));
+
 const { ClaudeAdapter } = await import('../../../src/providers/adapters/claude');
 const { updateUserConfig } = await import('../../../src/config/user');
 
@@ -162,7 +169,9 @@ describe('ClaudeAdapter.applyConfig', () => {
     const adapter = new ClaudeAdapter();
     await adapter.applyConfig(officialWithKey, 'claude-opus-4-7');
 
-    const env = JSON.parse(mocks.files.get(SETTINGS_PATH)!).env;
+    // The adapter drops an emptied env object, so fall back to {} when all
+    // routing vars were cleared.
+    const env = JSON.parse(mocks.files.get(SETTINGS_PATH)!).env ?? {};
     expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
     expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
     expect(env.ANTHROPIC_MODEL).toBeUndefined();

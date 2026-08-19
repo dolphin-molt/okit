@@ -20,12 +20,13 @@ const PLATFORM_SECRET_FIELDS = {
   volcengine: ['accessKey', 'secretKey'],
   supabase: ['projectId', 'apiKey', 'apiToken'],
   webdav: ['password'],
+  lan: ['token'],
   icloud: [],
 };
 const SYNC_CODE_PREFIX = 'okit-sync:';
 const SYNC_CODE_SALT = 'okit-sync-code-salt';
 
-const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine', 'webdav', 'icloud']);
+const VALID_ADAPTERS = new Set(['cloudflare', 'cloudflare-d1', 'cloudflare-kv', 'cloudflare-r2', 'supabase', 'volcengine', 'webdav', 'lan', 'icloud']);
 
 function loadAdapter(name) {
   if (!name || !/^[a-z0-9-]+$/.test(name) || !VALID_ADAPTERS.has(name)) {
@@ -457,4 +458,4 @@ async function importSyncCode(code, password) {
   return { platform: payload.syncPlatform, secrets: secrets.length };
 }
 
-module.exports = { loadConfig, saveConfig, appendLog, resolveVaultRefs, testConnection, peekRemote, syncPush, syncPull, exportSyncCode, importSyncCode };
+module.exports = { loadConfig, saveConfig, appendLog, resolveVaultRefs, resolveSyncKeys, testConnection, peekRemote, syncPush, syncPull, exportSyncCode, importSyncCode };

@@ -79,9 +79,21 @@ export type UserConfig = {
         username?: string;
         password?: string;
       };
+      lan?: {
+        enabled?: boolean;
+        baseUrl?: string;
+        token?: string;
+      };
       icloud?: {
         enabled?: boolean;
       };
+    };
+    // LAN peer sync hub: a token-authenticated blob-store listener on its own
+    // port (default 3790). Other machines pair via okit-lan:// connection codes.
+    lan?: {
+      enabled?: boolean;
+      port?: number;
+      token?: string;
     };
   };
   hints?: {

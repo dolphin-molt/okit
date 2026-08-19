@@ -22,7 +22,7 @@ function appendLog(action, name, success, detail) {
   } catch {}
 }
 
-const SENSITIVE_KEYS = ['accessKeySecret', 'password'];
+const SENSITIVE_KEYS = ['accessKeySecret', 'password', 'token'];
 
 async function loadConfig() {
   try {
@@ -41,6 +41,7 @@ function maskConfig(sync) {
   if (!sync) return sync;
   const masked = JSON.parse(JSON.stringify(sync));
   if (masked.password) masked.password = '***';
+  if (masked.lan?.token) masked.lan.token = '***';
   if (!masked.platforms) return masked;
   for (const [, plat] of Object.entries(masked.platforms)) {
     for (const key of SENSITIVE_KEYS) {
@@ -58,6 +59,14 @@ function mergeSensitive(current, patch) {
   // Merge sync-level sensitive fields
   if (merged.password === '***' && current.password) {
     merged.password = current.password;
+  }
+  // sync.lan is patched as a whole object; shallow-merge it so partial
+  // patches (e.g. {enabled:false}) never drop the stored token/port.
+  if (merged.lan || current.lan) {
+    merged.lan = { ...(current.lan || {}), ...(merged.lan || {}) };
+    if (merged.lan.token === '***' && current.lan?.token) {
+      merged.lan.token = current.lan.token;
+    }
   }
   for (const [platName, platConfig] of Object.entries(merged.platforms || {})) {
     if (!platConfig || !current.platforms?.[platName]) continue;
@@ -128,6 +137,7 @@ async function updateSettings(req, res) {
     const config = await loadConfig();
     const prevAgent = config.agent || {};
     const autoSyncWasOn = !!config.sync?.autoSync;
+    const prevLan = JSON.stringify(config.sync?.lan || null);
 
     if (sync) {
       const merged = mergeSensitive(config.sync, sync);
@@ -160,6 +170,10 @@ async function updateSettings(req, res) {
     // Toggling auto-sync on should adopt remote + flush pending without a restart
     if (sync && typeof sync.autoSync === 'boolean' && sync.autoSync && !autoSyncWasOn) {
       require('./sync-scheduler').syncNow().catch(() => {});
+    }
+    // LAN listener follows sync.lan changes without a server restart
+    if (sync?.lan && JSON.stringify(config.sync?.lan || null) !== prevLan) {
+      require('./lan-sync-server').applyConfig().catch(() => {});
     }
   } catch (error) {
     console.error('Error updating settings:', error);

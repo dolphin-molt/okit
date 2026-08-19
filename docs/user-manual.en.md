@@ -138,6 +138,11 @@ The extension requests `debugger`, `tabs`, `cookies`, and related permissions, s
   - The remote is **checked every 5 minutes** and merged when a new version appears (newest-wins by timestamp; newer local edits are never overwritten by stale remote data)
   - On startup OKIT merges the remote first, then flushes any pending local changes
   - Enabling it for the first time seeds the cloud with an initial push; machines sharing the same sync password stay in sync automatically
+- **LAN sync**: sync computers directly within the same local network — no cloud account needed (Settings → Device Sync → Add Device):
+  - On the machine that stays on, enable "This machine as primary" under Add Device and copy the `okit-lan://` pairing code it shows
+  - On your other computer, paste the code under Add Device and click "Connect"; both devices must use the **same sync password**
+  - The device list shows the peer's online status live; data stays end-to-end encrypted in transit (the cloud-only-stores-ciphertext rule applies to the LAN relay too); re-pair if the host's IP changes
+  - If the first connection is blocked by a firewall, allow inbound connections for OKIT (default port 3790); LAN sync and cloud platforms can be enabled together as mutual backups
 
 ---
 

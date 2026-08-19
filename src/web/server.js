@@ -6,7 +6,7 @@ const { getLogs } = require('./api/logs');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { agentChat, agentConfirm, listConversations, getConversation, createConversation, updateConversation, deleteConversation } = require('./api/agent');
 const { getSettings, updateSettings, testPlatformConnection, testAgentConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
-const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode } = require('./api/sync');
+const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode, handleLanStatus, handleLanEnable, handleLanDisable, handleLanRegenerate, handleLanPairingPeek, handleLanPairingCreate, handleLanPair, handleSyncOverview } = require('./api/sync');
 const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 
@@ -87,8 +87,17 @@ function createServer(port = 3780) {
   app.post('/api/sync/push', handlePush);
   app.post('/api/sync/pull', handlePull);
   app.get('/api/sync/status', handleStatus);
+  app.get('/api/sync/overview', handleSyncOverview);
   app.post('/api/sync/code/export', handleExportCode);
   app.post('/api/sync/code/import', handleImportCode);
+  // LAN peer sync (dedicated listener on its own port, token-authenticated)
+  app.get('/api/sync/lan/status', handleLanStatus);
+  app.post('/api/sync/lan/enable', handleLanEnable);
+  app.post('/api/sync/lan/disable', handleLanDisable);
+  app.post('/api/sync/lan/regenerate', handleLanRegenerate);
+  app.get('/api/sync/lan/pairing', handleLanPairingPeek);
+  app.post('/api/sync/lan/pairing', handleLanPairingCreate);
+  app.post('/api/sync/lan/pair', handleLanPair);
 
   // Provider routes
   app.get('/api/providers', listProviders);
@@ -150,6 +159,10 @@ function startServer(port = 3780, onStarted) {
     console.log(`  Press Ctrl+C to stop\n`);
     // Auto-sync scheduler: debounced push + periodic pull check.
     require('./api/sync-scheduler').startAutoSync();
+    // LAN peer sync listener: separate port, only if enabled in config.
+    require('./api/lan-sync-server').applyConfig().catch((err) => {
+      console.error('LAN sync listener startup failed:', err.message);
+    });
     if (onStarted) onStarted(port);
   });
 

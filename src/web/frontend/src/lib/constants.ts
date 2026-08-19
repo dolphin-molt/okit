@@ -31,6 +31,7 @@ export const PLATFORM_FIELDS: Record<string, string[]> = {
   supabase: ['projectId', 'apiKey'],
   'cloudflare-kv': ['apiToken'],
   webdav: ['url', 'username', 'password'],
+  lan: ['baseUrl', 'token'],
   icloud: [],
 };
 
@@ -42,6 +43,7 @@ export const PLATFORM_IDS: Record<string, string> = {
   supabase: 'Supabase',
   'cloudflare-kv': 'Cloudflare KV',
   webdav: 'WebDAV',
+  lan: '局域网设备',
   icloud: 'iCloud',
 };
 
@@ -131,6 +133,18 @@ export const PLATFORM_DOCS: Record<string, { fields: Record<string, { label: str
       { text: '服务器地址填入完整的 WebDAV URL（以 http:// 或 https:// 开头）' },
       { text: '用户名填账号，密码填应用专用密码（不是登录密码）' },
       { text: '点击测试连接，会自动创建 okit-sync 目录' },
+    ],
+  },
+  lan: {
+    fields: {
+      baseUrl: { label: '对端地址', hint: '如 http://192.168.1.5:3790（对端开启局域网同步后获得）' },
+      token: { label: '连接令牌', hint: '对端配对码中 / 后面的一长串字符' },
+    },
+    steps: [
+      { text: '推荐使用上方「局域网同步」区块的粘贴配对码方式，会自动填写并校验' },
+      { text: '在另一台电脑的 OKIT 设置中开启「局域网同步」，复制它显示的配对码' },
+      { text: '配对码格式为 okit-lan://IP:端口/令牌：手动填写时地址填 http://IP:端口，令牌填斜杠后的字符串' },
+      { text: '两台设备必须使用相同的同步密码' },
     ],
   },
   icloud: {

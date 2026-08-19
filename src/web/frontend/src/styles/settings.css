@@ -944,6 +944,10 @@
 }
 
 .settings-workspace .settings-card-body--sync {
+  /* Shrinkable single track: without this the auto track sizes to the
+     max-content of the unbreakable pairing-code string and every child
+     overflows the card horizontally. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -2327,4 +2331,391 @@
 
 [data-theme="dark"] .settings-machine-id-suffix {
   color: rgba(215, 211, 201, 0.5);
+}
+
+/* ─── LAN Peer Sync ─── */
+.settings-workspace .lan-code-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-workspace .lan-code-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.settings-workspace .lan-address-select {
+  flex-shrink: 0;
+  min-width: 128px;
+}
+
+.settings-workspace .lan-pair-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-workspace .lan-pair-row .settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-workspace .lan-pair-field {
+  margin-top: 12px;
+}
+
+.settings-workspace .lan-hint {
+  margin-top: 10px;
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .settings-workspace .lan-hint {
+  color: rgba(215, 211, 201, 0.55);
+}
+
+/* ─── 界面风格选择器 ─── */
+.settings-row--block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.settings-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+
+.settings-style-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 7px;
+  border: 1.5px solid var(--kraft-dark);
+  border-radius: 10px;
+  background: var(--paper);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.settings-style-option:hover {
+  border-color: var(--ink-muted);
+}
+
+.settings-style-option.active {
+  border-color: var(--accent);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.settings-style-preview {
+  display: flex;
+  height: 40px;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.settings-style-preview-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-style-preview-half:first-child {
+  border-right: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.settings-style-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: block;
+}
+
+.settings-style-name {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* ─── Device Sync (merged section) ─── */
+.settings-workspace .devsync-title-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-workspace .devsync-autosync-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.settings-workspace .devsync-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+
+.settings-workspace .devsync-summary--detail {
+  margin: 8px 0;
+}
+
+.settings-workspace .devsync-summary-sep {
+  opacity: 0.6;
+}
+
+.settings-workspace .devsync-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.settings-workspace .devsync-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1.5px dashed var(--ink-muted);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+
+.settings-workspace .devsync-device-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.settings-workspace .devsync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--ink-muted);
+}
+
+.settings-workspace .devsync-dot--self {
+  background: var(--ink-light);
+}
+
+.settings-workspace .devsync-dot--on {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+}
+
+.settings-workspace .devsync-role {
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border: 1px solid var(--ink-muted);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-light);
+}
+
+.settings-workspace .devsync-presence {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.settings-workspace .devsync-presence--on {
+  color: var(--green);
+  font-weight: 650;
+}
+
+.settings-workspace .devsync-device-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.settings-workspace .devsync-empty {
+  padding: 12px;
+  border: 1.5px dashed var(--ink-muted);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.settings-workspace .devsync-add-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.settings-workspace .devsync-add-trigger:hover {
+  background: var(--ink);
+  color: var(--paper);
+  transform: translate(-1px, -1px);
+}
+
+[data-theme="dark"] .settings-workspace .devsync-add-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+
+.settings-workspace .devsync-collapse {
+  border-top: 1px dashed var(--ink-muted);
+}
+
+.settings-workspace .devsync-collapse-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 11px 2px;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.settings-workspace .devsync-chevron {
+  display: inline-flex;
+  color: var(--ink-muted);
+  transition: transform 0.15s;
+}
+
+.settings-workspace .devsync-chevron--open {
+  transform: rotate(180deg);
+}
+
+.settings-workspace .devsync-collapse-body {
+  padding: 4px 0 12px;
+}
+
+/* ─── LAN Sync Modal ─── */
+.settings-workspace .lan-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 18px;
+}
+
+
+.settings-workspace .lan-modal-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.settings-workspace .lan-modal-countdown {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-workspace .lan-modal-countdown--expired {
+  color: var(--red);
+}
+
+.settings-workspace .lan-modal-error {
+  padding: 8px 12px;
+  border: 1.5px dashed var(--red);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.settings-workspace .lan-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--ink-muted);
+}
+
+/* ─── Add-device dialog choices ─── */
+.settings-workspace .lan-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.settings-workspace .lan-choice:hover {
+  background: var(--ink);
+  transform: translate(-1px, -1px);
+}
+
+.settings-workspace .lan-choice-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.settings-workspace .lan-choice-desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.settings-workspace .lan-choice:hover .lan-choice-title {
+  color: var(--paper);
+}
+
+.settings-workspace .lan-choice:hover .lan-choice-desc {
+  color: rgba(254, 252, 248, 0.72);
+}
+
+.settings-workspace .lan-back {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.settings-workspace .lan-back:hover {
+  color: var(--ink);
 }

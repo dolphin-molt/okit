@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
 import LogsPage from '../logs/LogsPage';
 import DeviceSyncSection from './DeviceSyncSection';
+import SnapshotsSection from './SnapshotsSection';
 
 const DEFAULT_AGENT = { provider: 'siliconflow', model: '', baseUrl: '', apiKeyVaultKey: '' };
 
@@ -75,7 +76,7 @@ export default function SettingsPage() {
 
   const [searchParams] = useSearchParams();
   const rawSection = searchParams.get('section') || 'appearance';
-  const section = ['appearance', 'agent', 'sync', 'diagnostics'].includes(rawSection) ? rawSection : 'appearance';
+  const section = ['appearance', 'agent', 'sync', 'snapshots', 'diagnostics'].includes(rawSection) ? rawSection : 'appearance';
 
   return (
     <div className={`access-workspace settings-workspace settings-workspace--${theme}`}>
@@ -201,6 +202,13 @@ export default function SettingsPage() {
       {section === 'sync' && (
       <div id="sync" className="settings-section-wrap">
         <DeviceSyncSection />
+      </div>
+      )}
+
+      {/* Config Snapshots */}
+      {section === 'snapshots' && (
+      <div className="settings-section" id="snapshots">
+        <SnapshotsSection />
       </div>
       )}
 

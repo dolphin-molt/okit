@@ -658,6 +658,23 @@ export default {
   'settings.sync2.moreActions': 'More Actions',
   'settings.sync2.changePassword': 'Change Sync Password',
 
+  // Config Snapshots
+  'settings.snapshots.title': 'Config Snapshots',
+  'settings.snapshots.selectAgent': 'Select agent',
+  'settings.snapshots.empty': 'No snapshots yet — a snapshot of the current config is captured automatically when you switch providers.',
+  'settings.snapshots.view': 'View',
+  'settings.snapshots.restore': 'Restore',
+  'settings.snapshots.snapshotAt': 'Snapshot at {time}',
+  'settings.snapshots.confirmTitle': 'Restore snapshot',
+  'settings.snapshots.confirmBody': 'This will overwrite the current config files with the snapshot. Continue?',
+  'settings.snapshots.restoreOk': 'Restored',
+  'settings.snapshots.restoreFail': 'Restore failed',
+  'settings.snapshots.snapshotContent': 'Snapshot',
+  'settings.snapshots.currentContent': 'Current',
+  'settings.snapshots.fileMissing': 'File missing',
+  'settings.snapshots.fileCount': '{n} files',
+  'settings.snapshots.loading': 'Loading...',
+
   // AI Assistant
   'agent.kicker': 'Local workspace',
   'agent.title': 'OKIT Assistant',

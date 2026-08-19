@@ -34,6 +34,7 @@ const SETTINGS_SECTIONS = [
   { id: 'appearance', labelKey: 'settings.appearance' },
   { id: 'agent', labelKey: 'settings.aiAssistant' },
   { id: 'sync', labelKey: 'settings.sync2.title' },
+  { id: 'snapshots', labelKey: 'settings.snapshots.title' },
   { id: 'diagnostics', labelKey: 'settings.diagnostics' },
 ];
 

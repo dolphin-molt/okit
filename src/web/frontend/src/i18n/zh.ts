@@ -658,6 +658,23 @@ export default {
   'settings.sync2.moreActions': '更多操作',
   'settings.sync2.changePassword': '修改同步密码',
 
+  // 配置快照
+  'settings.snapshots.title': '配置快照',
+  'settings.snapshots.selectAgent': '选择 Agent',
+  'settings.snapshots.empty': '尚无快照——切换 Provider 时会自动生成当前配置的快照。',
+  'settings.snapshots.view': '查看',
+  'settings.snapshots.restore': '恢复',
+  'settings.snapshots.snapshotAt': '快照于 {time}',
+  'settings.snapshots.confirmTitle': '恢复配置快照',
+  'settings.snapshots.confirmBody': '将用该快照覆盖当前配置文件，继续吗？',
+  'settings.snapshots.restoreOk': '已恢复',
+  'settings.snapshots.restoreFail': '恢复失败',
+  'settings.snapshots.snapshotContent': '快照内容',
+  'settings.snapshots.currentContent': '当前内容',
+  'settings.snapshots.fileMissing': '文件不存在',
+  'settings.snapshots.fileCount': '{n} 个文件',
+  'settings.snapshots.loading': '加载中...',
+
   // AI 助手
   'agent.kicker': '本机工作台',
   'agent.title': 'OKIT Assistant',

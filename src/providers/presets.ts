@@ -650,8 +650,12 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     baseUrl: "https://opencode.ai/zen/v1",
     endpoints: [
       { type: "openai", protocol: "chat", baseUrl: "https://opencode.ai/zen/v1" },
-      { type: "anthropic", baseUrl: "https://opencode.ai/zen" },
     ],
+    // A second anthropic-protocol endpoint (https://opencode.ai/zen, paid
+    // Claude models only) is deliberately NOT bundled: with the free-tier
+    // "public" key it always fails auth, so every free user would see a
+    // permanently half-invalid card. Users who buy credits can add it back
+    // in the provider editor (+ 添加端点 → anthropic → https://opencode.ai/zen).
     // The free tier needs NO signup: the gateway accepts the literal key
     // "public" for -free models (this is exactly how the opencode client
     // itself works — provider.ts sends apiKey: "public" when unauthenticated;

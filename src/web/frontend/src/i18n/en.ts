@@ -601,7 +601,6 @@ export default {
   'settings.snapshots.fileMissing': 'File missing',
   'settings.snapshots.fileCount': '{n} files',
   'settings.snapshots.loading': 'Loading...',
-  'settings.snapshots.noDiff': 'Identical to current',
 'settings.snapshots.noFiles': 'No file content',
 
   // Logs

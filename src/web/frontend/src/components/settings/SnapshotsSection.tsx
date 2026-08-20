@@ -7,7 +7,6 @@ import {
 } from '../../api/snapshots';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
-import { diffLines } from '../../lib/lineDiff';
 import CustomSelect from '../shared/CustomSelect';
 
 // Theme the third-party diff viewer with OKIT's palette. Values are plain CSS
@@ -17,9 +16,11 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
     light: {
       diffViewerBackground: 'var(--paper)',
       diffViewerColor: 'var(--ink)',
-      diffViewerTitleBackground: 'var(--kraft)',
-      diffViewerTitleColor: 'var(--ink-muted)',
-      diffViewerTitleBorderColor: 'var(--border)',
+      // Title row and summary bar share these; they resolve through CSS
+      // variables defined per theme in snapshots.css.
+      diffViewerTitleBackground: 'var(--snap-title-bg)',
+      diffViewerTitleColor: 'var(--snap-title-fg)',
+      diffViewerTitleBorderColor: 'var(--snap-title-border)',
       gutterBackground: 'rgba(0, 0, 0, 0.02)',
       gutterColor: 'var(--ink-muted)',
       addedBackground: 'rgba(5, 150, 105, 0.10)',
@@ -38,9 +39,9 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
     dark: {
       diffViewerBackground: '#24221e',
       diffViewerColor: 'var(--ink)',
-      diffViewerTitleBackground: 'rgba(255, 255, 255, 0.04)',
-      diffViewerTitleColor: 'var(--ink-muted)',
-      diffViewerTitleBorderColor: 'var(--border)',
+      diffViewerTitleBackground: 'var(--snap-title-bg)',
+      diffViewerTitleColor: 'var(--snap-title-fg)',
+      diffViewerTitleBorderColor: 'var(--snap-title-border)',
       gutterBackground: 'rgba(255, 255, 255, 0.03)',
       gutterColor: 'var(--ink-muted)',
       addedBackground: 'rgba(52, 211, 153, 0.12)',
@@ -62,10 +63,23 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
     fontSize: '12px',
   },
   titleBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 12px',
     fontFamily: 'var(--font)',
     fontSize: '11px',
     fontWeight: 700,
     letterSpacing: '0.04em',
+  },
+  summary: {
+    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+    fontSize: '11px',
+    borderBottom: '1px solid var(--snap-title-border)',
+  },
+  // Nothing is foldable in full-file mode, so the bar's expand-all button
+  // would be a dead control — hide it and keep count + distribution strip.
+  allExpandButton: {
+    display: 'none',
   },
   // The lib renders the "no counterpart line" cells via backgroundColor, which
   // cannot carry a gradient. Draw the hatch ourselves through a theme-aware
@@ -75,6 +89,15 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
     backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--snap-hatch) 5px 10px)',
   },
 };
+
+function paneTitle(kind: 'old' | 'new', label: string) {
+  return (
+    <span className={`snapshots-pane-title snapshots-pane-title--${kind}`}>
+      <i className="snapshots-pane-dot" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
 
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
 // by -). Fold that back into a parseable timestamp and render in local time.
@@ -230,9 +253,6 @@ export default function SnapshotsSection() {
             {(() => {
               const files = detail || [];
               const current = files[Math.min(activeFile, Math.max(files.length - 1, 0))] ?? null;
-              const stats = current && current.currentContent != null
-                ? diffLines(current.snapshotContent ?? '', current.currentContent)
-                : null;
               return (
                 <>
                   <div className="snapshots-topbar">
@@ -257,18 +277,8 @@ export default function SnapshotsSection() {
                       ) : current ? (
                         <span className="snapshots-topbar-filename">{current.name}</span>
                       ) : null}
-                      {current && (
-                        current.currentContent == null ? (
-                          <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
-                        ) : (
-                          <span className="snapshots-diff-stats">
-                            {stats && stats.adds > 0 && <span className="snapshots-diff-adds">+{stats.adds}</span>}
-                            {stats && stats.dels > 0 && <span className="snapshots-diff-dels">−{stats.dels}</span>}
-                            {stats && stats.adds === 0 && stats.dels === 0 && (
-                              <span className="snapshots-diff-same">{t('settings.snapshots.noDiff')}</span>
-                            )}
-                          </span>
-                        )
+                      {current && current.currentContent == null && (
+                        <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
                       )}
                       <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
                     </div>
@@ -285,8 +295,8 @@ export default function SnapshotsSection() {
                           showDiffOnly={false}
                           disableWorker
                           useDarkTheme={theme === 'dark'}
-                          leftTitle={t('settings.snapshots.paneSnapshot')}
-                          rightTitle={t('settings.snapshots.paneCurrent')}
+                          leftTitle={paneTitle('old', t('settings.snapshots.paneSnapshot'))}
+                          rightTitle={paneTitle('new', t('settings.snapshots.paneCurrent'))}
                           styles={DIFF_STYLES}
                         />
                       </div>

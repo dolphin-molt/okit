@@ -207,21 +207,35 @@
   white-space: nowrap;
 }
 
-.snapshots-diff-stats {
+/* Pane-title dots and the shared title/summary colors handed to the diff
+   viewer via CSS variables so they follow the app theme. */
+.snapshots-pane-title {
   display: inline-flex;
-  gap: 8px;
-  align-items: baseline;
-  font-size: 12px;
-  font-weight: 400;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  white-space: nowrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
 }
-.snapshots-diff-adds { color: var(--green); font-weight: 600; }
-.snapshots-diff-dels { color: var(--red); font-weight: 600; }
-.snapshots-diff-same { color: var(--ink-muted, var(--ink)); opacity: 0.7; font-weight: 400; }
+
+.snapshots-pane-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.snapshots-pane-title--old .snapshots-pane-dot {
+  background: var(--red);
+}
+
+.snapshots-pane-title--new .snapshots-pane-dot {
+  background: var(--green);
+}
 
 .snapshots-diffwrap {
   --snap-hatch: rgba(0, 0, 0, 0.045);
+  --snap-title-bg: var(--kraft);
+  --snap-title-fg: var(--ink-muted);
+  --snap-title-border: var(--border);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -229,6 +243,9 @@
 
 [data-theme="dark"] .snapshots-diffwrap {
   --snap-hatch: rgba(255, 255, 255, 0.05);
+  --snap-title-bg: #2b2924;
+  --snap-title-fg: var(--ink-muted);
+  --snap-title-border: var(--border);
 }
 
 [data-theme="dark"] .snapshots-topbar {

@@ -601,7 +601,6 @@ export default {
   'settings.snapshots.fileMissing': '文件不存在',
   'settings.snapshots.fileCount': '{n} 个文件',
   'settings.snapshots.loading': '加载中...',
-  'settings.snapshots.noDiff': '与当前内容一致',
 'settings.snapshots.noFiles': '无文件内容',
 
   // 日志

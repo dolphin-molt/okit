@@ -145,6 +145,22 @@ function formatSnapshotTime(iso: string): string {
   }
 }
 
+// Compact stamp for list rows: today → HH:mm, this year → MM-DD HH:mm,
+// otherwise the date only. The modal keeps the full timestamp.
+function formatShortTime(iso: string): string {
+  const full = formatSnapshotTime(iso);
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(full);
+  if (!m) return full;
+  const now = new Date();
+  const [, y, mo, d, hh, mm] = m;
+  const sameDay = Number(y) === now.getFullYear()
+    && Number(mo) === now.getMonth() + 1
+    && Number(d) === now.getDate();
+  if (sameDay) return `${hh}:${mm}`;
+  if (Number(y) === now.getFullYear()) return `${mo}-${d} ${hh}:${mm}`;
+  return `${y}-${mo}-${d}`;
+}
+
 type SnapshotItem = Snapshot & { agentId: string; agentName: string };
 
 export default function SnapshotsSection() {
@@ -266,7 +282,7 @@ export default function SnapshotsSection() {
                   <div key={`${snapshot.agentId}/${snapshot.id}`} className="snapshots-item">
                     <div className="snapshots-item-info">
                       <span className="snapshots-item-agent">{snapshot.agentName}</span>
-                      <span className="snapshots-item-time">{formatSnapshotTime(snapshot.createdAt)}</span>
+                      <span className="snapshots-item-time">{formatShortTime(snapshot.createdAt)}</span>
                       <span className="snapshots-item-files">
                         {t('settings.snapshots.fileCount', { n: snapshot.files.length })}
                       </span>

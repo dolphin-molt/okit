@@ -4,7 +4,6 @@ import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
-import CCSwitchMigrateModal from './CCSwitchMigrateModal';
 import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import { getProviderDocs, ProviderDocsKind } from '../../data/providerDocs';
 import crossDataRaw from '../../data/cross_platform_models.json';
@@ -166,7 +165,6 @@ export default function ModelsPage() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showCCSwitch, setShowCCSwitch] = useState(false);
   const [editProvider, setEditProvider] = useState<Provider | null>(null);
   const [view, setView] = useState<ViewKey>('platform');
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
@@ -864,7 +862,6 @@ export default function ModelsPage() {
               </div>
             </div>
             <button className="models-add-inline" onClick={handleAdd}>+ {t('models.addPlatform')}</button>
-            <button className="models-add-inline" onClick={() => setShowCCSwitch(true)} title={t('models.ccswitch.title')}>↔ {t('models.ccswitch.entry')}</button>
         </div>}
 
         {MODEL_COMPARISON_ENABLED && view === 'model' && activeModel && crossData[activeModel] && (
@@ -1046,14 +1043,6 @@ export default function ModelsPage() {
           }}
           onSave={handleFormSave}
           onClose={() => { setShowForm(false); setEditProvider(null); }}
-        />
-      )}
-
-      {showCCSwitch && (
-        <CCSwitchMigrateModal
-          onClose={() => setShowCCSwitch(false)}
-          onImported={() => { load(); }}
-          existingIds={new Set(providers.map(p => p.id))}
         />
       )}
       </div>

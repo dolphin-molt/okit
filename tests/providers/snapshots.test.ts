@@ -96,7 +96,7 @@ describe('agentConfigFiles', () => {
       ['mimo-code', ['.config/mimocode/mimocode.jsonc']],
       ['opencode', ['.config/opencode/opencode.json', '.local/share/opencode/auth.json']],
       ['openclaw', ['.openclaw/openclaw.json']],
-      ['hermes', ['.hermes/config.json']],
+      ['hermes', ['.hermes/config.yaml']],
       ['workbuddy', ['.workbuddy/models.json']],
       ['zcode', ['.zcode/v2/config.json']],
     ];

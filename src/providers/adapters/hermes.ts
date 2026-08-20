@@ -1,20 +1,20 @@
 import fs from "fs-extra";
 import path from "path";
 import os from "os";
+import yaml from "js-yaml";
 import { BaseAdapter } from "./base";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
-import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
+import { atomicWrite } from "../../utils/atomicWrite";
 
-const HERMES_CONFIG_PATH = path.join(os.homedir(), ".hermes", "config.json");
-
-function apiProtocolFor(type: ProviderType): string {
-  switch (type) {
-    case "anthropic": return "anthropic";
-    case "openai":
-    default: return "openai-completions";
-  }
-}
+// Hermes (v0.12+ through v0.20.x) keeps ALL of its config in
+// ~/.hermes/config.yaml — NOT config.json. Custom providers live in a
+// `custom_providers:` list (entries matched by `name`, mirroring cc-switch's
+// hermes adapter) and the active model is the `model.default:` string in
+// "provider-name/model-id" form. The previous OKIT adapter wrote a
+// config.json with a models.providers/agents.defaults tree that no Hermes
+// version ever read.
+const HERMES_CONFIG_PATH = path.join(os.homedir(), ".hermes", "config.yaml");
 
 export class HermesAdapter extends BaseAdapter {
   readonly id = "hermes";
@@ -39,30 +39,31 @@ export class HermesAdapter extends BaseAdapter {
     let data: Record<string, any> = {};
     if (await fs.pathExists(HERMES_CONFIG_PATH)) {
       const content = await fs.readFile(HERMES_CONFIG_PATH, "utf-8");
-      data = content.trim() ? JSON.parse(content) : {};
+      if (content.trim()) data = (yaml.load(content) as Record<string, any>) || {};
     }
 
-    if (typeof data.models !== "object" || data.models === null) data.models = {};
-    if (!data.models.mode) data.models.mode = "merge";
-    if (typeof data.models.providers !== "object" || data.models.providers === null) {
-      data.models.providers = {};
-    }
-
-    const providerEntry: Record<string, any> = {
-      baseUrl: provider.baseUrl,
-      api: apiProtocolFor(provider.type),
-      models: provider.models.map(m => ({ id: m.id, name: m.name || m.id })),
+    // custom_providers list keyed by display name; replace our entry in place
+    // and leave any others (user-entered or from Hermes itself) untouched.
+    if (!Array.isArray(data.custom_providers)) data.custom_providers = [];
+    const entry: Record<string, any> = {
+      name: provider.name,
+      base_url: provider.baseUrl,
     };
-    if (apiKey) providerEntry.apiKey = apiKey;
-    data.models.providers[provider.id] = providerEntry;
+    if (apiKey) entry.api_key = apiKey;
+    // api_mode is only meaningful for Anthropic-protocol endpoints; Hermes
+    // treats OpenAI-compatible URLs as the default transport.
+    if (provider.type === "anthropic") entry.api_mode = "anthropic_messages";
+    const idx = data.custom_providers.findIndex(
+      (p: any) => p && typeof p === "object" && p.name === provider.name,
+    );
+    if (idx >= 0) data.custom_providers[idx] = entry;
+    else data.custom_providers.push(entry);
 
-    if (typeof data.agents !== "object" || data.agents === null) data.agents = {};
-    if (typeof data.agents.defaults !== "object" || data.agents.defaults === null) {
-      data.agents.defaults = {};
-    }
-    data.agents.defaults.model = { primary: `${provider.id}/${modelId}`, fallbacks: [] };
+    // Active model: "provider-name/model-id" string under model.default.
+    if (typeof data.model !== "object" || data.model === null) data.model = {};
+    data.model.default = `${provider.name}/${modelId}`;
 
-    await atomicWriteJSON(HERMES_CONFIG_PATH, data);
+    await atomicWrite(HERMES_CONFIG_PATH, yaml.dump(data, { lineWidth: 120, noRefs: true }));
     await updateUserConfig({
       providers: { hermes: { providerId: provider.id, modelId } },
     } as any);

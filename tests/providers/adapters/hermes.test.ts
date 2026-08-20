@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import os from 'os';
 import path from 'path';
+import yaml from 'js-yaml';
 
 const testRoot = vi.hoisted(() => {
   const p = require('path');
@@ -48,7 +49,8 @@ vi.mock('../../../src/vault/store', () => ({
 const { HermesAdapter } = await import('../../../src/providers/adapters/hermes');
 const { updateUserConfig } = await import('../../../src/config/user');
 
-const CONFIG_PATH = path.join(os.homedir(), '.hermes', 'config.json');
+// Hermes keeps everything in ~/.hermes/config.yaml (never config.json).
+const CONFIG_PATH = path.join(os.homedir(), '.hermes', 'config.yaml');
 
 const testProvider = {
   id: 'deepseek',
@@ -59,6 +61,11 @@ const testProvider = {
   authMode: 'api_key' as const,
   models: [{ id: 'deepseek-chat', name: 'DeepSeek V4' }],
 };
+
+function readWritten(): Record<string, any> {
+  const raw = mocks.files.get(CONFIG_PATH)!;
+  return (yaml.load(raw) as Record<string, any>) || {};
+}
 
 beforeEach(() => {
   mocks.files.clear();
@@ -78,68 +85,58 @@ describe('HermesAdapter', () => {
   });
 });
 
-describe('HermesAdapter.applyConfig (cc-switch schema)', () => {
-  it('writes provider into models.providers as an OBJECT keyed by id', async () => {
+describe('HermesAdapter.applyConfig (config.yaml schema)', () => {
+  it('appends a custom_providers entry with base_url and api_key', async () => {
     const adapter = new HermesAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.mode).toBe('merge');
-    expect(typeof written.models.providers).toBe('object');
-    expect(written.models.providers.deepseek).toBeDefined();
-    expect(written.models.providers.deepseek.baseUrl).toBe('https://api.deepseek.com');
-    expect(written.models.providers.deepseek.apiKey).toBe('sk-test-123');
+    const written = readWritten();
+    expect(Array.isArray(written.custom_providers)).toBe(true);
+    const entry = written.custom_providers.find((p: any) => p.name === 'DeepSeek');
+    expect(entry).toMatchObject({
+      name: 'DeepSeek',
+      base_url: 'https://api.deepseek.com',
+      api_key: 'sk-test-123',
+    });
+    // OpenAI-compatible endpoints carry no api_mode (Hermes default transport).
+    expect(entry.api_mode).toBeUndefined();
   });
 
-  it('writes the api protocol field (openai-completions for openai type)', async () => {
-    const adapter = new HermesAdapter();
-    await adapter.applyConfig(testProvider, 'deepseek-chat');
-
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers.deepseek.api).toBe('openai-completions');
-  });
-
-  it('maps anthropic type to api = "anthropic"', async () => {
-    const anthropicProvider = { ...testProvider, id: 'zai', type: 'anthropic' as const };
+  it('maps anthropic type to api_mode anthropic_messages', async () => {
+    const anthropicProvider = { ...testProvider, id: 'zai', name: 'ZAI', type: 'anthropic' as const };
     const adapter = new HermesAdapter();
     await adapter.applyConfig(anthropicProvider, 'glm-4.7');
 
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers.zai.api).toBe('anthropic');
+    const entry = readWritten().custom_providers.find((p: any) => p.name === 'ZAI');
+    expect(entry.api_mode).toBe('anthropic_messages');
   });
 
-  it('sets agents.defaults.model as object {primary, fallbacks} (plural "defaults")', async () => {
+  it('sets model.default as provider-name/model-id string', async () => {
     const adapter = new HermesAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.agents.defaults.model).toEqual({
-      primary: 'deepseek/deepseek-chat',
-      fallbacks: [],
-    });
+    expect(readWritten().model).toMatchObject({ default: 'DeepSeek/deepseek-chat' });
   });
 
-  it('preserves existing providers when adding a new one (additive merge)', async () => {
-    mocks.files.set(CONFIG_PATH, JSON.stringify({
-      models: { mode: 'merge', providers: { glm: { baseUrl: 'https://glm.com', api: 'openai-completions' } } },
-      agents: { defaults: {} },
+  it('replaces its own entry by name and preserves other providers + unrelated config', async () => {
+    mocks.files.set(CONFIG_PATH, yaml.dump({
+      custom_providers: [
+        { name: 'User Custom', base_url: 'https://user.example', api_key: 'sk-user' },
+        { name: 'DeepSeek', base_url: 'https://old.deepseek.com', api_key: 'sk-old' },
+      ],
+      model: { default: 'User Custom/foo' },
+      memory: { enabled: true },
     }));
 
     const adapter = new HermesAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(Object.keys(written.models.providers)).toEqual(['glm', 'deepseek']);
-  });
-
-  it('models entry has id + name (no capabilities field)', async () => {
-    const adapter = new HermesAdapter();
-    await adapter.applyConfig(testProvider, 'deepseek-chat');
-
-    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
-    expect(written.models.providers.deepseek.models).toEqual([
-      { id: 'deepseek-chat', name: 'DeepSeek V4' },
-    ]);
+    const written = readWritten();
+    expect(written.custom_providers).toHaveLength(2);
+    expect(written.custom_providers.find((p: any) => p.name === 'User Custom')).toMatchObject({ base_url: 'https://user.example' });
+    expect(written.custom_providers.find((p: any) => p.name === 'DeepSeek').base_url).toBe('https://api.deepseek.com');
+    expect(written.memory).toEqual({ enabled: true });
+    expect(written.model.default).toBe('DeepSeek/deepseek-chat');
   });
 
   it('records selection in user.json', async () => {

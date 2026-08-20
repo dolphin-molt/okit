@@ -87,8 +87,9 @@ const PROVIDER_ICON: Record<string, string> = {
   'github-copilot': github,
   // OpenRouter
   'openrouter': openrouter,
-  // OpenCode Go — reuse OpenCode logo
+  // OpenCode Go / Zen — reuse OpenCode logo
   'opencode-go': opencode,
+  'opencode-zen': opencode,
   // Ollama (local models)
   'ollama': ollama,
   // LiteLLM (local proxy)

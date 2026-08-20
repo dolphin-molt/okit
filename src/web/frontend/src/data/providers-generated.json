@@ -1426,6 +1426,122 @@
       ]
     },
     {
+      "id": "opencode-zen",
+      "name": "OpenCode Zen",
+      "type": "openai",
+      "baseUrl": "https://opencode.ai/zen/v1",
+      "endpoints": [
+        {
+          "type": "openai",
+          "protocol": "chat",
+          "baseUrl": "https://opencode.ai/zen/v1"
+        },
+        {
+          "type": "anthropic",
+          "baseUrl": "https://opencode.ai/zen"
+        }
+      ],
+      "authMode": "api_key",
+      "models": [
+        {
+          "id": "deepseek-v4-flash-free",
+          "name": "DeepSeek V4 Flash Free"
+        },
+        {
+          "id": "nemotron-3-ultra-free",
+          "name": "Nemotron 3 Ultra Free"
+        },
+        {
+          "id": "nemotron-3.5-lightning-free",
+          "name": "Nemotron 3.5 Lightning Free"
+        },
+        {
+          "id": "mimo-v2.5-free",
+          "name": "MiMo V2.5 Free"
+        },
+        {
+          "id": "hy3-free",
+          "name": "Hy3 Free"
+        },
+        {
+          "id": "laguna-s-2.1-free",
+          "name": "Laguna S 2.1 Free"
+        },
+        {
+          "id": "muse-spark-1.2-contributor-free",
+          "name": "Muse Spark 1.2 Free"
+        },
+        {
+          "id": "claude-opus-5",
+          "name": "Claude Opus 5"
+        },
+        {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5"
+        },
+        {
+          "id": "claude-opus-4-8",
+          "name": "Claude Opus 4.8"
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "name": "Claude Sonnet 4.6"
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "name": "GPT-5.6 Luna"
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "name": "GPT-5.5 Pro"
+        },
+        {
+          "id": "gpt-5.5",
+          "name": "GPT-5.5"
+        },
+        {
+          "id": "grok-4.6",
+          "name": "Grok 4.6"
+        },
+        {
+          "id": "grok-4.5",
+          "name": "Grok 4.5"
+        },
+        {
+          "id": "gemini-3.7-flash",
+          "name": "Gemini 3.7 Flash"
+        },
+        {
+          "id": "gemini-3.1-pro",
+          "name": "Gemini 3.1 Pro"
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro"
+        },
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2"
+        },
+        {
+          "id": "kimi-k3",
+          "name": "Kimi K3"
+        },
+        {
+          "id": "minimax-m3",
+          "name": "MiniMax M3"
+        },
+        {
+          "id": "qwen3.6-plus",
+          "name": "Qwen3.6 Plus"
+        },
+        {
+          "id": "big-pickle",
+          "name": "Big Pickle"
+        }
+      ]
+    },
+    {
       "id": "ollama",
       "name": "Ollama (本地)",
       "type": "openai",
@@ -6218,6 +6334,412 @@
       ]
     },
     {
+      "id": "opencode-zen",
+      "name": "OpenCode Zen",
+      "providerIds": [
+        "opencode-zen"
+      ],
+      "offerings": [
+        {
+          "id": "opencode-zen",
+          "type": "api",
+          "label": "API 平台",
+          "providerId": "opencode-zen",
+          "endpointIds": [
+            "opencode-zen:endpoint:13ofel7",
+            "opencode-zen:endpoint:91omnf"
+          ],
+          "authMethodIds": [
+            "opencode-zen:api-key"
+          ],
+          "executionMode": "http_endpoint"
+        }
+      ],
+      "authMethods": [
+        {
+          "id": "opencode-zen:api-key",
+          "type": "api_key",
+          "label": "API Key",
+          "providerId": "opencode-zen",
+          "status": "unconfigured"
+        }
+      ],
+      "endpoints": [
+        {
+          "id": "opencode-zen:endpoint:13ofel7",
+          "name": "OPENAI chat",
+          "offeringId": "opencode-zen",
+          "baseUrl": "https://opencode.ai/zen/v1",
+          "protocol": {
+            "family": "openai",
+            "mode": "chat"
+          },
+          "authMethodIds": [
+            "opencode-zen:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        },
+        {
+          "id": "opencode-zen:endpoint:91omnf",
+          "name": "ANTHROPIC",
+          "offeringId": "opencode-zen",
+          "baseUrl": "https://opencode.ai/zen",
+          "protocol": {
+            "family": "anthropic",
+            "mode": "messages"
+          },
+          "authMethodIds": [
+            "opencode-zen:api-key"
+          ],
+          "modelDiscovery": {
+            "type": "remote",
+            "path": "/models"
+          }
+        }
+      ],
+      "models": [
+        {
+          "id": "deepseek-v4-flash-free",
+          "name": "DeepSeek V4 Flash Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "deepseek-v4-flash-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "nemotron-3-ultra-free",
+          "name": "Nemotron 3 Ultra Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nemotron-3-ultra-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "nemotron-3.5-lightning-free",
+          "name": "Nemotron 3.5 Lightning Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nemotron-3.5-lightning-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "mimo-v2.5-free",
+          "name": "MiMo V2.5 Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "mimo-v2.5-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "hy3-free",
+          "name": "Hy3 Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "hy3-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "laguna-s-2.1-free",
+          "name": "Laguna S 2.1 Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "laguna-s-2.1-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "muse-spark-1.2-contributor-free",
+          "name": "Muse Spark 1.2 Free",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "muse-spark-1.2-contributor-free",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "claude-opus-5",
+          "name": "Claude Opus 5",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "claude-opus-5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "claude-sonnet-5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "claude-opus-4-8",
+          "name": "Claude Opus 4.8",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "claude-opus-4-8",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "name": "Claude Sonnet 4.6",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "claude-sonnet-4-6",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "name": "GPT-5.6 Luna",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "gpt-5.6-luna",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "name": "GPT-5.5 Pro",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "gpt-5.5-pro",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.5",
+          "name": "GPT-5.5",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "gpt-5.5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "grok-4.6",
+          "name": "Grok 4.6",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "grok-4.6",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "grok-4.5",
+          "name": "Grok 4.5",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "grok-4.5",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "gemini-3.7-flash",
+          "name": "Gemini 3.7 Flash",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "gemini-3.7-flash",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "gemini-3.1-pro",
+          "name": "Gemini 3.1 Pro",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "gemini-3.1-pro",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "deepseek-v4-pro",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "glm-5.2",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "kimi-k3",
+          "name": "Kimi K3",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "kimi-k3",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "minimax-m3",
+          "name": "MiniMax M3",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "minimax-m3",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "qwen3.6-plus",
+          "name": "Qwen3.6 Plus",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "qwen3.6-plus",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        },
+        {
+          "id": "big-pickle",
+          "name": "Big Pickle",
+          "availability": [
+            {
+              "offeringId": "opencode-zen",
+              "endpointIds": [],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "big-pickle",
+              "status": "unknown",
+              "source": "legacy_unknown"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "ollama",
       "name": "Ollama (本地)",
       "providerIds": [
@@ -6316,7 +6838,8 @@
       "labelKey": "models.groupAggregator",
       "ids": [
         "openrouter",
-        "opencode-go"
+        "opencode-go",
+        "opencode-zen"
       ]
     },
     {

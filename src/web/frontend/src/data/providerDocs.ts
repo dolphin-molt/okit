@@ -181,6 +181,10 @@ export const PROVIDER_DOCS: Record<string, ProviderDocumentation> = {
     kind: 'go_plan',
     url: 'https://opencode.ai/docs/go/',
   },
+  'opencode-zen': {
+    kind: 'api',
+    url: 'https://opencode.ai/docs/zen',
+  },
   ollama: {
     kind: 'local',
     url: 'https://docs.ollama.com/api/introduction',

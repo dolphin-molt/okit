@@ -478,6 +478,37 @@ async function deleteProviderRoute(req, res) {
 
     providers.splice(idx, 1);
     await saveProviders(providers);
+
+    // Deleting a provider globally must not orphan additive agents: remove the
+    // entries OKIT wrote for it in each affected agent's own config (snapshotted
+    // first) and drop it from the per-agent home lists.
+    const config = await loadUserConfig();
+    const home = { ...(config.homeProviders || {}) };
+    let homeChanged = false;
+    for (const agentId of Object.keys(home)) {
+      const list = Array.isArray(home[agentId]) ? home[agentId] : [];
+      if (!list.includes(id)) continue;
+      if (ADDITIVE_AGENTS.has(agentId)) {
+        try {
+          const agentAdapter = _getAdapter(agentId);
+          if (agentAdapter && typeof agentAdapter.removeProvider === 'function') {
+            await snapBeforeWrite(agentId, 'deleteProvider');
+            await agentAdapter.removeProvider(id);
+          }
+        } catch (e) {
+          console.warn(`[deleteProvider] removeProvider(${agentId}) failed: ${e.message}`);
+        }
+      }
+      const next = list.filter(p => p !== id);
+      if (next.length === 0) delete home[agentId];
+      else home[agentId] = next;
+      homeChanged = true;
+    }
+    if (homeChanged) {
+      config.homeProviders = home;
+      await saveUserConfig(config);
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -690,6 +721,7 @@ async function removeHomeProvider(req, res) {
       try {
         const agentAdapter = _getAdapter(agentId);
         if (agentAdapter && typeof agentAdapter.removeProvider === 'function') {
+          await snapBeforeWrite(agentId, 'removeHomeProvider');
           await agentAdapter.removeProvider(providerId);
         }
       } catch (e) {

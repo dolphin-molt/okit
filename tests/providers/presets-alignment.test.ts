@@ -9,11 +9,11 @@ describe('PRESET_PROVIDERS alignment', () => {
     'kimi-coding-plan', 'qwen', 'qwen-coding', 'qianfan', 'qianfan-coding', 'volcengine-coding',
     'volcengine-agent', 'tencent', 'tencent-token-plan', 'siliconflow', 'xai', 'xai-grok-build', 'github-copilot',
     'mistral', 'stepfun', 'stepfun-global', 'xiaomi', 'xiaomi-coding', 'openrouter',
-    'opencode-go', 'qwen-token-plan', 'ollama', 'litellm',
+    'opencode-go', 'opencode-zen', 'qwen-token-plan', 'ollama', 'litellm',
   ];
 
-  it('has exactly 39 presets', () => {
-    expect(PRESET_PROVIDERS.length).toBe(39);
+  it('has exactly 40 presets', () => {
+    expect(PRESET_PROVIDERS.length).toBe(40);
   });
 
   it('contains all expected provider IDs', () => {

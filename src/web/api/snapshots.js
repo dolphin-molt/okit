@@ -1,4 +1,4 @@
-const { listSnapshots, getSnapshotFiles, getCurrentFiles, restoreSnapshot } = require('../../providers/snapshots');
+const { listSnapshots, getSnapshotFiles, getCurrentFiles, restoreSnapshot, capturePreSwitchSnapshot } = require('../../providers/snapshots');
 
 const AGENT_ID_RE = /^[a-z0-9-]+$/;
 const SNAPSHOT_ID_RE = /^[a-zA-Z0-9-]+$/;
@@ -50,6 +50,14 @@ async function restoreSnapshotHandler(req, res) {
     const { agentId, id } = req.body || {};
     requireAgentId(agentId);
     requireSnapshotId(id);
+    // Snapshot the state we are about to leave so a restore is reversible.
+    // Protect the restore target from retention pruning; a failed capture
+    // warns but must not block the restore itself.
+    try {
+      await capturePreSwitchSnapshot(agentId, undefined, id);
+    } catch (e) {
+      console.warn(`[snapshots] pre-restore capture failed: ${e.message}`);
+    }
     await restoreSnapshot(agentId, id);
     res.json({ ok: true });
   } catch (err) {

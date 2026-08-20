@@ -223,4 +223,24 @@ describe('snapshot retention', () => {
     expect(ids).not.toContain('2020-01-01T00-00-00-001Z');
     expect(ids).not.toContain('2020-01-01T00-00-00-002Z');
   });
+
+  it('protects the given snapshot id from pruning', async () => {
+    mocks.files.set(SETTINGS_PATH, '{"env":{}}');
+
+    // 10 existing snapshots; the restore target is the very oldest.
+    for (let n = 1; n <= 10; n++) {
+      const id = n < 10 ? `2020-01-01T00-00-00-00${n}Z` : `2020-01-01T00-00-00-${n}Z`;
+      seedSnapshot('claude', id, 'settings.json', `{"seed":${n}}`);
+    }
+    const targetId = '2020-01-01T00-00-00-001Z';
+
+    await capturePreSwitchSnapshot('claude', ROOT, targetId);
+
+    const ids = (await listSnapshots('claude', ROOT)).map(s => s.id);
+    // The protected target survives; pruning is skipped for this round (11
+    // entries) rather than evicting the next-newest snapshot to compensate.
+    expect(ids).toContain(targetId);
+    expect(ids).toHaveLength(11);
+    expect(ids).toContain('2020-01-01T00-00-00-002Z');
+  });
 });

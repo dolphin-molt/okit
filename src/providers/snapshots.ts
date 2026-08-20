@@ -70,7 +70,15 @@ async function listSnapshotIds(agentDir: string): Promise<string[]> {
   return ids.sort((a, b) => b.localeCompare(a));
 }
 
-export async function capturePreSwitchSnapshot(agentId: string, rootDir?: string): Promise<string | null> {
+// Captures the agent's current config files as a new snapshot. `protectId`
+// names a snapshot that must survive retention pruning even when it is the
+// oldest — used before a restore so the capture cannot evict the very
+// snapshot we are about to read back.
+export async function capturePreSwitchSnapshot(
+  agentId: string,
+  rootDir?: string,
+  protectId?: string,
+): Promise<string | null> {
   validateAgentId(agentId);
   const candidates = agentConfigFiles(agentId);
   const existing: { abs: string; name: string }[] = [];
@@ -94,6 +102,7 @@ export async function capturePreSwitchSnapshot(agentId: string, rootDir?: string
   const agentDir = path.dirname(dir);
   const ids = await listSnapshotIds(agentDir);
   for (const oldId of ids.slice(MAX_SNAPSHOTS)) {
+    if (protectId && oldId === protectId) continue;
     await fs.remove(path.join(agentDir, oldId));
   }
 

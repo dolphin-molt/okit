@@ -652,6 +652,14 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
       { type: "openai", protocol: "chat", baseUrl: "https://opencode.ai/zen/v1" },
       { type: "anthropic", baseUrl: "https://opencode.ai/zen" },
     ],
+    // The free tier needs NO signup: the gateway accepts the literal key
+    // "public" for -free models (this is exactly how the opencode client
+    // itself works — provider.ts sends apiKey: "public" when unauthenticated;
+    // verified live 2026-08-20 with real completions on
+    // deepseek-v4-flash-free and mimo-v2.5-free). Paid models require a real
+    // key from opencode.ai/auth (web signup + billing). The anthropic
+    // endpoint only carries paid Claude models, so "public" fails there by
+    // design — set the vault key to "public" for free-tier usage.
     authMode: "api_key",
     models: [
       // Free tier (input/output/cache all free; data may be used for training)

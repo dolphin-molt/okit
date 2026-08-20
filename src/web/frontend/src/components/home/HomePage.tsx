@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogExcluded, setCatalogExcluded, getTierMaps, setTierMap, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon, getAgentIconClass } from '../../assets/agents';
 import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import JsonTreeView from '../shared/JsonTreeView';
-import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson } from 'lucide-react';
+import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check } from 'lucide-react';
 import UsageSummary from './UsageSummary';
 
 const AGENT_ORDER_KEY = 'okit.agentOrder';
@@ -58,7 +58,8 @@ export default function HomePage() {
   // Editable drafts: maps file path → edited content. A file is "dirty" when
   // its draft differs from the original content loaded from disk.
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
-  const [configSaving, setConfigSaving] = useState(false);
+  const [configSaveState, setConfigSaveState] = useState<'idle' | 'saving' | 'ok' | 'fail'>('idle');
+  const configSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Config viewer display mode: 'raw' shows the editable textarea,
   // 'tree' toggles to a collapsible JSON tree preview.
   const [configViewMode, setConfigViewMode] = useState<'tree' | 'raw'>('raw');
@@ -153,21 +154,28 @@ export default function HomePage() {
 
   const handleSaveConfig = useCallback(async (filePath: string) => {
     if (!activeAgentId) return;
-    setConfigSaving(true);
+    const content = configDrafts[filePath];
+    if (content === undefined) return;
+    if (configSaveTimer.current) clearTimeout(configSaveTimer.current);
+    setConfigSaveState('saving');
     try {
-      const content = configDrafts[filePath];
-      if (content === undefined) return;
       await saveAgentConfigFile(activeAgentId, filePath, content);
       // Commit the draft as the new "original" so the file is no longer dirty.
       setConfigFiles(prev => prev ? prev.map(f => f.path === filePath ? { ...f, content } : f) : prev);
       setConfigDrafts(prev => { const n = { ...prev }; delete n[filePath]; return n; });
+      setConfigSaveState('ok');
       showToast(t('home.configSaved'), 'success');
     } catch (err: any) {
+      setConfigSaveState('fail');
       showToast(err.message, 'error');
     } finally {
-      setConfigSaving(false);
+      configSaveTimer.current = setTimeout(() => setConfigSaveState('idle'), 1600);
     }
   }, [activeAgentId, configDrafts, showToast, t]);
+
+  useEffect(() => () => {
+    if (configSaveTimer.current) clearTimeout(configSaveTimer.current);
+  }, []);
 
   const handleCopyConfig = useCallback(async (filePath: string) => {
     const draft = configDrafts[filePath];
@@ -682,12 +690,12 @@ export default function HomePage() {
                       </button>
                       <button
                         type="button"
-                        className={`home-config-save-btn${dirty ? ' dirty' : ''}`}
-                        disabled={!f.exists || !dirty || configSaving}
+                        className={`home-config-save-btn${dirty ? ' dirty' : ''}${configSaveState === 'ok' ? ' saved' : ''}${configSaveState === 'fail' ? ' failed' : ''}`}
+                        disabled={!f.exists || (!dirty && configSaveState === 'idle') || configSaveState === 'saving'}
                         onClick={() => handleSaveConfig(f.path)}
                         title={t('home.save')}
                       >
-                        {configSaving ? t('common.loading') : <Save size={14} />}
+                        {configSaveState === 'saving' ? <Loader2 size={14} className="home-config-save-spin" /> : configSaveState === 'ok' ? <Check size={14} /> : configSaveState === 'fail' ? <X size={14} /> : <Save size={14} />}
                       </button>
                     </div>
                     {f.exists ? (

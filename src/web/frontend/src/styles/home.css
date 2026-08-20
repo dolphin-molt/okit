@@ -1291,6 +1291,14 @@
   background: var(--ok, #16a34a); color: #fff;
 }
 .home-config-save-btn:disabled { opacity: 0.5; }
+.home-config-save-btn.saved { color: var(--green); }
+.home-config-save-btn.failed { color: var(--red); }
+.home-config-save-spin {
+  animation: home-config-spin 0.8s linear infinite;
+}
+@keyframes home-config-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* JSON tree view (collapsible) for config files */
 .jtree {

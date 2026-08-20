@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ReactDiffViewer, { type ReactDiffViewerStylesOverride } from 'react-diff-viewer-continued';
+import ReactDiffViewer, { DiffMethod, type ReactDiffViewerStylesOverride } from 'react-diff-viewer-continued';
 import { getAdapters, type AgentInfo } from '../../api/providers';
 import {
   listSnapshots, getSnapshotDetail, restoreSnapshot,
@@ -97,6 +97,37 @@ function paneTitle(kind: 'old' | 'new', label: string) {
       {label}
     </span>
   );
+}
+
+// Syntax-highlight languages understood by the viewer's Prism integration,
+// keyed by file extension. Unknown extensions stay unhighlighted.
+const HIGHLIGHT_LANGS: Record<string, string> = {
+  json: 'json',
+  jsonc: 'json',
+  toml: 'toml',
+  sh: 'bash',
+  bash: 'bash',
+};
+
+function fileExt(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
+}
+
+// jsdiff's JSON mode canonicalizes (sorts keys) before comparing, so key
+// reordering alone no longer shows up as a mass add/delete. It renders the
+// canonicalized text, so only use it when both sides are strictly parseable;
+// jsonc with comments or empty sides fall back to the line diff.
+function jsonCompareMethod(file: SnapshotDetailFile): DiffMethod | undefined {
+  const ext = fileExt(file.name);
+  if (ext !== 'json' && ext !== 'jsonc') return undefined;
+  try {
+    JSON.parse(file.snapshotContent ?? 'null');
+    JSON.parse(file.currentContent ?? 'null');
+    return DiffMethod.JSON;
+  } catch {
+    return undefined;
+  }
 }
 
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
@@ -295,6 +326,8 @@ export default function SnapshotsSection() {
                           showDiffOnly={false}
                           disableWorker
                           useDarkTheme={theme === 'dark'}
+                          compareMethod={jsonCompareMethod(current) ?? undefined}
+                          highlightLanguage={HIGHLIGHT_LANGS[fileExt(current.name)]}
                           leftTitle={paneTitle('old', t('settings.snapshots.paneSnapshot'))}
                           rightTitle={paneTitle('new', t('settings.snapshots.paneCurrent'))}
                           styles={DIFF_STYLES}

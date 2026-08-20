@@ -6,6 +6,7 @@ import {
 } from '../../api/snapshots';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
+import { diffLines } from '../../lib/lineDiff';
 import CustomSelect from '../shared/CustomSelect';
 
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
@@ -168,23 +169,42 @@ export default function SnapshotsSection() {
               <div className="snapshots-detail snapshots-detail--loading">{t('settings.snapshots.loading')}</div>
             ) : (
               <div className="snapshots-detail">
-                {(detail || []).map(file => (
-                  <div key={file.name} className="snapshots-file">
-                    <div className="snapshots-file-name">{file.name}</div>
-                    <div className="snapshots-file-cols">
-                      <div className="snapshots-col">
-                        <div className="snapshots-col-title">{t('settings.snapshots.snapshotContent')}</div>
-                        <pre className="snapshots-col-body">{file.snapshotContent}</pre>
+                {(detail || []).map(file => {
+                  const diff = file.currentContent != null
+                    ? diffLines(file.snapshotContent ?? '', file.currentContent)
+                    : null;
+                  return (
+                    <div key={file.name} className="snapshots-file">
+                      <div className="snapshots-file-name">
+                        <span>{file.name}</span>
+                        {diff ? (
+                          <span className="snapshots-diff-stats">
+                            {diff.adds > 0 && <span className="snapshots-diff-adds">+{diff.adds}</span>}
+                            {diff.dels > 0 && <span className="snapshots-diff-dels">−{diff.dels}</span>}
+                            {diff.adds === 0 && diff.dels === 0 && (
+                              <span className="snapshots-diff-same">{t('settings.snapshots.noDiff')}</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="snapshots-col-missing">{t('settings.snapshots.fileMissing')}</span>
+                        )}
                       </div>
-                      <div className="snapshots-col">
-                        <div className="snapshots-col-title">{t('settings.snapshots.currentContent')}</div>
-                        {file.currentContent != null
-                          ? <pre className="snapshots-col-body">{file.currentContent}</pre>
-                          : <div className="snapshots-col-missing">{t('settings.snapshots.fileMissing')}</div>}
-                      </div>
+                      {diff && (diff.adds > 0 || diff.dels > 0) && diff.hunks.map((hunk, hi) => (
+                        <div key={hi} className="snapshots-diff-hunk">
+                          <div className="snapshots-diff-hdr">@@ -{hunk.aStart} +{hunk.bStart} @@</div>
+                          {hunk.ops.map((op, oi) => (
+                            <div key={oi} className={`snapshots-diff-line snapshots-diff-line--${op.type}`}>
+                              <span className="snapshots-diff-marker">{op.type === 'add' ? '+' : op.type === 'del' ? '−' : ' '}</span>
+                              <span className="snapshots-diff-num">{op.aNum || ''}</span>
+                              <span className="snapshots-diff-num">{op.bNum || ''}</span>
+                              <code className="snapshots-diff-text">{op.text || ' '}</code>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

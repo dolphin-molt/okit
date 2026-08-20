@@ -597,11 +597,10 @@ export default {
   'settings.snapshots.confirmBody': 'This will overwrite the current config files with the snapshot. Continue?',
   'settings.snapshots.restoreOk': 'Restored',
   'settings.snapshots.restoreFail': 'Restore failed',
-  'settings.snapshots.snapshotContent': 'Snapshot',
-  'settings.snapshots.currentContent': 'Current',
   'settings.snapshots.fileMissing': 'File missing',
   'settings.snapshots.fileCount': '{n} files',
   'settings.snapshots.loading': 'Loading...',
+  'settings.snapshots.noDiff': 'Identical to current',
 
   // Logs
   'logs.title': 'Operation Logs',

@@ -168,3 +168,68 @@
   color: var(--ink-muted);
   font-style: italic;
 }
+/* git-style diff view */
+.snapshots-diff-stats {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.snapshots-diff-adds { color: var(--green); font-weight: 600; }
+.snapshots-diff-dels { color: var(--red); font-weight: 600; }
+.snapshots-diff-same { color: var(--ink-muted, var(--ink)); opacity: 0.7; font-weight: 400; }
+
+.snapshots-diff-hunk {
+  border: 1px solid var(--border-light, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 6px 0 12px;
+  background: var(--paper);
+}
+.snapshots-diff-hdr {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink-muted, var(--ink));
+  opacity: 0.75;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-light, rgba(0, 0, 0, 0.1));
+  background: rgba(0, 0, 0, 0.03);
+}
+.snapshots-diff-line {
+  display: flex;
+  align-items: stretch;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.snapshots-diff-marker {
+  flex: 0 0 22px;
+  text-align: center;
+  user-select: none;
+  opacity: 0.8;
+}
+.snapshots-diff-num {
+  flex: 0 0 40px;
+  text-align: right;
+  padding-right: 8px;
+  user-select: none;
+  opacity: 0.5;
+}
+.snapshots-diff-text {
+  flex: 1;
+  white-space: pre;
+  overflow-x: auto;
+  padding-right: 10px;
+}
+.snapshots-diff-line--add { background: rgba(5, 150, 105, 0.10); }
+.snapshots-diff-line--add .snapshots-diff-marker,
+.snapshots-diff-line--add .snapshots-diff-text { color: var(--green); }
+.snapshots-diff-line--del { background: rgba(220, 38, 38, 0.10); }
+.snapshots-diff-line--del .snapshots-diff-marker,
+.snapshots-diff-line--del .snapshots-diff-text { color: var(--red); }
+.snapshots-diff-line--ctx .snapshots-diff-text { color: var(--ink); }
+
+[data-theme="dark"] .snapshots-diff-hdr { background: rgba(255, 255, 255, 0.04); }
+[data-theme="dark"] .snapshots-diff-line--add { background: rgba(52, 211, 153, 0.12); }
+[data-theme="dark"] .snapshots-diff-line--del { background: rgba(248, 113, 113, 0.12); }

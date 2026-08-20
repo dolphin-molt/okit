@@ -597,11 +597,10 @@ export default {
   'settings.snapshots.confirmBody': '将用该快照覆盖当前配置文件，继续吗？',
   'settings.snapshots.restoreOk': '已恢复',
   'settings.snapshots.restoreFail': '恢复失败',
-  'settings.snapshots.snapshotContent': '快照内容',
-  'settings.snapshots.currentContent': '当前内容',
   'settings.snapshots.fileMissing': '文件不存在',
   'settings.snapshots.fileCount': '{n} 个文件',
   'settings.snapshots.loading': '加载中...',
+  'settings.snapshots.noDiff': '与当前内容一致',
 
   // 日志
   'logs.title': '操作日志',

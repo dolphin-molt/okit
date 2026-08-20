@@ -26,6 +26,17 @@ import { atomicWriteJSON } from "../../utils/atomicWrite";
 //     }
 //   }
 //
+// For opencode.ai gateway endpoints (opencode-zen / opencode-go) the entry
+// additionally carries a "User-Agent: opencode/<version>" header (entry-level
+// and options-level). The gateway rate-limits anonymous traffic separately
+// from the official opencode client, which identifies itself via that UA;
+// without it ZCode's requests land in the heavily rate-limited anonymous pool
+// (429 FreeUsageLimitError → endless "reconnecting"). Verified live: the same
+// endpoint + "public" key returns 200 with the UA and 429 without.
+// Free-tier models also get explicit limit.{context,output} — ZCode's
+// deepseek default of 384000 output exceeds the gateway's 131072 cap and gets
+// rejected with 400 (see OPENCODE_FREE_MODEL_LIMITS).
+//
 // ZCode is an ADDITIVE agent: entries from every source coexist and the user
 // switches between them inside ZCode's own model picker. OKIT must therefore
 // never modify or remove entries it did not write. Ownership is tracked in
@@ -67,6 +78,61 @@ function zcodeFormatFor(provider: Provider): ZCodeFormat {
   return { kind: "openai-compatible", apiFormat: "openai-chat-completions", baseURL };
 }
 
+// The opencode client identifies itself with this User-Agent; the opencode.ai
+// gateway routes requests carrying it into a separate, generously-quota'd pool.
+const OPENCODE_GATEWAY_UA = "opencode/1.18.15";
+
+// OpenCode Zen free-tier models: ZCode's per-family defaults can exceed the
+// gateway's max output — deepseek models default to 384000, but the gateway
+// rejects deepseek-v4-flash-free with "max_tokens is too large ... at most
+// 131072" (400 invalid_request). Write explicit limits so ZCode sends a
+// max_tokens the gateway accepts. The other free models accept >= 200000
+// (verified live 2026-08-20); 128000 output is the conservative cap pi and
+// the pi.dev registry use for this gateway.
+const OPENCODE_FREE_MODEL_LIMITS: Record<string, { context: number; output: number }> = {
+  'deepseek-v4-flash-free': { context: 200000, output: 128000 },
+  'hy3-free': { context: 200000, output: 128000 },
+  'mimo-v2.5-free': { context: 200000, output: 128000 },
+  'nemotron-3-ultra-free': { context: 200000, output: 128000 },
+  'nemotron-3.5-lightning-free': { context: 200000, output: 128000 },
+  'laguna-s-2.1-free': { context: 200000, output: 128000 },
+  'muse-spark-1.2-contributor-free': { context: 200000, output: 128000 },
+};
+
+// OpenRouter :free models missing from ZCode's built-in catalog (so no
+// per-model limit would be applied and ZCode's default max_tokens could exceed
+// what the endpoint accepts). context comes from OpenRouter's live /models;
+// output is the conservative 8192 OpenRouter commonly caps free models at
+// (verified: gpt-oss-20b:free and laguna-xs.2:free both cap at 8192). Models
+// ZCode already knows (google/gemma-*, nvidia/nemotron-*, openai/gpt-oss-20b,
+// liquid/lfm-2.5-1.2b-*, poolside/laguna-xs.2, openrouter/free, z-ai/glm-5.2)
+// carry their own limits and are intentionally not listed here.
+const OPENROUTER_FREE_MODEL_LIMITS: Record<string, { context: number; output: number }> = {
+  'cohere/north-mini-code:free': { context: 256000, output: 8192 },
+  'dots-studio/dots-3-note-preview:free': { context: 512000, output: 8192 },
+  'liquid/lfm-2.5-2.6b:free': { context: 128000, output: 8192 },
+  'nvidia/nemotron-3.5-lightning:free': { context: 1000000, output: 8192 },
+  'nvidia/nemotron-3.5-content-safety:free': { context: 1000000, output: 8192 },
+  'nvidia/nemotron-3-ultra-550b-a55b:free': { context: 1000000, output: 8192 },
+  'poolside/laguna-s-2.1:free': { context: 262144, output: 8192 },
+};
+
+function isOpenCodeGateway(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname === "opencode.ai";
+  } catch {
+    return false;
+  }
+}
+
+function isOpenRouter(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname === "openrouter.ai";
+  } catch {
+    return false;
+  }
+}
+
 // Every custom provider entry written by OKIT carries these fields. ZCode's
 // model picker reads the "provider/<modelId>" reference, e.g.
 // "xiaomi-coding/mimo-v2.5".
@@ -77,13 +143,25 @@ function buildProviderEntry(
   apiKey?: string,
 ): Record<string, any> {
   const models: Record<string, any> = {};
+  const limits = isOpenCodeGateway(format.baseURL)
+    ? OPENCODE_FREE_MODEL_LIMITS
+    : isOpenRouter(format.baseURL)
+      ? OPENROUTER_FREE_MODEL_LIMITS
+      : undefined;
   for (const [modelId, name] of modelNames) {
-    models[modelId] = { name: name || modelId };
+    const limit = limits?.[modelId];
+    models[modelId] = limit
+      ? { name: name || modelId, limit }
+      : { name: name || modelId };
   }
-  const options: Record<string, string> = { baseURL: format.baseURL };
+  const options: Record<string, any> = { baseURL: format.baseURL };
   if (apiKey) options.apiKey = apiKey;
 
-  return {
+  const opencodeHeaders = isOpenCodeGateway(format.baseURL)
+    ? { "User-Agent": OPENCODE_GATEWAY_UA }
+    : undefined;
+
+  const entry: Record<string, any> = {
     enabled: true,
     name: provider.name,
     source: "custom",
@@ -92,6 +170,13 @@ function buildProviderEntry(
     options,
     models,
   };
+  if (opencodeHeaders) {
+    // ZCode's openai-compatible request builder honors both entry-level and
+    // options-level headers; write both so either code path picks it up.
+    entry.headers = opencodeHeaders;
+    options.headers = opencodeHeaders;
+  }
+  return entry;
 }
 
 async function readV2Config(): Promise<Record<string, any>> {

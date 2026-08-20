@@ -206,6 +206,81 @@ describe('ZCodeAdapter.applyConfig (v2 config schema)', () => {
       managedModels: { deepseek: ['deepseek-chat'] },
     });
   });
+
+  it('adds opencode UA headers for opencode.ai gateway endpoints', async () => {
+    const opencodeProvider = {
+      ...testProvider,
+      id: 'opencode-zen',
+      baseUrl: 'https://opencode.ai/zen/v1',
+      endpoints: [{ type: 'openai' as const, protocol: 'chat' as const, baseUrl: 'https://opencode.ai/zen/v1' }],
+    };
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(opencodeProvider, 'deepseek-v4-flash-free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    const entry = written.provider['opencode-zen'];
+    expect(entry.headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+    expect(entry.options.headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+  });
+
+  it('does not add opencode UA headers to non-opencode endpoints', async () => {
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    const entry = written.provider.deepseek;
+    expect(entry.headers).toBeUndefined();
+    expect(entry.options.headers).toBeUndefined();
+  });
+
+  it('writes explicit limits for opencode-zen free models so max_tokens stays under the gateway cap', async () => {
+    const opencodeProvider = {
+      ...testProvider,
+      id: 'opencode-zen',
+      baseUrl: 'https://opencode.ai/zen/v1',
+      endpoints: [{ type: 'openai' as const, protocol: 'chat' as const, baseUrl: 'https://opencode.ai/zen/v1' }],
+      models: [
+        { id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash Free' },
+        { id: 'hy3-free', name: 'Hy3 Free' },
+      ],
+    };
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(opencodeProvider, 'deepseek-v4-flash-free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    const entry = written.provider['opencode-zen'];
+    expect(entry.models['deepseek-v4-flash-free'].limit).toEqual({ context: 200000, output: 128000 });
+    expect(entry.models['hy3-free'].limit).toEqual({ context: 200000, output: 128000 });
+  });
+
+  it('does not write limits for non-opencode endpoints', async () => {
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.models['deepseek-chat'].limit).toBeUndefined();
+  });
+
+  it('writes limits for OpenRouter :free models missing from the ZCode built-in catalog', async () => {
+    const openrouterProvider = {
+      ...testProvider,
+      id: 'openrouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      endpoints: [{ type: 'openai' as const, protocol: 'chat' as const, baseUrl: 'https://openrouter.ai/api/v1' }],
+      models: [
+        { id: 'cohere/north-mini-code:free', name: 'Cohere North Mini Code (Free)' },
+        { id: 'google/gemma-4-26b-a4b-it:free', name: 'Gemma 4 26B (Free)' },
+      ],
+    };
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(openrouterProvider, 'cohere/north-mini-code:free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    const entry = written.provider.openrouter;
+    // ZCode knows gemma-4-26b-a4b-it:free itself — OKIT must not override it.
+    expect(entry.models['google/gemma-4-26b-a4b-it:free'].limit).toBeUndefined();
+    expect(entry.models['cohere/north-mini-code:free'].limit).toEqual({ context: 256000, output: 8192 });
+  });
 });
 
 describe('ZCodeAdapter.applyModels (additive home-site write)', () => {

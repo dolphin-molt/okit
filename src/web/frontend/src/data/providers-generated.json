@@ -1435,10 +1435,6 @@
           "type": "openai",
           "protocol": "chat",
           "baseUrl": "https://opencode.ai/zen/v1"
-        },
-        {
-          "type": "anthropic",
-          "baseUrl": "https://opencode.ai/zen"
         }
       ],
       "authMode": "api_key",
@@ -6346,8 +6342,7 @@
           "label": "API 平台",
           "providerId": "opencode-zen",
           "endpointIds": [
-            "opencode-zen:endpoint:13ofel7",
-            "opencode-zen:endpoint:91omnf"
+            "opencode-zen:endpoint:13ofel7"
           ],
           "authMethodIds": [
             "opencode-zen:api-key"
@@ -6381,23 +6376,6 @@
             "type": "remote",
             "path": "/models"
           }
-        },
-        {
-          "id": "opencode-zen:endpoint:91omnf",
-          "name": "ANTHROPIC",
-          "offeringId": "opencode-zen",
-          "baseUrl": "https://opencode.ai/zen",
-          "protocol": {
-            "family": "anthropic",
-            "mode": "messages"
-          },
-          "authMethodIds": [
-            "opencode-zen:api-key"
-          ],
-          "modelDiscovery": {
-            "type": "remote",
-            "path": "/models"
-          }
         }
       ],
       "models": [
@@ -6407,11 +6385,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-flash-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6421,11 +6401,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "nemotron-3-ultra-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6435,11 +6417,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "nemotron-3.5-lightning-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6449,11 +6433,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "mimo-v2.5-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6463,11 +6449,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "hy3-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6477,11 +6465,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "laguna-s-2.1-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6491,11 +6481,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "muse-spark-1.2-contributor-free",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6505,11 +6497,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "claude-opus-5",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6519,11 +6513,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "claude-sonnet-5",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6533,11 +6529,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "claude-opus-4-8",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6547,11 +6545,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "claude-sonnet-4-6",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6561,11 +6561,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.6-luna",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6575,11 +6577,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.5-pro",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6589,11 +6593,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "gpt-5.5",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6603,11 +6609,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.6",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6617,11 +6625,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "grok-4.5",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6631,11 +6641,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "gemini-3.7-flash",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6645,11 +6657,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "gemini-3.1-pro",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6659,11 +6673,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "deepseek-v4-pro",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6673,11 +6689,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "glm-5.2",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6687,11 +6705,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "kimi-k3",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6701,11 +6721,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "minimax-m3",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6715,11 +6737,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "qwen3.6-plus",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         },
@@ -6729,11 +6753,13 @@
           "availability": [
             {
               "offeringId": "opencode-zen",
-              "endpointIds": [],
+              "endpointIds": [
+                "opencode-zen:endpoint:13ofel7"
+              ],
               "executionMode": "http_endpoint",
               "remoteModelId": "big-pickle",
-              "status": "unknown",
-              "source": "legacy_unknown"
+              "status": "available",
+              "source": "static"
             }
           ]
         }

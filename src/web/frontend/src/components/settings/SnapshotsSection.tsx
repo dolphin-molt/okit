@@ -6,7 +6,7 @@ import {
 } from '../../api/snapshots';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
-import { diffLines } from '../../lib/lineDiff';
+import { diffLines, toSideBySide } from '../../lib/lineDiff';
 import CustomSelect from '../shared/CustomSelect';
 
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
@@ -158,13 +158,11 @@ export default function SnapshotsSection() {
       {detailOpen && (
         <div className="usage-guide-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) closeDetail(); }}>
           <section className="usage-guide-panel snapshots-modal" role="dialog" aria-modal="true" onMouseDown={e => e.stopPropagation()}>
-            <header className="usage-guide-header">
-              <div>
-                <span className="usage-guide-eyebrow">{t('settings.snapshots.title')}</span>
-                <h2>{t('settings.snapshots.snapshotAt', { time: detailTime })}</h2>
-              </div>
-              <button className="usage-guide-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
-            </header>
+            <div className="snapshots-topbar">
+              <span className="snapshots-topbar-label">{t('settings.snapshots.title')}</span>
+              <span className="snapshots-topbar-time">{detailTime}</span>
+              <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
+            </div>
             {detailLoading ? (
               <div className="snapshots-detail snapshots-detail--loading">{t('settings.snapshots.loading')}</div>
             ) : (
@@ -186,22 +184,37 @@ export default function SnapshotsSection() {
                             )}
                           </span>
                         ) : (
-                          <span className="snapshots-col-missing">{t('settings.snapshots.fileMissing')}</span>
+                          <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
                         )}
                       </div>
-                      {diff && (diff.adds > 0 || diff.dels > 0) && diff.hunks.map((hunk, hi) => (
-                        <div key={hi} className="snapshots-diff-hunk">
-                          <div className="snapshots-diff-hdr">@@ -{hunk.aStart} +{hunk.bStart} @@</div>
-                          {hunk.ops.map((op, oi) => (
-                            <div key={oi} className={`snapshots-diff-line snapshots-diff-line--${op.type}`}>
-                              <span className="snapshots-diff-marker">{op.type === 'add' ? '+' : op.type === 'del' ? '−' : ' '}</span>
-                              <span className="snapshots-diff-num">{op.aNum || ''}</span>
-                              <span className="snapshots-diff-num">{op.bNum || ''}</span>
-                              <code className="snapshots-diff-text">{op.text || ' '}</code>
-                            </div>
-                          ))}
+                      {diff && (diff.adds > 0 || diff.dels > 0) && (
+                        <div className="snapshots-sdiff">
+                          <div className="snapshots-sdiff-titles">
+                            <div>{t('settings.snapshots.paneSnapshot')}</div>
+                            <div>{t('settings.snapshots.paneCurrent')}</div>
+                          </div>
+                          {diff.hunks.flatMap((hunk, hi) =>
+                            toSideBySide(hunk).map((row, ri) => {
+                              const key = `${hi}-${ri}`;
+                              if (row.kind === 'hunk') {
+                                return <div key={key} className="snapshots-sdiff-hunkhdr">{row.header}</div>;
+                              }
+                              return (
+                                <div key={key} className="snapshots-sdiff-row">
+                                  <span className="snapshots-sdiff-num">{row.left?.num ?? ''}</span>
+                                  <code className={`snapshots-sdiff-code is-left${row.left ? ` snapshots-sdiff-code--${row.left.op}` : ' snapshots-sdiff-code--empty'}`}>
+                                    {row.left ? row.left.text : '\u00a0'}
+                                  </code>
+                                  <span className="snapshots-sdiff-num">{row.right?.num ?? ''}</span>
+                                  <code className={`snapshots-sdiff-code${row.right ? ` snapshots-sdiff-code--${row.right.op}` : ' snapshots-sdiff-code--empty'}`}>
+                                    {row.right ? row.right.text : '\u00a0'}
+                                  </code>
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
                   );
                 })}

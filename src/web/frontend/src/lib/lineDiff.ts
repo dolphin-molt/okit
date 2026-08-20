@@ -25,59 +25,6 @@ export type DiffResult = {
   dels: number;
 };
 
-// Side-by-side rows (IntelliJ-style diff): deleted and added lines from the
-// same change block are zipped row by row so the reader can compare them
-// horizontally; the shorter side of a block gets empty cells.
-export type SBSCell = {
-  num: number;
-  text: string;
-  op: 'ctx' | 'del' | 'add';
-};
-
-export type SBSRow =
-  | { kind: 'hunk'; header: string }
-  | { kind: 'row'; left: SBSCell | null; right: SBSCell | null };
-
-export function toSideBySide(hunk: DiffHunk): SBSRow[] {
-  const rows: SBSRow[] = [];
-  let dels: SBSCell[] = [];
-  let adds: SBSCell[] = [];
-  let aCount = 0;
-  let bCount = 0;
-
-  const flush = () => {
-    const len = Math.max(dels.length, adds.length);
-    for (let k = 0; k < len; k++) {
-      rows.push({ kind: 'row', left: dels[k] ?? null, right: adds[k] ?? null });
-    }
-    dels = [];
-    adds = [];
-  };
-
-  for (const op of hunk.ops) {
-    if (op.type === 'ctx') {
-      flush();
-      rows.push({
-        kind: 'row',
-        left: { num: op.aNum, text: op.text, op: 'ctx' },
-        right: { num: op.bNum, text: op.text, op: 'ctx' },
-      });
-      aCount++;
-      bCount++;
-    } else if (op.type === 'del') {
-      dels.push({ num: op.aNum, text: op.text, op: 'del' });
-      aCount++;
-    } else {
-      adds.push({ num: op.bNum, text: op.text, op: 'add' });
-      bCount++;
-    }
-  }
-  flush();
-
-  const header = `@@ -${hunk.aStart},${aCount} +${hunk.bStart},${bCount} @@`;
-  return [{ kind: 'hunk', header }, ...rows];
-}
-
 function splitLines(s: string): string[] {
   const lines = s.split('\n');
   if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();

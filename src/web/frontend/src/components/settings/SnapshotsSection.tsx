@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReactDiffViewer, { type ReactDiffViewerStylesOverride } from 'react-diff-viewer-continued';
 import { getAdapters, type AgentInfo } from '../../api/providers';
 import {
   listSnapshots, getSnapshotDetail, restoreSnapshot,
@@ -6,8 +7,74 @@ import {
 } from '../../api/snapshots';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
-import { diffLines, toSideBySide } from '../../lib/lineDiff';
+import { diffLines } from '../../lib/lineDiff';
 import CustomSelect from '../shared/CustomSelect';
+
+// Theme the third-party diff viewer with OKIT's palette. Values are plain CSS
+// so var() references resolve inside the modal like anywhere else.
+const DIFF_STYLES: ReactDiffViewerStylesOverride = {
+  variables: {
+    light: {
+      diffViewerBackground: 'var(--paper)',
+      diffViewerColor: 'var(--ink)',
+      diffViewerTitleBackground: 'var(--kraft)',
+      diffViewerTitleColor: 'var(--ink-muted)',
+      diffViewerTitleBorderColor: 'var(--border)',
+      gutterBackground: 'rgba(0, 0, 0, 0.02)',
+      gutterColor: 'var(--ink-muted)',
+      addedBackground: 'rgba(5, 150, 105, 0.10)',
+      addedColor: 'var(--green)',
+      addedGutterBackground: 'rgba(5, 150, 105, 0.08)',
+      addedGutterColor: 'var(--green)',
+      removedBackground: 'rgba(220, 38, 38, 0.10)',
+      removedColor: 'var(--red)',
+      removedGutterBackground: 'rgba(220, 38, 38, 0.08)',
+      removedGutterColor: 'var(--red)',
+      wordAddedBackground: 'rgba(5, 150, 105, 0.22)',
+      wordRemovedBackground: 'rgba(220, 38, 38, 0.22)',
+      codeFoldBackground: 'rgba(0, 0, 0, 0.035)',
+      codeFoldGutterBackground: 'rgba(0, 0, 0, 0.035)',
+    },
+    dark: {
+      diffViewerBackground: '#24221e',
+      diffViewerColor: 'var(--ink)',
+      diffViewerTitleBackground: 'rgba(255, 255, 255, 0.04)',
+      diffViewerTitleColor: 'var(--ink-muted)',
+      diffViewerTitleBorderColor: 'var(--border)',
+      gutterBackground: 'rgba(255, 255, 255, 0.03)',
+      gutterColor: 'var(--ink-muted)',
+      addedBackground: 'rgba(52, 211, 153, 0.12)',
+      addedColor: 'var(--green)',
+      addedGutterBackground: 'rgba(52, 211, 153, 0.10)',
+      addedGutterColor: 'var(--green)',
+      removedBackground: 'rgba(248, 113, 113, 0.12)',
+      removedColor: 'var(--red)',
+      removedGutterBackground: 'rgba(248, 113, 113, 0.10)',
+      removedGutterColor: 'var(--red)',
+      wordAddedBackground: 'rgba(52, 211, 153, 0.28)',
+      wordRemovedBackground: 'rgba(248, 113, 113, 0.28)',
+      codeFoldBackground: 'rgba(255, 255, 255, 0.04)',
+      codeFoldGutterBackground: 'rgba(255, 255, 255, 0.04)',
+    },
+  },
+  diffContainer: {
+    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+    fontSize: '12px',
+  },
+  titleBlock: {
+    fontFamily: 'var(--font)',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+  },
+  // The lib renders the "no counterpart line" cells via backgroundColor, which
+  // cannot carry a gradient. Draw the hatch ourselves through a theme-aware
+  // CSS variable instead (see snapshots.css).
+  emptyLine: {
+    backgroundColor: 'transparent',
+    backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 5px, var(--snap-hatch) 5px 10px)',
+  },
+};
 
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
 // by -). Fold that back into a parseable timestamp and render in local time.
@@ -25,7 +92,7 @@ function formatSnapshotTime(iso: string): string {
 }
 
 export default function SnapshotsSection() {
-  const { showToast, confirm } = useApp() as any;
+  const { showToast, confirm, theme } = useApp() as any;
   const { t } = useI18n();
 
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -35,6 +102,7 @@ export default function SnapshotsSection() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTime, setDetailTime] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  const [activeFile, setActiveFile] = useState(0);
   const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
@@ -68,6 +136,7 @@ export default function SnapshotsSection() {
     setDetailOpen(true);
     setDetailLoading(true);
     setDetail(null);
+    setActiveFile(0);
     setDetailTime(formatSnapshotTime(snapshot.createdAt));
     try {
       const data = await getSnapshotDetail(agentId, snapshot.id);
@@ -158,68 +227,76 @@ export default function SnapshotsSection() {
       {detailOpen && (
         <div className="usage-guide-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) closeDetail(); }}>
           <section className="usage-guide-panel snapshots-modal" role="dialog" aria-modal="true" onMouseDown={e => e.stopPropagation()}>
-            <div className="snapshots-topbar">
-              <span className="snapshots-topbar-label">{t('settings.snapshots.title')}</span>
-              <span className="snapshots-topbar-time">{detailTime}</span>
-              <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
-            </div>
-            {detailLoading ? (
-              <div className="snapshots-detail snapshots-detail--loading">{t('settings.snapshots.loading')}</div>
-            ) : (
-              <div className="snapshots-detail">
-                {(detail || []).map(file => {
-                  const diff = file.currentContent != null
-                    ? diffLines(file.snapshotContent ?? '', file.currentContent)
-                    : null;
-                  return (
-                    <div key={file.name} className="snapshots-file">
-                      <div className="snapshots-file-name">
-                        <span>{file.name}</span>
-                        {diff ? (
+            {(() => {
+              const files = detail || [];
+              const current = files[Math.min(activeFile, Math.max(files.length - 1, 0))] ?? null;
+              const stats = current && current.currentContent != null
+                ? diffLines(current.snapshotContent ?? '', current.currentContent)
+                : null;
+              return (
+                <>
+                  <div className="snapshots-topbar">
+                    <span className="snapshots-topbar-label">{t('settings.snapshots.title')}</span>
+                    <span className="snapshots-topbar-time">{detailTime}</span>
+                    <div className="snapshots-topbar-file">
+                      {files.length > 1 ? (
+                        <div className="snapshots-topbar-tabs" role="tablist">
+                          {files.map((f, i) => (
+                            <button
+                              key={f.name}
+                              type="button"
+                              role="tab"
+                              aria-selected={i === activeFile}
+                              className={`snapshots-tab${i === activeFile ? ' snapshots-tab--active' : ''}`}
+                              onClick={() => setActiveFile(i)}
+                            >
+                              {f.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : current ? (
+                        <span className="snapshots-topbar-filename">{current.name}</span>
+                      ) : null}
+                      {current && (
+                        current.currentContent == null ? (
+                          <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
+                        ) : (
                           <span className="snapshots-diff-stats">
-                            {diff.adds > 0 && <span className="snapshots-diff-adds">+{diff.adds}</span>}
-                            {diff.dels > 0 && <span className="snapshots-diff-dels">−{diff.dels}</span>}
-                            {diff.adds === 0 && diff.dels === 0 && (
+                            {stats && stats.adds > 0 && <span className="snapshots-diff-adds">+{stats.adds}</span>}
+                            {stats && stats.dels > 0 && <span className="snapshots-diff-dels">−{stats.dels}</span>}
+                            {stats && stats.adds === 0 && stats.dels === 0 && (
                               <span className="snapshots-diff-same">{t('settings.snapshots.noDiff')}</span>
                             )}
                           </span>
-                        ) : (
-                          <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
-                        )}
-                      </div>
-                      {diff && (diff.adds > 0 || diff.dels > 0) && (
-                        <div className="snapshots-sdiff">
-                          <div className="snapshots-sdiff-titles">
-                            <div>{t('settings.snapshots.paneSnapshot')}</div>
-                            <div>{t('settings.snapshots.paneCurrent')}</div>
-                          </div>
-                          {diff.hunks.flatMap((hunk, hi) =>
-                            toSideBySide(hunk).map((row, ri) => {
-                              const key = `${hi}-${ri}`;
-                              if (row.kind === 'hunk') {
-                                return <div key={key} className="snapshots-sdiff-hunkhdr">{row.header}</div>;
-                              }
-                              return (
-                                <div key={key} className="snapshots-sdiff-row">
-                                  <span className="snapshots-sdiff-num">{row.left?.num ?? ''}</span>
-                                  <code className={`snapshots-sdiff-code is-left${row.left ? ` snapshots-sdiff-code--${row.left.op}` : ' snapshots-sdiff-code--empty'}`}>
-                                    {row.left ? row.left.text : '\u00a0'}
-                                  </code>
-                                  <span className="snapshots-sdiff-num">{row.right?.num ?? ''}</span>
-                                  <code className={`snapshots-sdiff-code${row.right ? ` snapshots-sdiff-code--${row.right.op}` : ' snapshots-sdiff-code--empty'}`}>
-                                    {row.right ? row.right.text : '\u00a0'}
-                                  </code>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
+                        )
                       )}
+                      <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                  {detailLoading ? (
+                    <div className="snapshots-detail snapshots-detail--loading">{t('settings.snapshots.loading')}</div>
+                  ) : current ? (
+                    <div className="snapshots-detail">
+                      <div className="snapshots-diffwrap">
+                        <ReactDiffViewer
+                          oldValue={current.snapshotContent ?? ''}
+                          newValue={current.currentContent ?? ''}
+                          splitView
+                          showDiffOnly={false}
+                          disableWorker
+                          useDarkTheme={theme === 'dark'}
+                          leftTitle={t('settings.snapshots.paneSnapshot')}
+                          rightTitle={t('settings.snapshots.paneCurrent')}
+                          styles={DIFF_STYLES}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="snapshots-detail snapshots-detail--loading">{t('settings.snapshots.noFiles')}</div>
+                  )}
+                </>
+              );
+            })()}
           </section>
         </div>
       )}

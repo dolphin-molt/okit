@@ -602,6 +602,7 @@ export default {
   'settings.snapshots.fileCount': '{n} 个文件',
   'settings.snapshots.loading': '加载中...',
   'settings.snapshots.noDiff': '与当前内容一致',
+'settings.snapshots.noFiles': '无文件内容',
 
   // 日志
   'logs.title': '操作日志',

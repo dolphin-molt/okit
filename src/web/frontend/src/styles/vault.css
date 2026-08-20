@@ -1,6 +1,6 @@
 /* ─── Vault Entry Card ─── */
 .vault-form-overlay.vault-form-overlay {
-  inset: 0 0 0 var(--sidebar-w);
+  inset: 0;
   padding: 24px;
   overflow-y: auto;
 }

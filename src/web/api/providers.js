@@ -115,6 +115,16 @@ try {
 }
 const { capturePreSwitchSnapshot } = _snapshots;
 
+// Snapshot before ANY agent-config write, not just provider switches (config
+// viewer edits, additive site add/remove). Failures warn and never block.
+async function snapBeforeWrite(agentId, label) {
+  try {
+    await capturePreSwitchSnapshot(agentId);
+  } catch (e) {
+    console.warn(`[${label}] snapshot failed: ${e.message}`);
+  }
+}
+
 const buildPlatforms = _platforms.buildPlatforms;
 const { providerEndpointEntries, providerExecutionMode, providerSupportsAdapter, resolveModelRoute } = _routing;
 
@@ -588,6 +598,7 @@ async function addHomeProvider(req, res) {
         const providers = await loadProviders();
         const provider = providers.find(p => p.id === providerId);
         if (jsAdapter && agentAdapter && typeof agentAdapter.applyModels === 'function' && provider) {
+          await snapBeforeWrite(agentId, 'addHomeProvider');
           const excluded = new Set(config.codexCatalogExcluded?.[providerId] || []);
           const tagged = tagRecentModels(provider.models || []);
           let candidates = tagged.filter(m => m.recent && !excluded.has(m.id));
@@ -711,6 +722,7 @@ async function disableAgentProvider(req, res) {
     }
     const agentAdapter = _getAdapter(agentId);
     if (!agentAdapter) return res.status(404).json({ error: `Adapter not implemented: ${agentId}` });
+    await snapBeforeWrite(agentId, 'disableAgentProvider');
     if (typeof agentAdapter.setProviderEnabled === 'function') {
       // Keep the entries, flip the enabled flag (zcode).
       await agentAdapter.setProviderEnabled(providerId, false);
@@ -795,6 +807,9 @@ async function saveAgentConfigFile(req, res) {
       return res.status(403).json({ error: `Path not in writable whitelist: ${filePath}` });
     }
     const fullPath = path.join(os.homedir(), rel);
+    // Snapshot before the manual edit lands, so viewer edits are revertible
+    // exactly like provider switches.
+    await snapBeforeWrite(agentId, 'saveAgentConfigFile');
     // Refuse to follow symlinks or escape the home dir.
     await fs.ensureDir(path.dirname(fullPath));
     await fs.writeFile(fullPath, content, 'utf-8');

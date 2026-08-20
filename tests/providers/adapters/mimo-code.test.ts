@@ -104,6 +104,57 @@ describe('MimoCodeAdapter', () => {
     expect(data.provider['custom-anthropic'].npm).toBe('@ai-sdk/anthropic');
   });
 
+  it('adds opencode UA headers and model limits for opencode.ai gateway endpoints', async () => {
+    const zenProvider = {
+      ...openAIProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [{ id: 'deepseek-v4-flash-free' }, { id: 'hy3-free' }],
+    };
+    const adapter = new MimoCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const data = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(data.provider['custom-openai'].options.headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+    expect(data.provider['custom-openai'].models['deepseek-v4-flash-free']).toEqual({
+      name: 'deepseek-v4-flash-free',
+      limit: { context: 200000, output: 128000 },
+    });
+  });
+
+  it('writes openrouter :free model limits without UA headers', async () => {
+    const orProvider = {
+      ...openAIProvider,
+      baseUrl: 'https://openrouter.ai/api/v1',
+      models: [{ id: 'poolside/laguna-s-2.1:free' }],
+    };
+    const adapter = new MimoCodeAdapter();
+    await adapter.applyConfig(orProvider, 'poolside/laguna-s-2.1:free');
+
+    const data = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(data.provider['custom-openai'].options.headers).toBeUndefined();
+    expect(data.provider['custom-openai'].models['poolside/laguna-s-2.1:free']).toEqual({
+      name: 'poolside/laguna-s-2.1:free',
+      limit: { context: 262144, output: 8192 },
+    });
+  });
+
+  it('applyModels writes gateway headers and limits too', async () => {
+    const zenProvider = {
+      ...openAIProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [{ id: 'mimo-v2.5-free' }],
+    };
+    const adapter = new MimoCodeAdapter();
+    await adapter.applyModels([{ provider: zenProvider, modelId: 'mimo-v2.5-free' }]);
+
+    const data = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(data.provider['custom-openai'].options.headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+    expect(data.provider['custom-openai'].models['mimo-v2.5-free']).toEqual({
+      name: 'mimo-v2.5-free',
+      limit: { context: 200000, output: 128000 },
+    });
+  });
+
   it('parses JSONC files with comments and trailing commas', async () => {
     mocks.files.set(CONFIG_PATH, [
       '{',

@@ -1322,6 +1322,78 @@
         {
           "id": "deepseek/deepseek-v4-flash",
           "name": "DeepSeek V4 Flash"
+        },
+        {
+          "id": "openrouter/free",
+          "name": "Free Models Router"
+        },
+        {
+          "id": "cohere/north-mini-code:free",
+          "name": "Cohere North Mini Code (Free)"
+        },
+        {
+          "id": "dots-studio/dots-3-note-preview:free",
+          "name": "Dots Studio 3 Note Preview (Free)"
+        },
+        {
+          "id": "google/gemma-4-26b-a4b-it:free",
+          "name": "Gemma 4 26B A4B (Free)"
+        },
+        {
+          "id": "google/gemma-4-31b-it:free",
+          "name": "Gemma 4 31B (Free)"
+        },
+        {
+          "id": "liquid/lfm-2.5-2.6b:free",
+          "name": "LFM 2.5 2.6B (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3.5-content-safety:free",
+          "name": "Nemotron 3.5 Content Safety (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3.5-lightning:free",
+          "name": "Nemotron 3.5 Lightning (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "name": "Nemotron 3 Nano 30B (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "name": "Nemotron 3 Nano Omni 30B (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3-super-120b-a12b:free",
+          "name": "Nemotron 3 Super 120B (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "name": "Nemotron 3 Ultra 550B (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-nano-12b-v2-vl:free",
+          "name": "Nemotron Nano 12B V2 VL (Free)"
+        },
+        {
+          "id": "nvidia/nemotron-nano-9b-v2:free",
+          "name": "Nemotron Nano 9B V2 (Free)"
+        },
+        {
+          "id": "openai/gpt-oss-20b:free",
+          "name": "GPT-OSS 20B (Free)"
+        },
+        {
+          "id": "poolside/laguna-s-2.1:free",
+          "name": "Laguna S 2.1 (Free)"
+        },
+        {
+          "id": "poolside/laguna-xs-2.1:free",
+          "name": "Laguna XS 2.1 (Free)"
+        },
+        {
+          "id": "z-ai/glm-5.2:free",
+          "name": "GLM 5.2 (Free)"
         }
       ]
     },
@@ -6322,6 +6394,294 @@
               ],
               "executionMode": "http_endpoint",
               "remoteModelId": "deepseek/deepseek-v4-flash",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "openrouter/free",
+          "name": "Free Models Router",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "openrouter/free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "cohere/north-mini-code:free",
+          "name": "Cohere North Mini Code (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "cohere/north-mini-code:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "dots-studio/dots-3-note-preview:free",
+          "name": "Dots Studio 3 Note Preview (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "dots-studio/dots-3-note-preview:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "google/gemma-4-26b-a4b-it:free",
+          "name": "Gemma 4 26B A4B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "google/gemma-4-26b-a4b-it:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "google/gemma-4-31b-it:free",
+          "name": "Gemma 4 31B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "google/gemma-4-31b-it:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "liquid/lfm-2.5-2.6b:free",
+          "name": "LFM 2.5 2.6B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "liquid/lfm-2.5-2.6b:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3.5-content-safety:free",
+          "name": "Nemotron 3.5 Content Safety (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3.5-content-safety:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3.5-lightning:free",
+          "name": "Nemotron 3.5 Lightning (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3.5-lightning:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "name": "Nemotron 3 Nano 30B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3-nano-30b-a3b:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "name": "Nemotron 3 Nano Omni 30B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3-super-120b-a12b:free",
+          "name": "Nemotron 3 Super 120B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3-super-120b-a12b:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "name": "Nemotron 3 Ultra 550B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-3-ultra-550b-a55b:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-nano-12b-v2-vl:free",
+          "name": "Nemotron Nano 12B V2 VL (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-nano-12b-v2-vl:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-nano-9b-v2:free",
+          "name": "Nemotron Nano 9B V2 (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "nvidia/nemotron-nano-9b-v2:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "openai/gpt-oss-20b:free",
+          "name": "GPT-OSS 20B (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "openai/gpt-oss-20b:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "poolside/laguna-s-2.1:free",
+          "name": "Laguna S 2.1 (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "poolside/laguna-s-2.1:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "poolside/laguna-xs-2.1:free",
+          "name": "Laguna XS 2.1 (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "poolside/laguna-xs-2.1:free",
+              "status": "available",
+              "source": "static"
+            }
+          ]
+        },
+        {
+          "id": "z-ai/glm-5.2:free",
+          "name": "GLM 5.2 (Free)",
+          "availability": [
+            {
+              "offeringId": "openrouter",
+              "endpointIds": [
+                "openrouter:endpoint:nn29im"
+              ],
+              "executionMode": "http_endpoint",
+              "remoteModelId": "z-ai/glm-5.2:free",
               "status": "available",
               "source": "static"
             }

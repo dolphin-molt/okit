@@ -15,6 +15,13 @@ export function escapeRegex(value: string): string {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Render a string->string map as a TOML inline table, e.g.
+// `{ "User-Agent" = "opencode/1.18.15" }` for `custom_headers` / `http_headers`.
+export function tomlInlineTable(headers: Record<string, string>): string {
+  const pairs = Object.entries(headers).map(([k, v]) => `${tomlString(k)} = ${tomlString(v)}`);
+  return `{ ${pairs.join(", ")} }`;
+}
+
 export function normalizeToml(toml: string): string {
   return toml.replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }

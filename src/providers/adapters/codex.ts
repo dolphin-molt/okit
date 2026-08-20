@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor, modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { checkCodexOAuth } from "../auth";
@@ -81,12 +82,21 @@ export class CodexAdapter extends BaseAdapter {
       //
       // Credential delivery via auth.json (not .env) is critical: the ChatGPT
       // desktop app reads auth.json, NOT .env. cc-switch does the same.
-      toml = upsertTomlTable(toml, `model_providers.${providerId}`, [
+      //
+      // http_headers: the opencode.ai gateway rate-limits anonymous traffic
+      // separately from the official opencode client (verified 429 without the
+      // UA). Codex sends its own UA, so we pin the opencode client's one.
+      const providerLines = [
         `name = ${tomlString(provider.name)}`,
         `base_url = ${tomlString(normalizeBaseUrl(openAIEndpoint.baseUrl))}`,
         `wire_api = "responses"`,
         `requires_openai_auth = true`,
-      ]);
+      ];
+      const gatewayHeaders = gatewayHeadersFor(openAIEndpoint.baseUrl);
+      if (gatewayHeaders) {
+        providerLines.push(`http_headers = ${tomlInlineTable(gatewayHeaders)}`);
+      }
+      toml = upsertTomlTable(toml, `model_providers.${providerId}`, providerLines);
 
       if (apiKey) await upsertAuthJson(CODEX_AUTH_PATH, apiKey);
       await atomicWrite(CODEX_CONFIG_PATH, toml);
@@ -127,37 +137,42 @@ async function writeModelCatalog(provider: Provider): Promise<void> {
 
   // Build the catalog from the provider's model list, omitting excluded models.
   // Each entry carries the fields Codex requires; unknown capabilities default
-  // to safe values.
+  // to safe values. Gateway models (opencode.ai / openrouter.ai free tiers)
+  // get their real context window from gateway.ts so Codex doesn't overshoot.
   const included = provider.models.filter(m => !excluded.has(m.id));
-  const entries = included.map((m, i) => ({
-    slug: m.id,
-    display_name: m.name || m.id,
-    description: `${provider.name} · ${m.name || m.id}`,
-    default_reasoning_level: "high",
-    supported_reasoning_levels: [
-      { effort: "none", description: "Disable Thinking" },
-      { effort: "high", description: "Enabled Thinking" },
-    ],
-    shell_type: "shell_command",
-    visibility: "list",
-    supported_in_api: true,
-    priority: i,
-    base_instructions: "",
-    supports_reasoning_summaries: true,
-    default_reasoning_summary: "none",
-    support_verbosity: false,
-    truncation_policy: { mode: "bytes", limit: 10000 },
-    supports_parallel_tool_calls: false,
-    supports_image_detail_original: false,
-    context_window: 128000,
-    max_context_window: 128000,
-    effective_context_window_percent: 95,
-    // Third-party coding endpoints generally don't support the web_search tool
-    // (it triggers "tool type not supported by this gateway"), so opt out.
-    experimental_supported_tools: [] as string[],
-    input_modalities: ["text"],
-    supports_search_tool: false,
-  }));
+  const entries = included.map((m, i) => {
+    const limit = modelLimitFor(provider.baseUrl, m.id);
+    const contextWindow = limit?.context ?? 128000;
+    return {
+      slug: m.id,
+      display_name: m.name || m.id,
+      description: `${provider.name} · ${m.name || m.id}`,
+      default_reasoning_level: "high",
+      supported_reasoning_levels: [
+        { effort: "none", description: "Disable Thinking" },
+        { effort: "high", description: "Enabled Thinking" },
+      ],
+      shell_type: "shell_command",
+      visibility: "list",
+      supported_in_api: true,
+      priority: i,
+      base_instructions: "",
+      supports_reasoning_summaries: true,
+      default_reasoning_summary: "none",
+      support_verbosity: false,
+      truncation_policy: { mode: "bytes", limit: 10000 },
+      supports_parallel_tool_calls: false,
+      supports_image_detail_original: false,
+      context_window: contextWindow,
+      max_context_window: contextWindow,
+      effective_context_window_percent: 95,
+      // Third-party coding endpoints generally don't support the web_search tool
+      // (it triggers "tool type not supported by this gateway"), so opt out.
+      experimental_supported_tools: [] as string[],
+      input_modalities: ["text"],
+      supports_search_tool: false,
+    };
+  });
 
   await fs.ensureDir(MODEL_CATALOG_DIR);
   await atomicWriteJSON(MODEL_CATALOG_PATH, { models: entries });
@@ -248,6 +263,11 @@ function upsertTomlTable(toml: string, tableName: string, lines: string[]): stri
 
 function tomlString(value: string): string {
   return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function tomlInlineTable(headers: Record<string, string>): string {
+  const pairs = Object.entries(headers).map(([k, v]) => `${tomlString(k)} = ${tomlString(v)}`);
+  return `{ ${pairs.join(", ")} }`;
 }
 
 function escapeRegex(value: string): string {

@@ -3,6 +3,7 @@ import path from "path";
 import os from "os";
 import yaml from "js-yaml";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { atomicWrite } from "../../utils/atomicWrite";
@@ -53,6 +54,11 @@ export class HermesAdapter extends BaseAdapter {
     // api_mode is only meaningful for Anthropic-protocol endpoints; Hermes
     // treats OpenAI-compatible URLs as the default transport.
     if (provider.type === "anthropic") entry.api_mode = "anthropic_messages";
+    // The opencode.ai gateway rate-limits anonymous traffic separately from the
+    // official opencode client (verified 429 without the UA). Hermes sends its
+    // own UA, so pin the opencode client's one via extra_headers (see gateway.ts).
+    const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+    if (gatewayHeaders) entry.extra_headers = gatewayHeaders;
     const idx = data.custom_providers.findIndex(
       (p: any) => p && typeof p === "object" && p.name === provider.name,
     );
@@ -62,6 +68,15 @@ export class HermesAdapter extends BaseAdapter {
     // Active model: "provider-name/model-id" string under model.default.
     if (typeof data.model !== "object" || data.model === null) data.model = {};
     data.model.default = `${provider.name}/${modelId}`;
+    // Hermes routes requests via model.provider + model.base_url, NOT the
+    // custom_providers list (which only feeds the provider picker). Without
+    // these keys a stale built-in provider (e.g. `zai`) keeps winning and
+    // traffic never reaches the third-party endpoint. Docs: custom endpoints
+    // set model.provider = "custom" with an explicit base_url/api_key.
+    data.model.provider = "custom";
+    data.model.base_url = provider.baseUrl;
+    if (apiKey) data.model.api_key = apiKey;
+    if (provider.type === "anthropic") data.model.api_mode = "anthropic_messages";
 
     await atomicWrite(HERMES_CONFIG_PATH, yaml.dump(data, { lineWidth: 120, noRefs: true }));
     await updateUserConfig({

@@ -117,6 +117,28 @@ describe('KimiCodeAdapter.applyConfig (v2 config format)', () => {
     expect(toml).toContain('api_key = "sk-test-123"');
   });
 
+  it('writes gateway token windows for opencode.ai / openrouter.ai free models', async () => {
+    const zenProvider = { ...customProvider, baseUrl: 'https://opencode.ai/zen/v1', models: [{ id: 'deepseek-v4-flash-free' }] };
+    const adapter = new KimiCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const toml = mocks.files.get(CONFIG_PATH)!;
+    expect(toml).toContain('max_context_size = 200000');
+    expect(toml).toContain('max_output_size = 128000');
+    expect(toml).toContain('custom_headers = { "User-Agent" = "opencode/1.18.15" }');
+  });
+
+  it('writes openrouter :free output cap of 8192', async () => {
+    const orProvider = { ...customProvider, baseUrl: 'https://openrouter.ai/api/v1', models: [{ id: 'poolside/laguna-s-2.1:free' }] };
+    const adapter = new KimiCodeAdapter();
+    await adapter.applyConfig(orProvider, 'poolside/laguna-s-2.1:free');
+
+    const toml = mocks.files.get(CONFIG_PATH)!;
+    expect(toml).toContain('max_context_size = 262144');
+    expect(toml).toContain('max_output_size = 8192');
+    expect(toml).not.toContain('custom_headers');
+  });
+
   it('registers every model of the provider so /model has choices', async () => {
     const multiModelProvider = {
       ...customProvider,

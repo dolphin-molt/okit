@@ -116,7 +116,7 @@ describe('GrokAdapter', () => {
     expect(toml).toContain('[models]\ndefault = "okit-custom-anthropic-claude-model"');
   });
 
-  it('routes ernie models through the local tool-schema proxy', async () => {
+it('routes ernie models through the local tool-schema proxy', async () => {
     const ernieProvider = { ...openAIProvider, models: [{ id: 'ernie-5.1' }] };
     const adapter = new GrokAdapter();
     await adapter.applyConfig(ernieProvider, 'ernie-5.1');
@@ -125,6 +125,24 @@ describe('GrokAdapter', () => {
     const expected = `http://127.0.0.1:3780/api/grok-proxy/${encodeURIComponent('https://custom.api.com/v1')}`;
     expect(toml).toContain(`base_url = "${expected}"`);
     expect(toml).not.toContain('base_url = "https://custom.api.com/v1"');
+  });
+
+  it('writes gateway context windows for opencode.ai / openrouter.ai free models', async () => {
+    const zenProvider = { ...openAIProvider, baseUrl: 'https://opencode.ai/zen/v1', models: [{ id: 'deepseek-v4-flash-free' }] };
+    const adapter = new GrokAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const toml = mocks.files.get(CONFIG_PATH)!;
+    expect(toml).toContain('context_window = 200000');
+    expect(toml).toContain('extra_headers = { "User-Agent" = "opencode/1.18.15" }');
+  });
+
+  it('does not add extra_headers for non-opencode endpoints', async () => {
+    const adapter = new GrokAdapter();
+    await adapter.applyConfig(openAIProvider, 'my-model');
+
+    const toml = mocks.files.get(CONFIG_PATH)!;
+    expect(toml).not.toContain('extra_headers');
   });
 
   it('keeps non-ernie models pointing directly at the provider', async () => {

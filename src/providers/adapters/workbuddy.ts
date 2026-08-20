@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, ManagedModels, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { resolveModelCapabilities } from "../capabilities";
@@ -101,6 +102,14 @@ export class WorkBuddyAdapter extends BaseAdapter {
     const chatUrl = chatUrlFor(provider);
     const model = provider.models.find(m => m.id === modelId);
     const caps = resolveModelCapabilities(modelId);
+    // Gateway free-tier models (opencode.ai / openrouter.ai) get explicit
+    // token windows so max_tokens never exceeds what the endpoint accepts
+    // (see gateway.ts). Capabilities metadata would otherwise decide.
+    const gatewayLimit = modelLimitFor(provider.baseUrl, modelId);
+    if (gatewayLimit) {
+      caps.maxInputTokens = gatewayLimit.context;
+      caps.maxOutputTokens = gatewayLimit.output;
+    }
 
     let entry = models.find(m => m.id === modelId);
     if (!entry) {

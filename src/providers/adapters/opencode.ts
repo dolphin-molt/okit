@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor, modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
@@ -11,6 +12,14 @@ import { atomicWrite, atomicWriteJSON } from "../../utils/atomicWrite";
 // carries the AI SDK npm package + options + models. Mirrors cc-switch's
 // opencode_config.rs + OpenCodeProviderConfig. Previous OKIT version wrote a
 // flat {provider, model, apiKey, baseUrl} shape that OpenCode never reads.
+//
+// OpenCode is the reference opencode client, so for opencode.ai endpoints it
+// already sends the right User-Agent itself (its requests stay in the
+// official-client quota pool) — the headers written here are a no-op for those
+// endpoints but are still applied uniformly. Per-model `limit` matters for
+// free-tier models: opencode's own built-in catalog knows the zen limits, but
+// OKIT-authored providers (user-added sites) get explicit limits so max_tokens
+// never exceeds the gateway cap (see gateway.ts).
 const OPENCODE_CONFIG_PATH = path.join(os.homedir(), ".config", "opencode", "opencode.json");
 
 // Map OKIT's protocol type to the AI SDK package OpenCode loads for it.
@@ -68,11 +77,19 @@ export class OpenCodeAdapter extends BaseAdapter {
     };
     if (apiKey) providerEntry.options.apiKey = apiKey;
 
+    const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+    if (gatewayHeaders) providerEntry.options.headers = gatewayHeaders;
+
     // Models: object keyed by model id. Surface the full list so OpenCode can
     // offer all of them; the active one is chosen via the `model` top-level key.
+    // Free-tier models get explicit `limit` so max_tokens never exceeds the
+    // gateway cap (see gateway.ts).
     const modelsMap: Record<string, any> = {};
     for (const m of provider.models) {
-      modelsMap[m.id] = { name: m.name || m.id };
+      const limit = modelLimitFor(provider.baseUrl, m.id);
+      modelsMap[m.id] = limit
+        ? { name: m.name || m.id, limit }
+        : { name: m.name || m.id };
     }
     providerEntry.models = modelsMap;
 

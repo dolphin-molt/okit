@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor, modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { atomicWrite } from "../../utils/atomicWrite";
@@ -77,6 +78,20 @@ export class MimoCodeAdapter extends BaseAdapter {
   readonly name = "MiMo Code";
   readonly supportedTypes: ProviderType[] = ["openai", "anthropic"];
 
+  // Models keyed by the upstream model id (ids containing `/` are fine — only
+  // the first `/` in `model` separates provider from model). Free-tier models
+  // get explicit `limit` so max_tokens never exceeds the gateway cap.
+  private buildModelsMap(provider: Provider): Record<string, any> {
+    const modelsMap: Record<string, any> = {};
+    for (const m of provider.models) {
+      const limit = modelLimitFor(provider.baseUrl, m.id);
+      modelsMap[m.id] = limit
+        ? { name: m.name || m.id, limit }
+        : { name: m.name || m.id };
+    }
+    return modelsMap;
+  }
+
   async detectOAuthStatus(): Promise<AuthStatus> {
     return { mode: "api_key", hasApiKey: false };
   }
@@ -123,13 +138,10 @@ export class MimoCodeAdapter extends BaseAdapter {
     };
     if (apiKey) providerEntry.options.apiKey = apiKey;
 
-    // Models keyed by the upstream model id (ids containing `/` are fine —
-    // only the first `/` in `model` separates provider from model).
-    const modelsMap: Record<string, any> = {};
-    for (const m of provider.models) {
-      modelsMap[m.id] = { name: m.name || m.id };
-    }
-    providerEntry.models = modelsMap;
+    const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+    if (gatewayHeaders) providerEntry.options.headers = gatewayHeaders;
+
+    providerEntry.models = this.buildModelsMap(provider);
 
     (data.provider as Record<string, any>)[provider.id] = providerEntry;
     data.model = `${provider.id}/${modelId}`;
@@ -169,11 +181,10 @@ export class MimoCodeAdapter extends BaseAdapter {
       const apiKey = apiKeys.get(provider.id);
       if (apiKey) providerEntry.options.apiKey = apiKey;
 
-      const modelsMap: Record<string, any> = {};
-      for (const m of provider.models) {
-        modelsMap[m.id] = { name: m.name || m.id };
-      }
-      providerEntry.models = modelsMap;
+      const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+      if (gatewayHeaders) providerEntry.options.headers = gatewayHeaders;
+
+      providerEntry.models = this.buildModelsMap(provider);
 
       (data.provider as Record<string, any>)[provider.id] = providerEntry;
       written.push(modelId);

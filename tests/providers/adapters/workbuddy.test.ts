@@ -165,6 +165,35 @@ describe('WorkBuddyAdapter.applyConfig', () => {
     expect(written[0].maxInputTokens).toBe(1_000_000);
   });
 
+  it('overrides token windows with gateway limits for opencode.ai free models', async () => {
+    const zenProvider = {
+      ...testProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [{ id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash' }],
+    };
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const written = readModelsFile();
+    // deepseek-v4 family caps would otherwise claim 1M input — gateway wins.
+    expect(written[0].maxInputTokens).toBe(200000);
+    expect(written[0].maxOutputTokens).toBe(128000);
+  });
+
+  it('writes openrouter :free output cap of 8192', async () => {
+    const orProvider = {
+      ...testProvider,
+      baseUrl: 'https://openrouter.ai/api/v1',
+      models: [{ id: 'cohere/north-mini-code:free' }],
+    };
+    const adapter = new WorkBuddyAdapter();
+    await adapter.applyConfig(orProvider, 'cohere/north-mini-code:free');
+
+    const written = readModelsFile();
+    expect(written[0].maxInputTokens).toBe(256000);
+    expect(written[0].maxOutputTokens).toBe(8192);
+  });
+
   it('NEVER writes an availableModels field (whitelist semantics)', async () => {
     const adapter = new WorkBuddyAdapter();
     await adapter.applyConfig(testProvider, 'glm-4.7');

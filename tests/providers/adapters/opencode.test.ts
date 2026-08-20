@@ -132,6 +132,61 @@ describe('OpenCodeAdapter.applyConfig (cc-switch schema)', () => {
     expect(written.provider.deepseek.models['deepseek-chat']).toEqual({ name: 'DeepSeek V4' });
   });
 
+  it('adds opencode UA headers for opencode.ai gateway endpoints', async () => {
+    const zenProvider = {
+      ...openaiProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [{ id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash' }],
+    };
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.options.headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+  });
+
+  it('writes explicit model limit for opencode.ai free models', async () => {
+    const zenProvider = {
+      ...openaiProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [{ id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash' }],
+    };
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.models['deepseek-v4-flash-free']).toEqual({
+      name: 'DeepSeek V4 Flash',
+      limit: { context: 200000, output: 128000 },
+    });
+  });
+
+  it('writes openrouter :free model limits with no UA header', async () => {
+    const orProvider = {
+      ...openaiProvider,
+      baseUrl: 'https://openrouter.ai/api/v1',
+      models: [{ id: 'gpt-oss-20b:free' }, { id: 'cohere/north-mini-code:free' }],
+    };
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(orProvider, 'gpt-oss-20b:free');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.options.headers).toBeUndefined();
+    expect(written.provider.deepseek.models['cohere/north-mini-code:free']).toEqual({
+      name: 'cohere/north-mini-code:free',
+      limit: { context: 256000, output: 8192 },
+    });
+  });
+
+  it('does not add gateway headers or limits to non-gateway endpoints', async () => {
+    const adapter = new OpenCodeAdapter();
+    await adapter.applyConfig(openaiProvider, 'deepseek-chat');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(written.provider.deepseek.options.headers).toBeUndefined();
+    expect(written.provider.deepseek.models['deepseek-chat']).toEqual({ name: 'DeepSeek V4' });
+  });
+
   it('preserves existing providers (additive merge)', async () => {
     mocks.files.set(CONFIG_PATH, JSON.stringify({
       provider: { glm: { npm: '@ai-sdk/anthropic', options: {}, models: {} } },

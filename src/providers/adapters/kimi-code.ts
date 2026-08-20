@@ -2,11 +2,13 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor, modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { atomicWrite } from "../../utils/atomicWrite";
 import { ModelCapabilities, resolveModelCapabilities } from "../capabilities";
 import { loadProviders } from "../store";
+import { tomlInlineTable } from "./toml-utils";
 
 const KIMI_CODE_DIR = path.join(os.homedir(), ".kimi-code");
 const KIMI_CODE_CONFIG_PATH = path.join(KIMI_CODE_DIR, "config.toml");
@@ -57,11 +59,7 @@ export class KimiCodeAdapter extends BaseAdapter {
     const openAIEndpoint = getProviderEndpoint(provider, "openai");
     const providerType = getProviderType(provider, openAIEndpoint);
 
-    toml = upsertTomlTable(toml, `providers.${providerId}`, [
-      `type = ${tomlString(providerType)}`,
-      `base_url = ${tomlString(openAIEndpoint.baseUrl)}`,
-      ...(apiKey ? [`api_key = ${tomlString(apiKey)}`] : []),
-    ]);
+    toml = upsertTomlTable(toml, `providers.${providerId}`, buildProviderTable(provider, openAIEndpoint.baseUrl, providerType, apiKey));
 
     // Register every model of the provider so kimi's /model picker has real
     // choices, not just the currently selected one. The selected model is
@@ -172,11 +170,11 @@ export class KimiCodeAdapter extends BaseAdapter {
         apiKeys.set(provider.id, (await this.resolveApiKey(provider)) || "");
       }
       const apiKey = apiKeys.get(provider.id);
-      toml = upsertTomlTable(toml, `providers.${providerId}`, [
-        `type = ${tomlString(providerType)}`,
-        `base_url = ${tomlString(openAIEndpoint.baseUrl)}`,
-        ...(apiKey ? [`api_key = ${tomlString(apiKey)}`] : []),
-      ]);
+      toml = upsertTomlTable(
+        toml,
+        `providers.${providerId}`,
+        buildProviderTable(provider, openAIEndpoint.baseUrl, providerType, apiKey),
+      );
       toml = upsertTomlTable(
         toml,
         `models.${getModelAlias(provider.id, modelId)}`,
@@ -234,15 +232,36 @@ export class KimiCodeAdapter extends BaseAdapter {
   }
 }
 
+function buildProviderTable(provider: Provider, baseUrl: string, providerType: string, apiKey?: string): string[] {
+  const lines = [
+    `type = ${tomlString(providerType)}`,
+    `base_url = ${tomlString(baseUrl)}`,
+    ...(apiKey ? [`api_key = ${tomlString(apiKey)}`] : []),
+  ];
+  // The opencode.ai gateway rate-limits anonymous traffic separately from the
+  // official opencode client (verified 429 without the UA). kimi sends its own
+  // UA, so pin the opencode client's one via custom_headers (see gateway.ts).
+  const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+  if (gatewayHeaders) lines.push(`custom_headers = ${tomlInlineTable(gatewayHeaders)}`);
+  return lines;
+}
+
 function buildModelTable(provider: Provider, providerId: string, providerType: string, modelId: string): string[] {
   const caps = resolveModelCapabilities(modelId);
+  // Gateway free-tier models (opencode.ai / openrouter.ai) get explicit token
+  // windows so max_tokens never exceeds what the endpoint accepts (see
+  // gateway.ts). Without this, max_context_size would come from capability
+  // metadata and max_output_size would be unset — letting kimi send the
+  // platform-rejected defaults.
+  const gatewayLimit = modelLimitFor(provider.baseUrl, modelId);
+  const maxContext = gatewayLimit?.context ?? caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE;
   const table = [
     `provider = ${tomlString(providerId)}`,
     `model = ${tomlString(modelId)}`,
     `protocol = ${tomlString(getWireProtocol(providerType))}`,
-    `max_context_size = ${caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE}`,
+    `max_context_size = ${maxContext}`,
   ];
-  const outputCap = MODEL_OUTPUT_CAPS[`${provider.id}:${modelId}`];
+  const outputCap = gatewayLimit?.output ?? MODEL_OUTPUT_CAPS[`${provider.id}:${modelId}`];
   if (outputCap) table.push(`max_output_size = ${outputCap}`);
   const capabilities = getCapabilities(modelId, caps);
   if (capabilities.length) {

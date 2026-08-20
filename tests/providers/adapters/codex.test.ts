@@ -155,6 +155,46 @@ describe('CodexAdapter.applyConfig', () => {
     expect(toml).toContain('base_url = "https://custom.api.com/v1"');
   });
 
+  it('adds opencode UA via http_headers for opencode.ai gateway endpoints', async () => {
+    const zenProvider = { ...customProvider, baseUrl: 'https://opencode.ai/zen/v1' };
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(zenProvider, 'my-model');
+
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).toContain('[model_providers.okit-custom-openai]');
+    expect(toml).toContain('http_headers = { "User-Agent" = "opencode/1.18.15" }');
+    expect(toml).toContain('base_url = "https://opencode.ai/zen/v1"');
+  });
+
+  it('does not add http_headers for non-opencode endpoints', async () => {
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(customProvider, 'my-model');
+
+    const toml = mocks.files.get(CODEX_CONFIG)!;
+    expect(toml).not.toContain('http_headers');
+  });
+
+  it('writes gateway context windows into the model catalog', async () => {
+    const CATALOG_PATH = path.join(os.homedir(), '.codex', 'model-catalogs', 'model-catalogs.json');
+    const zenProvider = {
+      ...customProvider,
+      baseUrl: 'https://opencode.ai/zen/v1',
+      models: [
+        { id: 'deepseek-v4-flash-free', name: 'Flash' },
+        { id: 'plain-model', name: 'Plain' },
+      ],
+    };
+    const adapter = new CodexAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const catalog = JSON.parse(mocks.files.get(CATALOG_PATH)!);
+    const bySlug = Object.fromEntries(catalog.models.map((m: any) => [m.slug, m]));
+    expect(bySlug['deepseek-v4-flash-free'].context_window).toBe(200000);
+    expect(bySlug['deepseek-v4-flash-free'].max_context_window).toBe(200000);
+    // Unknown models keep the conservative default.
+    expect(bySlug['plain-model'].context_window).toBe(128000);
+  });
+
   it('writes model-catalogs.json with all provider models for /model switching', async () => {
     const CATALOG_PATH = path.join(os.homedir(), '.codex', 'model-catalogs', 'model-catalogs.json');
     const multiModel = {

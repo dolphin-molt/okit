@@ -111,11 +111,49 @@ describe('HermesAdapter.applyConfig (config.yaml schema)', () => {
     expect(entry.api_mode).toBe('anthropic_messages');
   });
 
+  it('adds opencode UA via extra_headers for opencode.ai gateway endpoints', async () => {
+    const zenProvider = { ...testProvider, baseUrl: 'https://opencode.ai/zen/v1' };
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-chat');
+
+    const entry = readWritten().custom_providers.find((p: any) => p.name === 'DeepSeek');
+    expect(entry.extra_headers).toEqual({ 'User-Agent': 'opencode/1.18.15' });
+  });
+
+  it('does not add extra_headers for non-opencode endpoints', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    const entry = readWritten().custom_providers.find((p: any) => p.name === 'DeepSeek');
+    expect(entry.extra_headers).toBeUndefined();
+  });
+
   it('sets model.default as provider-name/model-id string', async () => {
     const adapter = new HermesAdapter();
     await adapter.applyConfig(testProvider, 'deepseek-chat');
 
     expect(readWritten().model).toMatchObject({ default: 'DeepSeek/deepseek-chat' });
+  });
+
+  it('routes traffic to the custom endpoint via model.provider/base_url', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+
+    expect(readWritten().model).toMatchObject({
+      provider: 'custom',
+      base_url: 'https://api.deepseek.com',
+      api_key: 'sk-test-123',
+    });
+  });
+
+  it('keeps api_mode off the model block for openai endpoints, on for anthropic', async () => {
+    const adapter = new HermesAdapter();
+    await adapter.applyConfig(testProvider, 'deepseek-chat');
+    expect(readWritten().model.api_mode).toBeUndefined();
+
+    const anthropicProvider = { ...testProvider, id: 'zai', name: 'ZAI', type: 'anthropic' as const };
+    await adapter.applyConfig(anthropicProvider, 'glm-4.7');
+    expect(readWritten().model).toMatchObject({ api_mode: 'anthropic_messages' });
   });
 
   it('replaces its own entry by name and preserves other providers + unrelated config', async () => {

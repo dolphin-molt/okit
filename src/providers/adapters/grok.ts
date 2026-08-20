@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import os from "os";
 import { BaseAdapter } from "./base";
+import { gatewayHeadersFor, modelLimitFor } from "./gateway";
 import { AgentSelection, AuthStatus, Provider, ProviderType } from "../types";
 import { loadUserConfig, updateUserConfig } from "../../config/user";
 import { atomicWrite } from "../../utils/atomicWrite";
@@ -14,6 +15,7 @@ import {
   removeTableKey,
   sanitizeTomlKey,
   stripMatchingTables,
+  tomlInlineTable,
   tomlString,
   upsertTableKey,
   upsertTomlTable,
@@ -65,14 +67,24 @@ function effectiveBaseUrl(provider: Provider, modelId: string): string {
 
 function buildModelTable(provider: Provider, apiKey: string | undefined, modelId: string): string[] {
   const caps = resolveModelCapabilities(modelId);
+  // Gateway free-tier models (opencode.ai / openrouter.ai) get their real
+  // context window from gateway.ts so grok doesn't overfill the context (see
+  // gateway.ts). grok's model tables have no output-limit field, so only
+  // context is applied here.
+  const gatewayLimit = modelLimitFor(provider.baseUrl, modelId);
   const table = [
     `model = ${tomlString(modelId)}`,
     `base_url = ${tomlString(effectiveBaseUrl(provider, modelId))}`,
     `name = ${tomlString(`${provider.name} ${modelId}`)}`,
     `api_backend = ${tomlString(getApiBackend(provider))}`,
-    `context_window = ${caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE}`,
+    `context_window = ${gatewayLimit?.context ?? caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE}`,
   ];
   if (apiKey) table.push(`api_key = ${tomlString(apiKey)}`);
+  // The opencode.ai gateway rate-limits anonymous traffic separately from the
+  // official opencode client (verified 429 without the UA). grok sends its own
+  // UA, so pin the opencode client's one via extra_headers (see gateway.ts).
+  const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
+  if (gatewayHeaders) table.push(`extra_headers = ${tomlInlineTable(gatewayHeaders)}`);
   return table;
 }
 

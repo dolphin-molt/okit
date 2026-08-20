@@ -6,37 +6,7 @@ const fs = require('fs');
 const { execFile } = require('child_process');
 const { parseProviderRows, parseLegacyConfig } = require('./ccswitch-parse');
 
-// Reading the db prefers Node's built-in node:sqlite (Node >= 23.4; no
-// external tooling at all — cc-switch itself only embeds SQLite as a library,
-// so its users have no sqlite3 CLI guaranteed). Older runtimes fall back to
-// the sqlite3 CLI, which macOS ships and Windows typically lacks.
-async function readSqliteRowsViaNode(dbPath) {
-  let DatabaseSync;
-  try {
-    ({ DatabaseSync } = require('node:sqlite'));
-  } catch {
-    return null;
-  }
-  let db;
-  try {
-    db = new DatabaseSync(dbPath, { readOnly: true });
-    const rows = db
-      .prepare("SELECT app_type, name, settings_config, is_current FROM providers WHERE app_type IN ('claude','codex')")
-      .all();
-    return rows.map(r => ({
-      app_type: String(r.app_type),
-      name: String(r.name),
-      settings_config: typeof r.settings_config === 'string' ? r.settings_config : JSON.stringify(r.settings_config),
-      is_current: Number(r.is_current) === 1,
-    }));
-  } catch {
-    return null;
-  } finally {
-    try { if (db) db.close(); } catch { /* already closed */ }
-  }
-}
-
-function readSqliteRowsViaCli(dbPath) {
+function readSqliteRows(dbPath) {
   return new Promise(resolve => {
     execFile(
       'sqlite3',
@@ -53,10 +23,6 @@ function readSqliteRowsViaCli(dbPath) {
       },
     );
   });
-}
-
-async function readSqliteRows(dbPath) {
-  return (await readSqliteRowsViaNode(dbPath)) ?? (await readSqliteRowsViaCli(dbPath));
 }
 
 async function ccSwitchScanHandler(req, res) {

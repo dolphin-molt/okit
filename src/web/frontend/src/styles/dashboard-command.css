@@ -2260,25 +2260,14 @@ select:focus {
   box-shadow: none !important;
 }
 
-.access-workspace .modal-overlay {
-  left: var(--sidebar-w);
-  width: calc(100vw - var(--sidebar-w));
-}
-
 .access-workspace .picker-panel {
-  width: min(820px, calc(100vw - var(--sidebar-w) - 48px));
+  width: min(820px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
 }
 
-/* 与 components.css 中 .sidebar 在 ≤768px 折叠为 56px 对齐，避免弹框遮罩压住侧边栏 */
 @media (max-width: 768px) {
-  .access-workspace .modal-overlay {
-    left: 56px;
-    width: calc(100vw - 56px);
-  }
-
   .access-workspace .picker-panel {
-    width: calc(100vw - 56px - 28px);
+    width: calc(100vw - 28px);
     max-height: calc(100vh - 48px);
   }
 }

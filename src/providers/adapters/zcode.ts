@@ -54,6 +54,22 @@ import { atomicWriteJSON } from "../../utils/atomicWrite";
 
 const ZCODE_CONFIG_PATH = path.join(os.homedir(), ".zcode", "v2", "config.json");
 
+// The agent process (spawned by the ZCode desktop app) resolves its user
+// settings from ~/.zcode/cli/config.json — the v2 config above is only the
+// desktop app's own provider store, and its model→protocol projection drops
+// per-model capability fields for non-catalog providers. Model-level media
+// capabilities must therefore be declared here, as modelCatalog.overrides
+// entries keyed "providerId/modelId" (verified against zcode.cjs 0.16.3:
+// parsedConfigFileToRuntimePatch → X2o feeds overrides into the catalog, and
+// supportsImages:false makes the agent drop image parts before the request —
+// falling back to local OCR — instead of relaying image_url to a text-only
+// gateway model, which answers 400).
+const ZCODE_CLI_CONFIG_PATH = path.join(os.homedir(), ".zcode", "cli", "config.json");
+
+// ZCode's override-entry schema is passthrough, so this marker survives
+// validation and lets OKIT reclaim only the entries it wrote.
+const OKIT_OVERRIDE_TAG = "_okitManaged";
+
 interface ZCodeFormat {
   kind: string;
   apiFormat: string;
@@ -134,6 +150,82 @@ async function writeV2Config(data: Record<string, any>): Promise<void> {
   await atomicWriteJSON(ZCODE_CONFIG_PATH, data);
 }
 
+async function readCliConfig(): Promise<Record<string, any>> {
+  if (await fs.pathExists(ZCODE_CLI_CONFIG_PATH)) {
+    const content = await fs.readFile(ZCODE_CLI_CONFIG_PATH, "utf-8");
+    if (content.trim()) {
+      try {
+        return JSON.parse(content);
+      } catch {
+        // Corrupted file — leave it alone; agent will surface its own
+        // diagnostics. Writing a fresh file would nuke the user's MCP/plugin
+        // config living in the same document.
+      }
+    }
+  }
+  return {};
+}
+
+async function writeCliConfig(data: Record<string, any>): Promise<void> {
+  await fs.ensureDir(path.dirname(ZCODE_CLI_CONFIG_PATH));
+  await atomicWriteJSON(ZCODE_CLI_CONFIG_PATH, data);
+}
+
+// A model is declared text-only when OKIT has positive capability data for it
+// (capabilities present, no "vision"). Models without capability data stay
+// untouched — blocking image input for a model that actually supports it
+// would silently downgrade it to OCR.
+function textOnlyModelIds(provider: Provider): string[] {
+  return provider.models
+    .filter(m => Array.isArray(m.capabilities) && m.capabilities.length > 0 && !m.capabilities.includes("vision"))
+    .map(m => m.id);
+}
+
+function ownsOverride(entry: any): boolean {
+  return entry && typeof entry === "object" && entry[OKIT_OVERRIDE_TAG] === true;
+}
+
+// Mirror the provider's text-only models into cli/config.json
+// modelCatalog.overrides. Only OKIT-tagged entries for this provider are
+// touched; user-written overrides (same or other keys) are preserved.
+async function syncMediaOverrides(providerId: string, provider: Provider): Promise<void> {
+  const cfg = await readCliConfig();
+  const catalog = cfg.modelCatalog && typeof cfg.modelCatalog === "object" ? cfg.modelCatalog : undefined;
+  const overrides = catalog?.overrides && typeof catalog.overrides === "object"
+    ? { ...catalog.overrides }
+    : {};
+  const prefix = `${providerId}/`;
+
+  let dirty = false;
+  for (const key of Object.keys(overrides)) {
+    if (key.startsWith(prefix) && ownsOverride(overrides[key])) {
+      delete overrides[key];
+      dirty = true;
+    }
+  }
+  for (const modelId of textOnlyModelIds(provider)) {
+    overrides[`${prefix}${modelId}`] = { supportsImages: false, [OKIT_OVERRIDE_TAG]: true };
+    dirty = true;
+  }
+  if (!dirty && !catalog) return;
+  if (Object.keys(overrides).length === 0 && !catalog) return;
+
+  cfg.modelCatalog = { ...catalog, overrides };
+  await writeCliConfig(cfg);
+}
+
+async function clearMediaOverrides(providerId: string): Promise<void> {
+  const cfg = await readCliConfig();
+  const catalog = cfg.modelCatalog;
+  if (!catalog?.overrides || typeof catalog.overrides !== "object") return;
+  const prefix = `${providerId}/`;
+  const kept = Object.entries(catalog.overrides)
+    .filter(([key, value]) => !(key.startsWith(prefix) && ownsOverride(value)));
+  if (kept.length === Object.keys(catalog.overrides).length) return;
+  cfg.modelCatalog = { ...catalog, overrides: Object.fromEntries(kept) };
+  await writeCliConfig(cfg);
+}
+
 // OKIT owns an existing entry when the provider id is recorded in its managed
 // list, or when the entry already points at this provider's endpoint (legacy
 // OKIT writes / identical endpoint re-added via OKIT).
@@ -192,6 +284,7 @@ export class ZCodeAdapter extends BaseAdapter {
     managed[provider.id] = provider.models.map(m => m.id);
 
     await writeV2Config(data);
+    await syncMediaOverrides(provider.id, provider);
     await updateUserConfig({
       providers: { zcode: { providerId: provider.id, modelId, managedModels: managed } },
     } as any);
@@ -238,6 +331,11 @@ export class ZCodeAdapter extends BaseAdapter {
 
     if (written.length > 0) {
       await writeV2Config(data);
+      for (const [providerId, group] of byProvider) {
+        if (group.modelIds.some(id => written.includes(id))) {
+          await syncMediaOverrides(providerId, group.provider);
+        }
+      }
       // Persist tracking without moving the "current" selection — enabling a
       // site only makes its models available; switching happens in ZCode.
       const config = await loadUserConfig();
@@ -347,6 +445,7 @@ export class ZCodeAdapter extends BaseAdapter {
       delete data.provider[providerId];
       await writeV2Config(data);
     }
+    await clearMediaOverrides(providerId);
 
     delete managed[providerId];
     const wasCurrent = sel.providerId === providerId;

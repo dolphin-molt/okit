@@ -477,3 +477,85 @@ describe('ZCodeAdapter.removeProvider', () => {
     expect(written.provider.deepseek).toBeDefined();
   });
 });
+
+describe('ZCodeAdapter media capability overrides (cli/config.json)', () => {
+  const CLI_CONFIG_PATH = path.join(os.homedir(), '.zcode', 'cli', 'config.json');
+  const zenProvider = {
+    ...testProvider,
+    id: 'opencode-zen',
+    name: 'OpenCode Zen',
+    baseUrl: 'https://opencode.ai/zen/v1',
+    models: [
+      { id: 'deepseek-v4-flash-free', name: 'DeepSeek V4 Flash Free', capabilities: ['chat'] },
+      { id: 'mimo-v2.5-free', name: 'MiMo V2.5 Free', capabilities: ['chat', 'vision'] },
+      { id: 'muse-spark-1.2-contributor-free', name: 'Muse Spark 1.2 Free' },
+    ],
+  };
+
+  it('writes supportsImages:false overrides for text-only models into cli/config.json', async () => {
+    mocks.files.set(CLI_CONFIG_PATH, JSON.stringify({ mcp: { servers: {} } }));
+
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const cli = JSON.parse(mocks.files.get(CLI_CONFIG_PATH)!);
+    expect(cli.mcp).toEqual({ servers: {} });  // user sections preserved
+    expect(cli.modelCatalog.overrides['opencode-zen/deepseek-v4-flash-free'])
+      .toEqual({ supportsImages: false, _okitManaged: true });
+  });
+
+  it('does not write overrides for vision or unknown-capability models', async () => {
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(zenProvider, 'deepseek-v4-flash-free');
+
+    const cli = JSON.parse(mocks.files.get(CLI_CONFIG_PATH)!);
+    expect(cli.modelCatalog.overrides['opencode-zen/mimo-v2.5-free']).toBeUndefined();
+    expect(cli.modelCatalog.overrides['opencode-zen/muse-spark-1.2-contributor-free']).toBeUndefined();
+  });
+
+  it('does not create cli/config.json for providers without text-only models', async () => {
+    const provider = {
+      ...testProvider,
+      models: [{ id: 'deepseek-chat', name: 'DeepSeek V4' }],  // no capabilities
+    };
+    const adapter = new ZCodeAdapter();
+    await adapter.applyConfig(provider, 'deepseek-chat');
+
+    expect(mocks.files.has(CLI_CONFIG_PATH)).toBe(false);
+  });
+
+  it('removes only OKIT-tagged overrides on removeProvider and keeps user overrides', async () => {
+    mocks.files.set(CLI_CONFIG_PATH, JSON.stringify({
+      modelCatalog: {
+        overrides: {
+          'opencode-zen/deepseek-v4-flash-free': { supportsImages: false, _okitManaged: true },
+          'opencode-zen/mimo-v2.5-free': { supportsImages: true },  // user-written, untagged
+          'other-provider/model': { supportsImages: false, _okitManaged: true },
+        },
+      },
+    }));
+    mocks.files.set(CONFIG_PATH, JSON.stringify({
+      provider: { 'opencode-zen': { enabled: true, name: 'OpenCode Zen' } },
+    }));
+    userConfigStore.providers = { zcode: { providerId: 'opencode-zen', modelId: 'deepseek-v4-flash-free', managedModels: { 'opencode-zen': ['deepseek-v4-flash-free'] } } };
+
+    const adapter = new ZCodeAdapter();
+    await adapter.removeProvider('opencode-zen');
+
+    const cli = JSON.parse(mocks.files.get(CLI_CONFIG_PATH)!);
+    expect(cli.modelCatalog.overrides['opencode-zen/deepseek-v4-flash-free']).toBeUndefined();
+    expect(cli.modelCatalog.overrides['opencode-zen/mimo-v2.5-free']).toEqual({ supportsImages: true });
+    expect(cli.modelCatalog.overrides['other-provider/model']).toBeDefined();
+  });
+
+  it('re-syncs overrides on applyModels for added text-only sites', async () => {
+    const adapter = new ZCodeAdapter();
+    const result = await adapter.applyModels([
+      { provider: zenProvider, modelId: 'deepseek-v4-flash-free' },
+    ]);
+
+    expect(result.written).toEqual(['deepseek-v4-flash-free']);
+    const cli = JSON.parse(mocks.files.get(CLI_CONFIG_PATH)!);
+    expect(cli.modelCatalog.overrides['opencode-zen/deepseek-v4-flash-free'].supportsImages).toBe(false);
+  });
+});

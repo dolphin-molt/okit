@@ -140,6 +140,31 @@ export async function loadProviders(): Promise<Provider[]> {
           existing.name = preset.name;
           changed = true;
         }
+        // Sync per-model capability declarations the preset carries but the
+        // stored instance lacks (matched by model id). Models discovered from
+        // a live gateway/catalog endpoint come back with no capability data —
+        // filling from the preset is what lets agent adapters gate image
+        // input for known text-only models. Only fills missing; user-set
+        // capabilities are never overwritten.
+        if (Array.isArray(preset.models) && preset.models.length > 0) {
+          const capsById = new Map(
+            preset.models
+              .filter(m => Array.isArray(m.capabilities) && m.capabilities.length > 0)
+              .map(m => [m.id, m.capabilities as string[]]),
+          );
+          if (capsById.size > 0 && Array.isArray(existing.models)) {
+            let capsChanged = false;
+            existing.models = existing.models.map(model => {
+              const caps = capsById.get(model.id);
+              if (caps && !Array.isArray(model.capabilities)) {
+                capsChanged = true;
+                return { ...model, capabilities: [...caps] };
+              }
+              return model;
+            });
+            if (capsChanged) changed = true;
+          }
+        }
         if (preset.executionMode && existing.executionMode !== preset.executionMode) {
           existing.executionMode = preset.executionMode;
           changed = true;

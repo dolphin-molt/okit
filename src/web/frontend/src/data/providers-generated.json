@@ -1513,27 +1513,47 @@
       "models": [
         {
           "id": "deepseek-v4-flash-free",
-          "name": "DeepSeek V4 Flash Free"
+          "name": "DeepSeek V4 Flash Free",
+          "capabilities": [
+            "chat"
+          ]
         },
         {
           "id": "nemotron-3-ultra-free",
-          "name": "Nemotron 3 Ultra Free"
+          "name": "Nemotron 3 Ultra Free",
+          "capabilities": [
+            "chat"
+          ]
         },
         {
           "id": "nemotron-3.5-lightning-free",
-          "name": "Nemotron 3.5 Lightning Free"
+          "name": "Nemotron 3.5 Lightning Free",
+          "capabilities": [
+            "chat"
+          ]
         },
         {
           "id": "mimo-v2.5-free",
-          "name": "MiMo V2.5 Free"
+          "name": "MiMo V2.5 Free",
+          "capabilities": [
+            "chat",
+            "vision"
+          ]
         },
         {
           "id": "hy3-free",
-          "name": "Hy3 Free"
+          "name": "Hy3 Free",
+          "capabilities": [
+            "chat",
+            "vision"
+          ]
         },
         {
           "id": "laguna-s-2.1-free",
-          "name": "Laguna S 2.1 Free"
+          "name": "Laguna S 2.1 Free",
+          "capabilities": [
+            "chat"
+          ]
         },
         {
           "id": "muse-spark-1.2-contributor-free",
@@ -6742,6 +6762,9 @@
         {
           "id": "deepseek-v4-flash-free",
           "name": "DeepSeek V4 Flash Free",
+          "capabilities": [
+            "chat"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",
@@ -6758,6 +6781,9 @@
         {
           "id": "nemotron-3-ultra-free",
           "name": "Nemotron 3 Ultra Free",
+          "capabilities": [
+            "chat"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",
@@ -6774,6 +6800,9 @@
         {
           "id": "nemotron-3.5-lightning-free",
           "name": "Nemotron 3.5 Lightning Free",
+          "capabilities": [
+            "chat"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",
@@ -6790,6 +6819,10 @@
         {
           "id": "mimo-v2.5-free",
           "name": "MiMo V2.5 Free",
+          "capabilities": [
+            "chat",
+            "vision"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",
@@ -6806,6 +6839,10 @@
         {
           "id": "hy3-free",
           "name": "Hy3 Free",
+          "capabilities": [
+            "chat",
+            "vision"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",
@@ -6822,6 +6859,9 @@
         {
           "id": "laguna-s-2.1-free",
           "name": "Laguna S 2.1 Free",
+          "capabilities": [
+            "chat"
+          ],
           "availability": [
             {
               "offeringId": "opencode-zen",

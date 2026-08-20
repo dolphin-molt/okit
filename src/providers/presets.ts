@@ -687,12 +687,15 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     authMode: "api_key",
     models: [
       // Free tier (input/output/cache all free; data may be used for training)
-      { id: "deepseek-v4-flash-free", name: "DeepSeek V4 Flash Free" },
-      { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra Free" },
-      { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning Free" },
-      { id: "mimo-v2.5-free", name: "MiMo V2.5 Free" },
-      { id: "hy3-free", name: "Hy3 Free" },
-      { id: "laguna-s-2.1-free", name: "Laguna S 2.1 Free" },
+      // capabilities live-verified against the gateway (2026-08-20): image_url
+      // requests 200 on mimo-v2.5-free / hy3-free, are rejected on the other
+      // four; muse-spark is region-blocked here so it stays unknown.
+      { id: "deepseek-v4-flash-free", name: "DeepSeek V4 Flash Free", capabilities: ["chat"] },
+      { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra Free", capabilities: ["chat"] },
+      { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning Free", capabilities: ["chat"] },
+      { id: "mimo-v2.5-free", name: "MiMo V2.5 Free", capabilities: ["chat", "vision"] },
+      { id: "hy3-free", name: "Hy3 Free", capabilities: ["chat", "vision"] },
+      { id: "laguna-s-2.1-free", name: "Laguna S 2.1 Free", capabilities: ["chat"] },
       { id: "muse-spark-1.2-contributor-free", name: "Muse Spark 1.2 Free" },
       // Paid (pay-as-you-go, curated by the OpenCode team)
       { id: "claude-opus-5", name: "Claude Opus 5" },

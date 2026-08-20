@@ -38,22 +38,27 @@ export class OpenCodeAdapter extends BaseAdapter {
     return null;
   }
 
-  async applyConfig(provider: Provider, modelId: string): Promise<void> {
-    const apiKey = await this.resolveApiKey(provider);
-
+  private async loadConfig(): Promise<Record<string, any>> {
     await fs.ensureDir(path.dirname(OPENCODE_CONFIG_PATH));
-    let data: Record<string, any> = {};
     if (await fs.pathExists(OPENCODE_CONFIG_PATH)) {
       const content = await fs.readFile(OPENCODE_CONFIG_PATH, "utf-8");
-      data = content.trim() ? JSON.parse(content) : {};
+      if (content.trim()) return JSON.parse(content);
     }
+    return {};
+  }
 
-    // Ensure provider is an object map (additive mode), not a string.
+  private async saveConfig(data: Record<string, any>): Promise<void> {
+    await atomicWriteJSON(OPENCODE_CONFIG_PATH, data);
+  }
+
+  // Writes one provider entry (merged, other providers untouched).
+  private async writeProviderEntry(data: Record<string, any>, provider: Provider): Promise<void> {
     if (typeof data.provider !== "object" || data.provider === null) data.provider = {};
     if (!("$schema" in data) && Object.keys(data).length === 0) {
       data.$schema = "https://opencode.ai/config.json";
     }
 
+    const apiKey = await this.resolveApiKey(provider);
     const providerEntry: Record<string, any> = {
       npm: npmPackageFor(provider.type),
       name: provider.name,
@@ -72,6 +77,11 @@ export class OpenCodeAdapter extends BaseAdapter {
     providerEntry.models = modelsMap;
 
     (data.provider as Record<string, any>)[provider.id] = providerEntry;
+  }
+
+  async applyConfig(provider: Provider, modelId: string): Promise<void> {
+    const data = await this.loadConfig();
+    await this.writeProviderEntry(data, provider);
 
     // OpenCode is additive-mode: all configured providers coexist and OpenCode
     // itself picks which one to use (there is no "active provider" concept that
@@ -79,9 +89,45 @@ export class OpenCodeAdapter extends BaseAdapter {
     // returns empty for additive apps). We only ensure this provider + its
     // models are present.
 
-    await atomicWriteJSON(OPENCODE_CONFIG_PATH, data);
+    await this.saveConfig(data);
     await updateUserConfig({
       providers: { opencode: { providerId: provider.id, modelId } },
     } as any);
+  }
+
+  // Additive (multi-site): write one site's provider entry without touching
+  // any other site. Mirrors the mimo-code adapter so the home-page add flow
+  // ("添加" writes the agent config immediately) works the same way.
+  async applyModels(entries: Array<{ provider: Provider; modelId: string }>): Promise<{ written: string[]; skipped: string[] }> {
+    if (entries.length === 0) return { written: [], skipped: [] };
+    const data = await this.loadConfig();
+    const written: string[] = [];
+    for (const { provider, modelId } of entries) {
+      await this.writeProviderEntry(data, provider);
+      written.push(modelId);
+    }
+    await this.saveConfig(data);
+    return { written, skipped: [] };
+  }
+
+  // Which OKIT provider ids currently have an entry in opencode's config.
+  async listEnabledProviders(): Promise<string[]> {
+    const data = await this.loadConfig();
+    if (typeof data.provider !== "object" || data.provider === null) return [];
+    return Object.keys(data.provider);
+  }
+
+  // Remove one site: its provider entry, and the active model if it pointed
+  // at that provider.
+  async removeProvider(providerId: string): Promise<void> {
+    const data = await this.loadConfig();
+    if (typeof data.provider !== "object" || data.provider === null) return;
+    if (!(providerId in (data.provider as Record<string, any>))) return;
+
+    delete (data.provider as Record<string, any>)[providerId];
+    if (typeof data.model === "string" && data.model.split("/")[0] === providerId) {
+      delete data.model;
+    }
+    await this.saveConfig(data);
   }
 }

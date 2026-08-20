@@ -155,3 +155,43 @@ describe('OpenCodeAdapter.applyConfig (cc-switch schema)', () => {
     );
   });
 });
+
+describe('OpenCodeAdapter additive interface', () => {
+  it('applyModels writes provider entries without touching others', async () => {
+    mocks.files.set(CONFIG_PATH, JSON.stringify({
+      provider: { qianfan: { npm: '@ai-sdk/openai-compatible', options: {}, models: {} } },
+    }));
+
+    const adapter = new OpenCodeAdapter();
+    const result = await adapter.applyModels([
+      { provider: openaiProvider, modelId: 'deepseek-chat' },
+      { provider: anthropicProvider, modelId: 'glm-4.7' },
+    ]);
+
+    expect(result.written).toEqual(['deepseek-chat', 'glm-4.7']);
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(Object.keys(written.provider).sort()).toEqual(['deepseek', 'qianfan', 'zai']);
+    expect(written.provider.deepseek.options.apiKey).toBe('sk-test-123');
+  });
+
+  it('listEnabledProviders returns provider keys from the config', async () => {
+    mocks.files.set(CONFIG_PATH, JSON.stringify({
+      provider: { deepseek: {}, qianfan: {} },
+    }));
+    const adapter = new OpenCodeAdapter();
+    expect(await adapter.listEnabledProviders()).toEqual(['deepseek', 'qianfan']);
+  });
+
+  it('removeProvider deletes the entry and a model pointing at it', async () => {
+    mocks.files.set(CONFIG_PATH, JSON.stringify({
+      provider: { deepseek: {}, qianfan: {} },
+      model: 'deepseek/deepseek-chat',
+    }));
+    const adapter = new OpenCodeAdapter();
+    await adapter.removeProvider('deepseek');
+
+    const written = JSON.parse(mocks.files.get(CONFIG_PATH)!);
+    expect(Object.keys(written.provider)).toEqual(['qianfan']);
+    expect(written.model).toBeUndefined();
+  });
+});

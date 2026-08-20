@@ -178,7 +178,7 @@ const ADAPTERS = _agentsMeta.AGENTS_META;
 // these, adding a provider to the home page writes its models into the agent
 // config, and removing/disabling removes them. Exclusive agents
 // (claude/codex/...) keep single-active-switch semantics.
-const ADDITIVE_AGENTS = new Set(['workbuddy', 'zcode', 'kimi-code', 'grok', 'mimo-code']);
+const ADDITIVE_AGENTS = new Set(['workbuddy', 'zcode', 'kimi-code', 'grok', 'mimo-code', 'opencode']);
 
 // Cap for models auto-recorded after a successful switch.
 const RECENT_MODELS_MAX = 10;

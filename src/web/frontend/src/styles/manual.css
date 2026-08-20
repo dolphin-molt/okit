@@ -1,0 +1,408 @@
+/* ============================================================
+   OKIT Manual Page (/manual) — styles extracted from landing.css
+   after deleting the /landing page. Keeps only classes used
+   by ManualPage.tsx + its shared nav/footer.
+   ============================================================ */
+
+.landing-shell {
+  --lx-canvas: #0b0b09;
+  --lx-cream: #f4f1e8;
+  --lx-cream-60: rgba(244, 241, 232, 0.62);
+  --lx-cream-38: rgba(244, 241, 232, 0.38);
+  --lx-hairline: rgba(244, 241, 232, 0.14);
+  --lx-lime: #c6ff3e;
+  --lx-lime-deep: #a4d92b;
+  --lx-serif: "Fraunces", "Songti SC", "Noto Serif SC", Georgia, serif;
+  --lx-sans: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  min-height: 100vh;
+  background: var(--lx-canvas);
+  color: var(--lx-cream);
+  font-family: var(--lx-sans);
+  overflow-x: hidden;
+  position: relative;
+}
+
+.landing-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.landing-shell > * {
+  position: relative;
+  z-index: 2;
+}
+
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1240px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--lx-hairline);
+  backdrop-filter: blur(12px);
+  background: rgba(11, 11, 9, 0.72);
+}
+
+.landing-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.14em;
+  color: var(--lx-cream);
+  text-decoration: none;
+}
+
+.landing-logo-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--lx-hairline);
+  object-fit: cover;
+  flex: none;
+}
+
+.landing-logo-img--sm {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+.landing-links {
+  display: flex;
+  gap: 28px;
+}
+
+.landing-links a {
+  color: var(--lx-cream-60);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.landing-links a:hover {
+  color: var(--lx-lime);
+}
+
+.landing-links a.active {
+  color: var(--lx-lime);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1.5px;
+}
+
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.landing-gh {
+  display: inline-flex;
+  align-items: center;
+  color: var(--lx-cream-60);
+  transition: color 0.15s ease;
+}
+
+.landing-gh:hover {
+  color: var(--lx-lime);
+}
+
+.landing-lang-toggle {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--lx-sans);
+  color: var(--lx-cream-60);
+  background: transparent;
+  border: 1px solid var(--lx-hairline);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.landing-lang-toggle:hover {
+  color: var(--lx-cream);
+  border-color: var(--lx-cream-38);
+}
+
+.landing-footer {
+  padding: 30px 0 40px;
+  border-top: 1px solid var(--lx-hairline);
+}
+
+.landing-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1240px, calc(100% - 48px));
+  margin: 0 auto;
+  font-size: 13px;
+  color: var(--lx-cream-38);
+}
+
+.landing-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.06em;
+}
+
+.landing-footer-inner a {
+  color: var(--lx-cream-60);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.landing-footer-inner a:hover {
+  color: var(--lx-lime);
+}
+
+/* Manual page layout — fixed shell, scroll only article column */
+
+.manual-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.manual-shell .landing-nav {
+  flex: none;
+}
+
+.manual-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 56px;
+  width: min(1080px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 36px 0 0;
+}
+
+.manual-toc {
+  overflow-y: auto;
+  padding-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.manual-toc-title {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--lx-cream-38);
+}
+
+.manual-toc-link {
+  padding: 5px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lx-cream-60);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 7px 7px 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.manual-toc-link--sub {
+  padding-left: 24px;
+  font-size: 12.5px;
+}
+
+.manual-toc-link:hover {
+  color: var(--lx-cream);
+}
+
+.manual-toc-link.active {
+  color: var(--lx-lime);
+  border-left-color: var(--lx-lime);
+  background: rgba(198, 255, 62, 0.05);
+}
+
+.manual-article-col {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 8px 40px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 241, 232, 0.2) transparent;
+}
+
+.manual-article {
+  max-width: 820px;
+  padding-bottom: 24px;
+  font-size: 15.5px;
+  line-height: 1.9;
+  color: var(--lx-cream-60);
+}
+
+.manual-footer {
+  padding: 26px 0 34px;
+}
+
+.manual-article h2 {
+  margin: 64px 0 20px;
+  padding-bottom: 14px;
+  font-family: var(--lx-serif);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+}
+
+.manual-article > h2:first-child {
+  margin-top: 8px;
+}
+
+.manual-article h3 {
+  margin: 52px 0 18px;
+  padding-bottom: 12px;
+  font-family: var(--lx-serif);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+  scroll-margin-top: 24px;
+}
+
+.manual-article h4 {
+  margin: 28px 0 10px;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--lx-lime);
+  scroll-margin-top: 24px;
+}
+
+.manual-article p {
+  margin: 0 0 14px;
+}
+
+.manual-article strong {
+  color: var(--lx-cream);
+}
+
+.manual-article a {
+  color: var(--lx-lime);
+}
+
+.manual-article code {
+  padding: 2px 7px;
+  font-family: var(--lx-sans);
+  font-size: 13px;
+  color: var(--lx-lime);
+  background: rgba(198, 255, 62, 0.08);
+  border: 1px solid rgba(198, 255, 62, 0.18);
+  border-radius: 6px;
+}
+
+.manual-article pre {
+  margin: 0 0 18px;
+  padding: 18px 22px;
+  background: rgba(244, 241, 232, 0.04);
+  border: 1px solid var(--lx-hairline);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.manual-article pre code {
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--lx-cream);
+  background: none;
+  border: none;
+}
+
+.manual-article ul,
+.manual-article ol {
+  margin: 0 0 16px;
+  padding-left: 22px;
+}
+
+.manual-article li {
+  margin-bottom: 7px;
+}
+
+.manual-article blockquote {
+  margin: 0 0 18px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--lx-lime);
+  border-radius: 0 10px 10px 0;
+  background: rgba(198, 255, 62, 0.05);
+  color: var(--lx-cream);
+}
+
+.manual-article hr {
+  margin: 44px 0;
+  border: none;
+  border-top: 1px solid var(--lx-hairline);
+}
+
+.manual-article .ai-table-wrap {
+  margin: 0 0 20px;
+  overflow-x: auto;
+}
+
+.manual-article table,
+.manual-article .ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.manual-article .ai-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--lx-cream);
+  border-bottom: 1px solid var(--lx-hairline);
+}
+
+.manual-article .ai-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--lx-hairline);
+  color: var(--lx-cream-60);
+}
+
+.manual-article .ai-table tr:hover td {
+  background: rgba(244, 241, 232, 0.025);
+}
+
+@media (max-width: 1024px) {
+  .manual-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .manual-main {
+    grid-template-columns: 1fr;
+    padding-top: 32px;
+  }
+
+  .manual-toc {
+    display: none;
+  }
+
+  .manual-article-col {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+}

@@ -1,272 +1,88 @@
-# OKIT
+# README 草稿（批次 4 由 opencode 原样落盘到 okit/README.md）
 
-Agent 基础设施运维工具，集中管理工具安装、授权、密钥与中继连接，消除 Agent 执行中断。
-
-适合场景：
-- Agent 运行时自动安装缺失的 CLI 工具
-- 统一管理 API Key，按项目注入环境变量
-- 通过中继服务器让外部 Agent 访问本地服务
-- Web Dashboard 可视化管理一切
-- 团队共享工具配置 Profile
+> 注意：此文件是给 opencode 的交付物，不是最终文件本身。截图位用 HTML 注释占位。
 
 ---
 
-## 安装
+# OKIT — AI Agent 的密钥与模型管控台
 
-> 📖 完整使用手册（含浏览器扩展配置与自动创建密钥）：中文 [docs/user-manual.md](docs/user-manual.md) · English [docs/user-manual.en.md](docs/user-manual.en.md)
+密钥与模型，一处掌控。OKIT 是一个本地优先的开源工具，管好 AI 编程 CLI（Claude Code、Codex、OpenCode 等 10 个 Agent）的密钥生命周期：**创建 → 保管 → 切换 → 验证 → 监控**。本地功能永久免费。
 
-**NPM（推荐）**：
+<!-- 截图位：主界面 /settings 快速启动页 -->
 
-```bash
-npm install -g @cing-self/okit-cli
-```
+## 为什么是 OKIT
 
-**脚本安装**：
+- **切换永不丢配置** — 外科手术式写入：只改 OKIT 自己拥有的字段，你的 hooks、statusLine、tui、MCP 配置原样保留。每次切换前自动快照，设置页一键对比与回滚。
+- **切模型不离开 Codex** — 自动生成 Codex 原生模型目录（model-catalogs），在 Codex CLI 里 `/model` 直接切换，不用回到 OKIT。
+- **零常驻、零侵入** — 没有后台进程、不在请求路径上：OKIT 写完配置就退出，你的 Agent 直连模型平台。卸载不留痕，配置照常工作。
+- **密钥保险库** — AES-256-GCM 本地加密存储，绑定项目后自动注入 `.env`，支持云端同步与局域网点对点同步（配对码配对）。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
-```
+## 与同类工具对比
 
-安装完成后：
+| 能力 | OKIT | cc-switch | codex-router |
+|------|------|-----------|--------------|
+| 配置写入 | 字段级合并 + 切换前快照/回滚 | 全量覆盖 + 通用配置片段 | managed block |
+| 常驻进程 | 无 | 托盘（代理可选） | 本地网关（必须） |
+| 支持 Agent | 10 个 | 8 个 | Codex 系 |
+| 密钥管理 | 加密 vault + 项目绑定 | 本地明文配置 | 凭证隔离 |
+| 自动创建 API Key | 31 个平台（浏览器扩展） | — | — |
+| 用量查询 | 15 个平台官方 API 直查 | 代理层统计 | — |
+| 平台 | macOS / Linux / Windows | macOS / Linux / Windows | macOS / Linux / Windows |
 
-```bash
-okit                    # 交互式菜单
-okit web                # 启动 Web Dashboard
-```
-
----
-
-## 常用命令
-
-```bash
-okit                    # 交互式菜单
-okit check              # 检查所有工具安装与授权状态
-okit upgrade            # 升级 OKIT 或工具
-okit uninstall          # 卸载 OKIT
-okit profile            # 工具分组管理
-okit auth               # 检查工具授权状态
-okit auth --fix         # 自动修复授权
-okit vault              # 密钥管理
-okit vault push         # 加密同步密钥到云端
-okit vault pull         # 从云端拉取密钥
-okit relay              # 中继服务器连接
-okit repo               # Git/GitHub 设置
-okit claude             # Claude 配置管理
-okit hook               # Shell 自动注入 Hook
-okit web                # 启动 Web Dashboard
-okit -V                 # 查看版本
-```
-
----
-
-## Web Dashboard
-
-一键启动可视化控制台：
+## 快速开始
 
 ```bash
-okit web                # 默认 http://localhost:3000
-okit web --port 8080    # 指定端口
+# npm 安装（即将发布）
+npm install -g okit
+
+# 或从源码
+git clone https://github.com/Cing-self/okit.git
+cd okit
+npm ci --ignore-scripts
+npm run build
+node dist/main.js web
+# 打开 http://localhost:3780
 ```
 
-功能覆盖：
-
-- **工具管理** — 浏览、安装、升级、卸载 76+ 工具
-- **密钥管理** — 可视化 Vault，增删改查密钥，关联项目
-- **授权管理** — 查看所有工具的登录/授权状态
-- **云同步** — 配置 Supabase / Cloudflare 等平台，加密同步密钥
-- **Agent 对话** — 内置 AI Agent 交互界面
-- **问题排查日志** — 在设置中查看并导出操作记录
-- **设置中心** — 语言、同步平台、中继服务器配置
-
----
-
-## Profile — 工具分组
-
-自定义工具组合，一键安装，支持团队共享：
+常用命令：
 
 ```bash
-okit profile create     # 创建 Profile
-okit profile apply      # 安装 Profile 中的所有工具
-okit profile list       # 查看所有 Profile
-okit profile export     # 导出（分享给团队）
-okit profile import     # 导入
-okit profile delete     # 删除
+okit web                              # 启动 Web 管理台（:3780）
+okit vault set <key>                  # 存密钥（AES-256-GCM 加密）
+okit vault inject                     # 输出 export 语句（配合 eval）
+okit provider list                    # 列出 29+ 预置模型平台
+okit provider switch                  # 交互式切换 Agent 的 Provider/模型
+okit provider use <provider>          # 非交互式切换（脚本/Agent 友好）
+okit hook install                     # cd 进项目自动注入密钥到 shell
 ```
 
-Profile 存储在 `~/.okit/profiles/`。
+## 功能总览
 
----
-
-## Auth — 授权管理
-
-检查所有工具的登录/授权状态，一键修复：
-
-```bash
-okit auth               # 检查授权状态
-okit auth --fix         # 自动运行 gh auth login、docker login 等
-```
-
-支持 15+ 工具的授权检测与修复（gh、docker、wrangler、vercel、aws、gcloud 等）。
-
----
-
-## Vault — 密钥管理
-
-AES-256-GCM 加密存储 API Key，按项目注入环境变量：
-
-```bash
-okit vault set OPENROUTER_KEY         # 保存密钥
-okit vault set KEY/company value      # 多别名（同一 Key 不同账号）
-okit vault list                        # 查看所有密钥
-okit vault get OPENROUTER_KEY          # 输出原始值
-okit vault delete OPENROUTER_KEY       # 删除密钥
-okit vault inject                      # 输出 export 语句
-okit vault env                         # 生成 .env 文件
-okit vault where OPENROUTER_KEY        # 查看密钥被哪些项目使用
-okit vault sync                        # 同步到所有绑定项目
-```
-
-### 密钥映射
-
-在项目根目录创建 `.okitenv` 文件，将 Vault 中的密钥映射为框架需要的环境变量名：
-
-```
-OPENAI_API_KEY: OPENROUTER_KEY
-GITHUB_TOKEN: GITHUB_TOKEN/company
-DATABASE_URL
-```
-
-格式：`环境变量名: Vault密钥名[/别名]`，支持多别名。
-
-### Shell Hook 自动注入
-
-```bash
-okit hook install      # 安装 Shell Hook（支持 zsh/bash/PowerShell）
-okit hook status       # 查看安装状态
-okit hook uninstall    # 卸载
-```
-
-安装后，每次 `cd` 到含 `.okitenv` 的目录时自动注入环境变量，离开时自动清理。
-
-### 使用方式
-
-```bash
-# 手动注入到当前 shell
-eval "$(okit vault inject)"
-
-# 生成 .env 文件
-okit vault env
-
-# 自动注入（推荐）
-okit hook install
-```
-
----
-
-## Vault 云同步
-
-加密备份密钥到云端，多设备同步：
-
-```bash
-okit vault push                        # 加密推送所有密钥到云端
-okit vault pull                        # 从云端拉取并合并
-okit vault test supabase               # 测试平台连接
-```
-
-支持平台：
-
-| 平台 | 说明 |
-|------|------|
-| Supabase | PostgreSQL + Auth |
-| Cloudflare KV | Key-Value 存储 |
-| Cloudflare D1 | SQLite 数据库 |
-| Cloudflare R2 | 对象存储 |
-| 火山引擎 KMS | 密钥管理服务 |
-
-同步流程使用 AES-256-GCM 端到端加密，密钥仅保存在本地，云端只存密文。
-
----
-
-## Relay — 中继服务器
-
-通过 Cloudflare Worker 中继，让外部 Agent 访问本地服务，无需开放端口：
-
-```bash
-okit relay config                      # 配置中继 URL 和 Token
-okit relay connect                     # 建立连接（前台运行）
-okit relay daemon                      # 后台守护进程模式
-okit relay agents                      # 查看在线 Agent
-okit relay ps                          # 查看运行中的守护进程
-okit relay logs <agent>                # 查看日志
-okit relay token <agent>               # 获取访问 Token
-okit relay stop                        # 停止守护进程
-okit relay status                      # 查看隧道状态
-```
-
-工作原理：
-
-```
-本地服务 ──WebSocket出站──→ Cloudflare Worker ←──HTTP── 外部调用者
-          (不开端口)           (公网入口)
-```
-
-支持三种适配器模式：
-- **OpenClaw** — 通用 Agent 运行时
-- **Claude** — Claude Code 专用
-- **Codex** — OpenAI Codex 专用
-
-外部调用示例：
-
-```bash
-curl https://<relay-url>/agent/<agent-name>/api/data \
-  -H "Authorization: Bearer <token>"
-```
-
----
-
-## 工具注册表
-
-内置 76+ 常用工具，覆盖：
-
-- **基础开发**：Node.js、Python、Git、Docker、Bun
-- **包管理**：Homebrew、pnpm、uv、pipx
-- **云平台**：AWS CLI、gcloud、Azure CLI、Wrangler、Vercel、Netlify
-- **部署**：Railway、Supabase、Firebase、Fly.io、Heroku
-- **AI 工具**：Claude Code、Gemini CLI、Codex CLI、Ollama、Happy Coder
-- **实用工具**：jq、httpie、bat、tree、ngrok、cloudflared、fzf、tmux
-- **终端工具**：iTerm2、Warp、Raycast
-
-自定义工具可通过 `~/.okit/registry.json` 添加。
-
----
-
-## 配置文件
-
-| 文件 | 用途 |
-|------|------|
-| `~/.okit/user.json` | 用户偏好、凭据、中继配置 |
-| `~/.okit/registry.json` | 自定义工具注册表 |
-| `~/.okit/profiles/` | Profile 配置 |
-| `~/.okit/vault/` | AES-256-GCM 加密密钥存储 |
-| `~/.okit/logs/` | 操作日志（JSONL 格式） |
-| `.okitenv` | 项目级密钥映射 |
-
----
+- **密钥库**：加密存储、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步
+- **Provider/模型管控**：29+ 平台预置（官方/聚合/国内），10 个 Agent 适配器，多端点协议（anthropic/openai 兼容），认证状态检测，订阅/API/第三方三模式凭证管理
+- **一键创建 Key**：浏览器扩展在官方控制台内自动填表创建并回填（支持 31 个平台，含火山引擎、智谱、百度千帆等）
+- **用量查询**：15 个平台官方 API 直查订阅余额/用量，阈值告警（本地通知；Cloud Pro 可远程 Webhook）
+- **模型目录**：全平台官方定价与能力数据（输入/输出/缓存价、上下文窗口），峰谷价直呈
+- **Cloud Pro（可选订阅）**：跨设备用量历史 + 远程 Webhook 告警。本地功能永久免费，云端只上传用量数字，API Key 永不上传
 
 ## 开发
 
 ```bash
-git clone https://github.com/dolphin-molt/okit.git
-cd okit
-npm install
-npm run build           # 构建
-npm test                # 运行测试（80 个用例）
-npm run dev             # 本地开发
-npm link                # 全局链接到本地代码
+npm ci --ignore-scripts     # 安装依赖（postinstall 需 dist，故忽略）
+npm run build               # tsc + 预设生成 + web 拷贝 + 前端构建
+npx vitest run              # 测试（500+ 用例）
+cd src/web/frontend && npm run dev   # 前端开发服务器（:5173 → 代理 :3780）
 ```
 
----
+要求 Node.js 20+。前端 React + TypeScript + Vite；后端 Node（web 层 CommonJS）；测试 vitest。
 
-## 许可证
+## 文档
 
-MIT
+- [用户手册](docs/user-manual.md)（[English](docs/user-manual.en.md)）
+- [模型定价与能力数据](docs/model-pricing-and-capabilities.md)
+- [贡献指南](CONTRIBUTING.md)
+
+## License
+
+<!-- LICENSE-TBD：待定稿后替换 -->
+待定。

@@ -69,13 +69,12 @@ export default function ManualPage() {
   return (
     <div className="landing-shell manual-shell">
       <header className="landing-nav">
-        <a className="landing-wordmark" href="/landing" aria-label="OKIT landing page">
+        <span className="landing-wordmark">
           <img src={okitIcon} alt="OKIT" className="landing-logo-img" />
           <span>OKIT</span>
-        </a>
+        </span>
         <nav className="landing-links" aria-label="Primary">
-          <a href="/landing">{t('landing.nav.home')}</a>
-          <a href="/manual" className="active">{t('landing.nav.manual')}</a>
+          <a href="/manual" className="active">{t('manual.nav')}</a>
         </nav>
         <div className="landing-nav-actions">
           <a className="landing-gh" href="https://github.com/dolphin-molt/okit" aria-label="GitHub" target="_blank" rel="noopener">

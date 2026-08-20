@@ -642,7 +642,12 @@ export default function HomePage() {
             {configFiles.length > 1 && (
               <div className="home-config-tabs">
                 {configFiles.map((f, i) => {
-                  const basename = f.path.split('/').pop() || f.path;
+                  // Basename, disambiguated with the parent dir when two files
+                  // share a name (zcode has v2/config.json AND cli/config.json).
+                  const parts = f.path.split('/');
+                  const basename = parts.length >= 2 && configFiles.some(o => o !== f && o.path.split('/').pop() === parts[parts.length - 1])
+                    ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
+                    : parts[parts.length - 1] || f.path;
                   return (
                     <button
                       key={f.path}

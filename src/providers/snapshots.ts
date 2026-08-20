@@ -21,7 +21,7 @@ const AGENT_CONFIG_FILES: Record<string, string[]> = {
   openclaw: [".openclaw/openclaw.json"],
   hermes: [".hermes/config.yaml"],
   workbuddy: [".workbuddy/models.json"],
-  zcode: [".zcode/v2/config.json"],
+  zcode: [".zcode/v2/config.json", ".zcode/cli/config.json"],
 };
 
 const AGENT_ID_RE = /^[a-z0-9-]+$/;

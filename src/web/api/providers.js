@@ -782,7 +782,10 @@ const AGENT_CONFIG_FILES = {
   'opencode': ['.config/opencode/opencode.json'],
   'openclaw': ['.openclaw/openclaw.json'],
   'workbuddy': ['.workbuddy/models.json'],
-  'zcode': ['.zcode/v2/config.json'],
+  // v2/config.json holds the provider entries; cli/config.json is the agent
+  // kernel's settings file where OKIT mirrors modelCatalog.overrides
+  // (supportsImages gating for text-only models).
+  'zcode': ['.zcode/v2/config.json', '.zcode/cli/config.json'],
   'hermes': ['.hermes/config.json'],
   'kimi-code': ['.kimi-code/config.toml'],
   'grok': ['.grok/config.toml'],

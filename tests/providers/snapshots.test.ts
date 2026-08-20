@@ -98,7 +98,7 @@ describe('agentConfigFiles', () => {
       ['openclaw', ['.openclaw/openclaw.json']],
       ['hermes', ['.hermes/config.yaml']],
       ['workbuddy', ['.workbuddy/models.json']],
-      ['zcode', ['.zcode/v2/config.json']],
+      ['zcode', ['.zcode/v2/config.json', '.zcode/cli/config.json']],
     ];
     for (const [agentId, rels] of expected) {
       expect(agentConfigFiles(agentId)).toEqual(rels.map(r => path.join(HOMEDIR, r)));

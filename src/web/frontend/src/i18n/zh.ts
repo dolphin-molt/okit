@@ -589,6 +589,7 @@ export default {
   // 配置快照
   'settings.snapshots.title': '配置快照',
   'settings.snapshots.selectAgent': '选择 Agent',
+  'settings.snapshots.allAgents': '全部 Agent',
   'settings.snapshots.empty': '尚无快照——切换 Provider 时会自动生成当前配置的快照。',
   'settings.snapshots.view': '查看',
   'settings.snapshots.paneSnapshot': '快照版本',

@@ -589,6 +589,7 @@ export default {
   // Config Snapshots
   'settings.snapshots.title': 'Config Snapshots',
   'settings.snapshots.selectAgent': 'Select agent',
+  'settings.snapshots.allAgents': 'All agents',
   'settings.snapshots.empty': 'No snapshots yet — a snapshot of the current config is captured automatically when you switch providers.',
   'settings.snapshots.view': 'View',
   'settings.snapshots.paneSnapshot': 'Snapshot',

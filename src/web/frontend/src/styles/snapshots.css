@@ -251,3 +251,15 @@
 [data-theme="dark"] .snapshots-topbar {
   background: #24221e;
 }
+
+.snapshots-item-agent {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--kraft);
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}

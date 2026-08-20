@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ReactDiffViewer, { DiffMethod, type ReactDiffViewerStylesOverride } from 'react-diff-viewer-continued';
 import { getAdapters, type AgentInfo } from '../../api/providers';
 import {
@@ -145,16 +145,21 @@ function formatSnapshotTime(iso: string): string {
   }
 }
 
+type SnapshotItem = Snapshot & { agentId: string; agentName: string };
+
 export default function SnapshotsSection() {
   const { showToast, confirm, theme } = useApp() as any;
   const { t } = useI18n();
 
   const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [agentId, setAgentId] = useState('');
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  // '' means "all agents" — the default landing view shows every snapshot.
+  const [filterAgent, setFilterAgent] = useState('');
+  const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
+  const [listLoading, setListLoading] = useState(true);
   const [detail, setDetail] = useState<SnapshotDetailFile[] | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTime, setDetailTime] = useState('');
+  const [detailAgentName, setDetailAgentName] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeFile, setActiveFile] = useState(0);
   const [restoring, setRestoring] = useState(false);
@@ -165,35 +170,39 @@ export default function SnapshotsSection() {
       try {
         const data = await getAdapters();
         if (cancelled) return;
-        const list = data.adapters || [];
-        setAgents(list);
-        if (list.length > 0) setAgentId(list[0].id);
+        setAgents(data.adapters || []);
       } catch { /* server unreachable; keep empty state */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (!agentId) return;
-    let cancelled = false;
-    (async () => {
+  const reloadSnapshots = useCallback(async () => {
+    if (agents.length === 0) return;
+    setListLoading(true);
+    const targets = filterAgent ? agents.filter(a => a.id === filterAgent) : agents;
+    const results = await Promise.all(targets.map(async a => {
       try {
-        const data = await listSnapshots(agentId);
-        if (!cancelled) setSnapshots(data.snapshots || []);
-      } catch { if (!cancelled) setSnapshots([]); }
-    })();
-    return () => { cancelled = true; };
-  }, [agentId]);
+        const data = await listSnapshots(a.id);
+        return (data.snapshots || []).map(s => ({ ...s, agentId: a.id, agentName: a.name }));
+      } catch { return [] as SnapshotItem[]; }
+    }));
+    setSnapshots(results.flat().sort((x, y) => y.createdAt.localeCompare(x.createdAt)));
+    setListLoading(false);
+  }, [agents, filterAgent]);
 
-  async function openDetail(snapshot: Snapshot) {
-    if (!agentId) return;
+  useEffect(() => {
+    reloadSnapshots();
+  }, [reloadSnapshots]);
+
+  async function openDetail(snapshot: SnapshotItem) {
     setDetailOpen(true);
     setDetailLoading(true);
     setDetail(null);
     setActiveFile(0);
     setDetailTime(formatSnapshotTime(snapshot.createdAt));
+    setDetailAgentName(snapshot.agentName);
     try {
-      const data = await getSnapshotDetail(agentId, snapshot.id);
+      const data = await getSnapshotDetail(snapshot.agentId, snapshot.id);
       setDetail(data.files || []);
     } catch {
       setDetail([]);
@@ -208,8 +217,8 @@ export default function SnapshotsSection() {
     setDetail(null);
   }
 
-  async function handleRestore(snapshot: Snapshot) {
-    if (!agentId || restoring) return;
+  async function handleRestore(snapshot: SnapshotItem) {
+    if (restoring) return;
     const ok = await confirm(t('settings.snapshots.confirmBody'), {
       title: t('settings.snapshots.confirmTitle'),
       type: 'warning',
@@ -217,10 +226,9 @@ export default function SnapshotsSection() {
     if (!ok) return;
     setRestoring(true);
     try {
-      await restoreSnapshot(agentId, snapshot.id);
+      await restoreSnapshot(snapshot.agentId, snapshot.id);
       showToast(t('settings.snapshots.restoreOk'), 'success');
-      const data = await listSnapshots(agentId);
-      setSnapshots(data.snapshots || []);
+      await reloadSnapshots();
     } catch {
       showToast(t('settings.snapshots.restoreFail'), 'error');
     } finally {
@@ -236,22 +244,28 @@ export default function SnapshotsSection() {
           <div className="settings-block-head-controls">
             <CustomSelect
               className="settings-select-wrap snapshots-select-wrap"
-              value={agentId}
-              onChange={setAgentId}
+              value={filterAgent}
+              onChange={setFilterAgent}
               placeholder={t('settings.snapshots.selectAgent')}
-              options={agents.map(a => ({ value: a.id, label: a.name }))}
+              options={[
+                { value: '', label: t('settings.snapshots.allAgents') },
+                ...agents.map(a => ({ value: a.id, label: a.name })),
+              ]}
             />
           </div>
         </div>
         <div className="settings-card">
           <div className="settings-card-body">
-            {snapshots.length === 0 ? (
+            {listLoading && snapshots.length === 0 ? (
+              <div className="snapshots-empty">{t('settings.snapshots.loading')}</div>
+            ) : snapshots.length === 0 ? (
               <div className="snapshots-empty">{t('settings.snapshots.empty')}</div>
             ) : (
               <div className="snapshots-list">
                 {snapshots.map(snapshot => (
-                  <div key={snapshot.id} className="snapshots-item">
+                  <div key={`${snapshot.agentId}/${snapshot.id}`} className="snapshots-item">
                     <div className="snapshots-item-info">
+                      <span className="snapshots-item-agent">{snapshot.agentName}</span>
                       <span className="snapshots-item-time">{formatSnapshotTime(snapshot.createdAt)}</span>
                       <span className="snapshots-item-files">
                         {t('settings.snapshots.fileCount', { n: snapshot.files.length })}
@@ -287,7 +301,7 @@ export default function SnapshotsSection() {
               return (
                 <>
                   <div className="snapshots-topbar">
-                    <span className="snapshots-topbar-label">{t('settings.snapshots.title')}</span>
+                    <span className="snapshots-topbar-label">{detailAgentName}</span>
                     <span className="snapshots-topbar-time">{detailTime}</span>
                     <div className="snapshots-topbar-file">
                       {files.length > 1 ? (

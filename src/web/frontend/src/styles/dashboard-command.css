@@ -404,7 +404,12 @@ select:focus {
   background: rgba(245, 243, 235, 0.06);
 }
 
-.custom-select-option.active,
+.custom-select-option.active {
+  background: rgba(23, 32, 29, 0.08);
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .page-sidebar-item.active {
   background: rgba(239, 255, 97, 0.1);
   color: var(--accent);

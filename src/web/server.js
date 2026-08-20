@@ -10,6 +10,7 @@ const { listProviders, getAdaptersList, createProvider, updateProvider, deletePr
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 const { createGrokProxyHandler } = require('./api/grok-proxy');
 const { listSnapshotsHandler, snapshotDetailHandler, restoreSnapshotHandler } = require('./api/snapshots');
+const { ccSwitchScanHandler } = require('./api/ccswitch');
 
 function createServer(port = 3780) {
   const app = express();
@@ -127,6 +128,9 @@ function createServer(port = 3780) {
   app.get('/api/snapshots', listSnapshotsHandler);
   app.get('/api/snapshots/detail', snapshotDetailHandler);
   app.post('/api/snapshots/restore', restoreSnapshotHandler);
+
+  // Migration scan (read-only; imports go through the regular APIs)
+  app.get('/api/migrate/ccswitch', ccSwitchScanHandler);
 
   // Usage / quota routes
   app.get('/api/usage/supported', getSupportedUsageProviders);

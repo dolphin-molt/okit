@@ -131,10 +131,33 @@
   min-width: 0;
 }
 
-.snapshots-topbar-filename {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+.snapshots-topbar-restore {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border: 1px solid var(--red);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--red);
+  font-family: var(--font);
   font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.snapshots-topbar-restore:hover {
+  background: var(--red);
+  color: var(--paper);
+}
+
+.snapshots-topbar-restore:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.snapshots-summary-name {
   color: var(--ink);
+  font-weight: 600;
   word-break: break-all;
 }
 

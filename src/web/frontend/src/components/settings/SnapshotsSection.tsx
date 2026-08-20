@@ -177,6 +177,7 @@ export default function SnapshotsSection() {
   const [detailTime, setDetailTime] = useState('');
   const [detailAgentName, setDetailAgentName] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailSnapshot, setDetailSnapshot] = useState<SnapshotItem | null>(null);
   const [activeFile, setActiveFile] = useState(0);
   const [restoring, setRestoring] = useState(false);
 
@@ -215,6 +216,7 @@ export default function SnapshotsSection() {
     setDetailLoading(true);
     setDetail(null);
     setActiveFile(0);
+    setDetailSnapshot(snapshot);
     setDetailTime(formatSnapshotTime(snapshot.createdAt));
     setDetailAgentName(snapshot.agentName);
     try {
@@ -231,6 +233,7 @@ export default function SnapshotsSection() {
   function closeDetail() {
     setDetailOpen(false);
     setDetail(null);
+    setDetailSnapshot(null);
   }
 
   async function handleRestore(snapshot: SnapshotItem) {
@@ -244,6 +247,7 @@ export default function SnapshotsSection() {
     try {
       await restoreSnapshot(snapshot.agentId, snapshot.id);
       showToast(t('settings.snapshots.restoreOk'), 'success');
+      if (detailOpen) closeDetail();
       await reloadSnapshots();
     } catch {
       showToast(t('settings.snapshots.restoreFail'), 'error');
@@ -320,7 +324,7 @@ export default function SnapshotsSection() {
                     <span className="snapshots-topbar-label">{detailAgentName}</span>
                     <span className="snapshots-topbar-time">{detailTime}</span>
                     <div className="snapshots-topbar-file">
-                      {files.length > 1 ? (
+                      {files.length > 1 && (
                         <div className="snapshots-topbar-tabs" role="tablist">
                           {files.map((f, i) => (
                             <button
@@ -335,11 +339,19 @@ export default function SnapshotsSection() {
                             </button>
                           ))}
                         </div>
-                      ) : current ? (
-                        <span className="snapshots-topbar-filename">{current.name}</span>
-                      ) : null}
+                      )}
                       {current && current.currentContent == null && (
                         <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
+                      )}
+                      {detailSnapshot && (
+                        <button
+                          type="button"
+                          className="snapshots-topbar-restore"
+                          onClick={() => handleRestore(detailSnapshot)}
+                          disabled={restoring || detailLoading}
+                        >
+                          {t('settings.snapshots.restore')}
+                        </button>
                       )}
                       <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
                     </div>
@@ -358,6 +370,7 @@ export default function SnapshotsSection() {
                           useDarkTheme={theme === 'dark'}
                           compareMethod={jsonCompareMethod(current) ?? undefined}
                           highlightLanguage={HIGHLIGHT_LANGS[fileExt(current.name)]}
+                          summary={<span className="snapshots-summary-name">{current.name}</span>}
                           leftTitle={paneTitle('old', t('settings.snapshots.paneSnapshot'))}
                           rightTitle={paneTitle('new', t('settings.snapshots.paneCurrent'))}
                           styles={DIFF_STYLES}

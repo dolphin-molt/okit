@@ -10,7 +10,7 @@
     "build": "tsc && npm run gen-presets && npm run copy-web && npm run build-frontend",
     "gen-presets": "node scripts/gen-presets.js",
     "copy-web": "node scripts/copy-web.js",
-    "build-frontend": "cd src/web/frontend && npm install && npm run build",
+    "build-frontend": "cd src/web/frontend && npm ci && npm run build",
     "app:dev": "npm run build && electron dist/electron/main.js",
     "app:build": "npm run build && electron-builder --mac dir",
     "app:dist": "npm run build && electron-builder --mac dmg,zip",
@@ -53,9 +53,11 @@
     "url": "https://github.com/Cing-self/okit/issues"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@github/copilot-sdk": "^1.0.9",
-    "@types/express": "^5.0.6",
     "commander": "^11.0.0",
     "execa": "^5.1.1",
     "express": "^5.2.1",
@@ -70,6 +72,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/fs-extra": "^11.0.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.5.0",

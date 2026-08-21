@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# OKIT installer (standalone binary, macOS).
+#
+# Design constraints (documented in README "Shell 配置安全边界"):
+#   - NEVER modify shell configs, npm prefix, or install Homebrew/Node/Python.
+#     The release binary is self-contained; it needs none of them.
+#   - Verify every downloaded artifact against its published SHA256 checksum.
+#   - Fail loudly instead of best-effort-installing anything.
+
 set -e
 
 # Colors
@@ -12,101 +20,16 @@ NC='\033[0m'
 # Configuration
 INSTALL_DIR="/usr/local/bin"
 OKIT_DIR="$HOME/.okit"
-BINARY_NAME="okit"
+OKIT_REPO="Cing-self/okit"
 
 echo -e "${BLUE}🚀 安装 OKIT...${NC}"
 
 # Check if macOS
 OS=$(uname -s)
 if [[ "$OS" != "Darwin" ]]; then
-    echo -e "${RED}✗ 当前仅支持 macOS 平台${NC}"
+    echo -e "${RED}✗ 当前仅支持 macOS 平台（Linux/Windows 请用 npm: npm install -g @cing-self/okit-cli）${NC}"
     exit 1
 fi
-
-# ============================================
-# 安装基础依赖
-# ============================================
-
-echo -e "${BLUE}🔧 检查并安装基础依赖...${NC}"
-
-# 1. 安装 Homebrew
-if ! command -v brew &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Homebrew 未安装，正在安装...${NC}"
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
-    # 添加 Homebrew 到 PATH
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f /usr/local/bin/brew ]]; then
-        echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$HOME/.zprofile"
-        eval "$(/usr/local/bin/brew shellenv)"
-    fi
-    echo -e "${GREEN}✓ Homebrew 安装成功${NC}"
-else
-    echo -e "${GREEN}✓ Homebrew 已安装${NC}"
-fi
-
-# 2. 安装 Node.js
-if ! command -v node &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Node.js 未安装，正在安装...${NC}"
-    brew install node
-    echo -e "${GREEN}✓ Node.js 安装成功${NC}"
-else
-    echo -e "${GREEN}✓ Node.js 已安装 ($(node -v))${NC}"
-fi
-
-# 3. 检查 npm
-if ! command -v npm &> /dev/null; then
-    echo -e "${RED}✗ npm 未找到，请检查 Node.js 安装${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✓ npm 已安装 ($(npm -v))${NC}"
-
-# 3.1 配置 npm 全局目录到用户目录（避免 /usr/local 权限问题）
-NPM_GLOBAL_PREFIX="${HOME}/.npm-global"
-mkdir -p "$NPM_GLOBAL_PREFIX"
-npm config set prefix "$NPM_GLOBAL_PREFIX"
-if [[ "$SHELL" == *"zsh"* ]]; then
-    if ! grep -q ".npm-global/bin" "$HOME/.zshrc" 2>/dev/null; then
-        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.zshrc"
-    fi
-elif [[ "$SHELL" == *"bash"* ]]; then
-    if ! grep -q ".npm-global/bin" "$HOME/.bashrc" 2>/dev/null; then
-        echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
-    fi
-fi
-export PATH="$HOME/.npm-global/bin:$PATH"
-echo -e "${GREEN}✓ npm 全局安装已配置为用户目录${NC}"
-
-# 4. 安装 pipx（失败不阻断后续安装 OKIT）
-if ! command -v pipx &> /dev/null; then
-    # 确保 python3 存在（pipx 依赖）
-    if ! command -v python3 &> /dev/null; then
-        echo -e "${YELLOW}⚠️  Python 未安装，正在安装...${NC}"
-        if brew install python; then
-            echo -e "${GREEN}✓ Python 安装成功${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Python 安装失败，将跳过 pipx 安装${NC}"
-        fi
-    fi
-    echo -e "${YELLOW}⚠️  pipx 未安装，正在安装...${NC}"
-    if brew install pipx; then
-        if command -v pipx &> /dev/null; then
-            pipx ensurepath || true
-            echo -e "${GREEN}✓ pipx 安装成功${NC}"
-        else
-            echo -e "${YELLOW}⚠️  pipx 可执行文件不可用，已跳过 ensurepath${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠️  pipx 安装失败，但将继续安装 OKIT${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ pipx 已安装${NC}"
-fi
-
-echo -e "${GREEN}✓ 基础依赖检查完成${NC}"
-echo ""
 
 # ============================================
 # 安装 OKIT
@@ -114,7 +37,6 @@ echo ""
 
 # Detect platform
 ARCH=$(uname -m)
-OKIT_REPO="Cing-self/okit"
 OKIT_VERSION="${OKIT_VERSION:-}"
 
 # Determine architecture
@@ -153,9 +75,14 @@ fi
 
 # Create OKIT directory
 echo -e "${BLUE}📂 创建配置目录: $OKIT_DIR${NC}"
-mkdir -p "$OKIT_DIR"
-mkdir -p "$OKIT_DIR/logs"
-mkdir -p "$OKIT_DIR/cache"
+mkdir -p "$OKIT_DIR/logs" "$OKIT_DIR/cache"
+
+# Optional GitHub token for private-repo access during development.
+# Public releases need nothing; api.github.com requests just carry it if set.
+GH_AUTH_HEADER=()
+if [[ -n "${OKIT_GITHUB_TOKEN:-}" ]]; then
+    GH_AUTH_HEADER=(-H "Authorization: Bearer ${OKIT_GITHUB_TOKEN}")
+fi
 
 # Find and copy binary
 if [[ -f "./bin/$BINARY_NAME" ]]; then
@@ -167,99 +94,57 @@ elif [[ -f "./dist/main.js" ]]; then
 else
     echo -e "${BLUE}🌐 下载 Release 二进制${NC}"
     if [[ -z "$OKIT_VERSION" ]]; then
-        OKIT_VERSION="$(python3 - <<'PY'
-import json, sys, urllib.request
-repo = "Cing-self/okit"
-
-def fetch_json(url):
-    try:
-        with urllib.request.urlopen(url) as resp:
-            return json.load(resp)
-    except Exception:
-        return None
-
-latest = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest")
-if latest and latest.get("tag_name"):
-    print(latest.get("tag_name", ""))
-    sys.exit(0)
-
-releases = fetch_json(f"https://api.github.com/repos/{repo}/releases") or []
-for rel in releases:
-    if rel.get("draft") or rel.get("prerelease"):
-        continue
-    if rel.get("tag_name"):
-        print(rel.get("tag_name"))
-        sys.exit(0)
-
-tags = fetch_json(f"https://api.github.com/repos/{repo}/tags") or []
-if tags:
-    print(tags[0].get("name", ""))
-PY
-)"
+        # Resolve the latest release tag from GitHub's redirect — no JSON
+        # parsing or extra interpreters required.
+        LATEST_URL="$(curl -fsSL "${GH_AUTH_HEADER[@]}" -o /dev/null -w '%{url_effective}' \
+            "https://github.com/${OKIT_REPO}/releases/latest" || true)"
+        OKIT_VERSION="${LATEST_URL##*/}"
     fi
 
-    if [[ -z "$OKIT_VERSION" ]]; then
-        echo -e "${RED}✗ 无法获取最新版本号${NC}"
+    if [[ -z "$OKIT_VERSION" || "$OKIT_VERSION" == "latest" ]]; then
+        echo -e "${RED}✗ 无法获取最新版本号（私有仓库请设置 OKIT_GITHUB_TOKEN）${NC}"
         exit 1
     fi
 
     ASSET_NAME="okit-${OKIT_VERSION}-macos-${ASSET_ARCH}.zip"
+    DOWNLOAD_URL="https://github.com/${OKIT_REPO}/releases/download/${OKIT_VERSION}/${ASSET_NAME}"
     echo -e "${BLUE}ℹ️  版本: ${OKIT_VERSION}${NC}"
-    echo -e "${BLUE}ℹ️  资源名: ${ASSET_NAME}${NC}"
-    DOWNLOAD_URL="$(python3 - <<'PY' "$OKIT_VERSION" "$ASSET_NAME"
-import json, sys, urllib.request
-version = sys.argv[1]
-asset = sys.argv[2]
-repo = "Cing-self/okit"
-
-def fetch_json(url):
-    try:
-        with urllib.request.urlopen(url) as resp:
-            return json.load(resp)
-    except Exception:
-        return None
-
-release = fetch_json(f"https://api.github.com/repos/{repo}/releases/tags/{version}")
-if release:
-    for item in release.get("assets", []):
-        if item.get("name") == asset:
-            print(item.get("browser_download_url", ""))
-            sys.exit(0)
-
-releases = fetch_json(f"https://api.github.com/repos/{repo}/releases") or []
-for rel in releases:
-    if rel.get("tag_name") != version:
-        continue
-    for item in rel.get("assets", []):
-        if item.get("name") == asset:
-            print(item.get("browser_download_url", ""))
-            sys.exit(0)
-PY
-)"
     echo -e "${BLUE}ℹ️  下载地址: ${DOWNLOAD_URL}${NC}"
 
-    if [[ -z "$DOWNLOAD_URL" ]]; then
-        echo -e "${RED}✗ 未找到 Release 资源: $ASSET_NAME${NC}"
-        exit 1
-    fi
-
     TMP_DIR="$(mktemp -d)"
+    trap 'rm -rf "$TMP_DIR"' EXIT
     ZIP_PATH="$TMP_DIR/$ASSET_NAME"
     echo -e "${BLUE}⬇️  下载: $ASSET_NAME${NC}"
     DOWNLOAD_TIMEOUT="${OKIT_DOWNLOAD_TIMEOUT:-600}"
-    curl -L --retry 5 --retry-delay 2 --retry-connrefused --retry-max-time "$DOWNLOAD_TIMEOUT" -o "$ZIP_PATH" "$DOWNLOAD_URL"
+    curl -fSL "${GH_AUTH_HEADER[@]}" --retry 5 --retry-delay 2 --retry-connrefused \
+        --retry-max-time "$DOWNLOAD_TIMEOUT" -o "$ZIP_PATH" "$DOWNLOAD_URL"
+
+    # ── SHA256 verification (mandatory) ─────────────────────────────
+    SHA_URL="${DOWNLOAD_URL}.sha256"
+    echo -e "${BLUE}🔐 校验 SHA256...${NC}"
+    if ! curl -fSL "${GH_AUTH_HEADER[@]}" --retry 3 --retry-delay 2 \
+        --retry-max-time 120 -o "$TMP_DIR/$ASSET_NAME.sha256" "$SHA_URL"; then
+        echo -e "${RED}✗ 无法下载校验文件: ${ASSET_NAME}.sha256${NC}"
+        echo -e "${RED}  拒绝安装未经校验的二进制。请到 Releases 页面确认该版本是否附带 .sha256 文件。${NC}"
+        exit 1
+    fi
+    if ! (cd "$TMP_DIR" && shasum -a 256 --check "$ASSET_NAME.sha256" --status); then
+        echo -e "${RED}✗ SHA256 校验失败 — 下载可能已损坏或被篡改，已中止安装${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ SHA256 校验通过${NC}"
 
     if command -v unzip &> /dev/null; then
-        unzip -q "$ZIP_PATH" -d "$TMP_DIR"
+        unzip -q "$ZIP_PATH" -d "$TMP_DIR/unpacked"
     else
-        ditto -xk "$ZIP_PATH" "$TMP_DIR"
+        mkdir -p "$TMP_DIR/unpacked" && ditto -xk "$ZIP_PATH" "$TMP_DIR/unpacked"
     fi
 
-    if [[ ! -f "$TMP_DIR/okit" ]]; then
+    if [[ ! -f "$TMP_DIR/unpacked/okit" ]]; then
         echo -e "${RED}✗ 解压后未找到 okit 可执行文件${NC}"
         exit 1
     fi
-    BINARY_SOURCE="$TMP_DIR/okit"
+    BINARY_SOURCE="$TMP_DIR/unpacked/okit"
 fi
 
 # Install binary
@@ -272,82 +157,23 @@ else
     chmod +x "$INSTALL_DIR/okit"
 fi
 
-# Create default registry.json if not exists
-REGISTRY_FILE="$OKIT_DIR/registry.json"
-if [[ ! -f "$REGISTRY_FILE" ]]; then
-    echo -e "${BLUE}📝 创建默认配置${NC}"
-    cat > "$REGISTRY_FILE" << 'EOF'
-{
-  "steps": [
-    { "name": "Node.js", "install": "brew install node", "upgrade": "brew upgrade node", "uninstall": "brew uninstall node", "check": "command -v node" },
-    { "name": "Git", "install": "brew install git", "upgrade": "brew upgrade git", "check": "command -v git" },
-    { "name": "GitHub CLI", "install": "brew install gh", "upgrade": "brew upgrade gh", "uninstall": "brew uninstall gh", "check": "command -v gh" },
-    { "name": "pnpm", "install": "brew install pnpm", "upgrade": "brew upgrade pnpm", "uninstall": "brew uninstall pnpm", "check": "command -v pnpm" },
-    { "name": "Python", "install": "brew install python", "upgrade": "brew upgrade python", "uninstall": "brew uninstall python", "check": "command -v python3" },
-    { "name": "Docker", "install": "brew install --cask docker", "upgrade": "brew upgrade --cask docker", "uninstall": "brew uninstall --cask docker", "check": "command -v docker" },
-    { "name": "Codex CLI", "install": "npm install -g @openai/codex", "upgrade": "npm update -g @openai/codex", "uninstall": "npm uninstall -g @openai/codex", "check": "command -v codex" },
-    { "name": "Claude Code", "install": "npm install -g @anthropic-ai/claude-code", "upgrade": "npm update -g @anthropic-ai/claude-code", "uninstall": "npm uninstall -g @anthropic-ai/claude-code", "check": "command -v claude" },
-    { "name": "yt-dlp", "install": "brew install yt-dlp", "upgrade": "brew upgrade yt-dlp", "uninstall": "brew uninstall yt-dlp", "check": "command -v yt-dlp" },
-    { "name": "curl", "install": "brew install curl", "upgrade": "brew upgrade curl", "uninstall": "brew uninstall curl", "check": "command -v curl" },
-    { "name": "Playwright", "install": "npm install -g @playwright/test && npx playwright install", "upgrade": "npm update -g @playwright/test", "uninstall": "npm uninstall -g @playwright/test", "check": "command -v playwright" },
-    { "name": "Mermaid CLI", "install": "mkdir -p $HOME/.cache/puppeteer && chmod -R u+rwX $HOME/.cache/puppeteer || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npm install -g @mermaid-js/mermaid-cli", "upgrade": "mkdir -p $HOME/.cache/puppeteer && chmod -R u+rwX $HOME/.cache/puppeteer || true && PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_CACHE_DIR=$HOME/.cache/puppeteer npm update -g @mermaid-js/mermaid-cli", "uninstall": "npm uninstall -g @mermaid-js/mermaid-cli", "check": "command -v mmdc" },
-    { "name": "Pandoc", "install": "brew install pandoc", "upgrade": "brew upgrade pandoc", "uninstall": "brew uninstall pandoc", "check": "command -v pandoc" },
-    { "name": "ffmpeg", "install": "brew install ffmpeg", "upgrade": "brew upgrade ffmpeg", "uninstall": "brew uninstall ffmpeg", "check": "command -v ffmpeg" },
-    { "name": "ImageMagick", "install": "brew install imagemagick", "upgrade": "brew upgrade imagemagick", "uninstall": "brew uninstall imagemagick", "check": "command -v convert" },
-    { "name": "pipx", "install": "brew install pipx && pipx ensurepath", "upgrade": "brew upgrade pipx", "uninstall": "brew uninstall pipx", "check": "command -v pipx" },
-    { "name": "Whisper", "install": "pipx install openai-whisper", "upgrade": "pipx upgrade openai-whisper", "uninstall": "pipx uninstall openai-whisper", "check": "command -v whisper" },
-    { "name": "Jupyter", "install": "pipx install jupyter", "upgrade": "pipx upgrade jupyter", "uninstall": "pipx uninstall jupyter", "check": "command -v jupyter" },
-    { "name": "DuckDB", "install": "brew install duckdb", "upgrade": "brew upgrade duckdb", "uninstall": "brew uninstall duckdb", "check": "command -v duckdb" },
-    { "name": "ripgrep", "install": "brew install ripgrep", "upgrade": "brew upgrade ripgrep", "uninstall": "brew uninstall ripgrep", "check": "command -v rg" },
-    { "name": "fzf", "install": "brew install fzf", "upgrade": "brew upgrade fzf", "uninstall": "brew uninstall fzf", "check": "command -v fzf" },
-    { "name": "tmux", "install": "brew install tmux", "upgrade": "brew upgrade tmux", "uninstall": "brew uninstall tmux", "check": "command -v tmux" },
-    { "name": "iTerm2", "install": "brew install --cask iterm2", "upgrade": "brew upgrade --cask iterm2", "uninstall": "brew uninstall --cask iterm2", "check": "test -d /Applications/iTerm.app" },
-    { "name": "Warp", "install": "brew install --cask warp", "upgrade": "brew upgrade --cask warp", "uninstall": "brew uninstall --cask warp", "check": "test -d /Applications/Warp.app" },
-    { "name": "uv (uvx)", "install": "brew install uv", "upgrade": "brew upgrade uv", "uninstall": "brew uninstall uv", "check": "command -v uv && command -v uvx" },
-    { "name": "OpenClaw", "install": "bash -c 'set -e; if command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; elif command -v npm >/dev/null 2>&1; then npm install -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; else echo \"缺少 curl/npm/pnpm，无法安装 OpenClaw\"; exit 1; fi'", "upgrade": "bash -c 'set -e; if command -v npm >/dev/null 2>&1; then npm update -g openclaw@latest; elif command -v pnpm >/dev/null 2>&1; then pnpm add -g openclaw@latest; elif command -v curl >/dev/null 2>&1; then curl -fsSL https://openclaw.ai/install.sh | bash; else echo \"缺少 curl/npm/pnpm，无法升级 OpenClaw\"; exit 1; fi'", "uninstall": "bash -c 'if command -v openclaw >/dev/null 2>&1; then openclaw uninstall; elif command -v npm >/dev/null 2>&1; then npm uninstall -g openclaw; elif command -v pnpm >/dev/null 2>&1; then pnpm remove -g openclaw; else echo \"请手动移除 OpenClaw（可能由安装脚本安装）\"; fi'", "check": "command -v openclaw" }
-  ]
-}
-EOF
-fi
-
-# Check if install directory is in PATH
+# /usr/local/bin is on the default macOS PATH. If it is somehow missing we
+# print instructions instead of editing the user's shell config — see the
+# README "Shell 配置安全边界" promise.
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo -e "${YELLOW}⚠️  $INSTALL_DIR 不在 PATH 中${NC}"
-    
-    # Determine shell config file
-    SHELL_CONFIG=""
-    if [[ "$SHELL" == *"zsh"* ]]; then
-        SHELL_CONFIG="$HOME/.zshrc"
-    elif [[ "$SHELL" == *"bash"* ]]; then
-        SHELL_CONFIG="$HOME/.bashrc"
-    fi
-    
-    if [[ -n "$SHELL_CONFIG" ]]; then
-        echo -e "${BLUE}📝 添加到 $SHELL_CONFIG${NC}"
-        echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_CONFIG"
-        # 尝试立即生效
-        export PATH="$INSTALL_DIR:$PATH"
-        # shellcheck disable=SC1090
-        source "$SHELL_CONFIG" || true
-        echo -e "${GREEN}✓ PATH 已更新${NC}"
-    fi
+    echo -e "${YELLOW}⚠️  $INSTALL_DIR 不在当前 PATH 中。请手动将其加入你的 Shell 配置，例如:${NC}"
+    echo "    export PATH=\"$INSTALL_DIR:\$PATH\""
 fi
 
-# 尝试确保 pipx 的路径立即生效
-if command -v pipx &> /dev/null; then
-    export PATH="$HOME/.local/bin:$PATH"
-fi
-
+INSTALLED_VERSION="$("$INSTALL_DIR/okit" --version 2>/dev/null || echo unknown)"
 echo ""
-echo -e "${GREEN}✓ OKIT v1 安装成功！${NC}"
+echo -e "${GREEN}✓ OKIT ${INSTALLED_VERSION} 安装成功！${NC}"
 echo ""
 echo -e "${BLUE}使用方法:${NC}"
-echo "  okit           启动交互式菜单"
-echo "  okit upgrade   升级菜单"
-echo "  okit uninstall 卸载 OKIT"
+echo "  okit web        启动 Web 管理台 (http://localhost:3780)"
+echo "  okit --help     查看全部命令"
+echo "  okit upgrade    升级到最新版本"
 echo ""
-echo -e "${BLUE}配置文件:${NC}"
-echo "  $REGISTRY_FILE"
-echo ""
-echo -e "${BLUE}开始吧！${NC}"
-echo "  okit"
+echo -e "${BLUE}卸载（本脚本不写任何 Shell 配置，卸载只需删除两处）:${NC}"
+echo "  sudo rm -f $INSTALL_DIR/okit"
+echo "  rm -rf $OKIT_DIR"

@@ -60,13 +60,13 @@ function MainSidebar() {
       <div className="sidebar-brand">
         <img className="sidebar-brand-logo" src="/okit-icon-180.png" alt="OKIT" />
       </div>
-      <div className="nav-scroll">
+      <nav className="nav-scroll" aria-label={t('nav.primary')}>
         {NAV_SECTIONS.map(section => (
           <div className="nav-section" key={section.labelKey}>
             {section.items.map(renderNavItem)}
           </div>
         ))}
-      </div>
+      </nav>
       <div className="sidebar-bottom">
         <NavLink
           to="/settings"

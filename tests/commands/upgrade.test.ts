@@ -4,6 +4,7 @@ import {
   queryLatestVersion,
   installPackage,
   upgradeSelf,
+  compareVersions,
   UpgradeDeps,
 } from "../../src/commands/upgrade";
 
@@ -65,13 +66,13 @@ describe("okit upgrade", () => {
     expect(version).toBeNull();
   });
 
-  it("installPackage runs npm update -g with the package name", async () => {
+  it("installPackage runs npm install -g with the package name at latest", async () => {
     const deps = makeDeps({
       run: async () => ({ stdout: "" }),
     });
     const ok = await installPackage(deps);
     expect(ok).toBe(true);
-    expect(deps.calls[0]).toEqual({ cmd: "npm", args: ["update", "-g", PACKAGE_NAME] });
+    expect(deps.calls[0]).toEqual({ cmd: "npm", args: ["install", "-g", `${PACKAGE_NAME}@latest`] });
   });
 
   it("installPackage returns false and logs on failure", async () => {
@@ -92,7 +93,7 @@ describe("okit upgrade", () => {
       exit,
     });
     await upgradeSelf(deps);
-    expect(deps.calls.filter((c) => c.cmd === "npm" && c.args[0] === "update").length).toBe(0);
+    expect(deps.calls.filter((c) => c.cmd === "npm" && c.args[0] === "install").length).toBe(0);
     expect(exit).toHaveBeenCalledWith(0);
   });
 
@@ -106,7 +107,7 @@ describe("okit upgrade", () => {
       exit,
     });
     await upgradeSelf(deps);
-    expect(deps.calls.some((c) => c.args[0] === "update")).toBe(true);
+    expect(deps.calls.some((c) => c.args[0] === "install")).toBe(true);
     expect(exit).toHaveBeenCalledWith(0);
   });
 
@@ -144,5 +145,13 @@ describe("okit upgrade", () => {
     });
     await upgradeSelf(deps);
     expect(deps.calls.some((c) => c.cmd === "sudo")).toBe(false);
+  });
+
+  it("compares dotted versions numerically per segment", () => {
+    expect(compareVersions("2.3.0", "2.3.0")).toBe(0);
+    expect(compareVersions("2.3.1", "2.3.0")).toBeGreaterThan(0);
+    expect(compareVersions("2.3.0", "2.10.0")).toBeLessThan(0); // numeric, not lexicographic
+    expect(compareVersions("v3.0.0", "2.99.99")).toBeGreaterThan(0);
+    expect(compareVersions("2.3", "2.3.0")).toBe(0);
   });
 });

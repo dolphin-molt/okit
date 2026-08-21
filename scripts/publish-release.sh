@@ -105,7 +105,13 @@ if [[ ${#assets[@]} -eq 0 ]]; then
     (cd "$tmp_dir" && zip -q -r "../$asset_name" "okit")
   done
 
-  assets=("$release_dir"/*.zip)
+  # SHA256 sidecars — install.sh and `okit upgrade` refuse to proceed without
+  # them, so every zip must ship with a matching .sha256.
+  for z in "$release_dir"/*.zip; do
+    shasum -a 256 "$z" > "$z.sha256"
+  done
+
+  assets=("$release_dir"/*.zip "$release_dir"/*.zip.sha256)
 fi
 
 notes_file=""

@@ -21,32 +21,52 @@ jobs:
           echo "Tag: ${TAG}"
           echo "Expected: ${EXPECTED}"
           if [ "$TAG" != "$EXPECTED" ]; then
-            echo "::error::Git tag '$TAG' does not match package version '$EXPECTED'. Aborting release."
+            echo "::error::Git tag '$TAG' does not match package version '$PKG_VERSION'. Aborting release."
             exit 1
           fi
 
-  npm-publish:
+  # Full preflight: tests, build, npm package contents, and BOTH architecture
+  # binaries must all succeed before anything is published. Publishing only
+  # starts after this job is green, so a broken build can no longer produce a
+  # half-published state (npm out, Release missing).
+  verify:
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install frontend deps (locked)
+        run: cd src/web/frontend && npm ci
 
       - run: npm ci
 
-      - run: npm run build
+      - name: Tests
+        run: npm test
 
-      - name: Publish to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Build (tsc + presets + web + frontend)
+        run: npm run build
 
-  release:
-    needs: npm-publish
+      - name: Validate npm package contents
+        run: npm pack --dry-run
+
+      - name: Build standalone binaries (arm64 + x64)
+        run: npm run pkg
+
+      - name: Smoke-test arm64 binary
+        run: |
+          ./bin/okit-macos-arm64 --version
+          ./bin/okit-macos-arm64 skill path
+
+      - name: Verify x64 binary Mach-O header
+        run: |
+          file bin/okit-macos-x64 | tee /dev/stderr | grep -q 'Mach-O 64-bit executable x86_64'
+
+  publish:
+    needs: verify
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,16 +76,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
 
-      # publish-release.sh builds the TypeScript, frontend, and pkg binaries.
-      # A fresh GitHub runner has no node_modules until dependencies are installed.
+      - name: Install frontend deps (locked)
+        run: cd src/web/frontend && npm ci
+
       - run: npm ci
 
+      - name: Build
+        run: npm run build
+
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # publish-release.sh owns the binary naming (okit-${TAG}-macos-{arch}.zip
+      # + .sha256 sidecars) and uploads both macOS assets, so CI and manual
+      # runs never drift.
       - name: Build binaries and publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          # publish-release.sh owns the binary naming (okit-${TAG}-macos-{arch}.zip)
-          # and uploads both macOS assets, so CI and manual runs never drift.
           scripts/publish-release.sh "$TAG" --auto-notes

@@ -2,6 +2,7 @@ export default {
   // 导航
   'nav.home': '快速启动',
   'nav.workspace': '工作台',
+  'nav.primary': '主导航',
   'nav.vault': '密钥管理',
   'nav.models': '模型管控',
   'nav.usage': '用量统计',

@@ -7,16 +7,30 @@
  * via sendCommand().
  *
  * Protocol message shapes:
- *   Server → Extension:  { id, action, ...params }   (a Command)
- *   Extension → Server:  { id, ok, data?, error? }   (a Result)
- *                        { type: 'hello', version }  (version handshake on connect)
- *                        { type: 'log', level, msg } (forwarded console output)
+ *   Client → Server:       { type: 'auth', token }     (one-time token handshake)
+ *   Server → Client:       { type: 'auth-ok' } | { type: 'auth-failed', error }
+ *   Server → Extension:    { id, action, ...params }   (a Command)
+ *   Extension → Server:    { id, ok, data?, error? }   (a Result)
+ *                          { type: 'hello', version }  (version handshake after auth)
+ *                          { type: 'log', level, msg } (forwarded console output)
+ *
+ * Security model:
+ *   The channel can navigate tabs, execute page JS, and read cookies, so it is
+ *   locked down twice:
+ *   1. Origin gate — the WebSocket upgrade is rejected unless the client's
+ *      Origin is a browser-extension context (chrome-extension:// or
+ *      moz-extension://). A regular web page cannot open the socket at all.
+ *   2. One-time token handshake — even a socket that passes the origin gate
+ *      stays mute until it presents a token issued by
+ *      GET /api/extension/token (which itself only answers extension origins
+ *      via CORS). Tokens are single-use and expire in 2 minutes.
  *
  * Legacy support: sendToExtension({ type: 'auto-create', ... }) is kept for
  * volcengine/minimax until they migrate to the atomic protocol (Phase 3).
  */
 
 const { WebSocketServer } = require('ws');
+const crypto = require('crypto');
 
 const PENDING = new Map(); // requestId -> { resolve, reject, timer }
 let extWs = null;
@@ -24,24 +38,78 @@ let reqCounter = 0;
 let extensionVersion = null;
 let extensionProtocol = null;
 
+// ─── One-time auth tokens ────────────────────────────────────────────
+// token -> expiry (ms epoch). Issued by /api/extension/token, consumed by the
+// first message on a new WebSocket connection.
+
+const TOKEN_TTL_MS = 2 * 60 * 1000;
+const AUTH_TIMEOUT_MS = 5000;
+const authTokens = new Map();
+
+function isExtensionOrigin(origin) {
+  return typeof origin === 'string' &&
+    (/^chrome-extension:\/\//.test(origin) || /^moz-extension:\/\//.test(origin));
+}
+
+function issueExtensionToken(ttlMs = TOKEN_TTL_MS) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const now = Date.now();
+  for (const [t, exp] of authTokens) {
+    if (exp <= now) authTokens.delete(t);
+  }
+  authTokens.set(token, now + ttlMs);
+  return token;
+}
+
+function consumeExtensionToken(token) {
+  const exp = authTokens.get(token);
+  if (!exp) return false;
+  authTokens.delete(token); // single use
+  return exp > Date.now();
+}
+
 function setupWebSocket(httpServer) {
   const wss = new WebSocketServer({
     server: httpServer,
     path: '/ws/extension',
+    // Origin gate: only browser-extension contexts may complete the upgrade.
+    verifyClient: (info) => isExtensionOrigin(info.req.headers.origin),
   });
 
   wss.on('connection', (ws, req) => {
-    console.log(`[WS] Extension connected from ${req.socket.remoteAddress} at ${new Date().toISOString()}`);
+    console.log(`[WS] Extension socket from ${req.socket.remoteAddress} (origin ${req.headers.origin || 'none'}) — awaiting token`);
 
-    // Close previous connection if exists (single-extension model)
-    if (extWs && extWs !== ws) {
-      extWs.close();
-    }
-    extWs = ws;
+    let authenticated = false;
+    const authTimer = setTimeout(() => {
+      if (!authenticated) {
+        try { ws.send(JSON.stringify({ type: 'auth-failed', error: 'auth timeout' })); } catch { /* closing anyway */ }
+        ws.close(4401, 'auth timeout');
+      }
+    }, AUTH_TIMEOUT_MS);
 
     ws.on('message', (data) => {
       let msg;
       try { msg = JSON.parse(data.toString()); } catch { return; }
+
+      if (!authenticated) {
+        if (msg.type === 'auth' && typeof msg.token === 'string' && consumeExtensionToken(msg.token)) {
+          authenticated = true;
+          clearTimeout(authTimer);
+          // Single-extension model: only an AUTHENTICATED connection can evict
+          // the previous one. Unauthenticated sockets never touch extWs.
+          if (extWs && extWs !== ws) {
+            extWs.close();
+          }
+          extWs = ws;
+          ws.send(JSON.stringify({ type: 'auth-ok' }));
+          console.log('[WS] Extension authenticated');
+        } else if (msg.type === 'auth') {
+          console.warn('[WS] Extension auth failed: invalid or expired token');
+          try { ws.send(JSON.stringify({ type: 'auth-failed', error: 'invalid or expired token' })); } catch { /* ignore */ }
+          ws.close(4401, 'invalid token');
+        }
+        return;
+      }
 
       // Version handshake (extension sends this on connect)
       if (msg.type === 'hello') {
@@ -84,22 +152,23 @@ function setupWebSocket(httpServer) {
     });
 
     ws.on('close', () => {
-      console.log('[WS] Extension disconnected');
+      clearTimeout(authTimer);
       if (extWs === ws) {
+        console.log('[WS] Extension disconnected');
         extWs = null;
         extensionVersion = null;
         extensionProtocol = null;
-      }
-      // Reject every pending request — prevents callers from hanging forever
-      for (const [id, pending] of PENDING.entries()) {
-        clearTimeout(pending.timer);
-        pending.reject(new Error('Extension disconnected'));
-        PENDING.delete(id);
+        // Reject every pending request — prevents callers from hanging forever
+        for (const [id, pending] of PENDING.entries()) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error('Extension disconnected'));
+          PENDING.delete(id);
+        }
       }
     });
   });
 
-  console.log('[WS] WebSocket server ready on /ws/extension');
+  console.log('[WS] WebSocket server ready on /ws/extension (origin-gated + one-time token)');
   return wss;
 }
 
@@ -188,4 +257,7 @@ module.exports = {
   isExtensionConnected,
   getExtensionVersion,
   getExtensionProtocol,
+  issueExtensionToken, // one-time WS auth token (used by /api/extension/token)
+  consumeExtensionToken, // test hook: validate + burn a token
+  isExtensionOrigin,   // origin gate helper (used by /api/extension/token)
 };

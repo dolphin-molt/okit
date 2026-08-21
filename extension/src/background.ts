@@ -19,7 +19,7 @@
  */
 
 import type { Command, Result } from './protocol.js';
-import { OKIT_WS_URL, OKIT_PING_URL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from './protocol.js';
+import { OKIT_WS_URL, OKIT_PING_URL, OKIT_TOKEN_URL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from './protocol.js';
 import { generateStealthJs } from './stealth.js';
 import * as executor from './cdp.js';
 
@@ -65,6 +65,23 @@ async function connect(): Promise<void> {
     return; // server not running — skip WebSocket to avoid console noise
   }
 
+  // One-time auth token. The server issues tokens only to extension origins
+  // (CORS-gated), then requires one on the WebSocket before any command
+  // traffic — an ordinary web page can do neither.
+  let token: string | undefined;
+  try {
+    const res = await fetch(OKIT_TOKEN_URL, { signal: AbortSignal.timeout(1500) });
+    if (res.ok) {
+      const body = await res.json() as { token?: string };
+      token = body.token;
+    } else if (res.status !== 404) {
+      return; // unexpected error — retry on the next keepalive tick
+    }
+    // 404 = server predates WS auth; it accepts an unauthenticated connect.
+  } catch {
+    return;
+  }
+
   try {
     ws = new WebSocket(OKIT_WS_URL);
   } catch {
@@ -79,8 +96,10 @@ async function connect(): Promise<void> {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-    // Send version + protocol marker so the server can confirm it's talking to
+    // Authenticate first (server stays mute until a valid token arrives), then
+    // send version + protocol marker so the server can confirm it's talking to
     // the v2 atomic-capability extension (not a stale cached v1 SW).
+    if (token) ws?.send(JSON.stringify({ type: 'auth', token }));
     ws?.send(JSON.stringify({
       type: 'hello',
       version: chrome.runtime.getManifest().version,
@@ -89,8 +108,20 @@ async function connect(): Promise<void> {
   };
 
   ws.onmessage = async (event) => {
+    let msg: any;
     try {
-      const command = JSON.parse(event.data as string) as Command;
+      msg = JSON.parse(event.data as string);
+    } catch {
+      return;
+    }
+    if (msg?.type === 'auth-ok') return; // handshake ack — not a command
+    if (msg?.type === 'auth-failed') {
+      console.error('[OKIT] WS auth rejected:', msg.error || 'unknown error');
+      ws?.close();
+      return;
+    }
+    try {
+      const command = msg as Command;
       const result = await handleCommand(command);
       ws?.send(JSON.stringify(result));
     } catch (err) {

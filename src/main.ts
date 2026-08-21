@@ -64,16 +64,30 @@ function getUnknownSubcommand(): string | null {
 }
 
 // 语言选择（首次运行时显示）
+// 非交互环境（管道 / Agent / CI）绝不弹选择框：按环境变量自动判定语言，
+// 且不落盘——下次真人交互运行时仍会看到选择器。否则 --json 输出会被
+// 交互提示污染，脚本会永久挂起。
+function detectLanguageFromEnv(): Language {
+  const locale = (process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || "").toLowerCase();
+  return locale.includes("zh") ? "zh" : "en";
+}
+
 async function selectLanguageIfNeeded(): Promise<void> {
   // 先尝试加载已保存的语言配置
   const savedLang = await loadLanguageConfig();
-  
+
   if (savedLang) {
     // 已有配置，直接使用
     setLanguage(savedLang);
     return;
   }
-  
+
+  const nonInteractive = !process.stdin.isTTY || process.env.CI || process.env.OKIT_NO_PROMPT;
+  if (nonInteractive) {
+    setLanguage(detectLanguageFromEnv());
+    return;
+  }
+
   // 首次运行，显示语言选择
   const response = await prompts({
     type: "select",

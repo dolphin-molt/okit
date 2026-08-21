@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-rou
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import ProviderImportModal from './components/shared/ProviderImportModal';
+import { useI18n } from './i18n';
 
 // Route-level code splitting: heavy pages are loaded on demand so the main
 // entry chunk stays small. A lightweight, layout-stable placeholder is shown
@@ -30,6 +31,32 @@ function PageLoading() {
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
+}
+
+/**
+ * Keep document.title in sync with the active route. Every page used to ship
+ * the plain "OKIT" title, which made browser history entries and assistive
+ * tech page lists indistinguishable.
+ */
+function DocumentTitle() {
+  const { pathname } = useLocation();
+  const { t } = useI18n();
+
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      '/vault': t('nav.vault'),
+      '/models': t('nav.models'),
+      '/usage': t('nav.usage'),
+      '/agents': t('nav.agents'),
+      '/settings': t('nav.settings'),
+      '/manual': t('manual.nav'),
+      '/catalog': t('catalog.title'),
+    };
+    const section = titles[pathname] ?? (pathname.startsWith('/settings') ? t('nav.settings') : null);
+    document.title = section ? `${section} · OKIT` : 'OKIT';
+  }, [pathname, t]);
+
+  return null;
 }
 
 function DeepLinkHandler() {
@@ -119,21 +146,24 @@ function PersistentDashboardRoutes() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/manual" element={<LazyRoute><ManualPage /></LazyRoute>} />
-      {/* Standalone model catalog — outside the app shell, own design. */}
-      <Route path="/catalog" element={<LazyRoute><ModelCatalogPage /></LazyRoute>} />
-      <Route path="*" element={
-        <div id="app">
-          <DeepLinkHandler />
-          <Sidebar />
-            <main className="main-content">
-            <div className="tab-content">
-              <PersistentDashboardRoutes />
-            </div>
-          </main>
-        </div>
-      } />
-    </Routes>
+    <>
+      <DocumentTitle />
+      <Routes>
+        <Route path="/manual" element={<LazyRoute><ManualPage /></LazyRoute>} />
+        {/* Standalone model catalog — outside the app shell, own design. */}
+        <Route path="/catalog" element={<LazyRoute><ModelCatalogPage /></LazyRoute>} />
+        <Route path="*" element={
+          <div id="app">
+            <DeepLinkHandler />
+            <Sidebar />
+              <main className="main-content">
+              <div className="tab-content">
+                <PersistentDashboardRoutes />
+              </div>
+            </main>
+          </div>
+        } />
+      </Routes>
+    </>
   );
 }

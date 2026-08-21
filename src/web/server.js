@@ -10,6 +10,7 @@ const { listProviders, getAdaptersList, createProvider, updateProvider, deletePr
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 const { createGrokProxyHandler } = require('./api/grok-proxy');
 const { listSnapshotsHandler, snapshotDetailHandler, restoreSnapshotHandler } = require('./api/snapshots');
+const { issueExtensionToken, isExtensionOrigin } = require('./api/ws-extension');
 
 function createServer(port = 3780) {
   const app = express();
@@ -63,6 +64,20 @@ function createServer(port = 3780) {
   // ERR_CONNECTION_REFUSED (uncatchable on new WebSocket()) stays out of
   // the extension console. No auth/header required.
   app.get('/ping', (_req, res) => res.json({ ok: true }));
+
+  // One-time WebSocket auth token for the Chrome extension. Only browser-
+  // extension origins get CORS headers, so an ordinary web page cannot read a
+  // token even if it can reach this endpoint — and without a token the WS
+  // channel at /ws/extension stays closed to it.
+  app.get('/api/extension/token', (req, res) => {
+    const origin = req.headers.origin || '';
+    if (!isExtensionOrigin(origin)) {
+      return res.status(403).json({ error: 'Forbidden: extension origins only' });
+    }
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.json({ token: issueExtensionToken(), ttlSeconds: 120 });
+  });
 
   // Cloudflare sync routes
   app.get('/api/cloudflare/check', checkWrangler);

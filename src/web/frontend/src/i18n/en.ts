@@ -2,6 +2,7 @@ export default {
   // Navigation
   'nav.home': 'Quick Start',
   'nav.workspace': 'Workspace',
+  'nav.primary': 'Primary',
   'nav.vault': 'Vault',
   'nav.models': 'Models',
   'nav.usage': 'Usage',

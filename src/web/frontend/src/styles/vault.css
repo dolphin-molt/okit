@@ -1735,17 +1735,15 @@
   .vault-page-summary { padding: 7px 8px; }
   .vault-page-summary span { padding: 0 7px; }
 
-  .vault-filter-section { flex-wrap: nowrap; }
+  .vault-filter-section { flex-wrap: wrap; }
   .vault-filter-section-label { width: 34px; margin-right: 0; }
+  /* 窄屏让筛选 chips 换行而不是横向滚动 — 隐藏滚动条会让右侧内容
+     看起来像被裁掉，用户无从得知还能滑动（390px 实测）。 */
   .vault-filter-section-chips {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 2px 1px 5px;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
-  .vault-filter-section-chips::-webkit-scrollbar { display: none; }
   .vault-filter-chip,
   .vault-filter-toggle { flex: none; }
 

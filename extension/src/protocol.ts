@@ -95,6 +95,10 @@ export const OKIT_WS_URL = `ws://${OKIT_HOST}:${OKIT_PORT}/ws/extension`;
  *  This avoids ERR_CONNECTION_REFUSED noise in the extension console, since
  *  new WebSocket() failures are not catchable via try/catch. */
 export const OKIT_PING_URL = `http://${OKIT_HOST}:${OKIT_PORT}/ping`;
+/** One-time WS auth token endpoint. The server only answers (CORS) extension
+ *  origins, so ordinary web pages can neither fetch a token nor use the WS
+ *  command channel. */
+export const OKIT_TOKEN_URL = `http://${OKIT_HOST}:${OKIT_PORT}/api/extension/token`;
 
 // ─── Reconnect tuning ───────────────────────────────────────────────
 /** Base reconnect delay for extension WebSocket (ms) */

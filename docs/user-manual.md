@@ -47,7 +47,7 @@ Web 控制台默认运行在 **http://localhost:3780**。如果 3780 被占用�
 
 ## 3. 浏览器扩展配置（自动创建密钥的前提）
 
-扩展 **OKIT Auto-Create**（MV3）复用 Chrome 已登录的平台会话，在官方控制台里替你点表单、创建 Key、复制并回填到 OKIT 加密库——全程只在你的浏览器和本机之间进行。
+扩展 **OKIT**（MV3）复用 Chrome 已登录的平台会话，在官方控制台里替你点表单、创建 Key、复制并回填到 OKIT 加密库——全程只在你的浏览器和本机之间进行。
 
 ### 3.1 构建扩展
 
@@ -66,7 +66,7 @@ npm run build        # tsc 编译 → extension/dist/
 3. 点击**加载已解压的扩展程序**
 4. 选择 `extension/dist/` 目录（注意是 `dist` 子目录，不是 `extension` 根目录）
 
-加载成功后扩展列表会出现 "OKIT Auto-Create"。
+加载成功后扩展列表会出现 "OKIT"。
 
 ### 3.3 确认连接
 
@@ -77,7 +77,7 @@ npm run build        # tsc 编译 → extension/dist/
 
 ### 3.4 权限说明（重要）
 
-扩展申请了 `debugger`、`tabs`、`cookies` 等权限，因此 Chrome 顶部会显示**"OKIT Auto-Create 已开始调试此浏览器"**的信息条——**这是正常现象**：扩展需要 debugger 通道读取页面内容与执行点击。调试只发生在本机 OKIT 与你的浏览器之间，不会向任何外部服务器发送数据。
+扩展申请了 `debugger`、`tabs`、`cookies` 等权限，因此 Chrome 顶部会显示**"OKIT 已开始调试此浏览器"**的信息条——**这是正常现象**：扩展需要 debugger 通道读取页面内容与执行点击。调试只发生在本机 OKIT 与你的浏览器之间，不会向任何外部服务器发送数据。
 
 ### 3.5 更新扩展
 

@@ -47,7 +47,7 @@ The dashboard runs at **http://localhost:3780** by default. If port 3780 is take
 
 ## 3. Browser Extension Setup (prerequisite for auto-create)
 
-The **OKIT Auto-Create** extension (MV3) reuses your logged-in Chrome sessions: it fills the forms on provider consoles, creates the key, copies it, and files it back into the OKIT vault — entirely between your browser and your machine.
+The **OKIT** extension (MV3) reuses your logged-in Chrome sessions: it fills the forms on provider consoles, creates the key, copies it, and files it back into the OKIT vault — entirely between your browser and your machine.
 
 ### 3.1 Build the extension
 
@@ -66,7 +66,7 @@ npm run build        # tsc compile → extension/dist/
 3. Click **Load unpacked**
 4. Select the `extension/dist/` directory (the `dist` subdirectory, not the `extension` root)
 
-"OKIT Auto-Create" appears in the extension list once loaded.
+"OKIT" appears in the extension list once loaded.
 
 ### 3.3 Verify the connection
 
@@ -77,7 +77,7 @@ npm run build        # tsc compile → extension/dist/
 
 ### 3.4 Permissions (important)
 
-The extension requests `debugger`, `tabs`, `cookies`, and related permissions, so Chrome shows a banner — **"OKIT Auto-Create started debugging this browser"** — **this is expected**: the extension needs the debugger channel to read pages and perform clicks. Debugging happens only between your local OKIT and your browser; nothing is sent to external servers.
+The extension requests `debugger`, `tabs`, `cookies`, and related permissions, so Chrome shows a banner — **"OKIT started debugging this browser"** — **this is expected**: the extension needs the debugger channel to read pages and perform clicks. Debugging happens only between your local OKIT and your browser; nothing is sent to external servers.
 
 ### 3.5 Updating the extension
 

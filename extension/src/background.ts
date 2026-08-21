@@ -1,5 +1,5 @@
 /**
- * OKIT Auto-Create — Service Worker (background script) v2.0
+ * OKIT extension — Service Worker (background script) v2.0
  *
  * Connects to the OKIT server via WebSocket, receives atomic-capability
  * commands (exec, navigate, network-capture-start, etc.), dispatches them to
@@ -764,7 +764,9 @@ async function handleClipboardRead(cmd: Command): Promise<Result> {
 /**
  * Chrome requires the document that calls navigator.clipboard.readText() to be
  * focused. MV3 offscreen documents are explicitly unfocusable, so we open a
- * tiny, focused extension-only popup for this one read, then close it.
+ * focused extension-only popup for this one read, then close it. The window is
+ * positioned off-screen: focus is what the clipboard API demands, visibility
+ * is not — so the reader never flashes on screen during key creation.
  */
 async function readClipboardText(): Promise<string> {
   const requestId = crypto.randomUUID();
@@ -785,6 +787,10 @@ async function readClipboardText(): Promise<string> {
         width: 260,
         height: 96,
         focused: true,
+        // Way outside any display — the popup keeps focus (required for
+        // clipboard.readText) without ever being visible to the user.
+        left: 32000,
+        top: 32000,
       });
       popupWindowId = popup.id;
     } catch (error) {

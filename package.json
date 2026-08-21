@@ -30,6 +30,8 @@
     "dist/utils/**",
     "dist/vault/**",
     "dist/web/**",
+    "extension/**",
+    "!extension/node_modules",
     "skills/okit-cli/**",
     "!dist/release",
     "package.json",
@@ -97,7 +99,8 @@
     ],
     "assets": [
       "dist/web/public/**/*",
-      "skills/okit-cli/SKILL.md"
+      "skills/okit-cli/SKILL.md",
+      "extension/**/*"
     ],
     "targets": [
       "node18-macos-arm64",

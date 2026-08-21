@@ -2064,8 +2064,15 @@ async function getUsage(req, res) {
 
 // Returns the set of provider IDs that support usage queries, so the
 // frontend can decide whether to show a "usage" button per provider.
+//
+// manualOnly: providers whose usage query DRIVES the browser (opens/navigates
+// the OKIT automation window via the extension). These must never run from
+// background auto-refresh — only from an explicit user action (per-card
+// refresh or the manual "refresh all" button).
+const MANUAL_ONLY_USAGE = ['opencode-go'];
+
 function getSupportedUsageProviders(_req, res) {
-  res.json({ providers: Array.from(SUPPORTED) });
+  res.json({ providers: Array.from(SUPPORTED), manualOnly: MANUAL_ONLY_USAGE });
 }
 
 module.exports = { getUsage, getSupportedUsageProviders, queryUsage, parseOpenRouterCredits, parseXaiPrepaidBalance, parseXiaomiBalance, parseXiaomiTokenPlanUsage, parseOpenCodeGoUsage, parseQianfanTokenPlanUsage, buildBceAuthorization, openXiaomiLogin };

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const os = require('os');
 const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups } = require('./api/vault');
 const { autoCreateKey, autoCreateRunStatus, resumeAutoCreateRun, deleteAutoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
@@ -77,6 +78,32 @@ function createServer(port = 3780) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.json({ token: issueExtensionToken(), ttlSeconds: 120 });
+  });
+
+  // Diagnostics summary for support requests: real port, runtime, extension
+  // link state, per-agent config presence, and the most recent failed
+  // operations. Everything redacts secrets; keys never leave this machine.
+  app.get('/api/diagnostics', (_req, res) => {
+    try {
+      const wsExt = require('./api/ws-extension');
+      const providersApi = require('./api/providers');
+      const { recentFailures } = require('./api/logs');
+      res.json({
+        version: require('../../package.json').version,
+        port: runtimePort,
+        nodeVersion: process.version,
+        platform: `${process.platform} ${os.release()} ${process.arch}`,
+        extension: {
+          connected: wsExt.isExtensionConnected(),
+          version: wsExt.getExtensionVersion(),
+          protocol: wsExt.getExtensionProtocol(),
+        },
+        agents: providersApi.agentConfigPresence(),
+        recentFailures: recentFailures(5),
+      });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   // Cloudflare sync routes
@@ -162,6 +189,10 @@ function createServer(port = 3780) {
   return app;
 }
 
+// Actual listening port (may differ from the default 3780 after fallback).
+// Recorded so /api/diagnostics can report the real port.
+let runtimePort = null;
+
 function startServer(port = 3780, onStarted) {
   const { setupWebSocket, sendToExtension, isExtensionConnected } = require('./api/ws-extension');
   const app = createServer(port);
@@ -169,6 +200,7 @@ function startServer(port = 3780, onStarted) {
   const server = require('http').createServer(app);
 
   server.listen(port, '127.0.0.1', () => {
+    runtimePort = port;
     // Attach WebSocket only after the HTTP port is bound successfully.
     // WebSocketServer forwards errors from its HTTP server; attaching it
     // before listen() turns EADDRINUSE into an uncaught WebSocket error and

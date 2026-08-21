@@ -4,6 +4,21 @@ const os = require('os');
 
 const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
 const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
+const ROTATED_FILE = `${HISTORY_FILE}.1`;
+
+// Rotate once the active file crosses this size — a long-lived local install
+// must not grow an unbounded history file.
+const MAX_LOG_BYTES = 5 * 1024 * 1024;
+
+function rotateIfNeeded() {
+  try {
+    const stat = fs.statSync(HISTORY_FILE);
+    if (stat.size < MAX_LOG_BYTES) return;
+    fs.renameSync(HISTORY_FILE, ROTATED_FILE); // replaces the previous .1
+  } catch {
+    // Missing file (first write) or race — never block the append.
+  }
+}
 
 /**
  * Append one operation event using the shared log schema.
@@ -13,6 +28,7 @@ const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
 function appendLog(action, name, success, detail) {
   try {
     fs.mkdirSync(LOGS_DIR, { recursive: true });
+    rotateIfNeeded();
     const entry = {
       schemaVersion: 1,
       timestamp: new Date().toISOString(),
@@ -30,4 +46,4 @@ function appendLog(action, name, success, detail) {
   }
 }
 
-module.exports = { appendLog, HISTORY_FILE };
+module.exports = { appendLog, HISTORY_FILE, ROTATED_FILE, MAX_LOG_BYTES };

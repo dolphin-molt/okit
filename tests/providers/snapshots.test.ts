@@ -67,6 +67,8 @@ const {
 const HOMEDIR = os.homedir();
 const SETTINGS_PATH = path.join(HOMEDIR, '.claude', 'settings.json');
 const HELPER_PATH = path.join(HOMEDIR, '.claude', '.okit-key-helper.sh');
+const ZCODE_V2_PATH = path.join(HOMEDIR, '.zcode', 'v2', 'config.json');
+const ZCODE_CLI_PATH = path.join(HOMEDIR, '.zcode', 'cli', 'config.json');
 
 let ROOT: string;
 
@@ -132,6 +134,60 @@ describe('capturePreSwitchSnapshot', () => {
   it('rejects an invalid agentId', async () => {
     await expect(capturePreSwitchSnapshot('../etc', ROOT)).rejects.toThrow();
     await expect(capturePreSwitchSnapshot('CLAUDE', ROOT)).rejects.toThrow();
+  });
+});
+
+describe('zcode duplicate basenames', () => {
+  // zcode owns two files both named config.json. Snapshots must keep BOTH —
+  // storing by basename made the second write clobber the first.
+  it('captures both zcode config files under disambiguated names', async () => {
+    mocks.files.set(ZCODE_V2_PATH, '{"v2":true}');
+    mocks.files.set(ZCODE_CLI_PATH, '{"cli":true}');
+
+    const id = await capturePreSwitchSnapshot('zcode', ROOT);
+    expect(id).toBeTruthy();
+
+    const dir = snapshotDir('zcode', id!);
+    expect(mocks.files.get(path.join(dir, 'v2__config.json'))).toBe('{"v2":true}');
+    expect(mocks.files.get(path.join(dir, 'cli__config.json'))).toBe('{"cli":true}');
+    // The bare colliding name must not exist at all.
+    expect(mocks.files.has(path.join(dir, 'config.json'))).toBe(false);
+  });
+
+  it('restores both zcode files after a switch changed them', async () => {
+    mocks.files.set(ZCODE_V2_PATH, '{"v2":"original"}');
+    mocks.files.set(ZCODE_CLI_PATH, '{"cli":"original"}');
+    const id = await capturePreSwitchSnapshot('zcode', ROOT);
+
+    mocks.files.set(ZCODE_V2_PATH, '{"v2":"switched"}');
+    mocks.files.set(ZCODE_CLI_PATH, '{"cli":"switched"}');
+
+    await restoreSnapshot('zcode', id!, ROOT);
+
+    expect(mocks.files.get(ZCODE_V2_PATH)).toBe('{"v2":"original"}');
+    expect(mocks.files.get(ZCODE_CLI_PATH)).toBe('{"cli":"original"}');
+  });
+
+  it('reports both files in getCurrentFiles with matching names', async () => {
+    mocks.files.set(ZCODE_V2_PATH, '{"v2":1}');
+    const files = await getCurrentFiles('zcode', ROOT);
+    expect(files.map(f => f.name).sort()).toEqual(['cli__config.json', 'v2__config.json']);
+    expect(files.find(f => f.name === 'v2__config.json')!.content).toBe('{"v2":1}');
+    expect(files.find(f => f.name === 'cli__config.json')!.content).toBeNull();
+  });
+
+  it('still restores legacy snapshots that stored a bare config.json', async () => {
+    // Old snapshots only contain the last-written file (cli). The basename
+    // fallback must map it back to the cli file — the old behavior.
+    mocks.files.set(ZCODE_V2_PATH, '{"v2":"current"}');
+    mocks.files.set(ZCODE_CLI_PATH, '{"cli":"current"}');
+    seedSnapshot('zcode', '2020-01-01T00-00-00-000Z', 'config.json', '{"cli":"legacy"}');
+
+    await restoreSnapshot('zcode', '2020-01-01T00-00-00-000Z', ROOT);
+
+    expect(mocks.files.get(ZCODE_CLI_PATH)).toBe('{"cli":"legacy"}');
+    // The v2 file was never captured by the legacy format — untouched.
+    expect(mocks.files.get(ZCODE_V2_PATH)).toBe('{"v2":"current"}');
   });
 });
 

@@ -5,7 +5,7 @@ import { useApp } from '../Layout/AppContext';
 import { getAgentIcon, getAgentIconClass } from '../../assets/agents';
 import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import JsonTreeView from '../shared/JsonTreeView';
-import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check } from 'lucide-react';
 import UsageSummary from './UsageSummary';
 import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
@@ -55,6 +55,9 @@ export default function HomePage() {
   const [showAddPicker, setShowAddPicker] = useState(false);
   const [configFiles, setConfigFiles] = useState<AgentConfigFile[] | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
+  // Whether the viewer currently shows raw credentials (explicit user action
+  // with a confirmation). Default: sensitive values are masked server-side.
+  const [configRevealed, setConfigRevealed] = useState(false);
   const [activeConfigTab, setActiveConfigTab] = useState(0);
   // Editable drafts: maps file path → edited content. A file is "dirty" when
   // its draft differs from the original content loaded from disk.
@@ -137,7 +140,7 @@ export default function HomePage() {
     setDropTabIndex(null);
   }, []);
 
-  const handleViewConfig = useCallback(async () => {
+  const handleViewConfig = useCallback(async (reveal = configRevealed) => {
     if (!activeAgentId) return;
     setConfigLoading(true);
     setConfigFiles([]);
@@ -145,14 +148,25 @@ export default function HomePage() {
     setConfigDrafts({});
     setConfigViewMode('raw');
     try {
-      const res = await getAgentConfigFiles(activeAgentId);
+      const res = await getAgentConfigFiles(activeAgentId, { reveal });
       setConfigFiles(res.files);
+      setConfigRevealed(Boolean(res.revealed));
     } catch (err: any) {
       showToast(err.message, 'error');
     } finally {
       setConfigLoading(false);
     }
-  }, [activeAgentId, showToast]);
+  }, [activeAgentId, configRevealed, showToast]);
+
+  const handleToggleReveal = useCallback(() => {
+    if (!configRevealed) {
+      const ok = window.confirm(t('home.configRevealConfirm'));
+      if (!ok) return;
+      handleViewConfig(true);
+    } else {
+      handleViewConfig(false);
+    }
+  }, [configRevealed, handleViewConfig, t]);
 
   const handleSaveConfig = useCallback(async (filePath: string) => {
     if (!activeAgentId) return;
@@ -315,7 +329,7 @@ export default function HomePage() {
               <button
                 type="button"
                 className="home-view-config-btn"
-                onClick={handleViewConfig}
+                onClick={() => handleViewConfig()}
                 disabled={configLoading}
                 title={configLoading ? t('common.loading') : t('home.viewConfig')}
               >
@@ -639,7 +653,16 @@ export default function HomePage() {
             <div className="home-add-picker-header">
               <h3>{t('home.configFilesTitle')}</h3>
               <div className="home-config-viewer-actions">
-                <button type="button" className="home-config-refresh-btn" onClick={handleViewConfig} disabled={configLoading} title={t('home.refresh')}>
+                <button
+                  type="button"
+                  className={`home-config-refresh-btn${configRevealed ? ' revealed' : ''}`}
+                  onClick={handleToggleReveal}
+                  disabled={configLoading}
+                  title={configRevealed ? t('home.configHideSensitive') : t('home.configRevealSensitive')}
+                >
+                  {configRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+                <button type="button" className="home-config-refresh-btn" onClick={() => handleViewConfig()} disabled={configLoading} title={t('home.refresh')}>
                   <RefreshCw size={14} />
                 </button>
                 <button type="button" className="btn-icon" onClick={() => setConfigFiles(null)} title={t('common.close')}><X size={14} /></button>
@@ -706,7 +729,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         className={`home-config-save-btn${dirty ? ' dirty' : ''}${configSaveState === 'ok' ? ' saved' : ''}${configSaveState === 'fail' ? ' failed' : ''}`}
-                        disabled={!f.exists || (!dirty && configSaveState === 'idle') || configSaveState === 'saving'}
+                        disabled={!f.exists || (!dirty && configSaveState === 'idle') || configSaveState === 'saving' || (!configRevealed && (f.maskedCount ?? 0) > 0)}
                         onClick={() => handleSaveConfig(f.path)}
                         title={t('home.save')}
                       >

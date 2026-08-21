@@ -36,14 +36,39 @@ export default function SettingsPage() {
   }
 
   async function copyDiagnostics() {
-    const summary = [
+    // Server-side summary (real port, runtime, extension link, agent config
+    // presence, recent failures) enriches the browser-side basics — support
+    // requests then carry the actual failure context instead of guesses.
+    let server: any = null;
+    try {
+      server = await fetch('/api/diagnostics').then(r => r.ok ? r.json() : null);
+    } catch { /* fall back to browser-side basics only */ }
+
+    const lines = [
       `OKIT ${packageInfo.version}`,
       `Service: ${serviceReady === null ? 'checking' : serviceReady ? 'connected' : 'unavailable'}`,
       `Address: ${window.location.origin}`,
+    ];
+    if (server) {
+      lines.push(
+        `Port: ${server.port ?? 'unknown'}`,
+        `Runtime: Node ${server.nodeVersion} on ${server.platform}`,
+        `Extension: ${server.extension?.connected ? `connected (v${server.extension.version ?? '?'}, ${server.extension.protocol ?? '?'})` : 'not connected'}`,
+        `Agents present: ${(server.agents || [])
+          .filter((a: any) => a.files.some((f: any) => f.exists))
+          .map((a: any) => a.id)
+          .join(', ') || 'none'}`,
+      );
+      for (const fail of server.recentFailures || []) {
+        lines.push(`Recent failure: [${fail.timestamp}] ${fail.action} ${fail.name}${fail.output ? ` — ${fail.output}` : ''}`);
+      }
+    }
+    lines.push(
       `Data: ~/.okit`,
       `Language: ${lang}`,
       `Platform: ${navigator.platform}`,
-    ].join('\n');
+    );
+    const summary = lines.join('\n');
     try {
       await navigator.clipboard.writeText(summary);
       showCopied('diagnostics');

@@ -1,4 +1,5 @@
 const { listSnapshots, getSnapshotFiles, getCurrentFiles, restoreSnapshot, capturePreSwitchSnapshot } = require('../../providers/snapshots');
+const { appendLog } = require('./log-writer');
 
 const AGENT_ID_RE = /^[a-z0-9-]+$/;
 const SNAPSHOT_ID_RE = /^[a-zA-Z0-9-]+$/;
@@ -59,8 +60,10 @@ async function restoreSnapshotHandler(req, res) {
       console.warn(`[snapshots] pre-restore capture failed: ${e.message}`);
     }
     await restoreSnapshot(agentId, id);
+    appendLog('snapshot-restore', `${agentId}:${id}`, true);
     res.json({ ok: true });
   } catch (err) {
+    appendLog('snapshot-restore', `${agentId}:${id}`, false, err.message);
     res.status(400).json({ error: err.message });
   }
 }

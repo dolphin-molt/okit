@@ -2,6 +2,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 const { backupImportantData } = require('./backup');
+const { appendLog } = require('./log-writer');
 const {
   QIANFAN_CODING_PROBE_MODEL,
   isQianfanCodingEndpoint,
@@ -557,7 +558,12 @@ async function switchProvider(req, res) {
     } catch (snapErr) {
       console.warn(`[switchProvider] snapshot failed: ${snapErr.message}`);
     }
-    await agentAdapter.applyConfig(route.provider, route.remoteModelId);
+    try {
+      await agentAdapter.applyConfig(route.provider, route.remoteModelId);
+    } catch (applyErr) {
+      appendLog('provider-switch', `${agentId}:${providerId}`, false, `applyConfig failed: ${applyErr.message}`);
+      throw applyErr;
+    }
 
     // Save selection. Merge — adapters for additive agents (workbuddy) store
     // their managedModels tracking under the same key, and a plain replace
@@ -581,6 +587,8 @@ async function switchProvider(req, res) {
     ].slice(0, RECENT_MODELS_MAX);
 
     await saveUserConfig(config);
+
+    appendLog('provider-switch', `${agentId}:${providerId}`, true, `model=${modelId}`);
 
     res.json({
       success: true,
@@ -614,43 +622,52 @@ async function addHomeProvider(req, res) {
     if (!list.includes(providerId)) list.push(providerId);
     home[agentId] = list;
     config.homeProviders = home;
-    await saveUserConfig(config);
 
-    // Additive agents (workbuddy): adding a provider to the home list also
-    // writes its models into the agent's own config so the agent's model
+    // Additive agents (workbuddy/zcode): adding a provider to the home list
+    // also writes its models into the agent's own config so the agent's model
     // picker offers them. Which models follow the home card's visibility
     // rules (recent + not manually hidden); ids colliding with entries OKIT
     // didn't write are skipped by the adapter, never overwritten.
+    //
+    // The agent-config write happens BEFORE the home list is persisted: if the
+    // write fails we must NOT report success — otherwise the UI shows a site
+    // that was never configured in the agent (fake success).
     let skippedModels;
     if (ADDITIVE_AGENTS.has(agentId)) {
+      let entries = null;
       try {
         const jsAdapter = ADAPTERS.find(a => a.id === agentId);
         const agentAdapter = _getAdapter(agentId);
         const providers = await loadProviders();
         const provider = providers.find(p => p.id === providerId);
         if (jsAdapter && agentAdapter && typeof agentAdapter.applyModels === 'function' && provider) {
-          await snapBeforeWrite(agentId, 'addHomeProvider');
           const excluded = new Set(config.codexCatalogExcluded?.[providerId] || []);
           const tagged = tagRecentModels(provider.models || []);
           let candidates = tagged.filter(m => m.recent && !excluded.has(m.id));
           if (candidates.length === 0) candidates = tagged.filter(m => !excluded.has(m.id));
-          const entries = [];
+          entries = [];
           for (const m of candidates) {
             try {
               const route = resolveModelRoute(provider, m.id, jsAdapter);
               entries.push({ provider: route.provider, modelId: route.remoteModelId });
             } catch { /* model not routable for this agent — skip */ }
           }
+          await snapBeforeWrite(agentId, 'addHomeProvider');
           const result = await agentAdapter.applyModels(entries);
           skippedModels = result.skipped;
         }
       } catch (e) {
-        // The provider was already added to the home list — don't fail the
-        // whole request if writing entries to the agent config errors.
-        console.warn(`[addHomeProvider] applyModels failed: ${e.message}`);
+        appendLog('home-provider-add', `${agentId}:${providerId}`, false, `agent config write failed: ${e.message}`);
+        return res.status(500).json({
+          error: `写入 ${agentId} 配置失败: ${e.message}`,
+          code: 'AGENT_WRITE_FAILED',
+        });
       }
     }
 
+    await saveUserConfig(config);
+    appendLog('home-provider-add', `${agentId}:${providerId}`, true,
+      skippedModels ? `skipped ${skippedModels.length} model(s)` : undefined);
     res.json({ success: true, homeProviders: list, skippedModels });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -665,7 +682,31 @@ async function removeHomeProvider(req, res) {
     }
     const config = await loadUserConfig();
     const home = { ...(config.homeProviders || {}) };
-    const list = Array.isArray(home[agentId]) ? home[agentId].filter(id => id !== providerId) : [];
+    const list = Array.isArray(home[agentId]) ? [...home[agentId]].filter(id => id !== providerId) : [];
+
+    // Additive agents: removing a provider from the home list also removes
+    // the entries OKIT wrote for it in the agent's own config (including
+    // their keys). Entries not written by OKIT are never touched.
+    //
+    // The agent-config removal happens BEFORE the home list is persisted: a
+    // failure must surface as an error, not leave the UI believing the site
+    // was removed while the agent still has it configured (fake success).
+    if (ADDITIVE_AGENTS.has(agentId)) {
+      try {
+        const agentAdapter = _getAdapter(agentId);
+        if (agentAdapter && typeof agentAdapter.removeProvider === 'function') {
+          await snapBeforeWrite(agentId, 'removeHomeProvider');
+          await agentAdapter.removeProvider(providerId);
+        }
+      } catch (e) {
+        appendLog('home-provider-remove', `${agentId}:${providerId}`, false, `agent config write failed: ${e.message}`);
+        return res.status(500).json({
+          error: `从 ${agentId} 配置移除失败: ${e.message}`,
+          code: 'AGENT_WRITE_FAILED',
+        });
+      }
+    }
+
     if (list.length === 0) {
       delete home[agentId];
     } else {
@@ -674,11 +715,15 @@ async function removeHomeProvider(req, res) {
     config.homeProviders = home;
     await saveUserConfig(config);
 
+    const warnings = [];
+
     // If the user removed the LAST provider OR the currently-active provider
     // for a single-type agent (claude / codex), auto-switch back to
     // the official subscription so the CLI doesn't keep using stale config.
     // Single-type agents are exclusive — the active provider must always be
-    // one that still exists in the home list.
+    // one that still exists in the home list. This is a convenience re-target,
+    // not the requested action — failures degrade to a warning, never to a
+    // fake success of the removal itself (which did succeed).
     const SINGLE_TYPE_AGENTS = {
       'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
       'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
@@ -708,28 +753,14 @@ async function removeHomeProvider(req, res) {
           }
         }
       } catch (e) {
-        // Don't fail the remove if the fallback switch errors — the provider
-        // was already removed from the home list.
-        console.warn(`[removeHomeProvider] fallback switch failed: ${e.message}`);
+        warnings.push(`已从列表移除，但回退官方订阅失败: ${e.message}`);
+        appendLog('home-provider-fallback', `${agentId}:${providerId}`, false, e.message);
       }
     }
 
-    // Additive agents: removing a provider from the home list also removes
-    // the entries OKIT wrote for it in the agent's own config (including
-    // their keys). Entries not written by OKIT are never touched.
-    if (ADDITIVE_AGENTS.has(agentId)) {
-      try {
-        const agentAdapter = _getAdapter(agentId);
-        if (agentAdapter && typeof agentAdapter.removeProvider === 'function') {
-          await snapBeforeWrite(agentId, 'removeHomeProvider');
-          await agentAdapter.removeProvider(providerId);
-        }
-      } catch (e) {
-        console.warn(`[removeHomeProvider] removeProvider failed: ${e.message}`);
-      }
-    }
-
-    res.json({ success: true, homeProviders: list });
+    appendLog('home-provider-remove', `${agentId}:${providerId}`, true,
+      warnings.length ? warnings.join('; ') : undefined);
+    res.json({ success: true, homeProviders: list, warnings });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -764,8 +795,10 @@ async function disableAgentProvider(req, res) {
     } else {
       return res.status(400).json({ error: `${agentId} adapter 不支持停用站点` });
     }
+    appendLog('provider-disable', `${agentId}:${providerId}`, true);
     res.json({ success: true, agentId, providerId });
   } catch (err) {
+    appendLog('provider-disable', `${agentId}:${req.params.providerId}`, false, err.message);
     res.status(500).json({ error: err.message });
   }
 }
@@ -775,6 +808,10 @@ async function disableAgentProvider(req, res) {
 // Each agent writes to a well-known config file (or two). This endpoint reads
 // those files so the user can verify a switch actually landed on disk, without
 // leaving the UI. Read-only — never writes.
+//
+// Sensitive values (API keys, tokens) are MASKED by default; the raw content
+// is only served for an explicit ?reveal=1 request that the frontend gates
+// behind a confirmation dialog.
 
 const AGENT_CONFIG_FILES = {
   'claude': ['.claude/settings.json'],
@@ -792,6 +829,84 @@ const AGENT_CONFIG_FILES = {
   'mimo-code': ['.config/mimocode/mimocode.jsonc'],
 };
 
+const MASKED_PLACEHOLDER = '___OKIT_MASKED___';
+
+// Key names whose VALUES are credentials. Matched case-insensitively as
+// substrings of the config key / env var name.
+const SENSITIVE_KEY_RE = /api[_-]?key|apikey|access[_-]?token|authtoken|auth[_-]?token|refresh[_-]?token|secret|password|authorization|api[_-]?token/i;
+const SENSITIVE_ENV_RE = /^[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET|PASSWORD|AUTH)[A-Z0-9_]*$/;
+
+function maskConfigContent(content, rel) {
+  const base = path.basename(rel).toLowerCase();
+  let count = 0;
+
+  // "key": "value" — JSON / JSONC / TOML with quoted keys.
+  let out = content.replace(/("(?:[^"\\]|\\.)*")(\s*:\s*)("(?:[^"\\]|\\.)*")/g, (m, k, sep, v) => {
+    if (SENSITIVE_KEY_RE.test(k.slice(1, -1)) && v.length > 12) {
+      count++;
+      return `${k}${sep}"${MASKED_PLACEHOLDER}"`;
+    }
+    return m;
+  });
+
+  // key = "value" — TOML with bare keys.
+  if (base.endsWith('.toml')) {
+    out = out.replace(/^(\s*[A-Za-z0-9_.-]+\s*=\s*)("(?:[^"\\]|\\.)*")/gm, (m, k, v) => {
+      const key = k.trim().replace(/\s*=$/, '');
+      if (SENSITIVE_KEY_RE.test(key) && v.length > 12) {
+        count++;
+        return `${k}"${MASKED_PLACEHOLDER}"`;
+      }
+      return m;
+    });
+  }
+
+  // key: value — YAML scalar values.
+  if (base.endsWith('.yaml') || base.endsWith('.yml')) {
+    out = out.replace(/^(\s*[A-Za-z0-9_.-]+\s*:\s*)([^\s#'"][^\n]*)$/gm, (m, k, v) => {
+      const key = k.trim().replace(/:$/, '');
+      if (SENSITIVE_KEY_RE.test(key) && v.trim().length > 7) {
+        count++;
+        return `${k}${MASKED_PLACEHOLDER}`;
+      }
+      return m;
+    });
+  }
+
+  // KEY=value — dotenv files.
+  if (base === '.env' || base.endsWith('.env')) {
+    out = out.replace(/^([A-Za-z0-9_]+)=(.*)$/gm, (m, k, v) => {
+      if (SENSITIVE_ENV_RE.test(k) && v.trim().length > 0) {
+        count++;
+        return `${k}=${MASKED_PLACEHOLDER}`;
+      }
+      return m;
+    });
+  }
+
+  return { content: out, maskedCount: count };
+}
+
+// Validate edited content before it lands on disk, so a manual edit cannot
+// save a syntactically broken agent config. JSON is strictly parsed; formats
+// without a bundled parser get lightweight sanity checks.
+function validateConfigContent(content, rel) {
+  const base = path.basename(rel).toLowerCase();
+  if (content.includes(MASKED_PLACEHOLDER)) {
+    return `内容包含脱敏占位符 ${MASKED_PLACEHOLDER}。请先点"显示敏感信息"获取原文，再编辑保存。`;
+  }
+  if (base.endsWith('.json')) {
+    try { JSON.parse(content); } catch (e) { return `JSON 语法错误: ${e.message}`; }
+  } else if (base.endsWith('.jsonc')) {
+    try {
+      JSON.parse(content.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+    } catch (e) { return `JSONC 语法错误: ${e.message}`; }
+  } else if (content.trim().length === 0) {
+    return '内容为空 — 拒绝保存空配置。';
+  }
+  return null;
+}
+
 async function getAgentConfigFiles(req, res) {
   try {
     const { agentId } = req.params;
@@ -799,23 +914,30 @@ async function getAgentConfigFiles(req, res) {
     if (!relPaths) {
       return res.status(404).json({ error: `No config files mapped for agent: ${agentId}` });
     }
+    const reveal = req.query.reveal === '1';
     const home = os.homedir();
     const files = await Promise.all(relPaths.map(async (rel) => {
       const fullPath = path.join(home, rel);
       const exists = await fs.pathExists(fullPath);
       let content = null;
+      let maskedCount = 0;
       if (exists) {
         try {
           content = await fs.readFile(fullPath, 'utf-8');
           // Cap at 64KB so a pathological file can't blow up the UI.
           if (content.length > 65536) content = content.slice(0, 65536) + '\n…(truncated)';
+          if (!reveal) {
+            const masked = maskConfigContent(content, rel);
+            content = masked.content;
+            maskedCount = masked.maskedCount;
+          }
         } catch {
           content = '(读取失败)';
         }
       }
-      return { path: `~/${rel}`, exists, content };
+      return { path: `~/${rel}`, exists, content, maskedCount };
     }));
-    res.json({ agentId, files });
+    res.json({ agentId, files, revealed: reveal });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -841,6 +963,12 @@ async function saveAgentConfigFile(req, res) {
     if (!relPaths.includes(rel)) {
       return res.status(403).json({ error: `Path not in writable whitelist: ${filePath}` });
     }
+    // Reject masked-placeholder content and syntactically broken files before
+    // they can corrupt the agent's config.
+    const validationError = validateConfigContent(content, rel);
+    if (validationError) {
+      return res.status(400).json({ error: validationError, code: 'CONFIG_INVALID' });
+    }
     const fullPath = path.join(os.homedir(), rel);
     // Snapshot before the manual edit lands, so viewer edits are revertible
     // exactly like provider switches.
@@ -848,8 +976,10 @@ async function saveAgentConfigFile(req, res) {
     // Refuse to follow symlinks or escape the home dir.
     await fs.ensureDir(path.dirname(fullPath));
     await fs.writeFile(fullPath, content, 'utf-8');
+    appendLog('config-file-save', `${agentId}:${rel}`, true);
     res.json({ success: true, path: `~/${rel}` });
   } catch (err) {
+    appendLog('config-file-save', `${agentId}:${req.body?.filePath || ''}`, false, err.message);
     res.status(500).json({ error: err.message });
   }
 }
@@ -2004,6 +2134,16 @@ function startKimiCodeHealer() {
 }
 startKimiCodeHealer();
 
+// Existence check for every registered agent's config files — powers the
+// diagnostics summary (which agents are actually present on this machine).
+function agentConfigPresence() {
+  const home = os.homedir();
+  return Object.entries(AGENT_CONFIG_FILES).map(([id, rels]) => ({
+    id,
+    files: rels.map(rel => ({ path: `~/${rel}`, exists: fs.existsSync(path.join(home, rel)) })),
+  }));
+}
+
 module.exports = {
   listProviders,
   getAdaptersList,
@@ -2016,6 +2156,7 @@ module.exports = {
   disableAgentProvider,
   getAgentConfigFiles,
   saveAgentConfigFile,
+  agentConfigPresence,
   setCatalogExcluded,
   getCatalogExcluded,
   getTierMaps,

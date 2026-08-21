@@ -339,6 +339,15 @@ skill
     await showSkillPath();
   });
 
+// extension 子命令 - 定位浏览器扩展（供 Chrome「加载已解压的扩展程序」）
+program
+  .command("extension")
+  .description("定位浏览器扩展目录（Chrome → 加载已解压的扩展程序）")
+  .action(async () => {
+    const { showExtensionPath } = await import("./commands/extension");
+    await showExtensionPath();
+  });
+
 skill
   .command("install [dir]")
   .description("安装到目标项目的 .agents/skills/okit-cli")

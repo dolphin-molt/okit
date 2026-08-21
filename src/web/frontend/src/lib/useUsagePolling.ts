@@ -26,6 +26,10 @@ export interface UsagePollingOptions {
   // If true, the silent refresh sets "fetching" state (shows spinner).
   // Default false = truly silent.
   silent?: boolean;
+  // Provider ids to NEVER fetch automatically (mount fetch + interval).
+  // Used for queries that drive the browser via the extension — those must
+  // only run from an explicit user action.
+  skipIds?: string[];
 }
 
 function hasImminentReset(result: UsageResult | undefined): boolean {
@@ -39,11 +43,13 @@ function hasImminentReset(result: UsageResult | undefined): boolean {
 }
 
 export function useUsagePolling(opts: UsagePollingOptions) {
-  const { supportedIds, onResult, onFetchStart, onFetchEnd, silent = true } = opts;
+  const { supportedIds, onResult, onFetchStart, onFetchEnd, silent = true, skipIds } = opts;
   // Keep latest results in a ref so the interval callback can read current data
   // to decide fast-vs-slow polling without re-subscribing.
   const resultsRef = useRef<Record<string, UsageResult>>({});
   const mountedRef = useRef(true);
+  const skipSetRef = useRef<Set<string>>(new Set());
+  skipSetRef.current = new Set(skipIds || []);
 
   const fetchOne = useCallback(async (id: string) => {
     if (!mountedRef.current) return;
@@ -64,7 +70,10 @@ export function useUsagePolling(opts: UsagePollingOptions) {
   }, [onResult, onFetchStart, onFetchEnd, silent]);
 
   const fetchAll = useCallback(() => {
-    supportedIds.forEach(id => fetchOne(id));
+    supportedIds.forEach(id => {
+      if (skipSetRef.current.has(id)) return;
+      fetchOne(id);
+    });
   }, [supportedIds, fetchOne]);
 
   // Initial fetch when supportedIds first becomes non-empty.

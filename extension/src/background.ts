@@ -19,7 +19,7 @@
  */
 
 import type { Command, Result } from './protocol.js';
-import { OKIT_WS_URL, OKIT_PING_URL, OKIT_TOKEN_URL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from './protocol.js';
+import { wsUrl, pingUrl, tokenUrl, OKIT_PORTS, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from './protocol.js';
 import { generateStealthJs } from './stealth.js';
 import * as executor from './cdp.js';
 
@@ -55,22 +55,36 @@ console.error = (...args: unknown[]) => { _origError(...args); forwardLog('error
  * WebSocket() is not — Chrome logs ERR_CONNECTION_REFUSED to the extension
  * error page before any JS handler can intercept it.
  */
+/**
+ * Probe the ports the OKIT server may occupy (3780 pinned, 3781+ fallback)
+ * and return the first one that answers, or null when no server is running.
+ * The short per-port timeout keeps the full sweep cheap on the ~20s keepalive
+ * cadence when the server is down.
+ */
+async function findServerPort(): Promise<number | null> {
+  for (const port of OKIT_PORTS) {
+    try {
+      const res = await fetch(pingUrl(port), { signal: AbortSignal.timeout(600) });
+      if (res.ok) return port; // unexpected responses fall through to the next port
+    } catch {
+      // No server on this port — try the next one.
+    }
+  }
+  return null;
+}
+
 async function connect(): Promise<void> {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
-  try {
-    const res = await fetch(OKIT_PING_URL, { signal: AbortSignal.timeout(1000) });
-    if (!res.ok) return; // unexpected response — not our server
-  } catch {
-    return; // server not running — skip WebSocket to avoid console noise
-  }
+  const port = await findServerPort();
+  if (port === null) return; // server not running — skip WebSocket to avoid console noise
 
   // One-time auth token. The server issues tokens only to extension origins
   // (CORS-gated), then requires one on the WebSocket before any command
   // traffic — an ordinary web page can do neither.
   let token: string | undefined;
   try {
-    const res = await fetch(OKIT_TOKEN_URL, { signal: AbortSignal.timeout(1500) });
+    const res = await fetch(tokenUrl(port), { signal: AbortSignal.timeout(1500) });
     if (res.ok) {
       const body = await res.json() as { token?: string };
       token = body.token;
@@ -83,7 +97,7 @@ async function connect(): Promise<void> {
   }
 
   try {
-    ws = new WebSocket(OKIT_WS_URL);
+    ws = new WebSocket(wsUrl(port));
   } catch {
     scheduleReconnect();
     return;

@@ -137,13 +137,18 @@ export default function UsageSummary() {
   const { t, lang, providerName: translateProviderName } = useI18n();
   const navigate = useNavigate();
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
+  // Browser-driving usage queries (extension automation) — never auto-fetch.
+  const [manualOnlyIds, setManualOnlyIds] = useState<Set<string>>(new Set());
   const { usageMap, enqueue } = useCoalescedUsageMap();
   // Provider display names from API (single source of truth = presets.ts).
   const [providerNames, setProviderNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     getSupportedUsageProviders()
-      .then(sup => setSupportedIds(sup.providers || []))
+      .then(sup => {
+        setSupportedIds(sup.providers || []);
+        setManualOnlyIds(new Set(sup.manualOnly || []));
+      })
       .catch(() => {});
     // Load provider names from API (derived from presets.ts — single source).
     listProviders()
@@ -164,6 +169,7 @@ export default function UsageSummary() {
     supportedIds,
     onResult: handlePollResult,
     silent: true,
+    skipIds: [...manualOnlyIds],
   });
 
   // Compute alerts + fire browser notifications.

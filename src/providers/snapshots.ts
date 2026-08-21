@@ -50,6 +50,30 @@ export function agentConfigFiles(agentId: string): string[] {
   return relPaths.map(p => path.join(os.homedir(), p));
 }
 
+// Names used to store config files inside a snapshot directory. Basenames must
+// be unique there — zcode owns TWO files called config.json
+// (~/.zcode/v2/config.json and ~/.zcode/cli/config.json), and storing both
+// under the bare basename made the second write silently overwrite the first
+// (snapshots captured only one file, restores could only put one back).
+// Duplicate basenames are disambiguated by prefixing the parent directory:
+// v2__config.json / cli__config.json. Agents with unique basenames are
+// unaffected, so existing snapshots stay readable.
+function storageNamesFor(agentId: string): { abs: string; name: string }[] {
+  const absPaths = agentConfigFiles(agentId);
+  const counts = new Map<string, number>();
+  for (const abs of absPaths) {
+    const base = path.basename(abs);
+    counts.set(base, (counts.get(base) || 0) + 1);
+  }
+  return absPaths.map(abs => {
+    const base = path.basename(abs);
+    if ((counts.get(base) || 0) > 1) {
+      return { abs, name: `${path.basename(path.dirname(abs))}__${base}` };
+    }
+    return { abs, name: base };
+  });
+}
+
 async function listSnapshotIds(agentDir: string): Promise<string[]> {
   let entries: string[];
   try {
@@ -80,11 +104,11 @@ export async function capturePreSwitchSnapshot(
   protectId?: string,
 ): Promise<string | null> {
   validateAgentId(agentId);
-  const candidates = agentConfigFiles(agentId);
+  const candidates = storageNamesFor(agentId);
   const existing: { abs: string; name: string }[] = [];
-  for (const abs of candidates) {
+  for (const { abs, name } of candidates) {
     if (await fs.pathExists(abs)) {
-      existing.push({ abs, name: path.basename(abs) });
+      existing.push({ abs, name });
     }
   }
   if (existing.length === 0) return null;
@@ -178,8 +202,7 @@ export async function getCurrentFiles(
 ): Promise<{ name: string; content: string | null }[]> {
   validateAgentId(agentId);
   const out: { name: string; content: string | null }[] = [];
-  for (const abs of agentConfigFiles(agentId)) {
-    const name = path.basename(abs);
+  for (const { abs, name } of storageNamesFor(agentId)) {
     if (await fs.pathExists(abs)) {
       out.push({ name, content: await fs.readFile(abs, "utf-8") });
     } else {
@@ -193,7 +216,17 @@ export async function restoreSnapshot(agentId: string, id: string, rootDir?: str
   validateAgentId(agentId);
   validateSnapshotId(id);
   const dir = path.join(snapshotRoot(rootDir), agentId, id);
-  const targetByName = new Map(agentConfigFiles(agentId).map(p => [path.basename(p), p]));
+  const named = storageNamesFor(agentId);
+  // Exact storage-name match first (current format).
+  const targetByName = new Map(named.map(n => [n.name, n.abs] as const));
+  // Legacy fallback: snapshots written before duplicate-basename handling
+  // stored bare basenames. Map those to the LAST config file carrying that
+  // basename — matching the old (lossy) capture order, where the later file
+  // overwrote the earlier one inside the snapshot.
+  const targetByBase = new Map<string, string>();
+  for (const n of named) {
+    targetByBase.set(path.basename(n.abs), n.abs);
+  }
   let entries: string[];
   try {
     entries = await fs.readdir(dir);
@@ -209,7 +242,7 @@ export async function restoreSnapshot(agentId: string, id: string, rootDir?: str
       continue;
     }
     if (stat.isDirectory()) continue;
-    const target = targetByName.get(entry);
+    const target = targetByName.get(entry) ?? targetByBase.get(entry);
     if (!target) continue;
     const content = await fs.readFile(full, "utf-8");
     await atomicWrite(target, content);

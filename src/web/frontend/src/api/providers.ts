@@ -205,10 +205,16 @@ export interface AgentConfigFile {
   path: string;
   exists: boolean;
   content: string | null;
+  /** Number of sensitive values masked in `content` (0 when revealed). */
+  maskedCount?: number;
 }
 
-export async function getAgentConfigFiles(agentId: string): Promise<{ agentId: string; files: AgentConfigFile[] }> {
-  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/config-files`);
+export async function getAgentConfigFiles(
+  agentId: string,
+  opts?: { reveal?: boolean },
+): Promise<{ agentId: string; files: AgentConfigFile[]; revealed: boolean }> {
+  const suffix = opts?.reveal ? '?reveal=1' : '';
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/config-files${suffix}`);
 }
 
 export async function saveAgentConfigFile(agentId: string, filePath: string, content: string): Promise<{ success: boolean; path: string }> {
@@ -306,7 +312,7 @@ export interface UsageResult {
   raw?: any;
 }
 
-export async function getSupportedUsageProviders(): Promise<{ providers: string[] }> {
+export async function getSupportedUsageProviders(): Promise<{ providers: string[]; manualOnly?: string[] }> {
   return api('/api/usage/supported');
 }
 

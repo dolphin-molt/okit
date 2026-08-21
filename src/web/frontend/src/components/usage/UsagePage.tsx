@@ -66,6 +66,9 @@ export default function UsagePage() {
   _t = t; // expose t to UsageBar which renders outside the hook scope
   const [credentialGuide, setCredentialGuide] = useState<CredentialGuideContext | null>(null);
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
+  // Providers whose usage query drives the browser (opencode-go navigates the
+  // automation window). They never auto-run — only on explicit user action.
+  const [manualOnlyIds, setManualOnlyIds] = useState<Set<string>>(new Set());
   // Distinguish "metadata still loading" (skeleton) from "loaded, nothing supported" (empty state).
   const [metaLoaded, setMetaLoaded] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -78,10 +81,13 @@ export default function UsagePage() {
   const [usageMode, setUsageMode] = useState<'subscription' | 'prepaid'>('subscription');
 
   // Load supported provider IDs and the full provider list (for display names).
+  // manualOnly = providers whose query drives the browser (extension
+  // automation window) — excluded from every automatic fetch.
   useEffect(() => {
     Promise.all([getSupportedUsageProviders(), listProviders()])
       .then(([sup, provData]) => {
         setSupportedIds(sup.providers || []);
+        setManualOnlyIds(new Set(sup.manualOnly || []));
         setProviders(provData.providers || []);
       })
       .catch(() => {})
@@ -123,14 +129,10 @@ export default function UsagePage() {
     }
   }, [t]);
 
-  const fetchAll = useCallback(async () => {
-    for (const id of supportedIds) {
-      fetchOne(id); // fire all in parallel (don't await)
-    }
-  }, [supportedIds, fetchOne]);
-
   // Silent polling: auto-refresh every 5 min (or 1 min if a reset is imminent).
   // Uses the shared hook — updates usageMap without toggling fetchingIds.
+  // Manual-only providers are excluded from ALL automatic fetches (mount +
+  // interval) via skipIds; they only run from explicit user actions.
   const providerNames = useMemo(() => {
     const map: Record<string, string> = {};
     for (const p of providers) map[p.id] = translateProviderName(p.id, p.name);
@@ -146,12 +148,14 @@ export default function UsagePage() {
     supportedIds,
     onResult: handlePollResult,
     silent: true,
+    skipIds: [...manualOnlyIds],
   });
 
-  // Manual "refresh all" button — still uses the spinner-showing fetchOne.
+  // Manual "refresh all" button — an explicit user action, so manual-only
+  // providers (browser-driving queries) are included.
   const handleManualRefresh = useCallback(() => {
-    fetchAll();
-  }, [fetchAll]);
+    for (const id of supportedIds) fetchOne(id);
+  }, [supportedIds, fetchOne]);
 
   // Compute alerts from the latest usage data.
   const alerts = useMemo(() => checkAlerts(usageMap, providerNames, lang), [usageMap, providerNames, lang]);

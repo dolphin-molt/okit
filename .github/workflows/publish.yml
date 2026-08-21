@@ -42,6 +42,9 @@ jobs:
       - name: Install frontend deps (locked)
         run: cd src/web/frontend && npm ci
 
+      - name: Build browser extension (shipped in the npm package)
+        run: cd extension && npm ci && npm run build
+
       - run: npm ci
 
       - name: Tests
@@ -80,6 +83,9 @@ jobs:
 
       - name: Install frontend deps (locked)
         run: cd src/web/frontend && npm ci
+
+      - name: Build browser extension (shipped in the npm package)
+        run: cd extension && npm ci && npm run build
 
       - run: npm ci
 

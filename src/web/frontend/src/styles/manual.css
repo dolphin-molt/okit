@@ -5,18 +5,18 @@
    ============================================================ */
 
 .landing-shell {
-  --lx-canvas: #0b0b09;
-  --lx-cream: #f4f1e8;
-  --lx-cream-60: rgba(244, 241, 232, 0.62);
-  --lx-cream-38: rgba(244, 241, 232, 0.38);
-  --lx-hairline: rgba(244, 241, 232, 0.14);
-  --lx-lime: #c6ff3e;
-  --lx-lime-deep: #a4d92b;
+  --lx-canvas: var(--surface-0);
+  --lx-cream: var(--ink);
+  --lx-cream-60: var(--ink-light);
+  --lx-cream-38: var(--ink-muted);
+  --lx-hairline: var(--card-line);
+  --lx-lime: var(--accent);
+  --lx-lime-deep: color-mix(in srgb, var(--accent) 82%, black);
   --lx-serif: "Fraunces", "Songti SC", "Noto Serif SC", Georgia, serif;
   --lx-sans: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif;
 
   min-height: 100vh;
-  background: var(--lx-canvas);
+  background: var(--panel-bg, var(--lx-canvas));
   color: var(--lx-cream);
   font-family: var(--lx-sans);
   overflow-x: hidden;
@@ -315,9 +315,10 @@
 .manual-article pre {
   margin: 0 0 18px;
   padding: 18px 22px;
-  background: rgba(244, 241, 232, 0.04);
-  border: 1px solid var(--lx-hairline);
-  border-radius: 12px;
+  background: var(--card-surface);
+  border: 1px solid var(--card-line);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
   overflow-x: auto;
 }
 

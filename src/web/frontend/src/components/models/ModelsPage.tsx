@@ -124,7 +124,7 @@ function runtimeAuthReady(provider: Provider | undefined, auth: AuthState | unde
   return Boolean(provider.vaultKey && auth?.hasApiKey && auth.authVerified === true && auth.authState !== 'invalid');
 }
 
-type StatusFilter = 'all' | 'authed' | 'unauthed' | 'used';
+type StatusFilter = 'all' | 'authed' | 'unauthed' | 'unverified' | 'attention' | 'used';
 type PlanFilter = 'coding' | 'token' | 'agent' | 'subscription' | 'go' | 'api-only';
 
 const PLAN_FILTERS: { key: PlanFilter; labelKey: string }[] = [
@@ -163,6 +163,7 @@ export default function ModelsPage() {
   // Badges stay neutral until the first auth snapshot lands, so cards never
   // flash 待配置 for providers that are actually configured.
   const [authLoaded, setAuthLoaded] = useState(false);
+  const [authLoadFailed, setAuthLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editProvider, setEditProvider] = useState<Provider | null>(null);
@@ -199,6 +200,7 @@ export default function ModelsPage() {
     // Auth badges are secondary decoration — fetch them after the cards are
     // already on screen and let them pop in, instead of blocking first paint.
     try {
+      setAuthLoadFailed(false);
       const authData = await getAuthStatus();
       const map: Record<string, AuthState> = {};
       for (const s of authData.statuses || []) {
@@ -216,7 +218,11 @@ export default function ModelsPage() {
       }
       setAuthMap(map);
       setAuthLoaded(true);
-    } catch { /* keep last known auth state */ }
+    } catch {
+      // Authentication is a separate, fallible data source. Keep its state
+      // unknown instead of turning a failed request into a misleading zero.
+      setAuthLoadFailed(true);
+    }
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
@@ -488,6 +494,21 @@ export default function ModelsPage() {
     return Boolean(p.vaultKey && auth?.hasApiKey && auth.authVerified === true && auth.authState !== 'invalid');
   }
 
+  function needsAuthVerification(p: Provider): boolean {
+    const auth = authMap[p.id];
+    return Boolean(
+      p.authMode !== 'none'
+      && p.vaultKey
+      && auth?.hasApiKey
+      && (auth.authState === 'needs_verification' || auth.authState === 'invalid')
+    );
+  }
+
+  function needsAuthAttention(p: Provider): boolean {
+    const state = authMap[p.id]?.authState;
+    return state === 'stale' || state === 'partial';
+  }
+
   function matchesQuery(p: Provider): boolean {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -528,6 +549,8 @@ export default function ModelsPage() {
       if (!matchesQuery(p)) return false;
       if (statusFilter === 'authed' && !isAuthed(p)) return false;
       if (statusFilter === 'unauthed' && isAuthed(p)) return false;
+      if (statusFilter === 'unverified' && !needsAuthVerification(p)) return false;
+      if (statusFilter === 'attention' && !needsAuthAttention(p)) return false;
       if (statusFilter === 'used' && !isUsedBy(p)) return false;
       return true;
     });
@@ -578,6 +601,27 @@ export default function ModelsPage() {
   // Per-family plan selection state
   const [familyPlan, setFamilyPlan] = useState<Record<string, string>>({});
 
+  const platformPlanOptions = useMemo(() => [
+    { value: 'all', label: t('models.filterAllPlans') },
+    ...PLAN_FILTERS.map(plan => ({
+      value: plan.key,
+      label: `${t(plan.labelKey)} · ${new Set(
+        providers
+          .filter(provider => providerPlans(provider).includes(plan.key))
+          .map(provider => PROVIDER_FAMILY_MAP.get(provider.id) || provider.id)
+      ).size}`,
+    })),
+  ], [providers, t]);
+
+  const platformStatusOptions: { value: StatusFilter; label: string }[] = [
+    { value: 'all', label: t('models.filterAllStatuses') },
+    { value: 'authed', label: t('models.filterAuthed') },
+    { value: 'unauthed', label: t('models.filterUnauthed') },
+    { value: 'unverified', label: t('models.filterUnverified') },
+    { value: 'attention', label: t('models.filterAttention') },
+    { value: 'used', label: t('models.filterUsed') },
+  ];
+
   function getActiveFamilyProvider(famDef: ProviderFamily, members: Provider[]): Provider {
     const planLabel = familyPlan[famDef.family] || famDef.plans?.[0]?.label;
     if (planLabel && famDef.plans) {
@@ -599,7 +643,11 @@ export default function ModelsPage() {
       return provider ? isAuthed(provider) : false;
     })).length;
     const used = providers.filter(p => isUsedBy(p)).length;
-    return { endpoints, models, offerings, authed, used, total: platforms.length };
+    const attention = platforms.filter(platform => platform.providerIds.some(providerId => {
+      const provider = providers.find(item => item.id === providerId);
+      return provider ? needsAuthVerification(provider) || needsAuthAttention(provider) : false;
+    })).length;
+    return { endpoints, models, offerings, authed, used, attention, total: platforms.length };
   }, [providers, platforms, authMap]);
   const comparisonModelCount = useMemo(() => Object.entries(crossData)
     .filter(([, entries]) => Array.isArray(entries) && entries.length > 0 && (!hideLegacy || !entries.some(entry => entry.legacy)))
@@ -699,44 +747,9 @@ export default function ModelsPage() {
       ];
     }
 
-    // 平台视角只筛提供方式自身属性；模型模态留在模型对比视角。
-    const protocolChipsArr = [
-      { key: '__all_proto__', label: t('models.filterAll'), active: !activeProtocol, onClick: () => setActiveProtocol(null) },
-      ...PROTOCOLS.filter(pc => providers.some(p => providerProtocols(p).includes(pc.key))).map(pc => ({
-        key: pc.key,
-        label: t(pc.labelKey),
-        active: activeProtocol === pc.key,
-        onClick: () => setActiveProtocol(activeProtocol === pc.key ? null : pc.key),
-      })),
-    ];
-    const planChipsArr = [
-      { key: '__all_plan__', label: t('models.filterAll'), active: !activePlanFilter, onClick: () => {
-        setActivePlanFilter(null);
-        setFamilyPlan({});
-      } },
-      ...PLAN_FILTERS.map(plan => ({
-        key: plan.key,
-        label: t(plan.labelKey),
-        // The platform view renders one card per family. Count those same
-        // cards instead of raw provider variants so the chip always matches
-        // what the user will actually see after selecting it.
-        extra: `${new Set(
-          providers
-            .filter(p => providerPlans(p).includes(plan.key))
-            .map(p => PROVIDER_FAMILY_MAP.get(p.id) || p.id)
-        ).size}`,
-        active: activePlanFilter === plan.key,
-        onClick: () => {
-          setActivePlanFilter(activePlanFilter === plan.key ? null : plan.key);
-          setFamilyPlan({});
-        },
-      })),
-    ];
-
-    return [
-      { label: t('models.dimPlan'), chips: planChipsArr },
-      { label: t('models.dimProtocol'), chips: protocolChipsArr },
-    ];
+    // 平台首页不暴露底层接口格式。兼容层往往只实现协议子集，
+    // 将它作为一级筛选会暗示并不存在的等价性；具体格式仍在平台配置中维护。
+    return [];
   }, [view, providers, activeProtocol, activePlanFilter, activeGroup, activeProvider, activeModel, activeModelProvider, activeModality, t]);
 
   if (loading) {
@@ -759,6 +772,23 @@ export default function ModelsPage() {
   return (
     <>
     <div className="access-workspace models-workspace models-page-full">
+
+        {!activePlatform && !activeModel && (
+          <header className="models-page-heading">
+            <div className="models-page-heading-copy">
+              <span className="models-page-eyebrow">{t('models.pageEyebrow')}</span>
+              <h1 className="sr-only">{t('models.pageTitle')}</h1>
+              <p>{t('models.pageSubtitle')}</p>
+            </div>
+            <div className="models-page-summary" aria-label={t('models.pageSummary')}>
+              <span><strong>{modelStats.total}</strong>{t('models.summaryPlatforms')}</span>
+              <span><strong>{modelStats.models}</strong>{t('models.summaryModels')}</span>
+              <span className={authLoaded && modelStats.attention > 0 ? 'is-attention' : ''}>
+                <strong>{authLoaded ? modelStats.attention : '—'}</strong>{t('models.summaryAttention')}
+              </span>
+            </div>
+          </header>
+        )}
 
         {/* 平台使用分组筛选；模型对比使用单行紧凑筛选。 */}
         {MODEL_COMPARISON_ENABLED && !activePlatform && view === 'model' && !activeModel && (
@@ -825,43 +855,43 @@ export default function ModelsPage() {
           </div>
         )}
         {!activePlatform && view === 'platform' && <div className="models-toolbar">
-          {groupChips.map((section, i) => (
-            <div key={i} className="models-filter-section">
-              <span className="models-filter-section-label">{section.label}</span>
-              <div className="models-filter-section-chips">
-                {section.chips.map(c => (
-                  <button
-                    key={c.key}
-                    className={`models-filter-chip${c.active ? ' models-filter-chip--active' : ''}`}
-                    onClick={c.onClick}
-                  >
-                    {c.label}
-                    {(c as any).extra && <span className="models-chip-extra">{(c as any).extra}</span>}
-                  </button>
-                ))}
-              </div>
+          <div className="models-platform-search-row">
+            <label className="models-platform-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder={t('models.searchPlaceholder')}
+                aria-label={t('models.searchPlaceholder')}
+              />
+              <span aria-hidden="true">{sortedFamilies.length}</span>
+            </label>
+            <button className="models-add-inline" onClick={handleAdd}>{t('models.addPlatform')}</button>
+          </div>
+          <div className="models-filter-select-row" aria-label={t('models.filterConditions')}>
+            <div className={`models-filter-select-field${activePlanFilter ? ' is-active' : ''}`}>
+              <span>{t('models.dimPlan')}</span>
+              <CustomSelect
+                className="models-filter-select"
+                value={activePlanFilter || 'all'}
+                options={platformPlanOptions}
+                onChange={value => {
+                  setActivePlanFilter(value === 'all' ? null : value as PlanFilter);
+                  setFamilyPlan({});
+                }}
+              />
             </div>
-          ))}
-          <div className="models-filter-section">
-              <span className="models-filter-section-label">{t('models.dimStatus')}</span>
-              <div className="models-filter-section-chips">
-                {([
-                  ['all', t('models.filterAll')],
-                  ['authed', t('models.filterAuthed')],
-                  ['unauthed', t('models.filterUnauthed')],
-                  ['used', t('models.filterUsed')],
-                ] as [StatusFilter, string][]).map(([key, label]) => (
-                  <button
-                    key={key}
-                    className={`models-filter-chip${statusFilter === key ? ' models-filter-chip--active' : ''}`}
-                    onClick={() => setStatusFilter(key)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <div className={`models-filter-select-field${statusFilter !== 'all' ? ' is-active' : ''}`}>
+              <span>{t('models.dimStatus')}</span>
+              <CustomSelect
+                className="models-filter-select"
+                value={statusFilter}
+                options={platformStatusOptions}
+                onChange={value => setStatusFilter(value as StatusFilter)}
+              />
             </div>
-            <button className="models-add-inline" onClick={handleAdd}>+ {t('models.addPlatform')}</button>
+          </div>
         </div>}
 
         {MODEL_COMPARISON_ENABLED && view === 'model' && activeModel && crossData[activeModel] && (
@@ -937,17 +967,20 @@ export default function ModelsPage() {
             const familyAuthed = isMulti ? authed : isAuthMethodAuthed(p, selectedAuthMethod);
             const authWarning = selectedAuthMethod === 'api_key' && (auth?.authState === 'stale' || auth?.authState === 'partial');
             const statusLabel = !authLoaded
-              ? t('models.statusChecking')
+              ? authLoadFailed ? t('models.statusUnavailable') : t('models.statusChecking')
               : authWarning
               ? auth?.authState === 'partial' ? t('models.statusPartial') : t('models.statusStale')
+              : p.authMode === 'none' ? t('models.statusNoAuth')
               : familyAuthed ? t('models.statusAuthed') : needsVerification ? t('models.statusNeedsVerification') : t('models.statusUnauthed');
-            const authDetail = authWarning
+            const authDetail = !authLoaded
+              ? authLoadFailed ? t('models.authStatusUnavailable') : t('models.statusChecking')
+              : authWarning
               ? `${auth?.authLastError || t('models.authNeedsRecheck')}${auth?.authLastCheckedAt ? ` · ${new Date(auth.authLastCheckedAt).toLocaleString()}` : ''}`
               : familyAuthed
-                ? selectedAuthMethod === 'oauth' ? 'OKIT 通过 OAuth 认证' : p.authMode === 'none' ? t('models.authModeNone') : 'OKIT 通过 API Key 认证'
+                ? selectedAuthMethod === 'oauth' ? t('models.authenticatedViaOAuth') : p.authMode === 'none' ? t('models.authModeNone') : t('models.authenticatedViaApiKey')
                 : needsVerification
-                  ? 'OKIT 已配置 API Key，尚未通过连接验证'
-                  : selectedAuthMethod === 'oauth' ? 'OKIT 尚未完成 OAuth 认证' : 'OKIT 尚未配置 API Key';
+                  ? t('models.apiKeyPendingVerification')
+                  : selectedAuthMethod === 'oauth' ? t('models.oauthNotCompleted') : t('models.apiKeyNotConfigured');
 
             return (
               <article
@@ -959,7 +992,7 @@ export default function ModelsPage() {
                 <div className="provider-card-header">
                   <div className="provider-card-title">
                     {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
-                    <h3>{platform?.name || (isMulti && famDef ? famDef.family : providerName(p.id, p.name))}</h3>
+                    <h3>{providerName(p.id, platform?.name || (isMulti && famDef ? famDef.family : p.name))}</h3>
                   </div>
                   <div className="provider-card-status">
                     {testingConn === p.id && (
@@ -1670,6 +1703,9 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const isAgentNative = provider?.executionMode === 'agent_native';
   const isCustomProvider = !provider || !PRESET_PROVIDER_IDS.has(provider.id);
   const [editorPane, setEditorPane] = useState<'connection' | 'models'>('connection');
@@ -1682,6 +1718,41 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
     provider?.models?.map(m => ({ ...m })) || []
   );
   const [vaultKey, setVaultKey] = useState(provider?.vaultKey || '');
+
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const focusable = () => Array.from(panel?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [href]') || []);
+    const frame = requestAnimationFrame(() => focusable()[0]?.focus());
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        if (panel?.querySelector('.vault-picker')) return;
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, []);
   const [authMode, setAuthMode] = useState<'api_key' | 'oauth' | 'both' | 'none'>(
     (provider?.authMode as any) || 'api_key'
   );
@@ -1908,8 +1979,14 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
 
   return (
     <>
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel modal-panel--wide provider-form-panel" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div
+        ref={panelRef}
+        className={`modal-panel modal-panel--wide provider-form-panel provider-form-panel--${editorPane}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="provider-editor-title"
+      >
         <form onSubmit={handleSubmit}>
           <div className="provider-editor-layout">
             <section className="provider-editor-main">
@@ -1933,7 +2010,7 @@ function ProviderForm({ provider, platform, onSelectOffering, onOAuthLogin, oaut
                       </div>
                     )}
                   </div>
-                  <h2>{editorPane === 'connection' ? t('models.editorConnection') : t('models.modelsSection')}</h2>
+                  <h2 id="provider-editor-title">{editorPane === 'connection' ? t('models.editorConnection') : t('models.modelsSection')}</h2>
                   <p>{editorPane === 'connection' ? t('models.editorConnectionHint') : t('models.editorModelsHint')}</p>
                 </div>
                 <div className="provider-editor-header-actions">

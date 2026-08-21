@@ -11,10 +11,34 @@ import { providerSupportsAdapter, resolveModelRoute } from "../providers/routing
 import { capturePreSwitchSnapshot } from "../providers/snapshots";
 import { VaultStore } from "../vault/store";
 
-export async function providerList(): Promise<void> {
+export async function providerList(options?: { json?: boolean }): Promise<void> {
   const providers = await loadProviders();
   if (providers.length === 0) {
+    if (options?.json) {
+      process.stdout.write("[]\n");
+      return;
+    }
     console.log(kleur.yellow(t("providerNoProviders")));
+    return;
+  }
+
+  if (options?.json) {
+    const result = [];
+    for (const provider of providers) {
+      const auth = await checkAuthStatus(provider);
+      result.push({
+        id: provider.id,
+        name: provider.name,
+        type: provider.type,
+        baseUrl: provider.baseUrl,
+        auth: {
+          hasApiKey: auth.hasApiKey,
+          oauthLoggedIn: auth.oauthLoggedIn,
+        },
+        models: provider.models.map(model => ({ id: model.id, name: model.name || model.id })),
+      });
+    }
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
 
@@ -33,11 +57,30 @@ export async function providerList(): Promise<void> {
   }
 }
 
-export async function providerCurrent(): Promise<void> {
+export async function providerCurrent(options?: { json?: boolean }): Promise<void> {
   const providers = await loadProviders();
   const adapters = getAdapters();
   const config = await loadUserConfig();
   const providersConfig = (config as any).providers || {};
+
+  if (options?.json) {
+    const result = adapters.map(adapter => {
+      const selection = providersConfig[adapter.id];
+      const provider = selection?.providerId
+        ? providers.find(item => item.id === selection.providerId)
+        : undefined;
+      return {
+        agentId: adapter.id,
+        agentName: adapter.name,
+        configured: Boolean(selection?.providerId && selection?.modelId),
+        providerId: selection?.providerId || null,
+        providerName: provider?.name || selection?.providerId || null,
+        modelId: selection?.modelId || null,
+      };
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
 
   console.log(kleur.bold(`\n${t("providerCurrentTitle")}:\n`));
   for (const adapter of adapters) {
@@ -129,12 +172,14 @@ export async function providerUse(
   const provider = providers.find(p => p.id === providerId || p.name === providerId);
   if (!provider) {
     console.log(kleur.red(t("providerNotFound")));
+    process.exitCode = 1;
     return;
   }
 
   const modelId = options?.model || provider.models[0]?.id;
   if (!modelId) {
     console.log(kleur.red("No models available"));
+    process.exitCode = 1;
     return;
   }
 
@@ -144,6 +189,7 @@ export async function providerUse(
 
   if (adapters.length === 0) {
     console.log(kleur.red("No compatible agents"));
+    process.exitCode = 1;
     return;
   }
 
@@ -240,6 +286,7 @@ export async function providerDeleteAction(name: string): Promise<void> {
   const provider = providers.find(p => p.id === name || p.name === name);
   if (!provider) {
     console.log(kleur.red(t("providerNotFound")));
+    process.exitCode = 1;
     return;
   }
 
@@ -255,8 +302,22 @@ export async function providerDeleteAction(name: string): Promise<void> {
   console.log(kleur.green(`${t("providerDeleted")}: ${provider.name}`));
 }
 
-export async function providerAuth(): Promise<void> {
+export async function providerAuth(options?: { json?: boolean }): Promise<void> {
   const providers = await loadProviders();
+  if (options?.json) {
+    const result = [];
+    for (const provider of providers) {
+      const status = await checkAuthStatus(provider);
+      result.push({
+        providerId: provider.id,
+        providerName: provider.name,
+        hasApiKey: status.hasApiKey,
+        oauthLoggedIn: status.oauthLoggedIn ?? null,
+      });
+    }
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
   console.log(kleur.bold(`\n${t("providerAuthTitle")}:\n`));
   for (const p of providers) {
     const status = await checkAuthStatus(p);

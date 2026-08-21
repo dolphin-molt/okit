@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getSettings, updateSettings } from '../../api/settings';
+import { Activity, CheckCircle2, Copy, FolderOpen, Globe2, Package, Palette } from 'lucide-react';
+import { getSettings } from '../../api/settings';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import LogsPage from '../logs/LogsPage';
 import DeviceSyncSection from './DeviceSyncSection';
 import SnapshotsSection from './SnapshotsSection';
+import packageInfo from '../../../../../../package.json';
+import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
 /* 界面风格包：id 对应 <html data-style>，swatch 为 [暗色面板色, 强调色, 亮色面板色] */
 const UI_STYLES = [
-  { id: 'command', nameKey: 'settings.styleCommand', swatch: ['#101512', '#efff61', '#fbfaf5'] },
-  { id: 'kraft', nameKey: 'settings.styleKraft', swatch: ['#1a1510', '#e6a23c', '#faf6ee'] },
-  { id: 'ocean', nameKey: 'settings.styleOcean', swatch: ['#0d1524', '#38bdf8', '#f6f9fd'] },
-  { id: 'mono', nameKey: 'settings.styleMono', swatch: ['#131313', '#f4f4f3', '#f8f8f7'] },
-  { id: 'ember', nameKey: 'settings.styleEmber', swatch: ['#191210', '#fb923c', '#fbf6f2'] },
+  { id: 'command', nameKey: 'settings.styleCommand', descKey: 'settings.styleCommandDesc', preview: { rail: '#101512', canvas: '#f4f1e8', surface: '#ffffff', accent: '#526f2c', line: '#d4d9cf' } },
+  { id: 'kraft', nameKey: 'settings.styleKraft', descKey: 'settings.styleKraftDesc', preview: { rail: '#2a2118', canvas: '#f3ebdf', surface: '#fffaf2', accent: '#b0671a', line: '#d8c5a8' } },
+  { id: 'ocean', nameKey: 'settings.styleOcean', descKey: 'settings.styleOceanDesc', preview: { rail: '#0d1524', canvas: '#edf1f8', surface: '#ffffff', accent: '#0369a1', line: '#c6d2e4' } },
+  { id: 'mono', nameKey: 'settings.styleMono', descKey: 'settings.styleMonoDesc', preview: { rail: '#131313', canvas: '#f0f0ef', surface: '#ffffff', accent: '#1a1a19', line: '#d4d4d2' } },
+  { id: 'ember', nameKey: 'settings.styleEmber', descKey: 'settings.styleEmberDesc', preview: { rail: '#241713', canvas: '#f5eee9', surface: '#fffdfb', accent: '#c2410c', line: '#dcc7ba' } },
 ];
 
 export default function SettingsPage() {
-  const { showToast, setConnectionStatus, theme, setThemeMode, uiStyle, setUiStyle } = useApp() as any;
+  const { showToast, setConnectionStatus, theme, themeMode, setThemeMode, uiStyle, setUiStyle } = useApp() as any;
   const { t, lang, setLang } = useI18n();
-  const [showLogs, setShowLogs] = useState(false);
+  const [serviceReady, setServiceReady] = useState<boolean | null>(null);
+  const { activeKey: copiedAction, showFeedback: showCopied } = useTransientFeedback();
 
   useEffect(() => { loadData(); }, []);
 
@@ -27,7 +31,25 @@ export default function SettingsPage() {
     try {
       const settingsData = await getSettings();
       setConnectionStatus('connected');
-    } catch { setConnectionStatus('error'); }
+      setServiceReady(Boolean(settingsData));
+    } catch { setConnectionStatus('error'); setServiceReady(false); }
+  }
+
+  async function copyDiagnostics() {
+    const summary = [
+      `OKIT ${packageInfo.version}`,
+      `Service: ${serviceReady === null ? 'checking' : serviceReady ? 'connected' : 'unavailable'}`,
+      `Address: ${window.location.origin}`,
+      `Data: ~/.okit`,
+      `Language: ${lang}`,
+      `Platform: ${navigator.platform}`,
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(summary);
+      showCopied('diagnostics');
+    } catch {
+      showToast(t('settings.diagnosticsCopyFail'), 'error');
+    }
   }
 
   const [searchParams] = useSearchParams();
@@ -39,43 +61,11 @@ export default function SettingsPage() {
       {/* Appearance */}
       {section === 'appearance' && (
       <div className="settings-section settings-section--top" id="appearance">
-        <div className="settings-block">
-          <div className="settings-block-title">{t('settings.themeMode')}</div>
-          <div className="settings-card">
-            <div className="settings-card-body">
-              <div className="settings-mode-grid" role="group" aria-label={t('settings.themeMode')}>
-                <button
-                  type="button"
-                  className={`settings-mode-option${theme === 'dark' ? ' active' : ''}`}
-                  onClick={() => setThemeMode('dark')}
-                  aria-pressed={theme === 'dark'}
-                >
-                  <span className="settings-mode-preview settings-mode-preview--dark">
-                    <span className="settings-mode-canvas">
-                      <span className="settings-mode-dot" />
-                    </span>
-                    <span className="settings-mode-panel" />
-                  </span>
-                  <span className="settings-mode-name">{t('settings.themeDark')}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`settings-mode-option${theme === 'light' ? ' active' : ''}`}
-                  onClick={() => setThemeMode('light')}
-                  aria-pressed={theme === 'light'}
-                >
-                  <span className="settings-mode-preview settings-mode-preview--light">
-                    <span className="settings-mode-canvas">
-                      <span className="settings-mode-dot" />
-                    </span>
-                    <span className="settings-mode-panel" />
-                  </span>
-                  <span className="settings-mode-name">{t('settings.themeLight')}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <header className="settings-page-header">
+          <span className="settings-page-eyebrow"><Palette size={14} />{t('settings.preferences')}</span>
+          <h2>{t('settings.appearance')}</h2>
+          <p>{t('settings.appearanceDesc')}</p>
+        </header>
 
         <div className="settings-block">
           <div className="settings-block-title">{t('settings.language')}</div>
@@ -104,7 +94,60 @@ export default function SettingsPage() {
         </div>
 
         <div className="settings-block">
-          <div className="settings-block-title">{t('settings.uiStyle')}</div>
+          <div className="settings-block-title">{t('settings.themeMode')}</div>
+          <div className="settings-card">
+            <div className="settings-card-body">
+              <div className="settings-mode-grid" role="group" aria-label={t('settings.themeMode')}>
+                <button
+                  type="button"
+                  className={`settings-mode-option${themeMode === 'system' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('system')}
+                  aria-pressed={themeMode === 'system'}
+                >
+                  <span className="settings-mode-preview settings-mode-preview--system">
+                    <span className="settings-mode-canvas"><span className="settings-mode-dot" /></span>
+                    <span className="settings-mode-panel" />
+                  </span>
+                  <span className="settings-mode-name">{t('settings.themeSystem')}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`settings-mode-option${themeMode === 'dark' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('dark')}
+                  aria-pressed={themeMode === 'dark'}
+                >
+                  <span className="settings-mode-preview settings-mode-preview--dark">
+                    <span className="settings-mode-canvas">
+                      <span className="settings-mode-dot" />
+                    </span>
+                    <span className="settings-mode-panel" />
+                  </span>
+                  <span className="settings-mode-name">{t('settings.themeDark')}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`settings-mode-option${themeMode === 'light' ? ' active' : ''}`}
+                  onClick={() => setThemeMode('light')}
+                  aria-pressed={themeMode === 'light'}
+                >
+                  <span className="settings-mode-preview settings-mode-preview--light">
+                    <span className="settings-mode-canvas">
+                      <span className="settings-mode-dot" />
+                    </span>
+                    <span className="settings-mode-panel" />
+                  </span>
+                  <span className="settings-mode-name">{t('settings.themeLight')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-block">
+          <div className="settings-block-heading">
+            <div className="settings-block-title">{t('settings.uiStyle')}</div>
+            <p>{t('settings.uiStyleDesc')}</p>
+          </div>
           <div className="settings-card">
             <div className="settings-card-body">
               <div className="settings-style-grid" role="group" aria-label={t('settings.uiStyle')}>
@@ -116,13 +159,31 @@ export default function SettingsPage() {
                     onClick={() => setUiStyle(s.id)}
                     aria-pressed={uiStyle === s.id}
                   >
-                    <span className="settings-style-preview">
-                      <span className="settings-style-preview-half" style={{ background: s.swatch[0] }}>
-                        <span className="settings-dot" style={{ background: s.swatch[1] }} />
+                    <span
+                      className="settings-style-preview"
+                      data-preview-style={s.id}
+                      style={{
+                        '--preview-rail': s.preview.rail,
+                        '--preview-canvas': s.preview.canvas,
+                        '--preview-surface': s.preview.surface,
+                        '--preview-accent': s.preview.accent,
+                        '--preview-line': s.preview.line,
+                      } as React.CSSProperties}
+                    >
+                      <span className="settings-style-mini-rail">
+                        <i className="settings-style-mini-brand" />
+                        <i /><i /><i />
                       </span>
-                      <span className="settings-style-preview-half" style={{ background: s.swatch[2] }} />
+                      <span className="settings-style-mini-main">
+                        <span className="settings-style-mini-top"><i /><b /></span>
+                        <span className="settings-style-mini-hero"><i /><i /></span>
+                        <span className="settings-style-mini-cards"><i /><i /></span>
+                      </span>
                     </span>
-                    <span className="settings-style-name">{t(s.nameKey)}</span>
+                    <span className="settings-style-copy">
+                      <strong>{t(s.nameKey)}</strong>
+                      <small>{t(s.descKey)}</small>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -148,25 +209,62 @@ export default function SettingsPage() {
 
       {/* Support diagnostics */}
       {section === 'diagnostics' && (
-      <div className="settings-section" id="diagnostics">
-        <div className="settings-card settings-logs-card">
-          <div className="settings-card-body">
-            <div className="settings-row">
-              <div className="settings-row-info">
-                <div className="settings-row-title">{t('settings.logsTitle')}</div>
-                <div className="settings-row-desc">{t('settings.logsDesc')}</div>
-              </div>
-              <button className="settings-test-btn" type="button" onClick={() => setShowLogs(value => !value)}>
-                {showLogs ? t('settings.hideLogs') : t('settings.viewLogs')}
-              </button>
+      <div className="settings-section settings-diagnostics" id="diagnostics">
+        <header className="settings-diagnostics-header">
+          <div>
+            <span className="settings-diagnostics-eyebrow"><Activity size={14} />{t('settings.diagnostics')}</span>
+            <h2>{t('settings.diagnosticsTitle')}</h2>
+            <p>{t('settings.diagnosticsDesc')}</p>
+          </div>
+        </header>
+
+        <section className={`settings-system-overview${serviceReady === null ? ' is-checking' : serviceReady ? ' is-ready' : ' is-error'}`} aria-label={t('settings.runtimeOverview')}>
+          <div className="settings-system-primary">
+            <span className="settings-system-logo" aria-hidden="true">
+              <img src="/okit-icon-180.png" alt="" />
+              <i />
+            </span>
+            <div>
+              <span className="settings-system-kicker">{t('settings.runtimeOverview')}</span>
+              <h3>{serviceReady === null ? t('settings.serviceCheckingTitle') : serviceReady ? t('settings.serviceHealthyTitle') : t('settings.serviceUnavailableTitle')}</h3>
+              <p>{serviceReady === null ? t('settings.serviceCheckingDesc') : serviceReady ? t('settings.serviceHealthyDesc') : t('settings.serviceUnavailableDesc')}</p>
             </div>
           </div>
-          {showLogs && (
-            <div className="settings-logs-panel">
-              <LogsPage embedded />
+
+          <dl className="settings-system-facts">
+            <div>
+              <dt><Package size={15} />{t('common.version')}</dt>
+              <dd>OKIT {packageInfo.version}</dd>
             </div>
-          )}
+            <div>
+              <dt><Globe2 size={15} />{t('settings.serviceAddress')}</dt>
+              <dd>{window.location.origin}</dd>
+            </div>
+            <div>
+              <dt><FolderOpen size={15} />{t('settings.dataDirectory')}</dt>
+              <dd>~/.okit</dd>
+            </div>
+          </dl>
+
+          <footer className="settings-system-actions">
+            <span><CheckCircle2 size={14} />{t('settings.diagnosticsPrivacy')}</span>
+            <button
+              className={`settings-diagnostics-copy${copiedAction === 'diagnostics' ? ' is-copied' : ''}`}
+              type="button"
+              onClick={copyDiagnostics}
+              aria-label={copiedAction === 'diagnostics' ? t('common.copied') : t('settings.copyDiagnostics')}
+            >
+              {copiedAction === 'diagnostics'
+                ? <><CheckCircle2 size={15} />{t('common.copied')}</>
+                : <><Copy size={15} />{t('settings.copyDiagnostics')}</>}
+            </button>
+          </footer>
+        </section>
+
+        <div className="settings-diagnostics-log-head">
+          <div><h3>{t('settings.logsTitle')}</h3><p>{t('settings.logsDesc')}</p></div>
         </div>
+        <LogsPage embedded />
       </div>
       )}
     </div>

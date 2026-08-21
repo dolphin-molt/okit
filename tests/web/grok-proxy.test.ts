@@ -44,12 +44,15 @@ describe('sanitizeToolParameters', () => {
 });
 
 describe('grok proxy handler', () => {
+  let upstream: http.Server | null = null;
+  let proxy: http.Server | null = null;
+  let sseUpstream: http.Server | null = null;
   let upstreamPort = 0;
   let proxyPort = 0;
   let lastRequest: { method: string; url: string; body: string } | null = null;
 
   beforeAll(async () => {
-    const upstream = http.createServer((req, res) => {
+    upstream = http.createServer((req, res) => {
       let body = '';
       req.on('data', (c) => (body += c));
       req.on('end', () => {
@@ -62,7 +65,7 @@ describe('grok proxy handler', () => {
 
     const app = express();
     app.use('/api/grok-proxy/:enc', createGrokProxyHandler());
-    const proxy = http.createServer(app);
+    proxy = http.createServer(app);
     proxyPort = await listen(proxy);
   });
 
@@ -110,12 +113,12 @@ describe('grok proxy handler', () => {
   });
 
   it('streams SSE responses through unchanged', async () => {
-    const upstream = http.createServer((req, res) => {
+    sseUpstream = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       res.write('data: {"a":1}\n\n');
       res.end('data: [DONE]\n\n');
     });
-    const port = await listen(upstream);
+    const port = await listen(sseUpstream);
     const enc = encodeURIComponent(`http://127.0.0.1:${port}`);
     const res = await fetch(`http://127.0.0.1:${proxyPort}/api/grok-proxy/${enc}/chat/completions`, {
       method: 'POST',
@@ -146,5 +149,18 @@ describe('grok proxy handler', () => {
     expect(res.status).toBe(502);
   });
 
-  afterAll(() => {});
+  afterAll(async () => {
+    // Consume any unconsumed response bodies so the sockets can close, then
+    // forcibly shut the listeners down (incl. keep-alive connections) so the
+    // test process exits cleanly.
+    const close = (s: http.Server | null) =>
+      new Promise<void>((resolve) => {
+        if (!s) return resolve();
+        s.close(() => resolve());
+        if (typeof s.closeAllConnections === 'function') s.closeAllConnections();
+      });
+    await close(upstream);
+    await close(proxy);
+    await close(sseUpstream);
+  });
 });

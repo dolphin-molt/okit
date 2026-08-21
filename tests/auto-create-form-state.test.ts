@@ -11,6 +11,13 @@ const platform = (id: string, keyHint: string, groupHint: string) => ({
 });
 
 describe('auto-create form platform state', () => {
+  it('normalizes legacy provider group names into the canonical taxonomy', () => {
+    expect(normalizeGroupName('智谱AI')).toBe('智谱AI · 国内');
+    expect(normalizeGroupName('Z.AI（国际站）')).toBe('智谱AI · 国际');
+    expect(normalizeGroupName('litellm')).toBe('LiteLLM');
+    expect(PREDEFINED_GROUPS).toContain('LiteLLM');
+  });
+
   it('does not expose the legacy Kimi group as a predefined group', () => {
     expect(PREDEFINED_GROUPS).not.toContain('Kimi 国际');
     expect(PREDEFINED_GROUPS).not.toContain('Kimi · 国际');

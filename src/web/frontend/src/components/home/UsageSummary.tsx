@@ -15,17 +15,6 @@ import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
 import { useNavigate } from 'react-router-dom';
 import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 
-// Map backend window labels (english short codes) to compact UI labels.
-const WINDOW_LABEL: Record<string, string> = {
-  '5h': '5h',
-  'session': '5h',
-  'weekly': '周',
-  '7d': '7d',
-  'monthly': '月',
-  'limit': '额度',
-  'credits': '余额',
-};
-
 // Home prioritizes the shortest actionable window. When a provider reports
 // more than two windows, show 5h first, then weekly (or monthly as fallback).
 const WINDOW_PRIORITY: Record<string, number> = {
@@ -78,6 +67,19 @@ type Translate = (key: string, params?: Record<string, string | number>) => stri
 type UsageKind = 'quota' | 'balance';
 const GROUP_PAGE_SIZE = 8;
 
+function compactWindowLabel(label: string, t: Translate): string {
+  const keys: Record<string, string> = {
+    '5h': 'usage.window5hShort',
+    'session': 'usage.window5hShort',
+    'weekly': 'usage.windowWeeklyShort',
+    '7d': 'usage.window7dShort',
+    'monthly': 'usage.windowMonthlyShort',
+    'limit': 'usage.windowLimit',
+    'credits': 'usage.windowBalance',
+  };
+  return keys[label] ? t(keys[label]) : label;
+}
+
 function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; detail: string } {
   const windows = prioritizedWindows(u.windows || []);
   const first = windows[0];
@@ -99,13 +101,15 @@ function compactPrimaryValue(u: UsageResult, t: Translate): { value: string; det
   const remaining = first ? remainingPercent(first) : null;
   const detail = windows.slice(0, 2).map(w => {
     const pct = remainingPercent(w);
-    return `${WINDOW_LABEL[w.label] || w.label} ${pct != null ? `${pct}%` : '?'}`;
+    return `${compactWindowLabel(w.label, t)} ${pct != null ? `${pct}%` : '?'}`;
   }).join(' · ');
   return { value: remaining != null ? `${remaining}%` : '—', detail };
 }
 
-function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
-  const tone = alert?.severity || card.tone;
+function UsageGroupItem({ card, t }: { card: UsageCard; alert?: ReturnType<typeof checkAlerts>[number]; t: Translate }) {
+  // Card color communicates remaining capacity only. A reset-soon notice is
+  // informational and should never turn a healthy 100% card red.
+  const tone = card.tone;
   const primary = compactPrimaryValue(card.usage, t);
   const firstWindow = prioritizedWindows(card.usage.windows || [])[0];
   const detail = card.usage.kind !== 'prepaid' && firstWindow?.unit && firstWindow.usedPercent != null
@@ -130,7 +134,7 @@ function UsageGroupItem({ card, alert, t }: { card: UsageCard; alert?: ReturnTyp
 }
 
 export default function UsageSummary() {
-  const { t } = useI18n();
+  const { t, lang, providerName: translateProviderName } = useI18n();
   const navigate = useNavigate();
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
   const { usageMap, enqueue } = useCoalescedUsageMap();
@@ -145,11 +149,11 @@ export default function UsageSummary() {
     listProviders()
       .then(res => {
         const map: Record<string, string> = {};
-        for (const p of res.providers || []) map[p.id] = p.name;
+        for (const p of res.providers || []) map[p.id] = translateProviderName(p.id, p.name);
         setProviderNames(map);
       })
       .catch(() => {});
-  }, []);
+  }, [translateProviderName]);
 
   // Silent polling via shared hook (5-min base, 1-min if reset is imminent).
   const handlePollResult = useCallback((id: string, result: UsageResult) => {
@@ -163,19 +167,23 @@ export default function UsageSummary() {
   });
 
   // Compute alerts + fire browser notifications.
-  const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
+  const usageLoaded = supportedIds.length > 0 && supportedIds.every(id => usageMap[id] !== undefined);
+  const alerts = useMemo(() => checkAlerts(usageMap, providerNames, lang), [usageMap, providerNames, lang]);
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
   const visibleAlerts = alerts.filter(a => !dismissedKeys.has(a.notifyKey));
+  const alertTone = visibleAlerts.some(alert => alert.severity === 'danger')
+    ? 'danger'
+    : visibleAlerts.some(alert => alert.severity === 'warn') ? 'warn' : 'info';
   const [activeKind, setActiveKind] = useState<UsageKind>('quota');
   const [quotaPage, setQuotaPage] = useState(0);
   const [balancePage, setBalancePage] = useState(0);
 
   useEffect(() => {
     if (alerts.length > 0) {
-      fireNotifications(alerts);
+      fireNotifications(alerts, lang);
     }
-  }, [alerts]);
+  }, [alerts, lang]);
 
   // Build cards: only include providers that actually have usable data
   // (windows present, or a meaningful balance). Skip providers whose only
@@ -236,11 +244,11 @@ export default function UsageSummary() {
       <div className="usage-summary-heading">
         <div className="home-section-title">{t('home.usageSummary')}</div>
         <div className="usage-summary-heading-actions">
-          {visibleAlerts.length > 0 && (
+          {usageLoaded && visibleAlerts.length > 0 && (
             <div className="usage-summary-alert-center">
               <button
                 type="button"
-                className={`usage-summary-alert-toggle${alertCenterOpen ? ' is-open' : ''}`}
+                className={`usage-summary-alert-toggle usage-summary-alert-toggle--${alertTone}${alertCenterOpen ? ' is-open' : ''}`}
                 onClick={() => setAlertCenterOpen(open => !open)}
                 aria-expanded={alertCenterOpen}
                 aria-controls="usage-summary-alert-list"
@@ -290,7 +298,7 @@ export default function UsageSummary() {
           >
             <span className="usage-summary-kind-mark usage-summary-kind-mark--quota" aria-hidden="true" />
             {t('home.usageQuotaGroup')}
-            <span className="usage-summary-kind-count">{quotaCards.length}</span>
+            <span className="usage-summary-kind-count">{usageLoaded ? quotaCards.length : '—'}</span>
           </button>
           <button
             type="button"
@@ -301,7 +309,7 @@ export default function UsageSummary() {
           >
             <span className="usage-summary-kind-mark usage-summary-kind-mark--balance" aria-hidden="true" />
             {t('home.usageBalanceGroup')}
-            <span className="usage-summary-kind-count">{balanceCards.length}</span>
+            <span className="usage-summary-kind-count">{usageLoaded ? balanceCards.length : '—'}</span>
           </button>
         </div>
         {activePageCount > 1 && (

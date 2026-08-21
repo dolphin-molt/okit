@@ -31,6 +31,8 @@ export interface Translations {
   vaultWhereTitle: string;
   vaultSyncing: string;
   vaultSyncResult: string;
+  vaultValuePrompt: string;
+  vaultValueRequired: string;
   // provider
   providerListTitle: string;
   providerSelectAgent: string;
@@ -90,6 +92,8 @@ const translations: Record<Language, Translations> = {
     vaultWhereTitle: "关联项目:",
     vaultSyncing: "正在同步所有关联文件...",
     vaultSyncResult: "同步结果:",
+    vaultValuePrompt: "输入密钥值",
+    vaultValueRequired: "请交互输入密钥，或通过 --stdin 读取；不要把密钥写进命令参数",
     // provider
     providerListTitle: "Provider 列表",
     providerSelectAgent: "选择 Agent",
@@ -147,6 +151,8 @@ const translations: Record<Language, Translations> = {
     vaultWhereTitle: "Used in:",
     vaultSyncing: "Syncing all bound files...",
     vaultSyncResult: "Sync result:",
+    vaultValuePrompt: "Enter secret value",
+    vaultValueRequired: "Enter the secret interactively or read it with --stdin; do not put secrets in command arguments",
     // provider
     providerListTitle: "Provider List",
     providerSelectAgent: "Select Agent",

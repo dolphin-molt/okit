@@ -6,8 +6,9 @@ import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
 import { normalizeGroupName } from '../../data/vault-groups';
 import { compareGroupNames, sortGroupEntries } from '../../lib/groupOrdering';
+import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
-type IconName = 'plus' | 'download' | 'upload' | 'copy' | 'edit' | 'trash' | 'search' | 'more';
+type IconName = 'plus' | 'download' | 'upload' | 'copy' | 'check' | 'edit' | 'trash' | 'search' | 'more';
 
 const COLLAPSED_GROUP_LIMIT = 9;
 
@@ -29,6 +30,7 @@ function Icon({ name }: { name: IconName }) {
     download: <><path d="M9 3v8" /><path d="M5.5 8.5 9 12l3.5-3.5" /><path d="M3 14.5h12" /></>,
     upload: <><path d="M9 15V7" /><path d="M5.5 9.5 9 6l3.5 3.5" /><path d="M3 3.5h12" /></>,
     copy: <><rect x="6" y="6" width="9" height="9" rx="1.5" /><path d="M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12" /></>,
+    check: <path d="m3.5 9.2 3.4 3.4 7.6-7.7" />,
     edit: <><path d="M10.5 4.5 13.5 7.5" /><path d="M4 14l3.2-.8 7-7a2.1 2.1 0 0 0-3-3l-7 7Z" /></>,
     trash: <><path d="M3 5h12" /><path d="M7 5V3.5h4V5" /><path d="M5 5l.8 10h6.4L13 5" /></>,
     search: <><circle cx="8" cy="8" r="4.5" /><path d="m11.5 11.5 3 3" /></>,
@@ -45,6 +47,7 @@ export default function VaultPage() {
   const [groupFilter, setGroupFilter] = useState('all');
   const [showAllGroups, setShowAllGroups] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [openSecretMenu, setOpenSecretMenu] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
@@ -54,6 +57,8 @@ export default function VaultPage() {
   const moreActionsRef = useRef<HTMLDivElement>(null);
   const moreActionsButtonRef = useRef<HTMLButtonElement>(null);
   const moreActionsMenuRef = useRef<HTMLDivElement>(null);
+  const collapseInitializedRef = useRef(false);
+  const { activeKey: copiedSecretKey, showFeedback: showSecretCopied } = useTransientFeedback();
 
   useEffect(() => { loadVault(); }, []);
 
@@ -80,6 +85,22 @@ export default function VaultPage() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showMoreActions]);
+
+  useEffect(() => {
+    if (!openSecretMenu) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('.vault-row-more')) setOpenSecretMenu(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenSecretMenu(null);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openSecretMenu]);
 
   function handleMoreMenuKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -135,6 +156,12 @@ export default function VaultPage() {
     if (groupFilter !== 'all' && !visible.includes(groupFilter)) visible.push(groupFilter);
     return visible;
   }, [groupFilter, orderedGroupFilters, showAllGroups]);
+
+  useEffect(() => {
+    if (loading || collapseInitializedRef.current || orderedGroupFilters.length === 0) return;
+    setCollapsedGroups(new Set(orderedGroupFilters.slice(1)));
+    collapseInitializedRef.current = true;
+  }, [loading, orderedGroupFilters]);
 
   const hiddenGroupCount = Math.max(0, orderedGroupFilters.length - visibleGroupFilters.length);
 
@@ -215,7 +242,7 @@ export default function VaultPage() {
     try {
       const data = await getVaultValue(key);
       await navigator.clipboard.writeText(data.value);
-      showToast(t('vault.copySuccess'));
+      showSecretCopied(key);
     } catch { showToast(t('vault.copyFail'), 'error'); }
   }
 
@@ -259,6 +286,16 @@ export default function VaultPage() {
     });
   }
 
+  function selectGroup(group: string) {
+    setGroupFilter(group);
+    if (group === 'all') return;
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      next.delete(group);
+      return next;
+    });
+  }
+
   // Skeleton only for the very first paint — later reloads (after add/edit/
   // delete) keep the current list on screen while refreshing in the background.
   if (loading && secrets.length === 0) {
@@ -296,6 +333,18 @@ export default function VaultPage() {
   return (
     <div className="vault-page">
       <div className="vault-workspace">
+        <header className="vault-page-heading">
+          <div className="vault-page-heading-copy">
+            <span className="vault-page-eyebrow">{t('vault.pageEyebrow')}</span>
+            <h1 className="sr-only">{t('vault.title')}</h1>
+            <p>{t('vault.pageSubtitle')}</p>
+          </div>
+          <div className="vault-page-summary" aria-label={t('vault.pageSummary')}>
+            <span><strong>{secrets.length}</strong>{t('vault.summarySecrets')}</span>
+            <span><strong>{groups.length}</strong>{t('vault.summaryGroups')}</span>
+          </div>
+        </header>
+
         {/* Group filters */}
         <div className="vault-filter-bar">
           <div className="vault-filter-section">
@@ -303,7 +352,7 @@ export default function VaultPage() {
             <div className="vault-filter-section-chips">
               <button
                 className={`vault-filter-chip${groupFilter === 'all' ? ' vault-filter-chip--active' : ''}`}
-                onClick={() => setGroupFilter('all')}
+                onClick={() => selectGroup('all')}
               >
                 {t('common.all')}
                 <span className="vault-chip-count">{secrets.length}</span>
@@ -312,7 +361,7 @@ export default function VaultPage() {
                 <button
                   key={g}
                   className={`vault-filter-chip${groupFilter === g ? ' vault-filter-chip--active' : ''}`}
-                  onClick={() => setGroupFilter(g)}
+                  onClick={() => selectGroup(g)}
                 >
                   {g}
                   <span className="vault-chip-count">{groupCounts.get(g) || 0}</span>
@@ -385,14 +434,14 @@ export default function VaultPage() {
               </div>
             )}
             {groupedFiltered.map(([group, items]) => {
-              const isCollapsed = collapsedGroups.has(group);
+              const isCollapsed = !searchTerm && collapsedGroups.has(group);
               return (
                 <div key={group} className="vault-group">
-                  <div className="vault-group-header" onClick={() => toggleGroup(group)}>
+                  <button type="button" className="vault-group-header" onClick={() => toggleGroup(group)} aria-expanded={!isCollapsed}>
                     <span className={`vault-group-toggle${isCollapsed ? ' collapsed' : ''}`}>⌄</span>
                     <span className="vault-group-name">{group || t('common.ungrouped')}</span>
                     <span className="vault-group-count">{items.length}</span>
-                  </div>
+                  </button>
                   {!isCollapsed && items.map((secret) => (
                     <article key={secret.key} className="vault-card vault-secret-row">
                       <div className="vault-secret-main">
@@ -402,13 +451,42 @@ export default function VaultPage() {
                         </div>
                       </div>
                       <div className="vault-secret-value">
-                        <span className="vault-masked">{secret.masked || '***'}</span>
+                        <span className={`vault-masked${secret.masked?.trim().startsWith('{') ? ' vault-masked--compound' : ''}`}>
+                          {secret.masked?.trim().startsWith('{') ? t('vault.protectedCredential') : secret.masked || '***'}
+                        </span>
                       </div>
-                      <time className="vault-date">{formatDate(secret.updatedAt)}</time>
+                      <time className="vault-date" aria-label={`${t('vault.lastUpdated')} ${formatDate(secret.updatedAt)}`}>{formatDate(secret.updatedAt)}</time>
                       <div className="vault-card-actions">
-                        <button className="btn-icon btn-icon--copy" title={t('vault.copy')} onClick={() => handleCopy(secret.key)}><Icon name="copy" /></button>
-                        <button className="btn-icon" title={t('common.edit')} onClick={() => openEditForm(secret)}><Icon name="edit" /></button>
-                        <button className="btn-icon btn-icon--danger" title={t('common.delete')} onClick={() => handleDelete(secret)}><Icon name="trash" /></button>
+                        <button
+                          className={`btn-icon btn-icon--copy${copiedSecretKey === secret.key ? ' is-copied' : ''}`}
+                          title={copiedSecretKey === secret.key ? t('common.copied') : t('vault.copy')}
+                          aria-label={copiedSecretKey === secret.key ? t('common.copied') : t('vault.copy')}
+                          onClick={() => handleCopy(secret.key)}
+                        >
+                          <Icon name={copiedSecretKey === secret.key ? 'check' : 'copy'} />
+                        </button>
+                        <div className="vault-row-more">
+                          <button
+                            className="btn-icon"
+                            title={t('vault.moreActions')}
+                            aria-label={t('vault.moreActions')}
+                            aria-haspopup="menu"
+                            aria-expanded={openSecretMenu === secret.key}
+                            onClick={() => setOpenSecretMenu(current => current === secret.key ? null : secret.key)}
+                          >
+                            <Icon name="more" />
+                          </button>
+                          {openSecretMenu === secret.key && (
+                            <div className="vault-row-menu" role="menu">
+                              <button role="menuitem" onClick={() => { setOpenSecretMenu(null); openEditForm(secret); }}>
+                                <Icon name="edit" /><span>{t('common.edit')}</span>
+                              </button>
+                              <button className="is-danger" role="menuitem" onClick={() => { setOpenSecretMenu(null); handleDelete(secret); }}>
+                                <Icon name="trash" /><span>{t('common.delete')}</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </article>
                   ))}

@@ -1,16 +1,36 @@
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Layout/Sidebar';
-import VaultPage from './components/vault/VaultPage';
-import SettingsPage from './components/settings/SettingsPage';
-import OnboardingPage from './components/onboarding/OnboardingPage';
-import ModelsPage from './components/models/ModelsPage';
-import UsagePage from './components/usage/UsagePage';
-import AgentsPage from './components/agents/AgentsPage';
-import ManualPage from './components/landing/ManualPage';
-import HomePage from './components/home/HomePage';
-import ModelCatalogPage from './components/catalog/ModelCatalogPage';
 import ProviderImportModal from './components/shared/ProviderImportModal';
+
+// Route-level code splitting: heavy pages are loaded on demand so the main
+// entry chunk stays small. A lightweight, layout-stable placeholder is shown
+// while a chunk loads to avoid visible layout shifts.
+const HomePage = lazy(() => import('./components/home/HomePage'));
+const ModelsPage = lazy(() => import('./components/models/ModelsPage'));
+const UsagePage = lazy(() => import('./components/usage/UsagePage'));
+const VaultPage = lazy(() => import('./components/vault/VaultPage'));
+const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
+const OnboardingPage = lazy(() => import('./components/onboarding/OnboardingPage'));
+const AgentsPage = lazy(() => import('./components/agents/AgentsPage'));
+const ManualPage = lazy(() => import('./components/landing/ManualPage'));
+const ModelCatalogPage = lazy(() => import('./components/catalog/ModelCatalogPage'));
+
+function PageLoading() {
+  return (
+    <div
+      className="page-loading"
+      aria-busy="true"
+      style={{ padding: '2rem', color: 'var(--ink-muted)', fontSize: '0.95rem' }}
+    >
+      加载中…
+    </div>
+  );
+}
+
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
+}
 
 function DeepLinkHandler() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,31 +85,31 @@ function PersistentDashboardRoutes() {
     <>
       {wasVisited('/') && (
         <div className="route-keepalive" hidden={!isActive('/')} aria-hidden={!isActive('/')}>
-          <HomePage />
+          <LazyRoute><HomePage /></LazyRoute>
         </div>
       )}
       {wasVisited('/usage') && (
         <div className="route-keepalive" hidden={!isActive('/usage')} aria-hidden={!isActive('/usage')}>
-          <UsagePage />
+          <LazyRoute><UsagePage /></LazyRoute>
         </div>
       )}
       {wasVisited('/models') && (
         <div className="route-keepalive" hidden={!isActive('/models')} aria-hidden={!isActive('/models')}>
-          <ModelsPage />
+          <LazyRoute><ModelsPage /></LazyRoute>
         </div>
       )}
       {wasVisited('/vault') && (
         <div className="route-keepalive" hidden={!isActive('/vault')} aria-hidden={!isActive('/vault')}>
-          <VaultPage />
+          <LazyRoute><VaultPage /></LazyRoute>
         </div>
       )}
       {!keepAliveActive && (
         <Routes>
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/vault" element={<VaultPage />} />
-          <Route path="/models" element={<ModelsPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/onboarding" element={<LazyRoute><OnboardingPage /></LazyRoute>} />
+          <Route path="/vault" element={<LazyRoute><VaultPage /></LazyRoute>} />
+          <Route path="/models" element={<LazyRoute><ModelsPage /></LazyRoute>} />
+          <Route path="/agents" element={<LazyRoute><AgentsPage /></LazyRoute>} />
+          <Route path="/settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )}
@@ -100,9 +120,9 @@ function PersistentDashboardRoutes() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/manual" element={<ManualPage />} />
+      <Route path="/manual" element={<LazyRoute><ManualPage /></LazyRoute>} />
       {/* Standalone model catalog — outside the app shell, own design. */}
-      <Route path="/catalog" element={<ModelCatalogPage />} />
+      <Route path="/catalog" element={<LazyRoute><ModelCatalogPage /></LazyRoute>} />
       <Route path="*" element={
         <div id="app">
           <DeepLinkHandler />

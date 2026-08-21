@@ -64,17 +64,25 @@
 }
 
 .custom-select-option {
+  display: block;
+  width: 100%;
   padding: 7px 10px;
+  border: 0;
+  background: transparent;
   font-size: 13px;
+  font-family: inherit;
+  text-align: left;
   color: var(--ink);
   cursor: pointer;
   transition: background 0.1s;
 }
 
 .custom-select-option:hover { background: var(--kraft); }
+.custom-select-option.highlighted { background: var(--kraft); }
 .custom-select-option.active { background: var(--ink); color: var(--paper); font-weight: 600; }
 
 [data-theme="dark"] .custom-select-option:hover { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .custom-select-option.highlighted { background: rgba(255,255,255,0.06); }
 [data-theme="dark"] .custom-select-option.active { background: var(--ink); color: var(--paper); }
 
 /* ─── Shared Sidebar Layout ─── */

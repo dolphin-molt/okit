@@ -94,10 +94,26 @@ export async function vaultGet(key: string): Promise<void> {
 }
 
 // okit vault list
-export async function vaultList(): Promise<void> {
+export async function vaultList(options?: { json?: boolean }): Promise<void> {
   const entries = await store.list();
   if (entries.length === 0) {
+    if (options?.json) {
+      process.stdout.write("[]\n");
+      return;
+    }
     console.log(kleur.yellow(t("vaultEmpty")));
+    return;
+  }
+
+  if (options?.json) {
+    const safeEntries = entries.map(entry => ({
+      key: entry.key,
+      masked: entry.masked,
+      group: entry.group || null,
+      description: entry.desc || null,
+      expiresAt: entry.expiresAt || null,
+    }));
+    process.stdout.write(`${JSON.stringify(safeEntries, null, 2)}\n`);
     return;
   }
 
@@ -124,6 +140,7 @@ export async function vaultDelete(key: string): Promise<void> {
     console.log(kleur.green(`${t("vaultDeleted")} ${key}`));
   } else {
     console.log(kleur.red(`${t("vaultNotFound")} ${key}`));
+    process.exitCode = 1;
   }
 }
 
@@ -183,12 +200,14 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
   const envFile = findOkitEnv(dir);
   if (!envFile) {
     console.log(kleur.red(t("vaultNoOkitEnv")));
+    process.exitCode = 1;
     return;
   }
 
   const entries = await parseOkitEnv(envFile);
   if (entries.length === 0) {
     console.log(kleur.yellow(t("vaultNoKeys")));
+    process.exitCode = 1;
     return;
   }
 

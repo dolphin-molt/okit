@@ -3,11 +3,10 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { backupImportantData } = require('./backup');
+const { appendLog } = require('./log-writer');
 
 const CONFIG_PATH = path.join(os.homedir(), '.okit', 'user.json');
 const PROVIDERS_PATH = path.join(os.homedir(), '.okit', 'providers.json');
-const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
-const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
 
 const SECRET_FIELD_PATTERNS = /ecret|oken|Key|Id$/;
 const SKIP_FIELDS = /databaseId|bucketName|region/i;
@@ -80,15 +79,6 @@ async function mergeProvidersConfig(remoteProviders) {
   }
   if (changed > 0) await saveProvidersConfig(merged);
   return changed;
-}
-
-function appendLog(action, name, success, detail) {
-  try {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-    const entry = { timestamp: new Date().toISOString(), name, action, success, duration: 0 };
-    if (detail) entry.output = detail;
-    fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + '\n');
-  } catch {}
 }
 
 function deriveSyncCodeKey(password) {

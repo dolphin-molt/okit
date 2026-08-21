@@ -1,4 +1,4 @@
-const { Service } = require('@volcengine/openapi');
+const { requestOpenApi } = require('../volcengine-openapi');
 
 const KMS_VERSION = '2021-02-18';
 
@@ -6,27 +6,18 @@ function createClient(config) {
   if (!config.accessKey || !config.secretKey) {
     throw new Error('请配置 AccessKey 和 SecretKey');
   }
-  const service = new Service();
-  service.setAccessKeyId(config.accessKey);
-  service.setSecretKey(config.secretKey);
-  return service;
+  return { accessKey: config.accessKey, secretKey: config.secretKey };
 }
 
 async function kmsCall(client, action, query, body) {
-  const opts = {
-    Action: action,
-    Version: KMS_VERSION,
+  const result = await requestOpenApi({
+    ...client,
+    action,
+    version: KMS_VERSION,
     query,
-  };
-  if (body) {
-    opts.method = 'POST';
-    opts.data = body;
-    opts.headers = { 'Content-Type': 'application/json; charset=utf-8' };
-  }
-  const result = await client.fetchOpenAPI(opts, {
-    host: 'open.volcengineapi.com',
+    body,
     region: 'cn-beijing',
-    serviceName: 'kms',
+    service: 'kms',
   });
   const err = result.ResponseMetadata?.Error;
   if (err) throw new Error(`${err.Code}: ${err.Message}`);

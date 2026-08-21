@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ReactDiffViewer, { DiffMethod, type ReactDiffViewerStylesOverride } from 'react-diff-viewer-continued';
+import { diffLines } from 'diff';
 import { getAdapters, type AgentInfo } from '../../api/providers';
 import {
   listSnapshots, getSnapshotDetail, restoreSnapshot,
@@ -8,28 +9,30 @@ import {
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
 import CustomSelect from '../shared/CustomSelect';
+import { getAgentIcon, getAgentIconClass } from '../../assets/agents';
+import { Clock3, Eye, GitCompareArrows, History, RotateCcw, X } from 'lucide-react';
 
 // Theme the third-party diff viewer with OKIT's palette. Values are plain CSS
 // so var() references resolve inside the modal like anywhere else.
 const DIFF_STYLES: ReactDiffViewerStylesOverride = {
   variables: {
     light: {
-      diffViewerBackground: 'var(--paper)',
+      diffViewerBackground: 'var(--card-surface)',
       diffViewerColor: 'var(--ink)',
-      // Title row and summary bar share these; they resolve through CSS
-      // variables defined per theme in snapshots.css.
+      // The lightweight version headers resolve through theme variables in snapshots.css.
       diffViewerTitleBackground: 'var(--snap-title-bg)',
       diffViewerTitleColor: 'var(--snap-title-fg)',
-      diffViewerTitleBorderColor: 'var(--snap-title-border)',
-      gutterBackground: 'rgba(0, 0, 0, 0.02)',
+      diffViewerTitleBorderColor: 'var(--snap-divider)',
+      gutterBackground: 'var(--snap-gutter-bg)',
+      gutterBackgroundDark: 'color-mix(in srgb, var(--ink) 3%, transparent)',
       gutterColor: 'var(--ink-muted)',
-      addedBackground: 'rgba(5, 150, 105, 0.10)',
+      addedBackground: 'rgba(5, 150, 105, 0.07)',
       addedColor: 'var(--green)',
-      addedGutterBackground: 'rgba(5, 150, 105, 0.08)',
+      addedGutterBackground: 'rgba(5, 150, 105, 0.07)',
       addedGutterColor: 'var(--green)',
-      removedBackground: 'rgba(220, 38, 38, 0.10)',
+      removedBackground: 'rgba(220, 38, 38, 0.07)',
       removedColor: 'var(--red)',
-      removedGutterBackground: 'rgba(220, 38, 38, 0.08)',
+      removedGutterBackground: 'rgba(220, 38, 38, 0.07)',
       removedGutterColor: 'var(--red)',
       wordAddedBackground: 'rgba(5, 150, 105, 0.22)',
       wordRemovedBackground: 'rgba(220, 38, 38, 0.22)',
@@ -37,20 +40,21 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
       codeFoldGutterBackground: 'rgba(0, 0, 0, 0.035)',
     },
     dark: {
-      diffViewerBackground: '#24221e',
+      diffViewerBackground: 'var(--card-surface)',
       diffViewerColor: 'var(--ink)',
       diffViewerTitleBackground: 'var(--snap-title-bg)',
       diffViewerTitleColor: 'var(--snap-title-fg)',
-      diffViewerTitleBorderColor: 'var(--snap-title-border)',
-      gutterBackground: 'rgba(255, 255, 255, 0.03)',
+      diffViewerTitleBorderColor: 'var(--snap-divider)',
+      gutterBackground: 'var(--snap-gutter-bg)',
+      gutterBackgroundDark: 'rgba(255, 255, 255, 0.035)',
       gutterColor: 'var(--ink-muted)',
-      addedBackground: 'rgba(52, 211, 153, 0.12)',
+      addedBackground: 'rgba(52, 211, 153, 0.08)',
       addedColor: 'var(--green)',
-      addedGutterBackground: 'rgba(52, 211, 153, 0.10)',
+      addedGutterBackground: 'rgba(52, 211, 153, 0.08)',
       addedGutterColor: 'var(--green)',
-      removedBackground: 'rgba(248, 113, 113, 0.12)',
+      removedBackground: 'rgba(248, 113, 113, 0.08)',
       removedColor: 'var(--red)',
-      removedGutterBackground: 'rgba(248, 113, 113, 0.10)',
+      removedGutterBackground: 'rgba(248, 113, 113, 0.08)',
       removedGutterColor: 'var(--red)',
       wordAddedBackground: 'rgba(52, 211, 153, 0.28)',
       wordRemovedBackground: 'rgba(248, 113, 113, 0.28)',
@@ -59,27 +63,39 @@ const DIFF_STYLES: ReactDiffViewerStylesOverride = {
     },
   },
   diffContainer: {
+    width: '100%',
+    minWidth: 0,
+    tableLayout: 'fixed',
     fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-    fontSize: '12px',
+    fontSize: '11.5px',
   },
   titleBlock: {
     display: 'flex',
     alignItems: 'center',
-    padding: '0 12px',
+    height: '38px',
+    padding: '0 14px',
+    borderBottom: '1px solid var(--snap-divider)',
     fontFamily: 'var(--font)',
     fontSize: '11px',
     fontWeight: 700,
     letterSpacing: '0.04em',
+    '&:last-child:not(:only-child)': {
+      borderLeft: '1px solid var(--snap-divider)',
+    },
   },
-  summary: {
-    fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-    fontSize: '11px',
-    borderBottom: '1px solid var(--snap-title-border)',
+  contentText: {
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
   },
-  // Nothing is foldable in full-file mode, so the bar's expand-all button
-  // would be a dead control — hide it and keep count + distribution strip.
-  allExpandButton: {
-    display: 'none',
+  gutter: {
+    minWidth: '42px',
+    width: '42px',
+    padding: '0 7px',
+  },
+  marker: {
+    width: '22px',
+    paddingRight: '6px',
+    paddingLeft: '6px',
   },
   // The lib renders the "no counterpart line" cells via backgroundColor, which
   // cannot carry a gradient. Draw the hatch ourselves through a theme-aware
@@ -130,6 +146,23 @@ function jsonCompareMethod(file: SnapshotDetailFile): DiffMethod | undefined {
   }
 }
 
+function changedLineCount(value: string): number {
+  if (!value) return 0;
+  const normalized = value.replace(/\r\n/g, '\n');
+  return normalized.split('\n').length - (normalized.endsWith('\n') ? 1 : 0);
+}
+
+function getLineChangeStats(file: SnapshotDetailFile): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const change of diffLines(file.snapshotContent ?? '', file.currentContent ?? '')) {
+    const count = change.count ?? changedLineCount(change.value);
+    if (change.added) added += count;
+    if (change.removed) removed += count;
+  }
+  return { added, removed };
+}
+
 // Snapshot ids look like "2026-08-20T03-34-47-123Z" (ISO with : and . replaced
 // by -). Fold that back into a parseable timestamp and render in local time.
 function formatSnapshotTime(iso: string): string {
@@ -161,11 +194,47 @@ function formatShortTime(iso: string): string {
   return `${y}-${mo}-${d}`;
 }
 
+function formatTimelineTime(iso: string): string {
+  const full = formatSnapshotTime(iso);
+  const m = /^\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2})$/.exec(full);
+  return m?.[1] || formatShortTime(iso);
+}
+
+function snapshotFileSummary(files: Snapshot['files']): string {
+  if (files.length === 0) return '—';
+  const names = files.map(file => file.name);
+  if (names.length <= 2) return names.join(' · ');
+  return `${names.slice(0, 2).join(' · ')} · +${names.length - 2}`;
+}
+
+function snapshotDayKey(iso: string): string {
+  return formatSnapshotTime(iso).slice(0, 10);
+}
+
+function formatSnapshotDay(iso: string, lang: 'zh' | 'en', t: (key: string) => string): string {
+  const key = snapshotDayKey(iso);
+  const date = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return key;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const offset = Math.round((today.getTime() - date.getTime()) / 86_400_000);
+  if (offset === 0) return t('settings.snapshots.today');
+  if (offset === 1) return t('settings.snapshots.yesterday');
+
+  return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  }).format(date);
+}
+
 type SnapshotItem = Snapshot & { agentId: string; agentName: string };
 
 export default function SnapshotsSection() {
   const { showToast, confirm, theme } = useApp() as any;
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   // '' means "all agents" — the default landing view shows every snapshot.
@@ -256,55 +325,112 @@ export default function SnapshotsSection() {
     }
   }
 
+  const snapshotGroups = snapshots.reduce<Array<{ key: string; label: string; items: SnapshotItem[] }>>((groups, snapshot) => {
+    const key = snapshotDayKey(snapshot.createdAt);
+    const current = groups[groups.length - 1];
+    if (current?.key === key) {
+      current.items.push(snapshot);
+    } else {
+      groups.push({
+        key,
+        label: formatSnapshotDay(snapshot.createdAt, lang, t),
+        items: [snapshot],
+      });
+    }
+    return groups;
+  }, []);
+
   return (
     <div className="settings-section" id="snapshots">
       <div className="settings-block">
-        <div className="settings-block-head">
-          <span className="settings-block-title">{t('settings.snapshots.title')}</span>
-          <div className="settings-block-head-controls">
-            <CustomSelect
-              className="settings-select-wrap snapshots-select-wrap"
-              value={filterAgent}
-              onChange={setFilterAgent}
-              placeholder={t('settings.snapshots.selectAgent')}
-              options={[
-                { value: '', label: t('settings.snapshots.allAgents') },
-                ...agents.map(a => ({ value: a.id, label: a.name })),
-              ]}
-            />
+        <header className="settings-page-header">
+          <span className="settings-page-eyebrow"><History size={14} />{t('settings.snapshots.eyebrow')}</span>
+          <h2>{t('settings.snapshots.title')}</h2>
+          <p>{t('settings.snapshots.description')}</p>
+        </header>
+        <div className="settings-card snapshots-card">
+          <div className="snapshots-toolbar">
+            <div className="snapshots-overview">
+              <span className="snapshots-overview-icon" aria-hidden="true"><History size={17} strokeWidth={1.7} /></span>
+              <div>
+                <strong>{snapshots.length}</strong>
+                <span>{t('settings.snapshots.versions')}</span>
+              </div>
+            </div>
+            <div className="settings-block-head-controls">
+              <CustomSelect
+                className="settings-select-wrap snapshots-select-wrap"
+                value={filterAgent}
+                onChange={setFilterAgent}
+                placeholder={t('settings.snapshots.selectAgent')}
+                options={[
+                  { value: '', label: t('settings.snapshots.allAgents') },
+                  ...agents.map(a => ({ value: a.id, label: a.name })),
+                ]}
+              />
+            </div>
           </div>
-        </div>
-        <div className="settings-card">
-          <div className="settings-card-body">
+          <div className="settings-card-body snapshots-card-body">
             {listLoading && snapshots.length === 0 ? (
               <div className="snapshots-empty">{t('settings.snapshots.loading')}</div>
             ) : snapshots.length === 0 ? (
               <div className="snapshots-empty">{t('settings.snapshots.empty')}</div>
             ) : (
-              <div className="snapshots-list">
-                {snapshots.map(snapshot => (
-                  <div key={`${snapshot.agentId}/${snapshot.id}`} className="snapshots-item">
-                    <div className="snapshots-item-info">
-                      <span className="snapshots-item-agent">{snapshot.agentName}</span>
-                      <span className="snapshots-item-time">{formatShortTime(snapshot.createdAt)}</span>
-                      <span className="snapshots-item-files">
-                        {t('settings.snapshots.fileCount', { n: snapshot.files.length })}
-                      </span>
+              <div className="snapshots-timeline">
+                {snapshotGroups.map(group => (
+                  <section key={group.key} className="snapshots-group">
+                    <div className="snapshots-group-head">
+                      <span>{group.label}</span>
+                      <span>{t('settings.snapshots.groupCount', { n: group.items.length })}</span>
                     </div>
-                    <div className="snapshots-item-actions">
-                      <button type="button" className="snapshots-btn" onClick={() => openDetail(snapshot)}>
-                        {t('settings.snapshots.view')}
-                      </button>
-                      <button
-                        type="button"
-                        className="snapshots-btn snapshots-btn--restore"
-                        onClick={() => handleRestore(snapshot)}
-                        disabled={restoring}
-                      >
-                        {t('settings.snapshots.restore')}
-                      </button>
+                    <div className="snapshots-list">
+                      {group.items.map(snapshot => (
+                        <div key={`${snapshot.agentId}/${snapshot.id}`} className="snapshots-item">
+                          <div className="snapshots-item-info">
+                            <span className="snapshots-item-avatar" aria-hidden="true">
+                              {getAgentIcon(snapshot.agentId) ? (
+                                <img
+                                  src={getAgentIcon(snapshot.agentId)}
+                                  className={getAgentIconClass(snapshot.agentId)}
+                                  alt=""
+                                  draggable={false}
+                                />
+                              ) : snapshot.agentName.slice(0, 1).toUpperCase()}
+                            </span>
+                            <span className="snapshots-item-copy">
+                              <strong className="snapshots-item-agent">{snapshot.agentName}</strong>
+                              <small title={snapshot.files.map(file => file.name).join(' · ')}>{snapshotFileSummary(snapshot.files)}</small>
+                            </span>
+                          </div>
+                          <span className="snapshots-item-time">
+                            <Clock3 size={13} strokeWidth={1.7} />
+                            {formatTimelineTime(snapshot.createdAt)}
+                          </span>
+                          <div className="snapshots-item-actions">
+                            <button
+                              type="button"
+                              className="snapshots-btn"
+                              aria-label={`${t('settings.snapshots.viewChanges')} · ${snapshot.agentName}`}
+                              title={t('settings.snapshots.viewChanges')}
+                              onClick={() => openDetail(snapshot)}
+                            >
+                              <Eye size={14} strokeWidth={1.8} />
+                            </button>
+                            <button
+                              type="button"
+                              className="snapshots-btn snapshots-btn--restore"
+                              aria-label={`${t('settings.snapshots.restore')} · ${snapshot.agentName}`}
+                              title={t('settings.snapshots.restore')}
+                              onClick={() => handleRestore(snapshot)}
+                              disabled={restoring}
+                            >
+                              <RotateCcw size={14} strokeWidth={1.8} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  </section>
                 ))}
               </div>
             )}
@@ -318,11 +444,19 @@ export default function SnapshotsSection() {
             {(() => {
               const files = detail || [];
               const current = files[Math.min(activeFile, Math.max(files.length - 1, 0))] ?? null;
+              const changeStats = current ? getLineChangeStats(current) : { added: 0, removed: 0 };
               return (
                 <>
                   <div className="snapshots-topbar">
-                    <span className="snapshots-topbar-label">{detailAgentName}</span>
-                    <span className="snapshots-topbar-time">{detailTime}</span>
+                    <div className="snapshots-topbar-heading">
+                      <span className="snapshots-topbar-icon" aria-hidden="true">
+                        <GitCompareArrows size={17} strokeWidth={1.7} />
+                      </span>
+                      <div>
+                        <strong className="snapshots-topbar-label">{detailAgentName}</strong>
+                        <span className="snapshots-topbar-time">{detailTime}</span>
+                      </div>
+                    </div>
                     <div className="snapshots-topbar-file">
                       {files.length > 1 && (
                         <div className="snapshots-topbar-tabs" role="tablist">
@@ -340,6 +474,9 @@ export default function SnapshotsSection() {
                           ))}
                         </div>
                       )}
+                      {files.length === 1 && current && (
+                        <span className="snapshots-current-file">{current.name}</span>
+                      )}
                       {current && current.currentContent == null && (
                         <span className="snapshots-file-missing">{t('settings.snapshots.fileMissing')}</span>
                       )}
@@ -350,10 +487,13 @@ export default function SnapshotsSection() {
                           onClick={() => handleRestore(detailSnapshot)}
                           disabled={restoring || detailLoading}
                         >
+                          <RotateCcw size={14} strokeWidth={1.8} />
                           {t('settings.snapshots.restore')}
                         </button>
                       )}
-                      <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>×</button>
+                      <button className="snapshots-topbar-close" type="button" onClick={closeDetail} aria-label={t('common.close')}>
+                        <X size={16} strokeWidth={1.8} />
+                      </button>
                     </div>
                   </div>
                   {detailLoading ? (
@@ -361,16 +501,27 @@ export default function SnapshotsSection() {
                   ) : current ? (
                     <div className="snapshots-detail">
                       <div className="snapshots-diffwrap">
+                        <div className="snapshots-change-summary" role="status">
+                          <span className="snapshots-change-summary-label">{t('settings.snapshots.changeSummary')}</span>
+                          <span className="snapshots-change-stat snapshots-change-stat--removed">
+                            <i aria-hidden="true" />
+                            {t('settings.snapshots.removedLines', { n: changeStats.removed })}
+                          </span>
+                          <span className="snapshots-change-stat snapshots-change-stat--added">
+                            <i aria-hidden="true" />
+                            {t('settings.snapshots.addedLines', { n: changeStats.added })}
+                          </span>
+                        </div>
                         <ReactDiffViewer
                           oldValue={current.snapshotContent ?? ''}
                           newValue={current.currentContent ?? ''}
                           splitView
+                          hideSummary
                           showDiffOnly={false}
                           disableWorker
                           useDarkTheme={theme === 'dark'}
                           compareMethod={jsonCompareMethod(current) ?? undefined}
                           highlightLanguage={HIGHLIGHT_LANGS[fileExt(current.name)]}
-                          summary={<span className="snapshots-summary-name">{current.name}</span>}
                           leftTitle={paneTitle('old', t('settings.snapshots.paneSnapshot'))}
                           rightTitle={paneTitle('new', t('settings.snapshots.paneCurrent'))}
                           styles={DIFF_STYLES}

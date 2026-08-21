@@ -247,6 +247,14 @@
 [data-style="ocean"],
 [data-style="mono"],
 [data-style="ember"] {
+  --card-surface: var(--surface-2);
+  --card-surface-hover: var(--surface-3);
+  --card-surface-soft: var(--surface-1);
+  --card-inner: color-mix(in srgb, var(--surface-2) 76%, var(--surface-1));
+  --card-line: var(--border);
+  --card-line-hover: color-mix(in srgb, var(--accent) 38%, transparent);
+  --card-shadow: 0 8px 22px color-mix(in srgb, black 20%, transparent), inset 0 1px 0 color-mix(in srgb, var(--ink) 3%, transparent);
+  --card-shadow-hover: 0 13px 32px color-mix(in srgb, black 28%, transparent), inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
   --settings-panel-bg:
     linear-gradient(135deg, color-mix(in srgb, var(--ink) 6%, transparent), color-mix(in srgb, var(--ink) 2%, transparent)),
     color-mix(in srgb, var(--surface-1) 86%, transparent);
@@ -255,6 +263,83 @@
 
 /* 亮色下改为近实心浅面板 */
 [data-style][data-theme="light"] {
+  --card-surface: var(--surface-2);
+  --card-surface-hover: color-mix(in srgb, var(--surface-2) 92%, var(--surface-3));
+  --card-surface-soft: var(--surface-1);
+  --card-inner: color-mix(in srgb, var(--surface-2) 94%, var(--surface-1));
+  --card-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 8%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --card-shadow-hover: 0 13px 32px color-mix(in srgb, var(--ink) 12%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.78);
   --settings-panel-bg: color-mix(in srgb, var(--surface-2) 94%, transparent);
   --settings-field-bg: color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+
+/* ─── 指挥中心亮色：沉稳苔藓绿，荧光绿仅保留给深色模式 ─── */
+[data-style="command"][data-theme="light"] {
+  --accent: #526f2c;
+  --accent-ink: #ffffff;
+  --green: #147d5a;
+  --ok: #15803d;
+  --surface-3: #edf1e8;
+  --card-line-hover: color-mix(in srgb, var(--accent) 28%, transparent);
+  --panel-bg:
+    radial-gradient(circle at 82% 5%, rgba(82, 111, 44, 0.12), transparent 28%),
+    radial-gradient(circle at 30% 0%, rgba(2, 112, 152, 0.07), transparent 26%),
+    linear-gradient(rgba(23, 32, 29, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 32, 29, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, #f8f6ef 0%, #f4f1e8 100%);
+}
+
+[data-style="command"][data-theme="light"] .brand-shape {
+  background: var(--accent);
+  box-shadow: 0 8px 20px rgba(82, 111, 44, 0.18);
+}
+
+[data-style="command"][data-theme="light"] .brand-shape::after {
+  color: var(--accent-ink);
+}
+
+[data-style="command"][data-theme="light"] .nav-item.active {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+[data-style="command"][data-theme="light"] .vault-project-list .project-key-count,
+[data-style="command"][data-theme="light"] .page-sidebar-item.active,
+[data-style="command"][data-theme="light"] .cat-group-header.active,
+[data-style="command"][data-theme="light"] .cat-item.active,
+[data-style="command"][data-theme="light"] .cat-sidebar-item.active,
+[data-style="command"][data-theme="light"] .vault-group-header.active,
+[data-style="command"][data-theme="light"] .sync-sidebar-item--active,
+[data-style="command"][data-theme="light"] .picker-provider.active,
+[data-style="command"][data-theme="light"] .settings-workspace .vault-picker-group.active {
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, white);
+  color: var(--ink);
+}
+
+[data-style="command"][data-theme="light"] .home-pill--warn {
+  border-color: rgba(180, 83, 9, 0.2);
+  background: #fff7df;
+  color: #92400e;
+}
+
+[data-style="command"][data-theme="light"] .btn-action--install,
+[data-style="command"][data-theme="light"] .btn-add,
+[data-style="command"][data-theme="light"] .btn-save {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-style="command"][data-theme="light"] .btn-action--install:hover,
+[data-style="command"][data-theme="light"] .btn-add:hover,
+[data-style="command"][data-theme="light"] .btn-save:hover,
+[data-style="command"][data-theme="light"] .btn-action--install:focus-visible,
+[data-style="command"][data-theme="light"] .btn-add:focus-visible,
+[data-style="command"][data-theme="light"] .btn-save:focus-visible,
+[data-style="command"][data-theme="light"] .btn-action--install:active,
+[data-style="command"][data-theme="light"] .btn-add:active,
+[data-style="command"][data-theme="light"] .btn-save:active {
+  border-color: #405822;
+  background: #466025;
+  color: #ffffff;
 }

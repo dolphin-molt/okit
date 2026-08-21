@@ -373,10 +373,12 @@ export class ZCodeAdapter extends BaseAdapter {
     const dbPath = path.join(os.homedir(), ".zcode", "v2", "tasks-index.sqlite");
     if (!(await fs.pathExists(dbPath))) return fallback();
     try {
-      // node:sqlite ships with Node ≥22.5; require it lazily so older runtimes
-      // and type-strict builds without the declarations degrade gracefully.
+      // node:sqlite ships with Node ≥22.5. Resolve it indirectly so pkg's
+      // Node 18 binary can still be built; at runtime that binary falls back
+      // to the persisted OKIT selection through the catch block below.
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { DatabaseSync } = require("node:sqlite") as {
+      const runtimeRequire = eval("require") as NodeRequire;
+      const { DatabaseSync } = runtimeRequire("node:" + "sqlite") as {
         DatabaseSync: new (path: string, opts?: { readOnly?: boolean }) => {
           prepare(sql: string): { get(): { model?: string } | undefined };
           close(): void;

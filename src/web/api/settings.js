@@ -2,25 +2,9 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 const { backupImportantData } = require('./backup');
+const { appendLog } = require('./log-writer');
 
 const CONFIG_PATH = path.join(os.homedir(), '.okit', 'user.json');
-const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
-const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
-
-function appendLog(action, name, success, detail) {
-  try {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-    const entry = {
-      timestamp: new Date().toISOString(),
-      name,
-      action,
-      success,
-      duration: 0,
-    };
-    if (detail) entry.output = detail;
-    fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + '\n');
-  } catch {}
-}
 
 const SENSITIVE_KEYS = ['accessKeySecret', 'password', 'token'];
 

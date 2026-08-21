@@ -1,6 +1,6 @@
 # OKIT 使用手册
 
-OKIT 是 AI Agent 的密钥与模型管控台：本地加密密钥库、内置 29+ 模型平台、适配 8 个 Agent、15 平台用量查询，配合浏览器扩展可以**一键自动创建 API Key**。
+OKIT 是 AI Agent 的密钥与模型管控台：本地加密密钥库、内置 40 个模型平台预设、适配 10 个 Agent、支持 30+ 个订阅与余额来源查询，配合浏览器扩展可以**一键自动创建 API Key**。
 
 ---
 
@@ -15,7 +15,7 @@ npm install -g @cing-self/okit-cli
 **脚本安装：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Cing-self/okit/refs/heads/main/install.sh | bash
 ```
 
 **启动 Web 控制台：**
@@ -38,9 +38,9 @@ Web 控制台默认运行在 **http://localhost:3780**。如果 3780 被占用�
 | 快速启动 | 首页驾驶舱：Agent 切换、Provider 启用、今日用量 |
 | AI 助手 | 内置助手，在密钥/平台/用量上下文中对话执行操作 |
 | 密钥管理 | 加密密钥库：手动添加、自动创建、绑定项目、云同步 |
-| 模型管控 | 29+ Provider 预设：端点、认证方式、模型列表、套餐 |
-| 用量统计 | 15 个平台的订阅/余额查询与告警 |
-| Agent 配置 | 8 个 Agent 的配置适配与模型一键切换 |
+| 模型管控 | 40 个 Provider 预设：端点、认证方式、模型列表、套餐 |
+| 用量统计 | 30+ 个订阅/余额来源的查询与告警 |
+| Agent 配置 | 10 个 Agent 的配置适配与模型一键切换 |
 | 设置 | 语言、云同步、端口等 |
 
 ---
@@ -142,14 +142,14 @@ npm run build        # tsc 编译 → extension/dist/
   - 在常开的那台电脑上「添加设备 → 本机作为主设备」开启监听，复制显示的 `okit-lan://` 配对码
   - 其他电脑「添加设备」粘贴配对码点击「连接」即可；两台设备需使用**相同的同步密码**
   - 设备列表实时显示对端在线状态；数据仍为端到端加密传输（云端只存密文的规则同样适用于局域网中转），主机 IP 变化后重新配对即可
-  - 首次连接若被系统防火墙拦截，请允许 OKIT 的入站连接（默认端口 3790）；可与云平台同时启用、互为备份
+  - 首次连接若被系统防火墙拦截，请允许 OKIT 的入站连接（局域网同步默认端口 3790）；可与云平台同时启用、互为备份
 
 ---
 
 ## 6. 模型平台与 Agent 配置
 
-- **模型管控**页内置 29+ Provider 预设（官方 API、聚合平台、国内平台），点卡片即可配置端点与认证；右上角三点菜单支持"连接"（测试 + 拉取模型列表）
-- **Agent 配置**支持 8 个 Agent：Claude Code、ChatGPT (Codex)、Kimi Code、WorkBuddy、Hermes、OpenCode、OpenClaw、ZCode
+- **模型管控**页内置 40 个 Provider 预设（官方 API、聚合平台、国内平台），点卡片即可配置端点与认证；右上角三点菜单支持"连接"（测试 + 拉取模型列表）
+- **Agent 配置**支持 10 个 Agent：Claude Code、ChatGPT (Codex)、Kimi Code、WorkBuddy、Hermes、OpenCode、OpenClaw、ZCode、Grok、MiMo Code
 - 切换模型：快速启动页选 Agent → 打开对应 Provider 开关 → 点模型 chip 即完成切换，配置文件（`config.toml`、`auth.json` 等）自动写对
 - Provider 配置支持导入/导出，方便跨设备迁移
 

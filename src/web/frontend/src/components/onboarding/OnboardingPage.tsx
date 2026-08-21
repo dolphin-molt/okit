@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOnboarding, getPresets, dismissOnboarding, resetOnboarding } from '../../api/settings';
 import { setVault } from '../../api/vault';
@@ -30,8 +30,45 @@ export default function OnboardingPage() {
   const [keyValues, setKeyValues] = useState<Record<string, string>>({});
   const [executing, setExecuting] = useState(false);
   const [progress, setProgress] = useState('');
+  const presetPanelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const executingRef = useRef(executing);
 
   useEffect(() => { check(); }, []);
+
+  useEffect(() => { executingRef.current = executing; }, [executing]);
+
+  useEffect(() => {
+    if (!selectedPreset) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const panel = presetPanelRef.current;
+    const focusable = () => Array.from(panel?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)') || []);
+    (panel?.querySelector<HTMLElement>('input:not(:disabled)') || focusable()[0])?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !executingRef.current) {
+        event.preventDefault();
+        setSelectedPreset(null);
+      }
+      if (event.key === 'Tab') {
+        const items = focusable();
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [selectedPreset]);
 
   async function check() {
     try {
@@ -93,22 +130,28 @@ export default function OnboardingPage() {
 
   if (dismissed) {
     return (
-      <div>
-        <div id="quickStartEmpty" style={{ textAlign: 'center', padding: '60px 20px' }}>
+      <main className="onboarding-page">
+        <div id="quickStartEmpty" className="onboarding-complete">
           <div style={{ fontSize: 48, opacity: 0.15, marginBottom: 16 }}>&#10003;</div>
-          <p style={{ color: 'var(--ink-muted)', marginBottom: 16 }}>{t('onboarding.completed')}</p>
+          <h1>{t('onboarding.completed')}</h1>
           <button className="btn-action" onClick={handleReset} style={{ fontSize: 13, padding: '8px 20px' }}>{t('onboarding.reconfigure')}</button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div>
+    <main className="onboarding-page">
+      <header className="onboarding-header">
+        <span>{t('onboarding.choosePreset')}</span>
+        <h1>{t('onboarding.title')}</h1>
+        <p>{t('onboarding.subtitle')}</p>
+      </header>
       {/* Preset cards */}
       <div className="quick-start-cards" id="quickStartCards">
         {presets.map(p => (
-          <div
+          <button
+            type="button"
             key={p.id}
             className="quick-start-card"
             style={{ borderLeft: '3px solid var(--ink-muted)' }}
@@ -120,20 +163,26 @@ export default function OnboardingPage() {
             <div className="quick-start-card-meta">
               <span>{t('onboarding.keysCount', { n: p.requiredKeys.length })}</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button className="btn-outline" onClick={dismissOnboardingAction} style={{ fontSize: 12, opacity: 0.6 }}>{t('onboarding.skip')}</button>
+        <button className="onboarding-skip" onClick={dismissOnboardingAction}>{t('onboarding.skip')}</button>
       </div>
 
       {/* Preset modal */}
       {selectedPreset && (
-        <div className="auth-overlay" style={{ display: '' }}>
-          <div className="preset-panel">
+        <div className="auth-overlay" style={{ display: '' }} onMouseDown={event => { if (event.target === event.currentTarget && !executing) setSelectedPreset(null); }}>
+          <div
+            ref={presetPanelRef}
+            className="preset-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preset-dialog-title"
+          >
             <div className="progress-header">
-              <span className="progress-title">{selectedPreset.name}</span>
-              <button className="progress-close" onClick={() => setSelectedPreset(null)}>&times;</button>
+              <span className="progress-title" id="preset-dialog-title">{selectedPreset.name}</span>
+              <button className="progress-close" onClick={() => setSelectedPreset(null)} aria-label={t('common.close')} disabled={executing}>&times;</button>
             </div>
             <div className="preset-body">
               {selectedPreset.requiredKeys.map(k => (
@@ -163,6 +212,6 @@ export default function OnboardingPage() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

@@ -1,28 +1,10 @@
 const execa = require('execa');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { VaultStore } = require('../../vault/store');
+const { appendLog: appendSyncLog } = require('./log-writer');
 
 const vault = new VaultStore();
-
-const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
-const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
-
-function appendSyncLog(action, name, success, detail) {
-  try {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-    const entry = {
-      timestamp: new Date().toISOString(),
-      name,
-      action,
-      success,
-      duration: 0,
-    };
-    if (detail) entry.output = detail;
-    fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + '\n');
-  } catch {}
-}
 
 const LOG_FILE = path.join(process.env.HOME || '/tmp', '.okit-cf-sync.log');
 

@@ -8,11 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "diff": "^9.0.0",
     "lucide-react": "^1.32.0",
     "react": "^19.1.0",
     "react-diff-viewer-continued": "^4.4.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.5.0",
+    "react-router-dom": "^7.18.2",
     "thinking-orbs": "^0.2.0"
   },
   "devDependencies": {

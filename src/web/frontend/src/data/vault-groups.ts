@@ -31,17 +31,28 @@ export const PREDEFINED_GROUPS: string[] = [
   // ── 聚合/代理 ──
   'OpenRouter',
   '硅基流动',
+  'LiteLLM',
   // ── 基础设施 ──
   'Cloudflare',
 ];
 
 const LEGACY_GROUP_ALIASES: Record<string, string> = {
+  '智谱AI': '智谱AI · 国内',
+  '智谱 AI': '智谱AI · 国内',
+  '智谱AI（国内）': '智谱AI · 国内',
+  '智谱 AI（国内站）': '智谱AI · 国内',
+  'Z.AI': '智谱AI · 国际',
+  'Z.AI（国际）': '智谱AI · 国际',
+  'Z.AI（国际站）': '智谱AI · 国际',
   'Kimi 国际': 'Moonshot',
   'Kimi · 国际': 'Moonshot',
   'Kimi 国内': 'Kimi',
   'Kimi · 国内': 'Kimi',
   '小米 MiMo Token Plan': '小米 MiMo',
   'StepFun': '阶跃星辰',
+  'litellm': 'LiteLLM',
+  'LiteLLM (本地)': 'LiteLLM',
+  'LiteLLM（本地）': 'LiteLLM',
 };
 
 /** Keep old persisted labels out of every user-visible group selector. */

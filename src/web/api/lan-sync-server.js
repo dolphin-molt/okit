@@ -294,7 +294,14 @@ async function stopLanSyncServer() {
   server = null;
   runningPort = null;
   runningTokenHash = null;
-  await new Promise((resolve) => listener.close(() => resolve()));
+  // Stop accepting new connections first, then terminate keep-alive sockets
+  // (e.g. undici fetch pools) so close() can finish without leaking a listener.
+  await new Promise((resolve) => {
+    listener.close(() => resolve());
+    if (typeof listener.closeAllConnections === 'function') {
+      listener.closeAllConnections();
+    }
+  });
 }
 
 function getStatus() {

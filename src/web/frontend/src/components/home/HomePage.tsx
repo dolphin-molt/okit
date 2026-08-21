@@ -7,6 +7,7 @@ import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import JsonTreeView from '../shared/JsonTreeView';
 import { Eye, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check } from 'lucide-react';
 import UsageSummary from './UsageSummary';
+import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
 const AGENT_ORDER_KEY = 'okit.agentOrder';
 
@@ -60,6 +61,7 @@ export default function HomePage() {
   const [configDrafts, setConfigDrafts] = useState<Record<string, string>>({});
   const [configSaveState, setConfigSaveState] = useState<'idle' | 'saving' | 'ok' | 'fail'>('idle');
   const configSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { activeKey: copiedConfigPath, showFeedback: showConfigCopied } = useTransientFeedback();
   // Config viewer display mode: 'raw' shows the editable textarea,
   // 'tree' toggles to a collapsible JSON tree preview.
   const [configViewMode, setConfigViewMode] = useState<'tree' | 'raw'>('raw');
@@ -164,7 +166,6 @@ export default function HomePage() {
       setConfigFiles(prev => prev ? prev.map(f => f.path === filePath ? { ...f, content } : f) : prev);
       setConfigDrafts(prev => { const n = { ...prev }; delete n[filePath]; return n; });
       setConfigSaveState('ok');
-      showToast(t('home.configSaved'), 'success');
     } catch (err: any) {
       setConfigSaveState('fail');
       showToast(err.message, 'error');
@@ -182,11 +183,11 @@ export default function HomePage() {
     const original = configFiles?.find(f => f.path === filePath)?.content ?? '';
     try {
       await navigator.clipboard.writeText(draft !== undefined ? draft : original);
-      showToast(t('home.configCopied'), 'success');
+      showConfigCopied(filePath);
     } catch {
       showToast(t('common.error'), 'error');
     }
-  }, [configDrafts, configFiles, showToast, t]);
+  }, [configDrafts, configFiles, showConfigCopied, showToast, t]);
 
   // Load model visibility exclusions + claude tier maps once on mount.
   useEffect(() => {
@@ -294,6 +295,7 @@ export default function HomePage() {
 
   return (
     <div className="quick-start-page">
+      <h1 className="sr-only">{t('home.title')}</h1>
       {/* Goal ②: dashboard blocks — daily-driver content above the fold */}
       <UsageSummary />
       {/* Agent configuration section — tab + provider cards */}
@@ -324,13 +326,16 @@ export default function HomePage() {
         </div>
 
       {/* Agent Tabs */}
-      <div className="agent-tabs">
+      <div className="agent-tabs" role="tablist" aria-label={t('home.agentConfig')}>
         {adapters.map((agent, i) => {
           const icon = getAgentIcon(agent.id);
           return (
             <button
               key={agent.id}
               className={`agent-tab${activeAgentId === agent.id ? ' active' : ''}${dragTabIndex === i ? ' dragging' : ''}${dropTabIndex === i && dragTabIndex !== null && dragTabIndex !== i ? ' drop-target' : ''}`}
+              role="tab"
+              aria-selected={activeAgentId === agent.id}
+              aria-label={agent.name}
               onClick={() => { setActiveAgentId(agent.id); setExpandedProvider(null); setShowAddPicker(false); setShowAllModels(new Set()); }}
               title={agent.name}
               draggable
@@ -359,6 +364,13 @@ export default function HomePage() {
             const siteEnabled = activeAgent.additive
               ? (p.enabled !== undefined ? p.enabled : isCurrent)
               : isCurrent;
+            const fallback = {
+              'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
+              'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
+            }[activeAgent.id];
+            const canSwitchToFallback = Boolean(fallback)
+              && !(fallback?.providerId === p.id && fallback?.modelId === activeAgent.current?.modelId);
+            const switchLocked = siteEnabled && !activeAgent.additive && !canSwitchToFallback;
             const isExpanded = expandedProvider === p.id;
             // Provider-level excluded set — shared by model list and tier UI.
             const excludedSet = new Set(modelExcluded[p.id] || []);
@@ -389,8 +401,9 @@ export default function HomePage() {
                     role="switch"
                     aria-checked={siteEnabled}
                     className={`provider-switch${siteEnabled ? ' provider-switch--on' : ''}`}
-                    title={siteEnabled ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
-                    disabled={(switching || '').startsWith(activeAgent.id)}
+                    title={switchLocked ? t('home.activeProviderRequired') : siteEnabled ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
+                    aria-label={switchLocked ? t('home.activeProviderRequired') : siteEnabled ? (activeAgent.additive ? t('home.disableSite') : t('home.enabled')) : t('home.enable')}
+                    disabled={(switching || '').startsWith(activeAgent.id) || switchLocked}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!siteEnabled) {
@@ -406,10 +419,6 @@ export default function HomePage() {
                         // Switch OFF — for single-type agents, fall back to the
                         // official subscription. The provider stays in the home
                         // list but is no longer active.
-                        const fallback = {
-                          'claude': { providerId: 'anthropic-agent', modelId: 'claude-sonnet-4-6' },
-                          'codex': { providerId: 'openai-codex', modelId: 'gpt-5.6-sol' },
-                        }[activeAgent.id];
                         if (fallback) {
                           handleSwitch(activeAgent.id, fallback.providerId, fallback.modelId);
                         }
@@ -686,12 +695,13 @@ export default function HomePage() {
                       </button>
                       <button
                         type="button"
-                        className="home-config-copy-btn"
+                        className={`home-config-copy-btn${copiedConfigPath === f.path ? ' is-copied' : ''}`}
                         disabled={!f.exists}
                         onClick={() => handleCopyConfig(f.path)}
-                        title={t('home.configCopy')}
+                        title={copiedConfigPath === f.path ? t('common.copied') : t('home.configCopy')}
+                        aria-label={copiedConfigPath === f.path ? t('common.copied') : t('home.configCopy')}
                       >
-                        <Copy size={14} />
+                        {copiedConfigPath === f.path ? <Check size={14} /> : <Copy size={14} />}
                       </button>
                       <button
                         type="button"

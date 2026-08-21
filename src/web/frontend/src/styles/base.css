@@ -10,6 +10,32 @@
   box-sizing: border-box;
 }
 
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ink) 72%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 html {
   transition: background-color 0.3s ease;
 }
@@ -48,6 +74,16 @@ body {
   --font-hand: 'Caveat', cursive;
   --sidebar-w: 200px;
   --border: #d5c4a1;
+  /* Global card design tokens. Pages own layout, never their own palette. */
+  --card-surface: #ffffff;
+  --card-surface-hover: #f7f9fb;
+  --card-surface-soft: #f5f7f8;
+  --card-inner: #fbfcfd;
+  --card-line: rgba(28, 25, 23, 0.13);
+  --card-line-hover: color-mix(in srgb, var(--accent, var(--ink)) 34%, transparent);
+  --card-radius: 11px;
+  --card-shadow: 0 8px 22px rgba(28, 25, 23, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --card-shadow-hover: 0 13px 32px rgba(28, 25, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 /* ═══════════════════════════════════════
@@ -64,6 +100,14 @@ body {
   --sidebar-bg: #12100f;
   --sidebar-fg: #cdc5ba;
   --border: #3a3530;
+  --card-surface: #181c23;
+  --card-surface-hover: #1d232c;
+  --card-surface-soft: #12161b;
+  --card-inner: #141920;
+  --card-line: rgba(204, 216, 232, 0.11);
+  --card-line-hover: rgba(220, 255, 100, 0.28);
+  --card-shadow: 0 8px 22px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  --card-shadow-hover: 0 13px 32px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 [data-theme="dark"] html,

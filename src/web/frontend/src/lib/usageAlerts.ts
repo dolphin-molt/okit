@@ -1,8 +1,9 @@
 // Usage alert detection + browser notification deduplication.
 //
-// Two alert tiers:
-//   DANGER (red)   — remaining ≤ 10%, OR window resets within 1h with remaining > 0
+// Three alert tiers:
+//   DANGER (red)   — remaining ≤ 10%
 //   WARN (yellow)  — remaining ≤ 30%
+//   INFO (blue)    — window resets within 1h with remaining quota unused
 //
 // Browser notifications fire once per (providerId + windowLabel + resetAt)
 // combination so we don't spam. The key includes resetAt so that after a
@@ -15,6 +16,7 @@ export interface UsageWindowLike {
   isPrepaid?: boolean;
   remainingCredits?: number | null;
   usedCredits?: number | null;
+  unit?: string;
 }
 
 export interface UsageResultLike {
@@ -26,7 +28,7 @@ export interface AlertItem {
   providerId: string;
   providerName: string;
   windowLabel: string;
-  severity: 'danger' | 'warn';
+  severity: 'danger' | 'warn' | 'info';
   message: string;
   // Unique key for notification dedup (includes resetAt so it resets per cycle).
   notifyKey: string;
@@ -51,13 +53,16 @@ export function msUntilReset(resetAt: string | null): number | null {
   return ms > 0 ? ms : 0;
 }
 
-export function formatTimeUntilReset(resetAt: string | null): string {
+type AlertLocale = 'zh' | 'en';
+
+export function formatTimeUntilReset(resetAt: string | null, locale: AlertLocale = 'zh'): string {
   const ms = msUntilReset(resetAt);
   if (ms == null || ms <= 0) return '';
   const mins = Math.ceil(ms / 60000);
-  if (mins < 60) return `${mins}分钟`;
+  if (mins < 60) return locale === 'en' ? `${mins} min` : `${mins}分钟`;
   const hours = Math.floor(mins / 60);
   const remMins = mins % 60;
+  if (locale === 'en') return remMins > 0 ? `${hours} hr ${remMins} min` : `${hours} hr`;
   return remMins > 0 ? `${hours}小时${remMins}分钟` : `${hours}小时`;
 }
 
@@ -66,6 +71,7 @@ export function formatTimeUntilReset(resetAt: string | null): string {
 export function checkAlerts(
   usageMap: Record<string, UsageResultLike>,
   providerNames: Record<string, string>,
+  locale: AlertLocale = 'zh',
 ): AlertItem[] {
   const alerts: AlertItem[] = [];
 
@@ -78,12 +84,17 @@ export function checkAlerts(
       if (w.isPrepaid) {
         const balance = w.remainingCredits;
         if (balance != null && balance <= 1) {
+          const formattedBalance = !w.unit || w.unit.toUpperCase() === 'USD'
+            ? `$${balance.toFixed(2)}`
+            : `${balance.toFixed(2)} ${w.unit}`;
           alerts.push({
             providerId,
             providerName: name,
             windowLabel: w.label,
             severity: 'danger',
-            message: `${name} 余额仅剩 $${balance.toFixed(2)}`,
+            message: locale === 'en'
+              ? `${name} balance is down to ${formattedBalance}`
+              : `${name} 余额仅剩 ${formattedBalance}`,
             notifyKey: `${providerId}:balance`,
           });
         }
@@ -98,29 +109,36 @@ export function checkAlerts(
 
       // Danger: remaining ≤ 10%
       if (remaining <= DANGER_THRESHOLD) {
-        const resetText = formatTimeUntilReset(w.resetAt);
+        const resetText = formatTimeUntilReset(w.resetAt, locale);
         alerts.push({
           providerId,
           providerName: name,
           windowLabel: w.label,
           severity: 'danger',
-          message: resetText
-            ? `${name} ${windowLabelZh(w.label)}仅剩 ${remaining}%（${resetText}后重置）`
-            : `${name} ${windowLabelZh(w.label)}仅剩 ${remaining}%`,
+          message: locale === 'en'
+            ? resetText
+              ? `${name} ${windowLabel(w.label, locale)} has ${remaining}% left (resets in ${resetText})`
+              : `${name} ${windowLabel(w.label, locale)} has ${remaining}% left`
+            : resetText
+              ? `${name} ${windowLabel(w.label, locale)}仅剩 ${remaining}%（${resetText}后重置）`
+              : `${name} ${windowLabel(w.label, locale)}仅剩 ${remaining}%`,
           notifyKey: `${providerId}:${w.label}:${w.resetAt || ''}`,
         });
         continue;
       }
 
-      // Danger: resets within 1h and still has remaining quota unused
+      // Informational opportunity: resets within 1h with unused quota. This is
+      // useful context, but not a failure state and must not paint the card red.
       if (msToReset != null && msToReset > 0 && msToReset <= RESET_SOON_MS && remaining > 0) {
-        const resetText = formatTimeUntilReset(w.resetAt);
+        const resetText = formatTimeUntilReset(w.resetAt, locale);
         alerts.push({
           providerId,
           providerName: name,
           windowLabel: w.label,
-          severity: 'danger',
-          message: `${name} ${windowLabelZh(w.label)}将在 ${resetText}后重置，还有 ${remaining}% 未使用`,
+          severity: 'info',
+          message: locale === 'en'
+            ? `${name} ${windowLabel(w.label, locale)} resets in ${resetText} with ${remaining}% unused`
+            : `${name} ${windowLabel(w.label, locale)}将在 ${resetText}后重置，还有 ${remaining}% 未使用`,
           notifyKey: `${providerId}:${w.label}:${w.resetAt || ''}`,
         });
         continue;
@@ -128,32 +146,45 @@ export function checkAlerts(
 
       // Warn: remaining ≤ 30%
       if (remaining <= WARN_THRESHOLD) {
-        const resetText = formatTimeUntilReset(w.resetAt);
+        const resetText = formatTimeUntilReset(w.resetAt, locale);
         alerts.push({
           providerId,
           providerName: name,
           windowLabel: w.label,
           severity: 'warn',
-          message: resetText
-            ? `${name} ${windowLabelZh(w.label)}剩余 ${remaining}%（${resetText}后重置）`
-            : `${name} ${windowLabelZh(w.label)}剩余 ${remaining}%`,
+          message: locale === 'en'
+            ? resetText
+              ? `${name} ${windowLabel(w.label, locale)} has ${remaining}% left (resets in ${resetText})`
+              : `${name} ${windowLabel(w.label, locale)} has ${remaining}% left`
+            : resetText
+              ? `${name} ${windowLabel(w.label, locale)}剩余 ${remaining}%（${resetText}后重置）`
+              : `${name} ${windowLabel(w.label, locale)}剩余 ${remaining}%`,
           notifyKey: `${providerId}:${w.label}:${w.resetAt || ''}`,
         });
       }
     }
   }
 
-  // Sort: danger first, then by provider name.
+  // Sort: danger first, then warning, then informational notices.
   alerts.sort((a, b) => {
-    if (a.severity !== b.severity) return a.severity === 'danger' ? -1 : 1;
+    const rank = { danger: 0, warn: 1, info: 2 } as const;
+    if (a.severity !== b.severity) return rank[a.severity] - rank[b.severity];
     return a.providerName.localeCompare(b.providerName);
   });
 
   return alerts;
 }
 
-function windowLabelZh(label: string): string {
-  const map: Record<string, string> = {
+function windowLabel(label: string, locale: AlertLocale): string {
+  const map: Record<string, string> = locale === 'en' ? {
+    '5h': '5h window',
+    'session': '5h window',
+    'weekly': 'weekly window',
+    '7d': '7-day window',
+    'monthly': 'monthly window',
+    'limit': 'quota',
+    'credits': 'balance',
+  } : {
     '5h': '5h窗口',
     'session': '5h窗口',
     'weekly': '周窗口',
@@ -198,7 +229,7 @@ export function markNotified(notifyKey: string) {
 
 // Fire browser notifications for new alerts (ones not previously notified).
 // Requests permission on first call if not already granted/denied.
-export async function fireNotifications(alerts: AlertItem[]) {
+export async function fireNotifications(alerts: AlertItem[], locale: AlertLocale = 'zh') {
   if (typeof Notification === 'undefined') return;
   if (Notification.permission === 'default') {
     // Don't auto-request on page load — too aggressive. Only request when
@@ -213,7 +244,7 @@ export async function fireNotifications(alerts: AlertItem[]) {
     if (alert.severity !== 'danger') continue; // only notify on danger
     if (!shouldNotify(alert.notifyKey)) continue;
     try {
-      new Notification('OKIT 用量预警', { body: alert.message });
+      new Notification(locale === 'en' ? 'OKIT usage alert' : 'OKIT 用量预警', { body: alert.message });
       markNotified(alert.notifyKey);
     } catch { /* ignore */ }
   }

@@ -1,9 +1,3 @@
-# README 草稿（批次 4 由 opencode 原样落盘到 okit/README.md）
-
-> 注意：此文件是给 opencode 的交付物，不是最终文件本身。截图位用 HTML 注释占位。
-
----
-
 # OKIT — AI Agent 的密钥与模型管控台
 
 密钥与模型，一处掌控。OKIT 是一个本地优先的开源工具，管好 AI 编程 CLI（Claude Code、Codex、OpenCode 等 10 个 Agent）的密钥生命周期：**创建 → 保管 → 切换 → 验证 → 监控**。本地功能永久免费。
@@ -26,14 +20,14 @@
 | 支持 Agent | 10 个 | 8 个 | Codex 系 |
 | 密钥管理 | 加密 vault + 项目绑定 | 本地明文配置 | 凭证隔离 |
 | 自动创建 API Key | 31 个平台（浏览器扩展） | — | — |
-| 用量查询 | 15 个平台官方 API 直查 | 代理层统计 | — |
+| 用量查询 | 30+ 个订阅/余额来源直查 | 代理层统计 | — |
 | 平台 | macOS / Linux / Windows | macOS / Linux / Windows | macOS / Linux / Windows |
 
 ## 快速开始
 
 ```bash
-# npm 安装（即将发布）
-npm install -g okit
+# npm 安装
+npm install -g @cing-self/okit-cli
 
 # 或从源码
 git clone https://github.com/Cing-self/okit.git
@@ -48,27 +42,40 @@ node dist/main.js web
 
 ```bash
 okit web                              # 启动 Web 管理台（:3780）
-okit vault set <key>                  # 存密钥（AES-256-GCM 加密）
+okit vault set <key>                  # 交互式存密钥（AES-256-GCM 加密）
+printf '%s' "$SECRET" | okit vault set <key> --stdin  # 自动化时避免密钥进入命令参数
 okit vault inject                     # 输出 export 语句（配合 eval）
-okit provider list                    # 列出 29+ 预置模型平台
+okit provider list                    # 列出 40 个预置模型平台
 okit provider switch                  # 交互式切换 Agent 的 Provider/模型
 okit provider use <provider>          # 非交互式切换（脚本/Agent 友好）
 okit hook install                     # cd 进项目自动注入密钥到 shell
 ```
 
+> **Shell 配置安全边界**：安装 `okit` 不会自动修改你的 Shell 配置（`~/.zshrc` / `~/.bashrc` 等）。只有你主动运行 `okit hook install` 时才会写入 cd 钩子；`okit hook uninstall` 可随时移除。
+
+### 给 AI Agent 使用
+
+安装包随附 [`okit-cli` Agent Skill](skills/okit-cli/SKILL.md)。运行 `okit skill install /path/to/project` 会将它安装到目标项目的 `.agents/skills/okit-cli/`；`okit skill path` 可输出内置原文件位置。Skill 说明了可解析的只读命令、非交互式模型切换，以及密钥明文、Shell Hook 和云同步的安全边界。
+
+也可以通过 [skills.sh](https://skills.sh/) 直接从公开仓库安装：
+
+```bash
+npx skills add Cing-self/okit --skill okit-cli
+```
+
 ## 功能总览
 
 - **密钥库**：加密存储、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步
-- **Provider/模型管控**：29+ 平台预置（官方/聚合/国内），10 个 Agent 适配器，多端点协议（anthropic/openai 兼容），认证状态检测，订阅/API/第三方三模式凭证管理
+- **Provider/模型管控**：40 个平台预置（官方/聚合/国内），10 个 Agent 适配器，多端点协议（anthropic/openai 兼容），认证状态检测，订阅/API/第三方三模式凭证管理
 - **一键创建 Key**：浏览器扩展在官方控制台内自动填表创建并回填（支持 31 个平台，含火山引擎、智谱、百度千帆等）
-- **用量查询**：15 个平台官方 API 直查订阅余额/用量，阈值告警（本地通知；Cloud Pro 可远程 Webhook）
+- **用量查询**：30+ 个订阅/余额来源直查，阈值告警（本地通知；Cloud Pro 可远程 Webhook）
 - **模型目录**：全平台官方定价与能力数据（输入/输出/缓存价、上下文窗口），峰谷价直呈
 - **Cloud Pro（可选订阅）**：跨设备用量历史 + 远程 Webhook 告警。本地功能永久免费，云端只上传用量数字，API Key 永不上传
 
 ## 开发
 
 ```bash
-npm ci --ignore-scripts     # 安装依赖（postinstall 需 dist，故忽略）
+npm ci                      # 按锁文件安装依赖
 npm run build               # tsc + 预设生成 + web 拷贝 + 前端构建
 npx vitest run              # 测试（500+ 用例）
 cd src/web/frontend && npm run dev   # 前端开发服务器（:5173 → 代理 :3780）
@@ -84,5 +91,4 @@ cd src/web/frontend && npm run dev   # 前端开发服务器（:5173 → 代理 
 
 ## License
 
-<!-- LICENSE-TBD：待定稿后替换 -->
-待定。
+OKIT 以 [MIT License](LICENSE) 发布。版权归属 Cing-self / OKIT contributors（2026）。

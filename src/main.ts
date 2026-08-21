@@ -32,6 +32,7 @@ import {
   providerAuth,
 } from "./commands/provider";
 import { migrateIfNeeded } from "./providers/migration";
+import { installSkill, showSkillPath } from "./commands/skill";
 
 const program = new Command();
 
@@ -111,6 +112,34 @@ function configurePrompts(lang: Language) {
   }
 }
 
+async function readStdinValue(): Promise<string> {
+  process.stdin.setEncoding("utf8");
+  let value = "";
+  for await (const chunk of process.stdin) value += chunk;
+  return value.replace(/\r?\n$/, "");
+}
+
+async function resolveVaultValue(value: string | undefined, useStdin: boolean): Promise<string | null> {
+  if (value !== undefined && useStdin) {
+    console.error(kleur.red(t("vaultValueRequired")));
+    process.exitCode = 1;
+    return null;
+  }
+  if (useStdin) {
+    const stdinValue = await readStdinValue();
+    if (stdinValue) return stdinValue;
+  } else if (value !== undefined) {
+    return value;
+  } else if (process.stdin.isTTY) {
+    const response = await prompts({ type: "password", name: "value", message: t("vaultValuePrompt") });
+    if (response.value) return String(response.value);
+  }
+
+  console.error(kleur.red(t("vaultValueRequired")));
+  process.exitCode = 1;
+  return null;
+}
+
 // 默认：显示帮助
 program.action(async () => {
   const unknown = getUnknownSubcommand();
@@ -144,10 +173,13 @@ const vault = program
   });
 
 vault
-  .command("set <key> <value>")
-  .description("存储密钥")
-  .action(async (key: string, value: string) => {
-    await vaultSet(key, value);
+  .command("set <key> [value]")
+  .description("存储密钥（建议交互输入或使用 --stdin，避免写入 shell 历史）")
+  .option("--stdin", "从标准输入读取密钥值")
+  .action(async (key: string, value: string | undefined, options: { stdin?: boolean }) => {
+    const resolvedValue = await resolveVaultValue(value, options.stdin === true);
+    if (resolvedValue === null) return;
+    await vaultSet(key, resolvedValue);
   });
 
 vault
@@ -160,8 +192,9 @@ vault
 vault
   .command("list")
   .description("列出所有密钥（脱敏显示）")
-  .action(async () => {
-    await vaultList();
+  .option("--json", "输出适合脚本与 Agent 解析的 JSON")
+  .action(async (options: { json?: boolean }) => {
+    await vaultList(options);
   });
 
 vault
@@ -219,47 +252,24 @@ vault
   });
 
 vault
-  .command("push [platform]")
-  .description("推送密钥到云平台（不指定则推送到第一个已启用平台）")
-  .option("--all", "推送所有密钥（默认）")
-  .action(async (platform?: string, options?: { all?: boolean }) => {
+  .command("push")
+  .description("将密钥与 Agent/Provider 配置推送到所有已启用平台")
+  .action(async () => {
     try {
       // @ts-ignore
       const core = require("./web/api/cloud-sync-core");
-      const config = await core.loadConfig();
-      const plats = config.sync?.platforms || {};
-      let target = platform;
-      if (!target) {
-        const enabled = Object.entries(plats).filter(([, p]: any) => p.enabled).map(([id]: any) => id);
-        if (enabled.length === 0) {
-          console.error(kleur.red("没有已启用的同步平台，请先在 Web UI 中配置"));
-          process.exit(1);
-        }
-        target = enabled[0];
-      }
-      console.log(kleur.gray(`推送密钥到 ${target}...`));
-      const results = await core.pushSecrets(target, null);
-      let ok = 0, fail = 0;
-      for (const r of results) {
-        if (r.success) {
-          console.log(kleur.green(`  ✓ ${r.key}`));
-          ok++;
-        } else {
-          console.log(kleur.red(`  ✗ ${r.key} — ${r.error}`));
-          fail++;
-        }
-      }
-      console.log(`\n完成：${kleur.green(`${ok} 成功`)}${fail > 0 ? `，${kleur.red(`${fail} 失败`)}` : ''}`);
+      const result = await core.syncPush();
+      console.log(kleur.green(`✓ 推送完成：${result.secrets} 个密钥 → ${result.platforms.join("、")}`));
     } catch (error: any) {
       console.error(kleur.red(`✗ ${error.message}`));
-      process.exit(1);
+      process.exitCode = 1;
     }
   });
 
 vault
-  .command("pull [platform]")
-  .description("从云平台拉取密钥合并到本地")
-  .action(async (platform?: string) => {
+  .command("pull")
+  .description("读取所有已启用平台中最新的远端数据并合并到本地")
+  .action(async () => {
     try {
       // @ts-ignore
       const core = require("./web/api/cloud-sync-core");
@@ -267,7 +277,7 @@ vault
       console.log(kleur.green(`✓ 拉取完成：新增 ${result.added} 个，更新 ${result.updated} 个`));
     } catch (error: any) {
       console.error(kleur.red(`✗ ${error.message}`));
-      process.exit(1);
+      process.exitCode = 1;
     }
   });
 
@@ -300,6 +310,29 @@ hook
     await hookStatus();
   });
 
+// skill 子命令 - 安装供其他 Agent 使用的 OKIT CLI Skill
+const skill = program
+  .command("skill")
+  .description("定位或安装供 AI Agent 使用的 OKIT CLI Skill")
+  .action(async () => {
+    await showSkillPath();
+  });
+
+skill
+  .command("path")
+  .description("输出内置 Skill 文件路径")
+  .action(async () => {
+    await showSkillPath();
+  });
+
+skill
+  .command("install [dir]")
+  .description("安装到目标项目的 .agents/skills/okit-cli")
+  .option("--force", "覆盖已存在的 Skill")
+  .action(async (dir: string | undefined, options: { force?: boolean }) => {
+    await installSkill(dir || process.cwd(), options);
+  });
+
 // provider 子命令 - Provider/Model 管理
 const provider = program
   .command("provider")
@@ -313,10 +346,11 @@ const provider = program
 provider
   .command("list")
   .description("列出所有 Provider")
-  .action(async () => {
+  .option("--json", "输出适合脚本与 Agent 解析的 JSON")
+  .action(async (options: { json?: boolean }) => {
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
-    await providerList();
+    await providerList(options);
   });
 
 provider
@@ -358,19 +392,21 @@ provider
 provider
   .command("current")
   .description("显示所有 Agent 当前配置")
-  .action(async () => {
+  .option("--json", "输出适合脚本与 Agent 解析的 JSON")
+  .action(async (options: { json?: boolean }) => {
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
-    await providerCurrent();
+    await providerCurrent(options);
   });
 
 provider
   .command("auth")
   .description("查看所有 Provider 认证状态")
-  .action(async () => {
+  .option("--json", "输出适合脚本与 Agent 解析的 JSON")
+  .action(async (options: { json?: boolean }) => {
     await selectLanguageIfNeeded();
     await migrateIfNeeded();
-    await providerAuth();
+    await providerAuth(options);
   });
 
 // web 子命令 - 启动 Web UI
@@ -410,8 +446,13 @@ function checkPlatform() {
   }
 }
 
-// 所有命令执行前统一检查平台
-program.hook("preAction", checkPlatform);
+// Load the persisted language for every command. Previously only Provider
+// commands did this, so Vault silently fell back to Chinese in English mode.
+program.hook("preAction", async () => {
+  checkPlatform();
+  await initLanguage();
+  configurePrompts(getLanguage());
+});
 
 async function showMainHelpHintOnce(): Promise<void> {
   const config = await loadUserConfig();
@@ -420,4 +461,8 @@ async function showMainHelpHintOnce(): Promise<void> {
   await updateUserConfig({ hints: { mainHelpShown: true } });
 }
 
-program.parse();
+program.parseAsync().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(kleur.red(`✗ ${message}`));
+  process.exitCode = 1;
+});

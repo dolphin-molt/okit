@@ -16,11 +16,9 @@ const {
   requiresInferenceProbe,
   isModelAccessFailure,
 } = require('./endpoint-profiles');
+const { appendLog: appendVaultLog } = require('./log-writer');
 
 const store = new VaultStore();
-
-const LOGS_DIR = path.join(os.homedir(), '.okit', 'logs');
-const HISTORY_FILE = path.join(LOGS_DIR, 'history.jsonl');
 
 /** Safely find files by name using Node.js fs (no shell, no command injection). */
 function safeFindFiles(baseDir, targetNames, maxDepth) {
@@ -41,21 +39,6 @@ function safeFindFiles(baseDir, targetNames, maxDepth) {
   }
   walk(baseDir, 0);
   return results;
-}
-
-function appendVaultLog(action, key, success, detail) {
-  try {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-    const entry = {
-      timestamp: new Date().toISOString(),
-      name: key,
-      action,
-      success,
-      duration: 0,
-    };
-    if (detail) entry.output = detail;
-    fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + '\n');
-  } catch {}
 }
 
 // Find .okitenv files that reference a given key
@@ -860,12 +843,22 @@ function normalizeVaultGroup(group, key) {
   ].includes(value)) return 'Kimi';
 
   const aliases = {
+    '智谱AI': '智谱AI · 国内',
+    '智谱 AI': '智谱AI · 国内',
+    '智谱AI（国内）': '智谱AI · 国内',
+    '智谱 AI（国内站）': '智谱AI · 国内',
+    'Z.AI': '智谱AI · 国际',
+    'Z.AI（国际）': '智谱AI · 国际',
+    'Z.AI（国际站）': '智谱AI · 国际',
     'Kimi 国际': 'Moonshot',
     'Kimi · 国际': 'Moonshot',
     'Kimi 国内': 'Kimi',
     'Kimi · 国内': 'Kimi',
     '小米 MiMo Token Plan': '小米 MiMo',
     'StepFun': '阶跃星辰',
+    'litellm': 'LiteLLM',
+    'LiteLLM (本地)': 'LiteLLM',
+    'LiteLLM（本地）': 'LiteLLM',
   };
   return aliases[value] || value;
 }
@@ -908,6 +901,7 @@ function resolveCanonicalGroup(key) {
   if (k.startsWith('OPENROUTER_')) return 'OpenRouter';
   if (k.startsWith('SILICONFLOW_')) return '硅基流动';
   if (k.startsWith('OPENCODE_')) return 'OpenCode Go';
+  if (k.startsWith('LITELLM_')) return 'LiteLLM';
 
   // ── 基础设施 ──
   if (k.startsWith('CF_') || k.startsWith('CLOUDFLARE')) return 'Cloudflare';

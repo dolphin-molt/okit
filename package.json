@@ -1,13 +1,12 @@
 {
   "name": "@cing-self/okit-cli",
-  "version": "0.1.0",
+  "version": "2.3.0",
   "description": "OKIT - Agent infrastructure toolkit for managing dev tools, auth, and upgrades",
   "main": "dist/main.js",
   "bin": {
     "okit": "dist/main.js"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
     "build": "tsc && npm run gen-presets && npm run copy-web && npm run build-frontend",
     "gen-presets": "node scripts/gen-presets.js",
     "copy-web": "node scripts/copy-web.js",
@@ -21,15 +20,17 @@
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pkg": "pkg . --out-path=bin"
+    "pkg": "pkg . --targets node18-macos-arm64 --output bin/okit-macos-arm64 && pkg . --targets node18-macos-x64 --output bin/okit-macos-x64"
   },
   "files": [
-    "dist/**/*.js",
-    "dist/**/*.d.ts",
-    "dist/**/*.map",
-    "dist/**/*.html",
-    "dist/**/*.css",
-    "dist/**/*.yaml",
+    "dist/main.*",
+    "dist/commands/**",
+    "dist/config/**",
+    "dist/providers/**",
+    "dist/utils/**",
+    "dist/vault/**",
+    "dist/web/**",
+    "skills/okit-cli/**",
     "!dist/release",
     "package.json",
     "README.md",
@@ -45,18 +46,21 @@
   "author": "dolphin-molt",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dolphin-molt/okit.git"
+    "url": "https://github.com/Cing-self/okit.git"
+  },
+  "homepage": "https://github.com/Cing-self/okit#readme",
+  "bugs": {
+    "url": "https://github.com/Cing-self/okit/issues"
   },
   "license": "MIT",
   "dependencies": {
     "@github/copilot-sdk": "^1.0.9",
     "@types/express": "^5.0.6",
-    "@volcengine/openapi": "^1.36.1",
     "commander": "^11.0.0",
     "execa": "^5.1.1",
     "express": "^5.2.1",
     "fs-extra": "^11.1.1",
-    "js-yaml": "^4.1.1",
+    "js-yaml": "^4.3.1",
     "kleur": "^4.1.5",
     "ora": "^5.4.1",
     "playwright": "^1.62.1",
@@ -79,7 +83,19 @@
     "vitest": "^4.1.5"
   },
   "pkg": {
-    "scripts": "dist/**/*.js",
+    "scripts": [
+      "dist/commands/**/*.js",
+      "dist/config/**/*.js",
+      "dist/providers/**/*.js",
+      "dist/utils/**/*.js",
+      "dist/vault/**/*.js",
+      "dist/web/server.js",
+      "dist/web/api/**/*.js"
+    ],
+    "assets": [
+      "dist/web/public/**/*",
+      "skills/okit-cli/SKILL.md"
+    ],
     "targets": [
       "node18-macos-arm64",
       "node18-macos-x64"

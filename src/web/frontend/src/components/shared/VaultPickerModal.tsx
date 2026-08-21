@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../api/client';
 import { setVault } from '../../api/vault';
 import { useI18n } from '../../i18n';
@@ -34,6 +34,7 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   const [creating, setCreating] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   function reload() {
     api('/api/vault').then((data: any) => {
@@ -45,6 +46,31 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   }
 
   useEffect(() => { reload(); }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)') || []);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [onClose]);
 
   const groups = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -116,30 +142,34 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`vault-picker${showCreate ? ' vault-picker--creating' : ''}`} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={panelRef} className={`vault-picker${showCreate ? ' vault-picker--creating' : ''}`} role="dialog" aria-modal="true" aria-labelledby="vault-picker-title">
         <div className="vault-picker-header">
-          <h2>{t('vaultPicker.title')}</h2>
-          <button className="vault-picker-close" onClick={onClose}>×</button>
+          <h2 id="vault-picker-title">{t('vaultPicker.title')}</h2>
+          <button type="button" className="vault-picker-close" onClick={onClose} aria-label={t('common.close')}>×</button>
         </div>
         <div className="vault-picker-body">
           <aside className="vault-picker-sidebar">
-            <div
+            <button
+              type="button"
               className={`vault-picker-group${!activeGroup ? ' active' : ''}`}
               onClick={() => setActiveGroup(null)}
+              aria-pressed={!activeGroup}
             >
               <span>{t('common.all')}</span>
               <span className="vault-picker-group-count">{secrets.length}</span>
-            </div>
+            </button>
             {groups.map(([g, items]) => (
-              <div
+              <button
+                type="button"
                 key={g}
                 className={`vault-picker-group${activeGroup === g ? ' active' : ''}`}
                 onClick={() => setActiveGroup(g)}
+                aria-pressed={activeGroup === g}
               >
                 <span>{g}</span>
                 <span className="vault-picker-group-count">{items.length}</span>
-              </div>
+              </button>
             ))}
           </aside>
           <div className="vault-picker-main">
@@ -165,17 +195,19 @@ export default function VaultPickerModal({ selected, onSelect, onClose, testEndp
                 <div className="vault-picker-empty">{t('vaultPicker.noMatch')}</div>
               )}
               {filtered.map(s => (
-                <div
+                <button
+                  type="button"
                   key={s.key}
                   className={`vault-picker-item${selected === s.key ? ' active' : ''}`}
                   onClick={() => onSelect(s.key)}
+                  aria-pressed={selected === s.key}
                 >
                   <div className="vault-picker-item-top">
                     <span className="vault-picker-item-key">{s.key}</span>
                     {s.group && <span className="vault-picker-item-group">{s.group}</span>}
                   </div>
                   {s.desc && <span className="vault-picker-item-desc" title={s.desc}>{s.desc}</span>}
-                </div>
+                </button>
               ))}
             </div>
             {showCreate && (

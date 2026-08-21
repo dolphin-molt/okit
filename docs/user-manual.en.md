@@ -1,6 +1,6 @@
 # OKIT User Manual
 
-OKIT is the key and model control plane for AI agents: a local encrypted vault, 29+ built-in providers, adapters for 8 agents, and usage dashboards for 15 platforms. With the browser extension you can **auto-create API keys in one click**.
+OKIT is the key and model control plane for AI agents: a local encrypted vault, 40 built-in provider presets, adapters for 10 agents, and usage dashboards for 30+ subscription and balance sources. With the browser extension you can **auto-create API keys in one click**.
 
 ---
 
@@ -15,7 +15,7 @@ npm install -g @cing-self/okit-cli
 **Install script:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dolphin-molt/okit/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Cing-self/okit/refs/heads/main/install.sh | bash
 ```
 
 **Start the web dashboard:**
@@ -38,9 +38,9 @@ The dashboard runs at **http://localhost:3780** by default. If port 3780 is take
 | Quick Start | Home cockpit: agent switching, provider toggles, today's usage |
 | AI Assistant | Built-in assistant that acts on your keys/providers/usage |
 | Vault | Encrypted key vault: manual add, auto-create, project binding, cloud sync |
-| Models | 29+ provider presets: endpoints, auth, model catalogs, plans |
-| Usage | Subscription/balance queries with alerts for 15 providers |
-| Agent Config | Config adapters and one-click model switching for 8 agents |
+| Models | 40 provider presets: endpoints, auth, model catalogs, plans |
+| Usage | Subscription/balance queries with alerts for 30+ sources |
+| Agent Config | Config adapters and one-click model switching for 10 agents |
 | Settings | Language, cloud sync, ports, etc. |
 
 ---
@@ -142,14 +142,14 @@ The extension requests `debugger`, `tabs`, `cookies`, and related permissions, s
   - On the machine that stays on, enable "This machine as primary" under Add Device and copy the `okit-lan://` pairing code it shows
   - On your other computer, paste the code under Add Device and click "Connect"; both devices must use the **same sync password**
   - The device list shows the peer's online status live; data stays end-to-end encrypted in transit (the cloud-only-stores-ciphertext rule applies to the LAN relay too); re-pair if the host's IP changes
-  - If the first connection is blocked by a firewall, allow inbound connections for OKIT (default port 3790); LAN sync and cloud platforms can be enabled together as mutual backups
+  - If the first connection is blocked by a firewall, allow inbound connections for OKIT (LAN sync defaults to port 3790); LAN sync and cloud platforms can be enabled together as mutual backups
 
 ---
 
 ## 6. Providers & Agent Config
 
-- The **Models** page ships 29+ provider presets (official APIs, aggregators, Chinese platforms); click a card to configure endpoints and auth; the ⋯ menu offers "Connect" (test + fetch model list)
-- **Agent Config** supports 8 agents: Claude Code, ChatGPT (Codex), Kimi Code, WorkBuddy, Hermes, OpenCode, OpenClaw, ZCode
+- The **Models** page ships 40 provider presets (official APIs, aggregators, Chinese platforms); click a card to configure endpoints and auth; the ⋯ menu offers "Connect" (test + fetch model list)
+- **Agent Config** supports 10 agents: Claude Code, ChatGPT (Codex), Kimi Code, WorkBuddy, Hermes, OpenCode, OpenClaw, ZCode, Grok, and MiMo Code
 - Switching models: Quick Start → pick the agent → flip the provider switch → click a model chip; config files (`config.toml`, `auth.json`, …) are written correctly for you
 - Provider configs support import/export for cross-device migration
 

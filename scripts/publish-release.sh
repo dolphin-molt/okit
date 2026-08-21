@@ -91,13 +91,13 @@ if [[ ${#assets[@]} -eq 0 ]]; then
   release_dir="dist/release/$version"
   mkdir -p "$release_dir"
 
-  for bin_path in bin/okit-*; do
+  for bin_path in bin/okit-macos-*; do
     if [[ ! -f "$bin_path" ]]; then
       echo "Error: no binaries found in bin/. Run npm run pkg first."
       exit 1
     fi
     bin_name="$(basename "$bin_path")"
-    arch="${bin_name#okit-}"
+    arch="${bin_name#okit-macos-}"
     asset_name="okit-${version}-macos-${arch}.zip"
     tmp_dir="$release_dir/okit-${arch}"
     mkdir -p "$tmp_dir"

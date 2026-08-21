@@ -114,16 +114,21 @@ echo ""
 
 # Detect platform
 ARCH=$(uname -m)
-OKIT_REPO="dolphin-molt/okit"
+OKIT_REPO="Cing-self/okit"
 OKIT_VERSION="${OKIT_VERSION:-}"
 
 # Determine architecture
+# ASSET_ARCH is the suffix baked into the release zip names produced by
+# scripts/publish-release.sh (and consumed by install.sh below), which mirrors
+# the pkg binary output (okit-macos-arm64 / okit-macos-x64).
 if [[ "$ARCH" == "arm64" ]]; then
     echo -e "${BLUE}📦 检测到 Apple Silicon (arm64)${NC}"
     BINARY_NAME="okit-macos-arm64"
+    ASSET_ARCH="arm64"
 elif [[ "$ARCH" == "x86_64" ]]; then
     echo -e "${BLUE}📦 检测到 Intel (x64)${NC}"
     BINARY_NAME="okit-macos-x64"
+    ASSET_ARCH="x64"
 else
     echo -e "${RED}✗ 不支持的架构: $ARCH${NC}"
     exit 1
@@ -164,7 +169,7 @@ else
     if [[ -z "$OKIT_VERSION" ]]; then
         OKIT_VERSION="$(python3 - <<'PY'
 import json, sys, urllib.request
-repo = "dolphin-molt/okit"
+repo = "Cing-self/okit"
 
 def fetch_json(url):
     try:
@@ -198,14 +203,14 @@ PY
         exit 1
     fi
 
-    ASSET_NAME="okit-${OKIT_VERSION}-macos-${ARCH}.zip"
+    ASSET_NAME="okit-${OKIT_VERSION}-macos-${ASSET_ARCH}.zip"
     echo -e "${BLUE}ℹ️  版本: ${OKIT_VERSION}${NC}"
     echo -e "${BLUE}ℹ️  资源名: ${ASSET_NAME}${NC}"
     DOWNLOAD_URL="$(python3 - <<'PY' "$OKIT_VERSION" "$ASSET_NAME"
 import json, sys, urllib.request
 version = sys.argv[1]
 asset = sys.argv[2]
-repo = "dolphin-molt/okit"
+repo = "Cing-self/okit"
 
 def fetch_json(url):
     try:

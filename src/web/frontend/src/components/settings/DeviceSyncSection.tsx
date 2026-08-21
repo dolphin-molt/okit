@@ -11,6 +11,8 @@ import { useI18n } from '../../i18n';
 import VaultFormModal from '../shared/VaultFormModal';
 import VaultPickerModal from '../shared/VaultPickerModal';
 import CustomSelect from '../shared/CustomSelect';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Clock3, Cloud, Copy, FileText, KeyRound, Link2, Monitor, MoreHorizontal, Plus, PlugZap, QrCode, RefreshCw, X } from 'lucide-react';
+import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
 const VAULT_REF_FIELDS = new Set([
   'apiToken',
@@ -26,6 +28,27 @@ const VAULT_REF_FIELDS = new Set([
 // not a vault reference — render as plain inputs instead of the vault picker.
 const PLAIN_SECRET_FIELDS = new Set(['token']);
 
+const PLATFORM_FIELD_LABELS: Record<string, string> = {
+  apiToken: 'settings.sync2.field.apiToken',
+  storeId: 'settings.sync2.field.storeId',
+  accountId: 'settings.sync2.field.accountId',
+  r2AccessKeyId: 'settings.sync2.field.r2AccessKeyId',
+  r2SecretAccessKey: 'settings.sync2.field.r2SecretAccessKey',
+  accessKey: 'settings.sync2.field.accessKey',
+  secretKey: 'settings.sync2.field.secretKey',
+  projectId: 'settings.sync2.field.projectId',
+  apiKey: 'settings.sync2.field.apiKey',
+  url: 'settings.sync2.field.url',
+  username: 'settings.sync2.field.username',
+  password: 'settings.sync2.field.password',
+};
+
+function platformSummaryValue(platform: Record<string, any>, fallback: string) {
+  return typeof platform.url === 'string' && /^https?:\/\//i.test(platform.url)
+    ? platform.url
+    : fallback;
+}
+
 function lastSeenLabel(iso: string, t: (key: string, params?: any) => string) {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return t('settings.sync2.lastSeenJustNow');
@@ -35,7 +58,7 @@ function lastSeenLabel(iso: string, t: (key: string, params?: any) => string) {
 
 export default function DeviceSyncSection() {
   const { showToast, confirm } = useApp() as any;
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const [overview, setOverview] = useState<SyncOverview | null>(null);
   const [platforms, setPlatforms] = useState<Record<string, any>>({});
@@ -51,6 +74,7 @@ export default function DeviceSyncSection() {
   const [vaultTarget, setVaultTarget] = useState<{ platId: string; field: string } | null>(null);
   const [showVaultPicker, setShowVaultPicker] = useState(false);
   const [vaultFormVisible, setVaultFormVisible] = useState(false);
+  const [expandedPlatforms, setExpandedPlatforms] = useState<Set<string>>(new Set());
 
   // LAN pairing — everything lives in the add-device dialog (choice → primary
   // generates a code / join pastes one); the section body stays minimal.
@@ -62,6 +86,7 @@ export default function DeviceSyncSection() {
   const [pairingDone, setPairingDone] = useState(false);
   const [lanCodeAddress, setLanCodeAddress] = useState('');
   const [nowTs, setNowTs] = useState(Date.now());
+  const { activeKey: copiedItem, showFeedback: showCopied } = useTransientFeedback();
 
   useEffect(() => { loadData(); }, []);
 
@@ -184,7 +209,6 @@ export default function DeviceSyncSection() {
         if (stopped || peek.active) return;
         stopped = true;
         setPairingDone(true);
-        showToast(t('settings.lanPairedSuccess'), 'success');
         await Promise.all([refreshOverview(), loadData()]);
         setTimeout(() => closeLanModal(), 1200);
       } catch { /* transient poll failure; retry next tick */ }
@@ -234,6 +258,15 @@ export default function DeviceSyncSection() {
     } finally { setLanBusy(null); }
   }
 
+  async function copyInline(key: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      showCopied(key);
+    } catch {
+      showToast(t('vault.copyFail'), 'error');
+    }
+  }
+
   async function handleDisconnectPeer() {
     const newPlatforms = { ...platforms, lan: { ...(platforms.lan || {}), enabled: false } };
     setPlatforms(newPlatforms);
@@ -261,7 +294,17 @@ export default function DeviceSyncSection() {
 
   function handleAddPlatform(platId: string) {
     if (!platId) return;
+    setExpandedPlatforms(previous => new Set(previous).add(platId));
     updatePlatform(platId, 'enabled', true);
+  }
+
+  function togglePlatformEditor(platId: string) {
+    setExpandedPlatforms(previous => {
+      const next = new Set(previous);
+      if (next.has(platId)) next.delete(platId);
+      else next.add(platId);
+      return next;
+    });
   }
 
   function handleVaultSaved(key: string) {
@@ -289,125 +332,153 @@ export default function DeviceSyncSection() {
   const platformEntries = Object.entries(PLATFORM_FIELDS).filter(([id]) => id !== 'lan');
   const activePlatformEntries = platformEntries.filter(([id]) => platforms[id]?.enabled);
   const inactivePlatformEntries = platformEntries.filter(([id]) => !platforms[id]?.enabled);
-  const deviceCount = (overview?.peer ? 1 : 0) + (overview?.devices.length || 0);
+  const otherDeviceCount = (overview?.peer ? 1 : 0) + (overview?.devices.length || 0);
+  const totalDeviceCount = otherDeviceCount + 1;
   const cloudCount = overview?.cloudPlatforms.length || 0;
   const isSpoke = overview?.machine.role === 'spoke';
+  const lastSyncLabel = overview?.lastSyncAt
+    ? new Date(overview.lastSyncAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')
+    : t('settings.neverSynced');
 
   return (
     <div className="settings-section devsync" id="sync">
+      <header className="devsync-page-header">
+        <div className="devsync-page-heading">
+          <span className="devsync-eyebrow"><RefreshCw size={14} />{t('settings.sync2.title')}</span>
+          <h2>{t('settings.sync2.title')}</h2>
+          <p>{t('settings.sync2.description')}</p>
+        </div>
+        <div className="devsync-autosync-control">
+          <span className="devsync-autosync-copy">
+            <strong>{t('settings.autoSync')}</strong>
+            <small>{t(autoSync ? 'settings.sync2.autoSyncOn' : 'settings.sync2.autoSyncOff')}</small>
+          </span>
+          <label className="settings-toggle" aria-label={t('settings.autoSync')}>
+            <input
+              type="checkbox"
+              checked={autoSync}
+              aria-label={t('settings.autoSync')}
+              onChange={e => { setAutoSync(e.target.checked); saveSync(undefined, e.target.checked); }}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+        </div>
+      </header>
 
-      {/* 状态：摘要 + 自动同步 */}
-      <div className="settings-block">
-        <div className="settings-block-head">
-          <span className="settings-block-title">{t('settings.sync2.statusTitle')}</span>
-          <div className="settings-block-head-controls">
-            <span className="devsync-autosync-label">{t('settings.autoSync')}</span>
-            <label className="settings-toggle">
-              <input type="checkbox" checked={autoSync} onChange={e => { setAutoSync(e.target.checked); saveSync(undefined, e.target.checked); }} />
-              <span className="settings-toggle-slider" />
-            </label>
+      <section className="settings-card devsync-overview-card" aria-label={t('settings.sync2.statusTitle')}>
+        <div className="devsync-overview-grid">
+          <div className="devsync-overview-item">
+            <span className="devsync-overview-icon"><Clock3 size={16} /></span>
+            <span><small>{t('settings.lastSync')}</small><strong>{lastSyncLabel}</strong></span>
+          </div>
+          <div className="devsync-overview-item">
+            <span className="devsync-overview-icon"><Monitor size={16} /></span>
+            <span><small>{t('settings.sync2.devicesTitle')}</small><strong>{t('settings.sync2.otherDevices', { n: otherDeviceCount })}</strong></span>
+          </div>
+          <div className="devsync-overview-item">
+            <span className="devsync-overview-icon"><Cloud size={16} /></span>
+            <span><small>{t('settings.sync2.cloudBackup')}</small><strong>{t('settings.sync2.cloudTargets', { n: cloudCount })}</strong></span>
           </div>
         </div>
-        <div className="settings-card">
-          <div className="settings-card-body">
-            <div className="devsync-summary">
-              <span>{t('settings.lastSync')}: {overview?.lastSyncAt ? new Date(overview.lastSyncAt).toLocaleString('zh-CN') : t('settings.neverSynced')}</span>
-              <span className="devsync-summary-sep">·</span>
-              <span>{t('settings.sync2.targets', { devices: deviceCount, clouds: cloudCount })}</span>
-            </div>
-            {overview && !overview.hasPassword && (
-              <div className="settings-field settings-field--quiet">
-                <label>{t('settings.syncPassword')}</label>
-                <input type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
-                  value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
-                  onBlur={savePassword} />
-              </div>
+        {overview && !overview.hasPassword && (
+          <div className="devsync-password-setup">
+            <label htmlFor="devsync-password">{t('settings.syncPassword')}</label>
+            <input id="devsync-password" type="password" className="settings-input" placeholder={t('settings.syncPasswordDesc')}
+              value={syncPassword} onChange={e => { setSyncPassword(e.target.value); }}
+              onBlur={savePassword} />
+          </div>
+        )}
+      </section>
+
+      <section className="settings-block devsync-section-block">
+        <div className="settings-block-head devsync-section-head">
+          <div className="devsync-section-title">
+            <Monitor size={16} />
+            <span className="settings-block-title">{t('settings.sync2.devicesTitle')}</span>
+            <span className="devsync-count-badge">{totalDeviceCount}</span>
+          </div>
+          <div className="settings-block-head-controls">
+            {overview?.lan.enabled && (
+              <details className="devsync-more-menu">
+                <summary aria-label={t('settings.sync2.advancedActions')} title={t('settings.sync2.advancedActions')}>
+                  <MoreHorizontal size={17} />
+                </summary>
+                <div className="devsync-more-popover">
+                  <span className="devsync-danger-title"><AlertTriangle size={12} />{t('settings.sync2.dangerActions')}</span>
+                  <button type="button" className="is-danger" onClick={handleLanResetToken}>
+                    <strong>{t('settings.lanResetToken')}</strong>
+                    <small>{t('settings.lanResetTokenDesc')}</small>
+                  </button>
+                  <button type="button" className="is-danger" onClick={handleLanDisable} disabled={lanBusy === 'enable'}>
+                    <strong>{lanBusy === 'enable' ? t('common.testing') : t('settings.lanCloseSync')}</strong>
+                    <small>{t('settings.lanCloseSyncDesc')}</small>
+                  </button>
+                </div>
+              </details>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* 设备：本机 + 已配对设备 */}
-      <div className="settings-block">
-        <div className="settings-block-head">
-          <span className="settings-block-title">{t('settings.sync2.devicesTitle')}</span>
-          <div className="settings-block-head-controls">
-            <button type="button" className="settings-test-btn" onClick={openLanModal}>
-              + {t('settings.sync2.add')}
+            <button type="button" className="settings-test-btn devsync-add-button" onClick={openLanModal}>
+              <Plus size={14} />{t('settings.sync2.addDevice')}
             </button>
           </div>
         </div>
-        <div className="settings-card">
-          <div className="settings-card-body settings-card-body--sync">
-            <div className="devsync-devices">
-              <div className="devsync-device devsync-device--self">
-                <span className="devsync-dot devsync-dot--self" />
-                <span className="devsync-device-name">
-                  {overview?.machine.name || t('settings.sync2.thisDevice')}
-                  {overview?.machine.id && <span className="settings-machine-id-suffix"> · {overview.machine.id}</span>}
-                </span>
-                {overview?.machine.role === 'hub' && <span className="devsync-role">{t('settings.sync2.roleHub')}</span>}
-                {isSpoke && <span className="devsync-role">{t('settings.sync2.roleSpoke')}</span>}
-              </div>
-
-              {overview?.peer && (
-                <div className="devsync-device">
-                  <span className={`devsync-dot${overview.peer.online ? ' devsync-dot--on' : ''}`} />
-                  <span className="devsync-device-name">
-                    {overview.peer.name || overview.peer.url}
-                    <span className="settings-machine-id-suffix"> · {overview.peer.url}</span>
-                  </span>
-                  <span className={`devsync-presence${overview.peer.online ? ' devsync-presence--on' : ''}`}>
-                    {overview.peer.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
-                  </span>
-                  <div className="devsync-device-actions">
-                    <button className="settings-test-btn" onClick={() => handleTestPlatform('lan')} disabled={testingPlatform === 'lan'}>
-                      {testingPlatform === 'lan' ? t('common.testing') : t('common.test')}
-                    </button>
-                    <button className="settings-test-btn" onClick={handleDisconnectPeer}>{t('settings.sync2.disconnect')}</button>
-                  </div>
-                </div>
-              )}
-
-              {overview?.devices.map(device => (
-                <div key={device.id} className="devsync-device">
-                  <span className={`devsync-dot${device.online ? ' devsync-dot--on' : ''}`} />
-                  <span className="devsync-device-name">
-                    {device.name || device.id}
-                    <span className="settings-machine-id-suffix"> · {device.address} · {lastSeenLabel(device.lastSeen, t)}</span>
-                  </span>
-                  <span className={`devsync-presence${device.online ? ' devsync-presence--on' : ''}`}>
-                    {device.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
-                  </span>
-                </div>
-              ))}
-
-              {deviceCount === 0 && (
-                <button type="button" className="devsync-add-slot" onClick={openLanModal}>
-                  + {t('settings.sync2.addDevice')}
-                </button>
-              )}
+        <div className="settings-card devsync-devices-card">
+          <div className="devsync-devices">
+            <div className="devsync-device devsync-device--self">
+              <span className="devsync-device-icon"><Monitor size={15} /></span>
+              <span className="devsync-device-name">
+                <strong>{overview?.machine.name || t('settings.sync2.thisDevice')}</strong>
+                <small>{overview?.machine.id || t('settings.sync2.thisDevice')}</small>
+              </span>
+              {overview?.machine.role === 'hub' && <span className="devsync-role">{t('settings.sync2.roleHub')}</span>}
+              {isSpoke && <span className="devsync-role">{t('settings.sync2.roleSpoke')}</span>}
             </div>
 
-            {overview?.lan.enabled && (
-              <div className="devsync-quiet-actions">
-                <button type="button" className="devsync-quiet-btn" onClick={handleLanResetToken}>
-                  {t('settings.lanResetToken')}
-                </button>
-                <span className="devsync-quiet-sep">·</span>
-                <button type="button" className="devsync-quiet-btn" onClick={handleLanDisable} disabled={lanBusy === 'enable'}>
-                  {lanBusy === 'enable' ? t('common.testing') : t('settings.lanCloseSync')}
-                </button>
+            {overview?.peer && (
+              <div className="devsync-device">
+                <span className={`devsync-dot${overview.peer.online ? ' devsync-dot--on' : ''}`} />
+                <span className="devsync-device-name">
+                  <strong>{overview.peer.name || overview.peer.url}</strong>
+                  <small>{overview.peer.url}</small>
+                </span>
+                <span className={`devsync-presence${overview.peer.online ? ' devsync-presence--on' : ''}`}>
+                  {overview.peer.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
+                </span>
+                <div className="devsync-device-actions">
+                  <button className="settings-test-btn" onClick={() => handleTestPlatform('lan')} disabled={testingPlatform === 'lan'}>
+                    {testingPlatform === 'lan' ? t('common.testing') : t('common.test')}
+                  </button>
+                  <button className="settings-test-btn" onClick={handleDisconnectPeer}>{t('settings.sync2.disconnect')}</button>
+                </div>
               </div>
+            )}
+
+            {overview?.devices.map(device => (
+              <div key={device.id} className="devsync-device">
+                <span className={`devsync-dot${device.online ? ' devsync-dot--on' : ''}`} />
+                <span className="devsync-device-name">
+                  <strong>{device.name || device.id}</strong>
+                  <small>{device.address} · {lastSeenLabel(device.lastSeen, t)}</small>
+                </span>
+                <span className={`devsync-presence${device.online ? ' devsync-presence--on' : ''}`}>
+                  {device.online ? t('settings.sync2.online') : t('settings.sync2.offline')}
+                </span>
+              </div>
+            ))}
+
+            {otherDeviceCount === 0 && (
+              <div className="devsync-no-devices">{t('settings.sync2.noOtherDevices')}</div>
             )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 云备份：平台配置（扁平结构，平台卡直接挂在分节下） */}
-      <div className="settings-block">
-        <div className="settings-block-head">
-          <span className="settings-block-title">{t('settings.sync2.cloudBackup')}{cloudCount > 0 ? ` (${cloudCount})` : ''}</span>
+      <section className="settings-block devsync-section-block">
+        <div className="settings-block-head devsync-section-head">
+          <div className="devsync-section-title">
+            <Cloud size={16} />
+            <span className="settings-block-title">{t('settings.sync2.cloudBackup')}</span>
+            <span className="devsync-count-badge">{cloudCount}</span>
+          </div>
           {inactivePlatformEntries.length > 0 && (
             <div className="settings-block-head-controls">
               <CustomSelect
@@ -420,53 +491,66 @@ export default function DeviceSyncSection() {
             </div>
           )}
         </div>
-        <div className="settings-platforms">
+        <div className="settings-platforms devsync-platforms">
           {activePlatformEntries.length === 0 ? (
             <div className="settings-platforms-empty">{t('settings.noActivePlatform')}</div>
           ) : activePlatformEntries.map(([platId, fields]) => {
             const plat = platforms[platId] || {};
             const testing = testingPlatform === platId;
+            const expanded = expandedPlatforms.has(platId);
+            const platformName = PLATFORM_IDS[platId] || platId;
             return (
-              <div key={platId} className="settings-plat-card">
-                <div className="settings-plat-header">
-                  <div className="settings-plat-name">
-                    {PLATFORM_IDS[platId] || platId}
-                    <button className="settings-doc-btn" onClick={() => setDocPlatform(platId)} title={t('settings.configDocs')}>
-                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 2h7l4 4v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 014 15V3.5A1.5 1.5 0 015.5 2z" />
-                        <path d="M11 2v4h4" />
-                        <path d="M7 10h4M7 13h3" />
-                      </svg>
-                    </button>
+              <article key={platId} className={`settings-plat-card devsync-platform-card${expanded ? ' is-expanded' : ''}`}>
+                <div className="devsync-platform-summary">
+                  <span className="devsync-platform-icon"><Cloud size={16} /></span>
+                  <div className="devsync-platform-copy">
+                    <strong>{platformName}</strong>
+                    <span><i />{t('common.enabled')} · {platformSummaryValue(plat, t('settings.sync2.platformConfigured'))}</span>
                   </div>
-                  <div className="settings-plat-actions">
+                  <div className="devsync-platform-actions">
                     <button
                       type="button"
-                      className={`settings-icon-btn settings-icon-btn--test${testing ? ' is-loading' : ''}`}
+                      className="settings-test-btn devsync-platform-test"
                       onClick={() => handleTestPlatform(platId)}
                       disabled={testing}
-                      title={testing ? t('common.testing') : t('common.test')}
-                      aria-label={testing ? t('common.testing') : t('common.test')}
                     >
-                      <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5.5 2.5v4M12.5 2.5v4" />
-                        <path d="M4 6.5h10v2.8a5 5 0 0 1-10 0V6.5z" />
-                        <path d="M9 14.3V16" />
-                      </svg>
+                      <PlugZap size={14} />{testing ? t('common.testing') : t('common.test')}
                     </button>
-                    <label className="settings-toggle">
-                      <input type="checkbox" checked={!!plat.enabled} onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }} />
+                    <button
+                      type="button"
+                      className="settings-test-btn devsync-platform-edit"
+                      onClick={() => togglePlatformEditor(platId)}
+                      aria-expanded={expanded}
+                      aria-controls={`platform-editor-${platId}`}
+                    >
+                      {t(expanded ? 'settings.sync2.hideConfig' : 'settings.sync2.editConfig')}
+                      <ChevronDown size={14} />
+                    </button>
+                    <label className="settings-toggle" title={`${platformName} · ${t('common.enabled')}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!plat.enabled}
+                        aria-label={`${platformName} · ${t('common.enabled')}`}
+                        onChange={e => { updatePlatform(platId, 'enabled', e.target.checked); }}
+                      />
                       <span className="settings-toggle-slider" />
                     </label>
                   </div>
                 </div>
-                {fields.length > 0 && (
-                  <div className="settings-plat-body">
+                {expanded && fields.length > 0 && (
+                  <div className="settings-plat-body devsync-platform-editor" id={`platform-editor-${platId}`}>
+                    <div className="devsync-platform-editor-head">
+                      <span>{t('settings.sync2.platformHelp')}</span>
+                      <button className="devsync-doc-link" onClick={() => setDocPlatform(platId)}>
+                        <FileText size={13} />{t('settings.configDocs')}
+                      </button>
+                    </div>
                     {fields.map(field => {
                       const isSecret = !PLAIN_SECRET_FIELDS.has(field) && (VAULT_REF_FIELDS.has(field) || (/ecret|oken|Key|Id$/i.test(field) && !/databaseId|bucketName|region/i.test(field)));
+                      const fieldLabel = PLATFORM_FIELD_LABELS[field] ? t(PLATFORM_FIELD_LABELS[field]) : field;
                       return (
                         <div key={field} className={`settings-field${isSecret ? ' settings-field--secret' : ''}`}>
-                          <label>{field}</label>
+                          <label>{fieldLabel}</label>
                           {isSecret ? (
                             <div className="vault-ref-field">
                               {plat[field] ? (
@@ -480,105 +564,146 @@ export default function DeviceSyncSection() {
                               )}
                             </div>
                           ) : (
-                            <input type="text" className="settings-input" value={plat[field] || ''} placeholder={field}
-                              onChange={e => updatePlatform(platId, field, e.target.value)} />
+                            <input
+                              type={field === 'password' ? 'password' : 'text'}
+                              className="settings-input"
+                              value={plat[field] || ''}
+                              aria-label={fieldLabel}
+                              placeholder={fieldLabel}
+                              onChange={e => updatePlatform(platId, field, e.target.value)}
+                            />
                           )}
                         </div>
                       );
                     })}
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
-      </div>
+      </section>
 
       {/* Add Device dialog — choice first, then generate (primary) or paste
           (join). Everything pairing-related lives here, never in the section. */}
       {lanModalOpen && (
         <div className="auth-overlay" style={{ display: '' }} onClick={e => { if (e.target === e.currentTarget) closeLanModal(); }}>
-          <div className="confirm-panel lan-modal" style={{ maxWidth: 560, textAlign: 'left' }}>
-            <div className="progress-header">
-              <span className="progress-title">{t('settings.sync2.addDevice')}</span>
-              <button className="progress-close" onClick={closeLanModal}>&times;</button>
-            </div>
+          <div className="confirm-panel lan-modal" role="dialog" aria-modal="true" aria-labelledby="lan-modal-title" aria-describedby="lan-modal-desc">
+            <header className="lan-modal-header">
+              <span className="lan-modal-header-icon"><Link2 size={18} /></span>
+              <div>
+                <h3 id="lan-modal-title">{t('settings.sync2.addDevice')}</h3>
+                <p id="lan-modal-desc">{t('settings.lanModalDesc')}</p>
+              </div>
+              <button className="lan-modal-close" onClick={closeLanModal} aria-label={t('common.close')} title={t('common.close')}>
+                <X size={17} />
+              </button>
+            </header>
             <div className="lan-modal-body">
               {lanModalStep === 'choice' && (
-                <>
+                <div className="lan-choice-grid">
                   <button type="button" className="lan-choice" onClick={choosePrimary} disabled={lanBusy === 'enable'}>
-                    <span className="lan-choice-title">{t('settings.lanChoiceOld')}</span>
-                    <span className="lan-choice-desc">{t('settings.lanChoiceOldDesc')}</span>
+                    <span className="lan-choice-icon"><QrCode size={19} /></span>
+                    <span className="lan-choice-copy">
+                      <small>{t('settings.lanChoiceOldTag')}</small>
+                      <strong>{t('settings.lanChoiceOld')}</strong>
+                      <span>{t('settings.lanChoiceOldDesc')}</span>
+                    </span>
+                    <ArrowRight className="lan-choice-arrow" size={17} />
                   </button>
                   <button type="button" className="lan-choice" onClick={() => setLanModalStep('join')}>
-                    <span className="lan-choice-title">{t('settings.lanChoiceNew')}</span>
-                    <span className="lan-choice-desc">{t('settings.lanChoiceNewDesc')}</span>
+                    <span className="lan-choice-icon"><KeyRound size={19} /></span>
+                    <span className="lan-choice-copy">
+                      <small>{t('settings.lanChoiceNewTag')}</small>
+                      <strong>{t('settings.lanChoiceNew')}</strong>
+                      <span>{t('settings.lanChoiceNewDesc')}</span>
+                    </span>
+                    <ArrowRight className="lan-choice-arrow" size={17} />
                   </button>
-                </>
+                </div>
               )}
 
               {lanModalStep === 'primary' && (
-                <>
+                <div className="lan-step">
                   <button type="button" className="lan-back" onClick={() => { setLanModalStep('choice'); setPairing(null); }}>
-                    ← {t('settings.lanBack')}
+                    <ArrowLeft size={14} />{t('settings.lanBack')}
                   </button>
+                  <div className="lan-step-heading">
+                    <span><QrCode size={18} /></span>
+                    <div><h4>{t('settings.lanPrimaryTitle')}</h4><p>{t('settings.lanPrimaryDesc')}</p></div>
+                  </div>
                   {pairingDone ? (
-                    <div className="lan-modal-countdown">✓ {t('settings.lanPairedSuccess')}</div>
+                    <div className="lan-pair-success"><CheckCircle2 size={20} />{t('settings.lanPairedSuccess')}</div>
                   ) : (
                     <>
                       {overview && overview.lan.enabled && !overview.lan.running && (
                         <div className="lan-modal-error">{overview.lan.error || t('settings.lanPairCodeEmpty')}</div>
                       )}
                       {pairing && !pairingExpired ? (
-                        <>
-                          <div className="lan-modal-label">{t('settings.lanPairCode')}</div>
+                        <div className="lan-code-card">
+                          <div className="lan-code-card-head">
+                            <span>{t('settings.lanPairCode')}</span>
+                            <strong>{t('settings.lanCodeExpiresIn', { time: countdownLabel })}</strong>
+                          </div>
                           <div className="lan-code-value devsync-code-value">
                             <span className="lan-code-text" title={lanSelectedCode}>{lanSelectedCode}</span>
-                            <button className="settings-vault-new-btn settings-meta-copy" onClick={() => { navigator.clipboard.writeText(lanSelectedCode); showToast(t('common.copied')); }} title={t('vault.copy')}>
-                              <svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="5" width="10" height="10" rx="1.5" /><path d="M3 13V3a1.5 1.5 0 011.5-1.5H13" /></svg>
+                            <button
+                              className={`lan-code-copy${copiedItem === 'pairing-code' ? ' is-copied' : ''}`}
+                              onClick={() => copyInline('pairing-code', lanSelectedCode)}
+                              title={copiedItem === 'pairing-code' ? t('common.copied') : t('vault.copy')}
+                              aria-label={copiedItem === 'pairing-code' ? t('common.copied') : t('vault.copy')}
+                            >
+                              {copiedItem === 'pairing-code' ? <Check size={14} /> : <Copy size={14} />}
                             </button>
-                            {lanCodes.length > 1 && (
+                          </div>
+                          {lanCodes.length > 1 && (
+                            <div className="lan-address-row">
                               <CustomSelect
                                 className="settings-select-wrap lan-address-select"
                                 value={lanSelectedAddress}
                                 onChange={(v: string) => setLanCodeAddress(v)}
                                 options={lanCodes.map(c => ({ value: c.address, label: c.address }))}
                               />
-                            )}
-                          </div>
-                          <div className="lan-modal-countdown">{t('settings.lanCodeExpiresIn', { time: countdownLabel })}</div>
-                        </>
+                            </div>
+                          )}
+                          <p>{t('settings.lanCodeUseHint')}</p>
+                        </div>
                       ) : (
                         pairingExpired && <div className="lan-modal-countdown lan-modal-countdown--expired">{t('settings.lanCodeExpired')}</div>
                       )}
-                      <div className="settings-sync-actions">
-                        <button className="settings-test-btn" onClick={() => generatePairing()} disabled={lanBusy === 'pairing' || lanBusy === 'enable'}>
+                      <div className="lan-modal-actions">
+                        <button className="lan-primary-action" onClick={() => generatePairing()} disabled={lanBusy === 'pairing' || lanBusy === 'enable'}>
                           {lanBusy === 'pairing' || lanBusy === 'enable'
                             ? t('common.testing')
                             : (pairing && !pairingExpired ? t('settings.lanRegenCode') : t('settings.lanGenCode'))}
                         </button>
                       </div>
-                      <div className="lan-hint">{t('settings.lanCodeHint')}</div>
+                      <div className="lan-hint">{t('settings.lanPasswordHint')}</div>
                     </>
                   )}
-                </>
+                </div>
               )}
 
               {lanModalStep === 'join' && (
-                <>
+                <div className="lan-step">
                   <button type="button" className="lan-back" onClick={() => setLanModalStep('choice')}>
-                    ← {t('settings.lanBack')}
+                    <ArrowLeft size={14} />{t('settings.lanBack')}
                   </button>
-                  <div className="lan-pair-row">
-                    <input type="text" className="settings-input" placeholder={t('settings.lanPairPlaceholder')}
+                  <div className="lan-step-heading">
+                    <span><KeyRound size={18} /></span>
+                    <div><h4>{t('settings.lanJoinTitle')}</h4><p>{t('settings.lanJoinDesc')}</p></div>
+                  </div>
+                  <div className="lan-join-form">
+                    <label htmlFor="lan-pair-code">{t('settings.lanPairCode')}</label>
+                    <input id="lan-pair-code" type="text" className="settings-input" placeholder={t('settings.lanPairPlaceholder')}
                       value={lanPairCode} onChange={e => setLanPairCode(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleLanPair(); }} />
-                    <button className="settings-test-btn" onClick={handleLanPair} disabled={lanBusy === 'pair'}>
+                    <button className="lan-primary-action" onClick={handleLanPair} disabled={lanBusy === 'pair'}>
                       {lanBusy === 'pair' ? t('settings.lanPairing') : t('settings.lanConnect')}
                     </button>
                   </div>
                   <div className="lan-hint">{t('settings.lanPasswordHint')}</div>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -659,7 +784,13 @@ export default function DeviceSyncSection() {
                   <div className="platdoc-section">
                     <div className="platdoc-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{doc.code.title}</span>
-                      <button className="settings-vault-new-btn" style={{ width: 56, fontSize: 11 }} onClick={() => { navigator.clipboard.writeText(doc.code!.sql); showToast(t('settings.sqlCopied')); }}>{t('vault.copy')}</button>
+                      <button
+                        className={`settings-vault-new-btn${copiedItem === `sql:${docPlatform}` ? ' is-copied' : ''}`}
+                        style={{ minWidth: 64, fontSize: 11 }}
+                        onClick={() => copyInline(`sql:${docPlatform}`, doc.code!.sql)}
+                      >
+                        {copiedItem === `sql:${docPlatform}` ? t('common.copied') : t('vault.copy')}
+                      </button>
                     </div>
                     <pre className="platdoc-code">{doc.code.sql}</pre>
                   </div>

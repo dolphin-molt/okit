@@ -6,47 +6,48 @@ import { useI18n } from '../../i18n';
 import { useUsagePolling } from '../../lib/useUsagePolling';
 import { useCoalescedUsageMap } from '../../lib/useCoalescedUsageMap';
 import { checkAlerts, fireNotifications } from '../../lib/usageAlerts';
+import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 
 // Display metadata for known supported providers (icon + human-readable name).
-const PROVIDER_META: Record<string, { name: string; type: string; kind: 'subscription' | 'prepaid' }> = {
-  'openai': { name: 'OpenAI API', type: 'API 平台', kind: 'prepaid' },
-  'openai-codex': { name: 'Codex (ChatGPT)', type: 'Agent 订阅', kind: 'subscription' },
-  'anthropic': { name: 'Anthropic API', type: 'API 平台', kind: 'prepaid' },
-  'anthropic-agent': { name: 'Claude Code', type: 'Agent 订阅', kind: 'subscription' },
-  'xai-grok-build': { name: 'SuperGrok', type: 'Agent 订阅', kind: 'subscription' },
-  'github-copilot': { name: 'GitHub Copilot', type: 'Agent 订阅', kind: 'subscription' },
-  'glm-coding': { name: 'GLM Coding Plan', type: 'Coding Plan', kind: 'subscription' },
-  'zai-global-coding': { name: 'Z.AI Coding Plan', type: 'Coding Plan', kind: 'subscription' },
-  'kimi-coding-plan': { name: 'Kimi Coding Plan', type: 'Coding Plan', kind: 'subscription' },
-  'minimax-coding': { name: 'MiniMax Token Plan', type: 'Token Plan', kind: 'subscription' },
-  'minimax-global-coding': { name: 'MiniMax Token Plan（国际）', type: 'Token Plan', kind: 'subscription' },
-  'minimax': { name: 'MiniMax', type: 'API 平台', kind: 'prepaid' },
-  'minimax-global': { name: 'MiniMax（国际站）', type: 'API 平台', kind: 'prepaid' },
-  'zai': { name: '智谱 AI（国内站）', type: 'API 平台', kind: 'prepaid' },
-  'zai-global': { name: 'Z.AI（国际站）', type: 'API 平台', kind: 'prepaid' },
-  'kimi-coding': { name: 'Kimi', type: 'API 平台', kind: 'prepaid' },
-  'qwen-coding': { name: '阿里云百炼 Coding Plan', type: 'Coding Plan', kind: 'subscription' },
-  'qwen-token-plan': { name: '阿里云百炼 Token Plan', type: 'Token Plan', kind: 'subscription' },
-  'qianfan-coding': { name: '百度千帆 Token Plan', type: 'Token Plan', kind: 'subscription' },
-  'qianfan': { name: '百度千帆', type: 'API 平台', kind: 'prepaid' },
-  'tencent-token-plan': { name: '腾讯云 Token Plan', type: 'Token Plan', kind: 'subscription' },
-  'tencent': { name: '腾讯云', type: 'API 平台', kind: 'prepaid' },
-  'opencode-go': { name: 'OpenCode Go', type: 'Agent 订阅', kind: 'subscription' },
-  'volcengine-coding': { name: '火山引擎 Coding Plan', type: 'Coding Plan', kind: 'subscription' },
-  'volcengine-agent': { name: '火山引擎 Agent Plan', type: 'Agent Plan', kind: 'subscription' },
-  'volcengine': { name: '火山引擎', type: 'API 平台', kind: 'prepaid' },
-  'xiaomi-coding': { name: '小米 MiMo Token Plan', type: 'Token Plan', kind: 'subscription' },
-  'xiaomi': { name: '小米 MiMo API', type: 'API 平台', kind: 'prepaid' },
-  'xai': { name: 'xAI API', type: 'API 平台', kind: 'prepaid' },
-  'stepfun': { name: '阶跃星辰', type: 'API 平台', kind: 'prepaid' },
-  'stepfun-global': { name: 'StepFun Global', type: 'API 平台', kind: 'prepaid' },
+const PROVIDER_META: Record<string, { name: string; typeKey: string; kind: 'subscription' | 'prepaid' }> = {
+  'openai': { name: 'OpenAI API', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'openai-codex': { name: 'Codex (ChatGPT)', typeKey: 'usage.typeAgentSubscription', kind: 'subscription' },
+  'anthropic': { name: 'Anthropic API', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'anthropic-agent': { name: 'Claude Code', typeKey: 'usage.typeAgentSubscription', kind: 'subscription' },
+  'xai-grok-build': { name: 'SuperGrok', typeKey: 'usage.typeAgentSubscription', kind: 'subscription' },
+  'github-copilot': { name: 'GitHub Copilot', typeKey: 'usage.typeAgentSubscription', kind: 'subscription' },
+  'glm-coding': { name: 'GLM Coding Plan', typeKey: 'usage.typeCodingPlan', kind: 'subscription' },
+  'zai-global-coding': { name: 'Z.AI Coding Plan', typeKey: 'usage.typeCodingPlan', kind: 'subscription' },
+  'kimi-coding-plan': { name: 'Kimi Coding Plan', typeKey: 'usage.typeCodingPlan', kind: 'subscription' },
+  'minimax-coding': { name: 'MiniMax Token Plan', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'minimax-global-coding': { name: 'MiniMax Token Plan（国际）', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'minimax': { name: 'MiniMax', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'minimax-global': { name: 'MiniMax（国际站）', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'zai': { name: '智谱 AI（国内站）', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'zai-global': { name: 'Z.AI（国际站）', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'kimi-coding': { name: 'Kimi', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'qwen-coding': { name: '阿里云百炼 Coding Plan', typeKey: 'usage.typeCodingPlan', kind: 'subscription' },
+  'qwen-token-plan': { name: '阿里云百炼 Token Plan', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'qianfan-coding': { name: '百度千帆 Token Plan', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'qianfan': { name: '百度千帆', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'tencent-token-plan': { name: '腾讯云 Token Plan', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'tencent': { name: '腾讯云', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'opencode-go': { name: 'OpenCode Go', typeKey: 'usage.typeAgentSubscription', kind: 'subscription' },
+  'volcengine-coding': { name: '火山引擎 Coding Plan', typeKey: 'usage.typeCodingPlan', kind: 'subscription' },
+  'volcengine-agent': { name: '火山引擎 Agent Plan', typeKey: 'usage.typeAgentPlan', kind: 'subscription' },
+  'volcengine': { name: '火山引擎', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'xiaomi-coding': { name: '小米 MiMo Token Plan', typeKey: 'usage.typeTokenPlan', kind: 'subscription' },
+  'xiaomi': { name: '小米 MiMo API', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'xai': { name: 'xAI API', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'stepfun': { name: '阶跃星辰', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
+  'stepfun-global': { name: 'StepFun Global', typeKey: 'usage.typeApiPlatform', kind: 'prepaid' },
   // Goal ①: prepaid balance providers.
-  'openrouter': { name: 'OpenRouter', type: '充值制', kind: 'prepaid' },
-  'deepseek': { name: 'DeepSeek', type: '充值制', kind: 'prepaid' },
-  'siliconflow': { name: '硅基流动', type: '充值制', kind: 'prepaid' },
-  'moonshot': { name: 'Moonshot', type: '充值制', kind: 'prepaid' },
-  'mistral': { name: 'Mistral', type: '充值制', kind: 'prepaid' },
-  'qwen': { name: '通义千问', type: '充值制', kind: 'prepaid' },
+  'openrouter': { name: 'OpenRouter', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
+  'deepseek': { name: 'DeepSeek', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
+  'siliconflow': { name: '硅基流动', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
+  'moonshot': { name: 'Moonshot', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
+  'mistral': { name: 'Mistral', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
+  'qwen': { name: '通义千问', typeKey: 'usage.typePrepaid', kind: 'prepaid' },
 };
 
 type CloudBalanceGuide = 'aliyun-billing' | 'baidu-billing' | 'tencent-billing';
@@ -61,7 +62,7 @@ type SaveUsageCredentials = (input: {
 
 export default function UsagePage() {
   const { showToast: toast } = useApp() as any;
-  const { t } = useI18n();
+  const { t, lang, providerName: translateProviderName } = useI18n();
   _t = t; // expose t to UsageBar which renders outside the hook scope
   const [credentialGuide, setCredentialGuide] = useState<CredentialGuideContext | null>(null);
   const [supportedIds, setSupportedIds] = useState<string[]>([]);
@@ -70,6 +71,8 @@ export default function UsagePage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const { usageMap, enqueue } = useCoalescedUsageMap();
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [showSecondary, setShowSecondary] = useState(false);
   // Goal ①: subscription vs prepaid split. Defaults to subscription (the
   // historically-supported set); the tab surfaces the new balance providers.
   const [usageMode, setUsageMode] = useState<'subscription' | 'prepaid'>('subscription');
@@ -94,6 +97,7 @@ export default function UsagePage() {
       enqueue(id, { supported: true, error: err.message });
     } finally {
       setFetchingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+      setLastUpdatedAt(new Date());
     }
   }, []);
 
@@ -129,12 +133,13 @@ export default function UsagePage() {
   // Uses the shared hook — updates usageMap without toggling fetchingIds.
   const providerNames = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const p of providers) map[p.id] = p.name;
+    for (const p of providers) map[p.id] = translateProviderName(p.id, p.name);
     return map;
-  }, [providers]);
+  }, [providers, translateProviderName]);
 
   const handlePollResult = useCallback((id: string, result: UsageResult) => {
     enqueue(id, result);
+    setLastUpdatedAt(new Date());
   }, [enqueue]);
 
   useUsagePolling({
@@ -149,7 +154,7 @@ export default function UsagePage() {
   }, [fetchAll]);
 
   // Compute alerts from the latest usage data.
-  const alerts = useMemo(() => checkAlerts(usageMap, providerNames), [usageMap, providerNames]);
+  const alerts = useMemo(() => checkAlerts(usageMap, providerNames, lang), [usageMap, providerNames, lang]);
   // Track dismissed alerts so the banner doesn't reappear after user closes it.
   const [dismissedAlertKeys, setDismissedAlertKeys] = useState<Set<string>>(new Set());
   const [alertCenterOpen, setAlertCenterOpen] = useState(false);
@@ -158,27 +163,28 @@ export default function UsagePage() {
   // Fire browser notifications when new danger alerts appear.
   useEffect(() => {
     if (alerts.length > 0) {
-      fireNotifications(alerts);
+      fireNotifications(alerts, lang);
     }
-  }, [alerts]);
+  }, [alerts, lang]);
 
   function providerName(id: string): string {
     // Provider name comes from presets.ts via the providers API — single
     // source of truth. Don't hardcode display names in PROVIDER_META.
     const p = providers.find(x => x.id === id);
-    return p?.name || PROVIDER_META[id]?.name || id;
+    return translateProviderName(id, p?.name || PROVIDER_META[id]?.name || id);
   }
 
   function providerType(id: string): string {
-    return PROVIDER_META[id]?.type || '';
+    const key = PROVIDER_META[id]?.typeKey;
+    return key ? t(key) : '';
   }
 
   async function handleUsageLogin(providerId: string) {
     try {
       const result = await openUsageLogin(providerId);
-      if (!result.success) toast(result.error || '无法打开登录页面', 'error');
+      if (!result.success) toast(result.error || t('usage.loginOpenFailed'), 'error');
     } catch (error: any) {
-      toast(error?.message || '无法打开登录页面', 'error');
+      toast(error?.message || t('usage.loginOpenFailed'), 'error');
     }
   }
 
@@ -192,19 +198,83 @@ export default function UsagePage() {
     fetching: fetchingIds.has(id),
   }));
 
-  // Sort: cards with usage data first, then fetching, then empty.
-  allCards.sort((a, b) => {
-    const score = (c: typeof a) => c.usage?.windows?.length ? 0 : c.fetching ? 1 : 2;
-    return score(a) - score(b);
-  });
-
   // Goal ①: split by kind for the subscription/prepaid tabs.
   const subscriptionCards = allCards.filter(c => c.kind === 'subscription');
   const prepaidCards = allCards.filter(c => c.kind === 'prepaid');
-  const visibleCards = usageMode === 'subscription' ? subscriptionCards : prepaidCards;
+  const modeCards = usageMode === 'subscription' ? subscriptionCards : prepaidCards;
+  const modeIds = new Set(modeCards.map(card => card.id));
+  const modeAlerts = visibleAlerts.filter(alert => modeIds.has(alert.providerId));
+  const modeAlertRank = new Map(modeAlerts.map(alert => [alert.providerId, alert.severity === 'danger' ? 0 : alert.severity === 'warn' ? 1 : 2]));
+  const visibleCards = [...modeCards].sort((a, b) => {
+    const score = (card: typeof a) => modeAlertRank.get(card.id)
+      ?? (card.usage?.windows?.length ? 3 : card.fetching ? 4 : card.usage?.error ? 5 : card.usage?.notice ? 6 : 7);
+    return score(a) - score(b);
+  });
+  const liveCards = visibleCards.filter(card => card.fetching || (card.usage?.windows?.length || 0) > 0);
+  const secondaryCards = visibleCards.filter(card => !card.fetching && !(card.usage?.windows?.length || 0));
+  const usageOverviewReady = metaLoaded && modeCards.every(card => card.usage !== undefined);
+  const alertToneForMode = modeAlerts.length === 0
+    ? 'ok'
+    : modeAlerts.some(alert => alert.severity === 'danger')
+      ? 'danger'
+      : modeAlerts.some(alert => alert.severity === 'warn') ? 'warn' : 'info';
+
+  useEffect(() => {
+    setShowSecondary(false);
+    setAlertCenterOpen(false);
+  }, [usageMode]);
+
+  const revealAlertCard = (providerId: string) => {
+    setShowSecondary(true);
+    setAlertCenterOpen(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`usage-card-${providerId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
 
   return (
     <div className="access-workspace usage-workspace">
+      <header className="usage-page-header">
+        <div>
+          <span className="usage-page-eyebrow">{t('usage.pageEyebrow')}</span>
+          <h1 className="sr-only">{t('usage.pageTitle')}</h1>
+          <p>{t('usage.pageSubtitle')}</p>
+        </div>
+        <div className="usage-page-header-side">
+          <div className="usage-page-refresh-meta">
+            <span>{t('usage.lastRefresh')}</span>
+            <strong>{lastUpdatedAt ? formatLastUpdated(lastUpdatedAt) : t('usage.waitingForData')}</strong>
+          </div>
+          <section className="usage-overview" aria-label={t('usage.overview')}>
+            <div className="usage-overview-item usage-overview-item--primary">
+              <span>{t('usage.readable')}</span>
+              <strong>{usageOverviewReady ? liveCards.filter(card => !card.fetching).length : '—'}</strong>
+              <small>{usageOverviewReady ? t('usage.ofProviders', { total: visibleCards.length }) : t('usage.loading')}</small>
+            </div>
+            <button
+              type="button"
+              className={`usage-overview-item usage-overview-item--alert usage-overview-item--${alertToneForMode}`}
+              onClick={() => modeAlerts.length > 0 && setAlertCenterOpen(open => !open)}
+              disabled={!usageOverviewReady || modeAlerts.length === 0}
+            >
+              <span>{t('usage.needsAttention')}</span>
+              <strong>{usageOverviewReady ? modeAlerts.length : '—'}</strong>
+              <small>{usageOverviewReady ? (modeAlerts.length > 0 ? t('usage.reviewNow') : t('usage.allHealthy')) : t('usage.loading')}</small>
+            </button>
+            <button
+              type="button"
+              className="usage-overview-item usage-overview-item--secondary"
+              onClick={() => setShowSecondary(open => !open)}
+              disabled={!usageOverviewReady || secondaryCards.length === 0}
+            >
+              <span>{t('usage.needsHandling')}</span>
+              <strong>{usageOverviewReady ? secondaryCards.length : '—'}</strong>
+              <small>{usageOverviewReady ? (secondaryCards.length > 0 ? t('usage.configureOrOpenConsole') : t('usage.none')) : t('usage.loading')}</small>
+            </button>
+          </section>
+        </div>
+      </header>
+
       <div className="usage-tabs usage-tabs-with-actions">
         <div className="usage-tab-list">
           <button
@@ -212,39 +282,39 @@ export default function UsagePage() {
             className={`usage-tab${usageMode === 'subscription' ? ' active' : ''}`}
             onClick={() => setUsageMode('subscription')}
           >
-            {t('usage.tabSubscription')} ({subscriptionCards.length})
+            {t('usage.tabSubscription')}
           </button>
           <button
             type="button"
             className={`usage-tab${usageMode === 'prepaid' ? ' active' : ''}`}
             onClick={() => setUsageMode('prepaid')}
           >
-            {t('usage.tabPrepaid')} ({prepaidCards.length})
+            {t('usage.tabPrepaid')}
           </button>
         </div>
         <div className="usage-tabs-actions">
-          {visibleAlerts.length > 0 && (
+          {usageOverviewReady && modeAlerts.length > 0 && (
             <div className="usage-summary-alert-center">
               <button
                 type="button"
-                className={`usage-summary-alert-toggle${alertCenterOpen ? ' is-open' : ''}`}
+                className={`usage-summary-alert-toggle usage-summary-alert-toggle--${alertToneForMode}${alertCenterOpen ? ' is-open' : ''}`}
                 onClick={() => setAlertCenterOpen(open => !open)}
                 aria-expanded={alertCenterOpen}
                 aria-controls="usage-page-alert-list"
               >
                 <span className="usage-summary-alert-toggle-dot" aria-hidden="true" />
-                <span>{visibleAlerts.length} {t('home.usageAttention')}</span>
+                <span>{modeAlerts.length} {t('home.usageAttention')}</span>
               </button>
               {alertCenterOpen && (
-                <div id="usage-page-alert-list" className="usage-summary-alert-popover" role="region" aria-label={t('home.usageAttention')}>
-                  <div className="usage-summary-alert-popover-title">{t('home.usageAttention')}</div>
-                  {visibleAlerts.map(alert => (
+                <div id="usage-page-alert-list" className="usage-summary-alert-popover" role="region" aria-label={t('usage.attentionTitle')}>
+                  <div className="usage-summary-alert-popover-title">{t('usage.attentionTitle')}</div>
+                  {modeAlerts.map(alert => (
                     <div key={alert.notifyKey} className={`usage-summary-alert-item usage-summary-alert-item--${alert.severity}`}>
                       <span className="usage-summary-alert-item-dot" aria-hidden="true" />
-                      <div className="usage-summary-alert-item-content">
+                      <button type="button" className="usage-summary-alert-item-content" onClick={() => revealAlertCard(alert.providerId)}>
                         <strong>{alert.providerName}</strong>
                         <span title={alert.message}>{compactAlertMessage(alert.message, alert.providerName)}</span>
-                      </div>
+                      </button>
                       <button
                         type="button"
                         className="usage-summary-alert-item-close"
@@ -258,9 +328,9 @@ export default function UsagePage() {
               )}
             </div>
           )}
-          <button className="usage-refresh-btn" onClick={handleManualRefresh} disabled={fetchingIds.size > 0}>
-            {fetchingIds.size > 0 ? (
-              <><span className="provider-status-spinner" aria-hidden="true" /> {t('usage.refreshing')}</>
+          <button className="usage-refresh-btn" onClick={handleManualRefresh} disabled={!usageOverviewReady || fetchingIds.size > 0}>
+            {!usageOverviewReady || fetchingIds.size > 0 ? (
+              <><span className="provider-status-spinner" aria-hidden="true" /> {usageOverviewReady ? t('usage.refreshing') : t('usage.loading')}</>
             ) : (
               <>
                 <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -274,8 +344,17 @@ export default function UsagePage() {
         </div>
       </div>
 
-      <div className="usage-grid">
-        {visibleCards.map(card => {
+      {liveCards.length > 0 && (
+        <section className="usage-section">
+          <div className="usage-section-heading">
+            <div>
+              <span className="usage-section-kicker">{t('usage.liveData')}</span>
+              <h2>{usageMode === 'subscription' ? t('usage.subscriptionOverview') : t('usage.balanceOverview')}</h2>
+            </div>
+            <span>{liveCards.length} {t('usage.items')}</span>
+          </div>
+          <div className="usage-grid">
+        {liveCards.map(card => {
           const guide = credentialGuideForProvider(card.id);
           return (
             <UsageCard
@@ -292,7 +371,43 @@ export default function UsagePage() {
             />
           );
         })}
-      </div>
+          </div>
+        </section>
+      )}
+
+      {secondaryCards.length > 0 && (
+        <section className="usage-section usage-section--secondary">
+          <button type="button" className="usage-secondary-toggle" onClick={() => setShowSecondary(open => !open)} aria-expanded={showSecondary}>
+            <span>
+              <strong>{t('usage.otherProviders')}</strong>
+              <small>{t('usage.otherProvidersHint')}</small>
+            </span>
+            <span className="usage-secondary-toggle-count">{secondaryCards.length}</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true" className={showSecondary ? 'is-open' : ''}><path d="m6 8 4 4 4-4" /></svg>
+          </button>
+          {showSecondary && (
+            <div className="usage-grid usage-grid--secondary">
+              {secondaryCards.map(card => {
+                const guide = credentialGuideForProvider(card.id);
+                return (
+                  <UsageCard
+                    key={card.id}
+                    id={card.id}
+                    name={card.name}
+                    type={card.type}
+                    usage={card.usage}
+                    fetching={card.fetching}
+                    onRefresh={() => fetchOne(card.id)}
+                    onLogin={() => handleUsageLogin(card.id)}
+                    onOpenGuide={guide ? () => setCredentialGuide({ guide, providerId: card.id }) : undefined}
+                    t={t}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {!metaLoaded && (
         <div className="usage-grid" aria-busy="true">
@@ -366,20 +481,24 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, onOpen
   const compactGuideNotice = !!onOpenGuide && isGuidedConfigurationMessage(usage?.notice);
 
   // Compute overall status for card border color.
-  const maxPct = usage?.windows?.reduce((max, w) => {
-    const usedPct = usageUsedPercent(w);
-    if (usedPct == null) return max;
-    return Math.max(max, usedPct);
-  }, 0) || 0;
-  const statusClass = !hasData ? '' : maxPct >= 90 ? ' usage-card--danger' : maxPct >= 70 ? ' usage-card--warn' : ' usage-card--ok';
+  const maxSeverity = usage?.windows?.reduce((max, w) => Math.max(max, usageSeverity(w)), 0) || 0;
+  const statusClass = !hasData ? '' : maxSeverity >= 2 ? ' usage-card--danger' : maxSeverity >= 1 ? ' usage-card--warn' : ' usage-card--ok';
+  const icon = getProviderIcon(id);
 
   return (
-    <div className={`usage-card${statusClass}`}>
+    <article id={`usage-card-${id}`} className={`usage-card${statusClass}`}>
       <div className="usage-card-header">
-        <div className="usage-card-title">
-          <h3>{name}</h3>
-          {type && <span className="usage-card-type">{type}</span>}
-          {externalSource && <span className="usage-card-source">控制台查看</span>}
+        <div className="usage-card-identity">
+          <span className={`usage-card-brand${icon ? '' : ' usage-card-brand--fallback'}`} aria-hidden="true">
+            {icon ? <img src={icon} alt="" className={getProviderIconClass(id)} /> : name.slice(0, 1).toUpperCase()}
+          </span>
+          <div className="usage-card-title">
+            <h3>{name}</h3>
+            <div className="usage-card-meta">
+              {type && <span className="usage-card-type">{type}</span>}
+              {externalSource && <span className="usage-card-source">{t('usage.consoleView')}</span>}
+            </div>
+          </div>
         </div>
         <div className="usage-card-header-actions">
           {onOpenGuide && (
@@ -455,7 +574,7 @@ function UsageCard({ id, name, type, usage, fetching, onRefresh, onLogin, onOpen
           <div className="usage-card-empty">{t('usage.empty')}</div>
         )}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -805,9 +924,8 @@ function GuideStep({ number, title, children }: { number: string; title: string;
 function UsageBar({ w }: { w: UsageWindow }) {
   const pct = w.usedPercent;                                  // 已用百分比
   const remaining = pct != null ? round1(100 - pct) : null;   // 剩余百分比
-  const prepaidRemaining = getPrepaidRemainingPercent(w);
-  const tonePct = w.isPrepaid ? (prepaidRemaining == null ? null : 100 - prepaidRemaining) : pct;
-  const tone = tonePct == null ? 'unknown' : tonePct >= 90 ? 'danger' : tonePct >= 70 ? 'warn' : 'ok';
+  const severity = usageSeverity(w);
+  const tone = severity >= 2 ? 'danger' : severity >= 1 ? 'warn' : 'ok';
   const resetText = w.resetAt ? formatResetTime(w.resetAt) : null;
   const label = windowLabel(w.label);
 
@@ -820,15 +938,27 @@ function UsageBar({ w }: { w: UsageWindow }) {
       : (w.limitCredits != null && w.usedCredits != null)
         ? w.limitCredits - w.usedCredits
         : null;
-    const remainingPct = rem != null && w.limitCredits != null && w.limitCredits > 0
-      ? Math.min(100, Math.max(0, round1((rem / w.limitCredits) * 100)))
+    const hasComparableLimit = w.usedCredits != null && w.limitCredits != null && w.limitCredits > 0;
+    const remainingPct = rem != null && hasComparableLimit
+      ? Math.min(100, Math.max(0, round1((rem / w.limitCredits!) * 100)))
       : null;
-    const formatAmount = (value: number) => w.unit ? value.toFixed(2) : `$${value.toFixed(2)}`;
-    const amountText = rem != null ? `${formatAmount(rem)}${w.unit ? ` ${w.unit}` : ''}` : '—';
+    const formatAmount = (value: number) => formatBalanceAmount(value, w.unit);
+    const amountText = rem != null ? formatAmount(rem) : '—';
     const detailText = [
-      w.usedCredits != null ? `${t_global('usage.usedAmount')} ${formatAmount(w.usedCredits)}${w.unit ? ` ${w.unit}` : ''}` : null,
-      w.limitCredits != null ? `总额 ${formatAmount(w.limitCredits)}${w.unit ? ` ${w.unit}` : ''}` : null,
+      w.usedCredits != null ? `${t_global('usage.usedAmount')} ${formatAmount(w.usedCredits)}` : null,
+      hasComparableLimit ? `${t_global('usage.totalAmount')} ${formatAmount(w.limitCredits!)}` : null,
     ].filter(Boolean).join(' · ');
+
+    if (!hasComparableLimit) {
+      return (
+        <div className={`usage-balance usage-balance--amount usage-bar--${tone}`}>
+          <span className="usage-bar-label">{t_global('usage.availableBalance')}</span>
+          <strong className="usage-balance-amount">{amountText}</strong>
+          {severity >= 2 && <span className="usage-balance-status">{t_global('usage.lowBalance')}</span>}
+        </div>
+      );
+    }
+
     return (
       <div className="usage-balance">
         <div className={`usage-bar usage-bar--${tone}`}>
@@ -836,7 +966,7 @@ function UsageBar({ w }: { w: UsageWindow }) {
           <div className="usage-bar-track">
             <div className="usage-bar-fill" style={{ width: remainingPct != null ? `${remainingPct}%` : '100%' }} />
           </div>
-          <span className="usage-bar-pct">{remainingPct != null ? `${remainingPct}%` : '—'}</span>
+          <span className="usage-bar-pct">{remainingPct != null ? `${t_global('usage.remaining')} ${remainingPct}%` : '—'}</span>
           <span className="usage-bar-reset usage-bar-balance-amount">{amountText}</span>
         </div>
         {detailText && <div className="usage-balance-detail">{detailText}</div>}
@@ -850,7 +980,7 @@ function UsageBar({ w }: { w: UsageWindow }) {
       <div className="usage-bar-track">
         <div className="usage-bar-fill" style={{ width: remaining != null ? `${Math.min(remaining, 100)}%` : '100%' }} />
       </div>
-      <span className="usage-bar-pct">{remaining != null ? `${remaining}%` : '?'}</span>
+      <span className="usage-bar-pct">{remaining != null ? `${t_global('usage.remaining')} ${remaining}%` : '?'}</span>
       {resetText && <span className="usage-bar-reset" title={w.resetAt || ''}>{resetText}</span>}
     </div>
   );
@@ -870,25 +1000,45 @@ function getPrepaidRemainingPercent(w: UsageWindow): number | null {
   return remaining <= 0 ? 0 : null;
 }
 
-function usageUsedPercent(w: UsageWindow): number | null {
-  if (!w.isPrepaid) return w.usedPercent;
-  const remaining = getPrepaidRemainingPercent(w);
-  return remaining == null ? null : 100 - remaining;
+function usageSeverity(w: UsageWindow): number {
+  if (w.isPrepaid) {
+    const amount = w.remainingCredits != null
+      ? w.remainingCredits
+      : w.limitCredits != null && w.usedCredits != null ? w.limitCredits - w.usedCredits : null;
+    if (amount != null && amount <= 1) return 2;
+    const remaining = getPrepaidRemainingPercent(w);
+    if (remaining != null && remaining <= 10) return 2;
+    if (remaining != null && remaining <= 30) return 1;
+    return 0;
+  }
+  if (w.usedPercent == null) return 0;
+  if (w.usedPercent >= 90) return 2;
+  if (w.usedPercent >= 70) return 1;
+  return 0;
 }
 
 // ── Helpers ──
 
 function round1(n: number): number { return Math.round(n * 10) / 10; }
 
-// 后端返回的窗口标签统一为英文短码,这里映射成中文展示。
+function formatBalanceAmount(value: number, unit?: string): string {
+  if (!unit || unit.toUpperCase() === 'USD') return `$${value.toFixed(2)}`;
+  return `${value.toFixed(2)} ${unit}`;
+}
+
+function formatLastUpdated(date: Date): string {
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+
+// Backend window labels are stable short codes; presentation is localized.
 function windowLabel(label: string): string {
   const map: Record<string, string> = {
-    '5h': '5小时',
-    'session': '5小时',
-    'weekly': '本周',
-    'monthly': '本月',
-    'limit': '额度',
-    'credits': '余额',
+    '5h': t_global('usage.window5h'),
+    'session': t_global('usage.window5h'),
+    'weekly': t_global('usage.windowWeekly'),
+    'monthly': t_global('usage.windowMonthly'),
+    'limit': t_global('usage.windowLimit'),
+    'credits': t_global('usage.windowBalance'),
   };
   return map[label] || label;
 }
@@ -908,15 +1058,15 @@ function formatResetTime(iso: string): string {
     const now = new Date();
     const diffMs = d.getTime() - now.getTime();
     if (diffMs <= 0) return '';
-    // 展示重置时间点,如 "18:26" / "明天 08:00" / "8/16 08:00"
     const sameDay = d.toDateString() === now.toDateString();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const isTomorrow = d.toDateString() === tomorrow.toDateString();
-    const hhmm = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const hhmm = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     if (sameDay) return hhmm;
-    if (isTomorrow) return `明天 ${hhmm}`;
-    return `${d.getMonth() + 1}/${d.getDate()} ${hhmm}`;
+    if (isTomorrow) return t_global('usage.resetTomorrow', { time: hhmm });
+    const date = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+    return `${date} ${hhmm}`;
   } catch {
     return '';
   }

@@ -1772,15 +1772,21 @@
 }
 
 .vault-picker-group {
+  width: 100%;
   display: flex;
   min-height: 36px;
   align-items: center;
   justify-content: space-between;
   border-radius: 10px;
+  border: 0;
+  background: transparent;
   padding: 0 10px;
   color: #4f5a55;
   font-size: 13px;
   font-weight: 800;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .vault-picker-group:hover {
@@ -1849,10 +1855,16 @@
 }
 
 .vault-picker-item {
+  display: block;
+  width: 100%;
   margin-bottom: 6px;
   border-radius: 12px;
   padding: 10px 12px;
   background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -2391,256 +2403,439 @@
 
 .settings-style-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
 .settings-style-option {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 7px;
-  border: 1.5px solid var(--kraft-dark);
-  border-radius: 10px;
-  background: var(--paper);
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--card-line);
+  border-radius: 11px;
+  background: var(--card-inner);
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
 }
 
 .settings-style-option:hover {
-  border-color: var(--ink-muted);
+  border-color: var(--card-line-hover);
+  background: var(--card-surface-hover);
+  transform: translateY(-1px);
 }
 
 .settings-style-option.active {
   border-color: var(--accent);
-  box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--card-inner));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .settings-style-preview {
-  display: flex;
-  height: 40px;
-  border-radius: 7px;
+  display: grid;
+  grid-template-columns: 31% 1fr;
+  height: 78px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border: 1px solid var(--preview-line);
+  background: var(--preview-canvas);
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--preview-rail) 12%, transparent);
 }
 
-.settings-style-preview-half {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.settings-style-preview-half:first-child {
-  border-right: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-}
-
-.settings-style-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: block;
-}
-
-.settings-style-name {
-  text-align: center;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink);
-}
-
-/* ─── Device Sync (merged section) ─── */
-.settings-workspace .devsync-title-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.settings-workspace .devsync-autosync-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-muted);
-}
-
-.settings-workspace .devsync-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 12.5px;
-  color: var(--ink-muted);
-}
-
-.settings-workspace .devsync-summary--detail {
-  margin: 8px 0;
-}
-
-.settings-workspace .devsync-summary-sep {
-  opacity: 0.6;
-}
-
-.settings-workspace .devsync-devices {
+.settings-style-mini-rail {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
-  margin-bottom: 12px;
+  padding: 9px 7px;
+  background: var(--preview-rail);
 }
 
-.settings-workspace .devsync-device {
+.settings-style-mini-rail > i:not(.settings-style-mini-brand) {
+  width: 70%;
+  height: 3px;
+  border-radius: 99px;
+  background: color-mix(in srgb, white 27%, transparent);
+}
+
+.settings-style-mini-brand {
+  width: 13px;
+  height: 13px;
+  margin-bottom: 3px;
+  border-radius: 4px;
+  background: var(--preview-accent);
+}
+
+.settings-style-mini-main {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 12px 1fr 22px;
+  gap: 6px;
+  padding: 8px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--preview-line) 25%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--preview-line) 25%, transparent) 1px, transparent 1px),
+    var(--preview-canvas);
+  background-size: 12px 12px, 12px 12px, auto;
+}
+
+.settings-style-mini-top,
+.settings-style-mini-hero,
+.settings-style-mini-cards {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border: 1.5px dashed var(--ink-muted);
-  border-radius: 10px;
-  font-size: 12.5px;
+  gap: 4px;
 }
 
-.settings-workspace .devsync-device-name {
+.settings-style-mini-top i {
+  width: 38%;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--preview-rail);
+}
+
+.settings-style-mini-top b {
+  width: 9px;
+  height: 9px;
+  margin-left: auto;
+  border-radius: 3px;
+  background: var(--preview-accent);
+}
+
+.settings-style-mini-hero {
+  align-items: flex-end;
+  padding: 6px;
+  border: 1px solid var(--preview-line);
+  border-radius: 5px;
+  background: var(--preview-surface);
+}
+
+.settings-style-mini-hero i:first-child {
+  width: 55%;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--preview-rail);
+}
+
+.settings-style-mini-hero i:last-child {
+  width: 18%;
+  height: 5px;
+  margin-left: auto;
+  border-radius: 99px;
+  background: var(--preview-accent);
+}
+
+.settings-style-mini-cards i {
+  height: 100%;
   flex: 1;
+  border: 1px solid var(--preview-line);
+  border-radius: 4px;
+  background: var(--preview-surface);
+}
+
+.settings-style-preview[data-preview-style="kraft"] .settings-style-mini-hero,
+.settings-style-preview[data-preview-style="kraft"] .settings-style-mini-cards i {
+  border-style: dashed;
+  border-radius: 3px;
+}
+
+.settings-style-preview[data-preview-style="mono"] {
+  box-shadow: none;
+}
+
+.settings-style-preview[data-preview-style="mono"] .settings-style-mini-brand,
+.settings-style-preview[data-preview-style="mono"] .settings-style-mini-top b,
+.settings-style-preview[data-preview-style="mono"] .settings-style-mini-hero i:last-child {
+  border-radius: 1px;
+}
+
+.settings-style-preview[data-preview-style="ocean"] .settings-style-mini-hero {
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--preview-accent) 13%, transparent);
+}
+
+.settings-style-preview[data-preview-style="ember"] .settings-style-mini-hero,
+.settings-style-preview[data-preview-style="ember"] .settings-style-mini-cards i {
+  border-radius: 7px;
+}
+
+.settings-style-copy {
   min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.settings-style-copy strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.settings-style-copy small {
   overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 9.5px;
+  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
 }
 
-.settings-workspace .devsync-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: var(--ink-muted);
+@media (max-width: 1040px) {
+  .settings-style-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.settings-workspace .devsync-dot--self {
-  background: var(--ink-light);
+@media (max-width: 620px) {
+  .settings-style-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.settings-workspace .devsync-dot--on {
-  background: var(--green);
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+/* ─── 添加设备：三步式配对弹窗 ─── */
+[data-style] .settings-workspace .lan-modal.confirm-panel {
+  width: min(640px, calc(100vw - 36px));
+  max-width: none;
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--card-line) !important;
+  border-radius: 16px !important;
+  background: var(--card-surface) !important;
+  box-shadow: 0 26px 76px color-mix(in srgb, black 28%, transparent), var(--card-shadow) !important;
+  text-align: left;
 }
 
-.settings-workspace .devsync-role {
-  flex-shrink: 0;
-  padding: 2px 9px;
-  border: 1px solid var(--ink-muted);
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--ink-light);
+.lan-modal-header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 11px;
+  padding: 16px 17px;
+  border-bottom: 1px solid var(--card-line);
+  background: var(--card-surface);
 }
 
-.settings-workspace .devsync-presence {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--ink-muted);
-}
-
-.settings-workspace .devsync-presence--on {
-  color: var(--green);
-  font-weight: 650;
-}
-
-.settings-workspace .devsync-device-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.settings-workspace .devsync-empty {
-  padding: 12px;
-  border: 1.5px dashed var(--ink-muted);
-  border-radius: 10px;
-  font-size: 12px;
-  color: var(--ink-muted);
-  text-align: center;
-}
-
-.settings-workspace .devsync-add-trigger {
-  display: flex;
+.lan-modal-header-icon,
+.lan-step-heading > span {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 9px;
-  border: 1.5px solid var(--ink);
-  border-radius: 10px;
-  background: transparent;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--card-inner));
+  color: var(--accent);
+}
+
+.lan-modal-header h3,
+.lan-step-heading h4 {
+  margin: 0;
   color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
+  font-size: 15px;
+  font-weight: 780;
+  letter-spacing: -0.01em;
 }
 
-.settings-workspace .devsync-add-trigger:hover {
-  background: var(--ink);
-  color: var(--paper);
-  transform: translate(-1px, -1px);
+.lan-modal-header p,
+.lan-step-heading p {
+  margin: 3px 0 0;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
-[data-theme="dark"] .settings-workspace .devsync-add-close:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-
-.settings-workspace .devsync-collapse {
-  border-top: 1px dashed var(--ink-muted);
-}
-
-.settings-workspace .devsync-collapse-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 11px 2px;
-  border: none;
-  background: none;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.settings-workspace .devsync-chevron {
+.lan-modal-close {
+  width: 34px;
+  height: 34px;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
   color: var(--ink-muted);
-  transition: transform 0.15s;
+  cursor: pointer;
 }
 
-.settings-workspace .devsync-chevron--open {
-  transform: rotate(180deg);
+.lan-modal-close:hover {
+  background: var(--card-inner);
+  color: var(--ink);
 }
 
-.settings-workspace .devsync-collapse-body {
-  padding: 4px 0 12px;
-}
-
-/* ─── LAN Sync Modal ─── */
 .settings-workspace .lan-modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 20px 18px;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  padding: 18px;
 }
 
+.lan-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
 
-.settings-workspace .lan-modal-label {
-  font-size: 11px;
+.settings-workspace .lan-choice {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  align-items: start;
+  gap: 11px;
+  min-height: 142px;
+  padding: 14px;
+  border: 1px solid var(--card-line);
+  border-radius: 12px;
+  background: var(--card-inner);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-workspace .lan-choice:hover {
+  border-color: var(--card-line-hover);
+  background: var(--card-surface-hover);
+  box-shadow: var(--card-shadow);
+  transform: translateY(-1px);
+}
+
+.settings-workspace .lan-choice:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  outline-offset: 2px;
+}
+
+.lan-choice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--card-surface));
+  color: var(--accent);
+}
+
+.lan-choice-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.lan-choice-copy small {
+  color: var(--accent);
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
-  color: var(--ink-muted);
 }
 
-.settings-workspace .lan-modal-countdown {
-  font-size: 11.5px;
+.lan-choice-copy strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 770;
+}
+
+.lan-choice-copy span {
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.lan-choice-arrow {
+  align-self: center;
+  color: var(--ink-muted);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.lan-choice:hover .lan-choice-arrow {
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+.lan-step {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-workspace .lan-back {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 10.5px;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-workspace .lan-back:hover {
+  background: var(--card-inner);
+  color: var(--ink);
+}
+
+.lan-step-heading {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+}
+
+.settings-workspace .lan-modal-error {
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--red) 30%, var(--card-line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--red) 7%, var(--card-inner));
+  color: var(--red);
+  font-size: 11px;
+}
+
+.lan-pair-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 62px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--green) 8%, var(--card-inner));
   color: var(--green);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.lan-code-card {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--card-line);
+  border-radius: 11px;
+  background: var(--card-inner);
+}
+
+.lan-code-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lan-code-card-head span {
+  color: var(--ink-light);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.lan-code-card-head strong,
+.settings-workspace .lan-modal-countdown {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 740;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2648,81 +2843,176 @@
   color: var(--red);
 }
 
-.settings-workspace .lan-modal-error {
-  padding: 8px 12px;
-  border: 1.5px dashed var(--red);
+.settings-workspace .lan-code-value {
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 5px 4px 11px;
+  border: 1px solid var(--card-line);
+  border-radius: 9px;
+  background: var(--card-surface);
+}
+
+.settings-workspace .lan-code-text {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lan-code-copy {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-line);
   border-radius: 8px;
-  color: var(--red);
-  font-size: 12px;
-}
-
-.settings-workspace .lan-modal-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--ink-muted);
-}
-
-/* ─── Add-device dialog choices ─── */
-.settings-workspace .lan-choice {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  text-align: left;
-  padding: 14px 16px;
-  border: 1.5px solid var(--ink);
-  border-radius: 12px;
-  background: transparent;
+  background: var(--card-inner);
+  color: var(--ink-muted);
   cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
-.settings-workspace .lan-choice:hover {
-  background: var(--ink);
-  transform: translate(-1px, -1px);
-}
-
-.settings-workspace .lan-choice-title {
-  font-size: 13px;
-  font-weight: 800;
+.lan-code-copy:hover {
+  border-color: var(--card-line-hover);
   color: var(--ink);
 }
 
-.settings-workspace .lan-choice-desc {
-  font-size: 11.5px;
+.lan-code-copy.is-copied {
+  border-color: color-mix(in srgb, var(--green) 34%, var(--card-line));
+  background: color-mix(in srgb, var(--green) 8%, var(--card-inner));
+  color: var(--green);
+}
+
+.lan-address-row .settings-select-wrap {
+  width: 100%;
+}
+
+.lan-code-card > p,
+.lan-hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 10px;
   line-height: 1.5;
-  color: var(--ink-muted);
 }
 
-.settings-workspace .lan-choice:hover .lan-choice-title {
-  color: var(--paper);
+.lan-modal-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
-.settings-workspace .lan-choice:hover .lan-choice-desc {
-  color: rgba(254, 252, 248, 0.72);
-}
-
-.settings-workspace .lan-back {
-  align-self: flex-start;
-  border: none;
-  background: none;
-  padding: 2px 0;
+.lan-primary-action {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
   font-size: 11.5px;
-  font-weight: 700;
-  color: var(--ink-muted);
+  font-weight: 760;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
 
-.settings-workspace .lan-back:hover {
-  color: var(--ink);
+.lan-primary-action:hover:not(:disabled) {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
+}
+
+.lan-primary-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.lan-join-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.lan-join-form label {
+  grid-column: 1 / -1;
+  color: var(--ink-light);
+  font-size: 10.5px;
+  font-weight: 720;
+}
+
+.settings-workspace .lan-join-form .settings-input {
+  min-width: 0;
+  min-height: 40px;
+  border-color: var(--card-line);
+  background: var(--card-inner);
+}
+
+@media (max-width: 620px) {
+  .lan-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-workspace .lan-choice {
+    min-height: 112px;
+  }
+
+  .lan-join-form {
+    grid-template-columns: 1fr;
+  }
+
+  .lan-join-form label {
+    grid-column: auto;
+  }
+
+  .lan-join-form .lan-primary-action {
+    width: 100%;
+  }
 }
 
 /* 设置页锚点定位偏移（供设置侧边栏跳转） */
 #appearance, #agent, #sync, #diagnostics {
   scroll-margin-top: 16px;
+}
+
+/* Shared page introduction for settings sections that do not own a custom header. */
+.settings-page-header {
+  margin-bottom: 18px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--card-line);
+}
+
+.settings-page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-page-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.settings-page-header p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 /* ─── 设置分节块（标题外提后的层级） ─── */
@@ -2740,6 +3030,21 @@
   font-weight: 800;
   color: var(--ink);
   letter-spacing: 0.01em;
+}
+
+.settings-block-heading {
+  margin: 0 2px 10px;
+}
+
+.settings-block-heading .settings-block-title {
+  margin: 0;
+}
+
+.settings-block-heading p {
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 .settings-block-head {
@@ -2829,6 +3134,23 @@
   background: #0b0f0d;
 }
 
+.settings-mode-preview--system {
+  background: linear-gradient(90deg, #101512 0 50%, #f4f1e8 50%);
+}
+
+.settings-mode-preview--system .settings-mode-canvas {
+  background: #121815;
+}
+
+.settings-mode-preview--system .settings-mode-dot {
+  background: #efff61;
+  box-shadow: 17px 0 0 #059669;
+}
+
+.settings-mode-preview--system .settings-mode-panel {
+  background: linear-gradient(135deg, #161d1a 0 49%, #f7f4ec 51%);
+}
+
 .settings-mode-preview--dark .settings-mode-canvas {
   background: #121815;
 }
@@ -2868,278 +3190,898 @@
   justify-content: flex-end;
 }
 
-/* ─── 云端备份扁平化后的调整 ─── */
-.settings-plat-name {
-  flex: 1;
+/* ─── 关于与诊断：状态总览 + 支持工具 + 操作记录 ─── */
+.settings-diagnostics {
+  display: grid;
+  gap: 20px;
+  padding-bottom: 32px;
+}
+
+.settings-diagnostics-header {
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--card-line);
+}
+
+.settings-diagnostics-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-diagnostics-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.settings-diagnostics-header p,
+.settings-diagnostics-log-head p,
+.settings-system-primary p {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.settings-system-overview {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(330px, 1.1fr);
+  overflow: hidden;
+  border: 1px solid var(--card-line);
+  border-radius: calc(var(--card-radius) + 2px);
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow);
+}
+
+.settings-system-primary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 18% 10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 48%),
+    var(--card-surface-soft);
+}
+
+.settings-system-logo {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--card-line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card-inner) 90%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.settings-system-logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 10px;
+}
+
+.settings-system-logo i {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--card-surface-soft);
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.settings-system-overview.is-error .settings-system-logo i {
+  background: var(--red);
+}
+
+.settings-system-overview.is-checking .settings-system-logo i {
+  background: var(--accent);
+  animation: settings-status-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes settings-status-pulse {
+  to { opacity: 0.42; }
+}
+
+.settings-system-primary > div {
   min-width: 0;
 }
 
-.settings-plat-header {
-  padding: 12px 14px;
-}
-
-.settings-plat-body {
-  padding: 10px 14px 14px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 8px 10px;
-}
-
-.settings-block-head .settings-add-platform-select {
-  min-width: 150px;
-}
-
-.settings-platforms-empty {
-  background: var(--paper);
-  border: 1.5px dashed var(--kraft-dark);
-  border-radius: 8px;
-}
-
-.devsync-lan-actions {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--kraft-dark);
-}
-
-/* ─── 平台卡内字段扁平化：去包裹框，标签+下划线输入 ─── */
-.settings-workspace .settings-plat-body .settings-field {
-  gap: 3px;
-}
-
-.settings-workspace .settings-plat-body .settings-field label {
+.settings-system-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-muted);
   font-size: 10.5px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.settings-workspace .settings-plat-body .settings-input,
-.settings-workspace .settings-plat-body .vault-ref-trigger,
-.settings-workspace .settings-plat-body .vault-ref-selected {
-  min-height: 30px;
-  padding: 0 2px;
-  border: none;
-  border-bottom: 1px dashed var(--kraft-dark);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+.settings-system-primary h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
 }
 
-.settings-workspace .settings-plat-body .settings-input:focus {
-  border-bottom-color: var(--ink);
-  border-bottom-style: solid;
+.settings-system-primary p {
+  max-width: 350px;
+  margin-top: 5px;
+  font-size: 11.5px;
 }
 
-.settings-workspace .settings-plat-body .vault-ref-trigger:hover {
-  border-bottom-color: var(--ink-muted);
-  background: transparent;
+.settings-system-facts {
+  display: grid;
+  align-content: center;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 20px;
 }
 
-/* ─── 平台卡字段重设计：规格列表风，剥离全部装饰包裹 ─── */
-.settings-workspace .settings-plat-body > .settings-field,
-.settings-workspace .settings-plat-body .settings-field--secret {
+.settings-system-facts > div {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 42px;
+}
+
+.settings-system-facts > div + div {
+  border-top: 1px solid color-mix(in srgb, var(--card-line) 78%, transparent);
+}
+
+.settings-system-facts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  font-weight: 680;
+}
+
+.settings-system-facts dt svg {
+  color: var(--accent);
+}
+
+.settings-system-facts dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 680;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-system-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 54px;
+  padding: 8px 12px 8px 20px;
+  border-top: 1px solid var(--card-line);
+  background: color-mix(in srgb, var(--card-surface-soft) 70%, transparent);
+}
+
+.settings-system-actions > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.settings-system-actions > span svg {
+  flex: none;
+  color: var(--green);
+}
+
+.settings-diagnostics-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 126px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--card-line);
+  border-radius: 8px;
+  background: var(--card-inner);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.settings-diagnostics-copy.is-copied,
+.settings-diagnostics-copy.is-copied:hover,
+.settings-workspace .settings-vault-new-btn.is-copied {
+  border-color: color-mix(in srgb, var(--green) 34%, var(--card-line));
+  background: color-mix(in srgb, var(--green) 8%, var(--card-inner));
+  color: var(--green);
+  transform: none;
+}
+
+.settings-diagnostics-copy:hover {
+  border-color: var(--card-line-hover);
+  background: var(--card-surface-hover);
+  transform: translateY(-1px);
+}
+
+.settings-diagnostics-log-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.settings-diagnostics-log-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.settings-diagnostics .logs-workspace {
+  padding: 0;
+}
+
+@media (max-width: 920px) {
+  .settings-system-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-system-facts {
+    padding-block: 8px;
+    border-top: 1px solid var(--card-line);
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-system-primary {
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .settings-system-facts {
+    padding-inline: 16px;
+  }
+
+  .settings-system-facts > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+    padding: 9px 0;
+  }
+
+  .settings-system-facts dd {
+    padding-left: 23px;
+    text-align: left;
+  }
+
+  .settings-system-actions {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 16px;
+  }
+
+  .settings-diagnostics-copy {
+    width: 100%;
+  }
+}
+
+/* ─── 同步与备份：紧凑状态工作台 ─── */
+.settings-workspace .devsync {
+  display: grid;
+  gap: 22px;
+  padding-bottom: 32px;
+}
+
+.devsync-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--card-line);
+}
+
+.devsync-page-heading {
+  min-width: 0;
+}
+
+.devsync-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.devsync-page-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.devsync-page-heading p {
+  max-width: 610px;
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.devsync-autosync-control {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 0;
-  padding: 0;
-  border: 0 !important;
-  border-radius: 0;
-  background: transparent !important;
+  min-height: 48px;
+  padding: 7px 10px 7px 13px;
+  border: 1px solid var(--card-line);
+  border-radius: var(--card-radius);
+  background: var(--card-inner);
 }
 
-.settings-workspace .settings-plat-body > .settings-field label,
-.settings-workspace .settings-plat-body .settings-field--secret label {
-  flex: 0 0 96px;
+.devsync-autosync-copy {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.devsync-autosync-copy strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.devsync-autosync-copy small {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+[data-style] .settings-workspace .devsync-overview-card,
+[data-style] .settings-workspace .devsync-devices-card,
+[data-style] .settings-workspace .devsync-platform-card {
+  border: 1px solid var(--card-line) !important;
+  border-radius: var(--card-radius) !important;
+  background: var(--card-surface) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.devsync-overview-card {
+  overflow: hidden;
+}
+
+.devsync-overview-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+}
+
+.devsync-overview-item {
   min-width: 0;
-  padding: 0;
-  color: var(--text-muted, var(--ink-muted));
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--card-inner);
 }
 
-.settings-workspace .settings-plat-body > .settings-field label::before {
+.devsync-overview-icon,
+.devsync-device-icon,
+.devsync-platform-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--card-surface));
+  color: var(--accent);
+}
+
+.devsync-overview-item > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.devsync-overview-item small {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.devsync-overview-item strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devsync-password-setup {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--card-line);
+}
+
+.devsync-password-setup label {
+  color: var(--ink-light);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.settings-workspace .devsync-section-block {
+  min-width: 0;
+  margin: 0;
+}
+
+.settings-workspace .devsync-section-head {
+  margin: 0 2px 10px;
+}
+
+.devsync-section-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+}
+
+.devsync-section-title > svg {
+  color: var(--accent);
+}
+
+.devsync-section-title .settings-block-title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.devsync-count-badge {
+  min-width: 22px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--card-inner);
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.devsync-add-button,
+.devsync-platform-test,
+.devsync-platform-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.devsync-more-menu {
+  position: relative;
+}
+
+.devsync-more-menu > summary {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-line);
+  border-radius: 8px;
+  background: var(--card-inner);
+  color: var(--ink-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.devsync-more-menu > summary::-webkit-details-marker {
   display: none;
 }
 
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-field {
-  flex: 1;
-  min-width: 0;
+.devsync-more-menu[open] > summary,
+.devsync-more-menu > summary:hover {
+  border-color: var(--card-line-hover);
+  color: var(--ink);
 }
 
-.settings-workspace .settings-plat-body .settings-input,
-.settings-workspace .settings-plat-body .vault-ref-trigger,
-.settings-workspace .settings-plat-body .vault-ref-selected {
-  flex: 1;
-  min-height: 30px;
-  padding: 0 2px;
-  border: none !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+.devsync-more-popover {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 20;
+  width: 232px;
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid var(--card-line);
+  border-radius: 10px;
+  background: var(--card-surface);
+  box-shadow: var(--card-shadow-hover);
 }
 
-.settings-workspace .settings-plat-body .settings-input:focus {
-  border-bottom-color: var(--ink);
+.devsync-more-popover > span {
+  padding: 5px 8px 7px;
+  color: var(--ink-muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-trigger {
-  padding: 0 22px 0 2px;
+.devsync-more-popover > .devsync-danger-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in srgb, var(--red) 72%, var(--ink-muted));
 }
 
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-trigger:hover,
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-selected:hover {
-  background: transparent;
-}
-
-/* ─── 平台卡字段：单列规格行（替代 2+1 松散网格） ─── */
-.settings-workspace .settings-plat-body {
-  grid-template-columns: 1fr;
-  gap: 0;
-  padding: 8px 16px 14px;
-}
-
-.settings-workspace .settings-plat-body > .settings-field,
-.settings-workspace .settings-plat-body .settings-field--secret {
-  min-height: 36px;
-}
-
-.settings-workspace .settings-plat-body > .settings-field label,
-.settings-workspace .settings-plat-body .settings-field--secret label {
-  flex: 0 0 110px;
-  font-size: 12px;
-  font-family: var(--font-base, var(--font));
-}
-
-.settings-workspace .settings-plat-body .settings-input,
-.settings-workspace .settings-plat-body .vault-ref-trigger,
-.settings-workspace .settings-plat-body .vault-ref-selected {
-  min-height: 32px;
-  font-size: 13px;
-}
-
-/* ─── 平台卡输入框：软填充式（替代裸下划线） ─── */
-.settings-workspace .settings-plat-body .settings-input,
-.settings-workspace .settings-plat-body .vault-ref-trigger,
-.settings-workspace .settings-plat-body .vault-ref-selected {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent) !important;
-  border-radius: 9px !important;
-  background: color-mix(in srgb, var(--ink) 4%, transparent) !important;
-  box-shadow: none !important;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.settings-workspace .settings-plat-body .settings-input:focus {
-  border-color: color-mix(in srgb, var(--ink) 26%, transparent) !important;
-  background: color-mix(in srgb, var(--ink) 6%, transparent) !important;
-  outline: none;
-}
-
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-trigger:hover,
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-selected:hover {
-  border-color: color-mix(in srgb, var(--ink) 16%, transparent);
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-}
-
-/* ─── 平台卡输入框 v4：描边式（依据视觉诊断：填充无层次/标签太弱/风格偏软） ─── */
-.settings-workspace .settings-plat-body > .settings-field,
-.settings-workspace .settings-plat-body .settings-field--secret {
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.settings-workspace .settings-plat-body > :last-child {
-  margin-bottom: 0;
-}
-
-.settings-workspace .settings-plat-body > .settings-field label,
-.settings-workspace .settings-plat-body .settings-field--secret label {
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--ink-light);
-}
-
-.settings-workspace .settings-plat-body .settings-input,
-.settings-workspace .settings-plat-body .vault-ref-trigger,
-.settings-workspace .settings-plat-body .vault-ref-selected {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent) !important;
-  border-radius: 7px !important;
-  background: var(--paper) !important;
-  box-shadow: none !important;
-}
-
-.settings-workspace .settings-plat-body .settings-input:focus {
-  border-color: color-mix(in srgb, var(--ink) 45%, transparent) !important;
-}
-
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-trigger:hover,
-.settings-workspace .settings-plat-body .settings-field--secret .vault-ref-selected:hover {
-  border-color: color-mix(in srgb, var(--ink) 28%, transparent);
-  background: var(--paper);
-}
-
-/* ─── 设备区重设计：虚线添加槽位 + 轻量管理链接 ─── */
-.devsync-add-slot {
+.devsync-more-popover button {
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 56px;
-  border: 1.5px dashed var(--kraft-dark);
-  border-radius: 9px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
   background: transparent;
-  color: var(--ink-muted);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-
-.devsync-add-slot:hover {
-  border-color: var(--ink-muted);
   color: var(--ink-light);
-}
-
-.devsync-quiet-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--kraft-dark);
-}
-
-.devsync-quiet-btn {
-  border: none;
-  background: transparent;
-  color: var(--ink-muted);
   font: inherit;
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 650;
+  text-align: left;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: color 0.15s ease, background 0.15s ease;
 }
 
-.devsync-quiet-btn:hover {
-  color: var(--ink);
-  background: var(--sidebar-hover);
+.devsync-more-popover button strong,
+.devsync-more-popover button small {
+  display: block;
 }
 
-.devsync-quiet-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+.devsync-more-popover button strong {
+  font-size: 11.5px;
+  font-weight: 720;
 }
 
-.devsync-quiet-sep {
+.devsync-more-popover button small {
+  margin-top: 3px;
   color: var(--ink-muted);
-  opacity: 0.5;
+  font-size: 9.5px;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.devsync-more-popover button:hover {
+  background: var(--card-inner);
+  color: var(--ink);
+}
+
+.devsync-more-popover button.is-danger {
+  color: var(--red);
+}
+
+.devsync-more-popover button.is-danger:hover {
+  background: color-mix(in srgb, var(--red) 7%, var(--card-inner));
+}
+
+.devsync-devices-card {
+  padding: 7px;
+}
+
+.settings-workspace .devsync-devices {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.settings-workspace .devsync-device {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+}
+
+.settings-workspace .devsync-device--self {
+  background: var(--card-inner);
+}
+
+.settings-workspace .devsync-device-name {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.settings-workspace .devsync-device-name strong,
+.settings-workspace .devsync-device-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-workspace .devsync-device-name strong {
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 720;
+}
+
+.settings-workspace .devsync-device-name small {
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  font-weight: 550;
+}
+
+.settings-workspace .devsync-role {
+  border-color: var(--card-line);
+  background: var(--card-surface);
+}
+
+.devsync-no-devices {
+  padding: 8px 10px 7px 52px;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+}
+
+.settings-workspace .devsync-platforms {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+[data-style] .settings-workspace .devsync-platform-card {
+  overflow: visible;
+}
+
+.devsync-platform-summary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 13px;
+}
+
+.devsync-platform-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.devsync-platform-copy strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.devsync-platform-copy span {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devsync-platform-copy i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 99px;
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent);
+}
+
+.devsync-platform-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.devsync-platform-edit svg {
+  transition: transform 0.15s ease;
+}
+
+.devsync-platform-card.is-expanded .devsync-platform-edit svg {
+  transform: rotate(180deg);
+}
+
+.settings-workspace .devsync-platform-editor {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--card-line);
+}
+
+.devsync-platform-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.devsync-platform-editor-head > span {
+  color: var(--ink-muted);
+  font-size: 10.5px;
+}
+
+.devsync-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.devsync-doc-link:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.settings-workspace .devsync-platform-editor > .settings-field,
+.settings-workspace .devsync-platform-editor .settings-field--secret {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.settings-workspace .devsync-platform-editor > .settings-field label,
+.settings-workspace .devsync-platform-editor .settings-field--secret label {
+  padding: 0;
+  color: var(--ink-light);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.settings-workspace .devsync-platform-editor > .settings-field label::before {
+  display: none;
+}
+
+.settings-workspace .devsync-platform-editor .settings-input,
+.settings-workspace .devsync-platform-editor .vault-ref-trigger,
+.settings-workspace .devsync-platform-editor .vault-ref-selected {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--card-line) !important;
+  border-radius: 8px !important;
+  background: var(--card-inner) !important;
+  color: var(--ink);
+  box-shadow: none !important;
+}
+
+.settings-workspace .devsync-platform-editor .settings-input:focus,
+.settings-workspace .devsync-platform-editor .vault-ref-trigger:hover,
+.settings-workspace .devsync-platform-editor .vault-ref-selected:hover {
+  border-color: var(--card-line-hover) !important;
+  background: var(--card-surface-hover) !important;
+}
+
+@media (max-width: 840px) {
+  .devsync-overview-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .devsync-overview-item:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .devsync-platform-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .devsync-platform-actions {
+    width: 100%;
+    padding-left: 43px;
+  }
+}
+
+@media (max-width: 640px) {
+  .devsync-page-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .devsync-autosync-control {
+    justify-content: space-between;
+  }
+
+  .devsync-autosync-copy {
+    text-align: left;
+  }
+
+  .devsync-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .devsync-overview-item:first-child {
+    grid-column: auto;
+  }
+
+  .devsync-password-setup,
+  .settings-workspace .devsync-platform-editor > .settings-field,
+  .settings-workspace .devsync-platform-editor .settings-field--secret {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .devsync-section-head {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .devsync-platform-actions {
+    padding-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .settings-workspace .devsync-device {
+    flex-wrap: wrap;
+  }
+
+  .settings-workspace .devsync-device-actions {
+    width: 100%;
+    padding-left: 42px;
+  }
 }

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMd } from '../../lib/markdown';
 import { useI18n } from '../../i18n';
-import okitIcon from '../../assets/branding/okit-icon-command-v1.png';
 // Both manuals live in the repo's docs/ and are bundled verbatim at build time,
 // so the website and the repo always serve the same copy.
 import manualZh from '../../../../../../docs/user-manual.md?raw';
@@ -70,14 +69,14 @@ export default function ManualPage() {
     <div className="landing-shell manual-shell">
       <header className="landing-nav">
         <span className="landing-wordmark">
-          <img src={okitIcon} alt="OKIT" className="landing-logo-img" />
+          <img src="/okit-icon-180.png" alt="OKIT" className="landing-logo-img" />
           <span>OKIT</span>
         </span>
         <nav className="landing-links" aria-label="Primary">
           <a href="/manual" className="active">{t('manual.nav')}</a>
         </nav>
         <div className="landing-nav-actions">
-          <a className="landing-gh" href="https://github.com/dolphin-molt/okit" aria-label="GitHub" target="_blank" rel="noopener">
+          <a className="landing-gh" href="https://github.com/Cing-self/okit" aria-label="GitHub" target="_blank" rel="noopener">
             <GithubIcon />
           </a>
           <button
@@ -109,10 +108,10 @@ export default function ManualPage() {
           <footer className="landing-footer manual-footer">
             <div className="landing-footer-inner">
               <span className="landing-footer-brand">
-                <img src={okitIcon} alt="OKIT" className="landing-logo-img landing-logo-img--sm" />
+                <img src="/okit-icon-180.png" alt="OKIT" className="landing-logo-img landing-logo-img--sm" />
                 © 2026 OKIT
               </span>
-              <a href="https://github.com/dolphin-molt/okit">GitHub ↗</a>
+              <a href="https://github.com/Cing-self/okit">GitHub ↗</a>
             </div>
           </footer>
         </div>

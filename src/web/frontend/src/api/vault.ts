@@ -34,6 +34,32 @@ export async function getVaultValue(key: string): Promise<{ value: string }> {
   return api(`/api/vault/value?key=${encodeURIComponent(key)}`);
 }
 
+export interface AgentKeyFinding {
+  agentId: string;
+  file: string;
+  path: string;
+  providerId?: string;
+  masked: string;
+  inVault: boolean;
+  vaultKey?: string;
+  // true = model-invocation key (what users want in the vault);
+  // false = app credential (discord/search/mcp) — not offered for import.
+  model?: boolean;
+}
+
+// Reconciliation: plaintext keys found in agent config files. Keys NOT in
+// the vault are at risk — OKIT rewrites those files and could clobber them.
+export async function scanAgentKeys(): Promise<{ findings: AgentKeyFinding[]; filesScanned: number }> {
+  return api('/api/vault/scan-agent-keys');
+}
+
+export async function importAgentKeys(items: Array<{ agentId: string; file: string; path: string }>): Promise<{ success: boolean; created: Array<{ key: string; agentId: string; providerId?: string; masked: string; file: string }>; skipped: Array<{ agentId: string; file: string; path: string; reason: string }> }> {
+  return api('/api/vault/import-agent-keys', {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
 export async function setVault(data: {
   key: string;
   value: string;

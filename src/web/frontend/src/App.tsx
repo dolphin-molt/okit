@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, lazy, Suspense } from 'react';
+import { getOnboarding } from './api/settings';
+import { primeOnboardingFromSession, getOnboardingDoneCache, setOnboardingDone } from './lib/onboardingGate';
 import Sidebar from './components/Layout/Sidebar';
 import ProviderImportModal from './components/shared/ProviderImportModal';
 import { useI18n } from './i18n';
@@ -143,6 +145,45 @@ function PersistentDashboardRoutes() {
 }
 
 export default function App() {
+  // First-entry gate: render NOTHING until we know whether onboarding is
+  // done — otherwise the product shell flashes one frame before the wizard
+  // redirect kicks in. Cached per session so returning users paint instantly.
+  const [gate, setGate] = useState<'checking' | 'app' | 'wizard'>(
+    () => (primeOnboardingFromSession() ? 'app' : 'checking'),
+  );
+  const location = useLocation();
+
+  useEffect(() => {
+    if (gate !== 'checking') return;
+    if (getOnboardingDoneCache() !== null) {
+      setGate(getOnboardingDoneCache() ? 'app' : 'wizard');
+      return;
+    }
+    getOnboarding().then(res => {
+      setOnboardingDone(!!(res as any).done);
+      setGate((res as any).done ? 'app' : 'wizard');
+    }).catch(() => setGate('app'));
+  }, [gate]);
+
+  // gate 'wizard' renders the wizard standalone (pathname stays '/', so a
+  // pathname-based flip would kill it instantly) — completion is signalled
+  // by the wizard itself via onComplete.
+
+  if (gate === 'checking') {
+    return <div className="app-boot-gate" aria-hidden="true" />;
+  }
+
+  if (gate === 'wizard') {
+    return (
+      <>
+        <DocumentTitle />
+        <Suspense fallback={<div className="app-boot-gate" aria-hidden="true" />}>
+          <OnboardingPage onComplete={() => setGate('app')} />
+        </Suspense>
+      </>
+    );
+  }
+
   return (
     <>
       <DocumentTitle />
@@ -154,10 +195,10 @@ export default function App() {
             <DeepLinkHandler />
             <Sidebar />
               <main className="main-content">
-              <div className="tab-content">
-                <PersistentDashboardRoutes />
-              </div>
-            </main>
+                <div className="tab-content">
+                  <PersistentDashboardRoutes />
+                </div>
+              </main>
           </div>
         } />
       </Routes>

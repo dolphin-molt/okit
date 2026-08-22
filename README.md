@@ -2,136 +2,136 @@
 
 # OKIT
 
-### AI Agent 的密钥与模型管控台 — Claude Code / Codex / OpenCode / ZCode / Kimi / Grok 等 10 个 Agent
+### The Key & Model Console for AI Coding Agents — Claude Code / Codex / OpenCode / ZCode / Kimi / Grok & 10 agents total
 
 [![Version](https://img.shields.io/github/v/release/Cing-self/okit?color=blue&label=version)](https://github.com/Cing-self/okit/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](https://github.com/Cing-self/okit/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
 
-[官网](https://landing.auto.code) · [用户手册](docs/manual/zh/) · [CHANGELOG](CHANGELOG.md)
+[中文](README_ZH.md) · [Website](https://landing.auto.code) · [Docs](docs/manual/en/) · [Changelog](CHANGELOG.md)
 
 </div>
 
-密钥与模型，一处掌控。OKIT 是一个本地优先的开源工具，管好 AI 编程 CLI 的密钥生命周期：**创建 → 保管 → 切换 → 验证 → 监控**。本地功能永久免费。
+Keys and models, one console. OKIT is a local-first open-source tool that manages the full key lifecycle for AI coding CLIs: **create → store → switch → verify → monitor**. Local features are free forever.
 
-## 截图
+## Screenshots
 
-| 首页 · Agent 配置 | 模型平台 |
+| Home · Agent config | Model platforms |
 |---|---|
-| ![快速启动页](docs/manual/images/quick-start.png) | ![模型平台](docs/manual/images/models.png) |
+| ![Quick start](docs/manual/images/quick-start.png) | ![Models](docs/manual/images/models.png) |
 
-| 密钥库 | 一键创建 Key |
+| Key vault | Auto-create keys |
 |---|---|
-| ![密钥库](docs/manual/images/vault.png) | ![一键创建](docs/manual/images/auto-create.png) |
+| ![Vault](docs/manual/images/vault.png) | ![Auto-create](docs/manual/images/auto-create.png) |
 
-## 为什么是 OKIT
+## Why OKIT
 
-- **切换永不丢配置** — 外科手术式写入：只改 OKIT 自己拥有的字段，你的 hooks、statusLine、tui、MCP 配置原样保留。每次切换前自动快照，设置页一键对比与回滚。
-- **切模型不离开 Codex** — 自动生成 Codex 原生模型目录（model-catalogs），在 Codex CLI 里 `/model` 直接切换，不用回到 OKIT。
-- **零常驻、零侵入** — 没有后台进程、不在请求路径上：OKIT 写完配置就退出，你的 Agent 直连模型平台。卸载不留痕，配置照常工作。
-- **密钥保险库** — AES-256-GCM 本地加密存储，绑定项目后自动注入 `.env`，支持云端同步与局域网点对点同步（配对码配对）。
+- **Switching never loses your config** — Surgical writes: only fields OKIT owns are touched; your hooks, statusLine, tui and MCP config stay intact. Every switch is snapshotted first — one-click diff and rollback in Settings.
+- **Switch models without leaving Codex** — OKIT auto-generates Codex's native model catalog (model-catalogs); switch with `/model` right inside the Codex CLI, no round-trip to OKIT.
+- **Zero daemons, zero interception** — No background process, nothing on your request path: OKIT writes config and exits; your agents talk to model platforms directly. Uninstall leaves nothing behind — configs keep working.
+- **Key vault** — AES-256-GCM encrypted local storage, auto-injection into `.env` when bound to a project, cloud sync and LAN peer-to-peer sync (pairing-code pairing).
 
-## 与同类工具对比
+## Comparison
 
-| 能力 | OKIT | cc-switch | codex-router |
+| Capability | OKIT | cc-switch | codex-router |
 |------|------|-----------|--------------|
-| 配置写入 | 字段级合并 + 切换前快照/回滚 | 全量覆盖 + 通用配置片段 | managed block |
-| 常驻进程 | 无 | 托盘（代理可选） | 本地网关（必须） |
-| 支持 Agent | 10 个 | 8 个 | Codex 系 |
-| 密钥管理 | 加密 vault + 项目绑定 | 本地明文配置 | 凭证隔离 |
-| 自动创建 API Key | 31 个平台（浏览器扩展） | — | — |
-| 用量查询 | 30+ 个订阅/余额来源直查 | 代理层统计 | — |
-| 平台 | macOS / Linux / Windows | macOS / Linux / Windows | macOS / Linux / Windows |
+| Config writing | Field-level merge + pre-switch snapshot/rollback | Full overwrite + config snippets | Managed block |
+| Resident process | None | Tray (optional proxy) | Local gateway (required) |
+| Agents supported | 10 | 8 | Codex family |
+| Key management | Encrypted vault + project binding | Plaintext local config | Credential isolation |
+| Auto-create API keys | 31 platforms (browser extension) | — | — |
+| Usage queries | 30+ subscription/balance sources, direct | Proxy-layer stats | — |
+| Platforms | macOS / Linux / Windows | macOS / Linux / Windows | macOS / Linux / Windows |
 
-## 快速开始
+## Quick Start
 
 ```bash
-# npm 安装
+# via npm
 npm install -g @cing-self/okit-cli
 
-# 或从源码
+# or from source
 git clone https://github.com/Cing-self/okit.git
 cd okit
 npm ci --ignore-scripts
 npm run build
 node dist/main.js web
-# 打开 http://localhost:3780
+# open http://localhost:3780
 ```
 
-常用命令：
+Common commands:
 
 ```bash
-okit web                              # 启动 Web 管理台（:3780）
-okit vault set <key>                  # 交互式存密钥（AES-256-GCM 加密）
-printf '%s' "$SECRET" | okit vault set <key> --stdin  # 自动化时避免密钥进入命令参数
-okit vault inject                     # 输出 export 语句（配合 eval）
-okit provider list                    # 列出 40 个预置模型平台
-okit provider switch                  # 交互式切换 Agent 的 Provider/模型
-okit provider use <provider>          # 非交互式切换（脚本/Agent 友好）
-okit hook install                     # cd 进项目自动注入密钥到 shell
+okit web                              # launch the web console (:3780)
+okit vault set <key>                  # store a key interactively (AES-256-GCM)
+printf '%s' "$SECRET" | okit vault set <key> --stdin  # keep secrets out of argv in automation
+okit vault inject                     # print export statements (pipe to eval)
+okit provider list                    # list 40 preset model platforms
+okit provider switch                  # interactive provider/model switch
+okit provider use <provider>          # non-interactive switch (script/agent friendly)
+okit hook install                     # auto-inject keys into your shell on cd
 ```
 
-> **Shell 配置安全边界**：安装 `okit` 不会自动修改你的 Shell 配置（`~/.zshrc` / `~/.bashrc` 等）。只有你主动运行 `okit hook install` 时才会写入 cd 钩子；`okit hook uninstall` 可随时移除。
+> **Shell config boundary**: installing `okit` never touches your shell config (`~/.zshrc` / `~/.bashrc` etc.). The cd hook is only written when you explicitly run `okit hook install`; `okit hook uninstall` removes it at any time.
 
-### 给 AI Agent 使用
+### For AI agents
 
-安装包随附 [`okit-cli` Agent Skill](skills/okit-cli/SKILL.md)。运行 `okit skill install /path/to/project` 会将它安装到目标项目的 `.agents/skills/okit-cli/`；`okit skill path` 可输出内置原文件位置。Skill 说明了可解析的只读命令、非交互式模型切换，以及密钥明文、Shell Hook 和云同步的安全边界。
+The package ships an [`okit-cli` Agent Skill](skills/okit-cli/SKILL.md). Run `okit skill install /path/to/project` to install it into the target project's `.agents/skills/okit-cli/`; `okit skill path` prints the bundled original location. The skill documents resolvable read-only commands, non-interactive model switching, and the security boundaries around plaintext keys, shell hooks and cloud sync.
 
-也可以通过 [skills.sh](https://skills.sh/) 直接从公开仓库安装：
+Or install straight from the public repo via [skills.sh](https://skills.sh/):
 
 ```bash
 npx skills add Cing-self/okit --skill okit-cli
 ```
 
-## 功能总览
+## Features
 
-### 密钥库
-加密存储（AES-256-GCM）、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步。首次启动向导自动扫描 Agent 配置文件，把散落的明文密钥一键安全入库。
+### Key vault
+AES-256-GCM encrypted storage, masked display, project binding (`.okitenv` → `.env`), shell hook auto-injection, cloud sync + LAN sync. The first-run wizard scans agent config files and imports stray plaintext keys into the vault in one click.
 
-### Provider / 模型管控
-40 个平台预置（官方 / 聚合 / 国内），10 个 Agent 适配器，多端点协议（anthropic / openai 兼容），认证状态检测，订阅 / API / 第三方三模式凭证管理。添加站点默认空模型列表，你勾选什么写什么；模型参数（上下文窗口 / 输出上限 / 工具调用 / 推理 / 多模态）自动从 [models.dev](https://models.dev) 目录补全，不再靠猜。
+### Provider / model management
+40 preset platforms (official / aggregator / CN), 10 agent adapters, multi-endpoint protocols (Anthropic / OpenAI compatible), auth-state detection, and subscription / API-key / third-party credential modes. Adding a site starts with an empty model list — you check what you want, exactly that gets written. Model parameters (context window / output limit / tool call / reasoning / multimodal) are auto-filled from the [models.dev](https://models.dev) catalog — no more guessing.
 
-### 一键创建 Key
-浏览器扩展在官方控制台内自动填表创建并回填（31 个平台，含火山引擎、智谱、百度千帆等）。
+### Auto-create keys
+A browser extension fills and submits the key-creation form inside each platform's official console and captures the result (31 platforms, incl. Volcengine, Zhipu, Baidu Qianfan).
 
-### 用量查询
-30+ 个订阅 / 余额来源直查，阈值告警（本地通知）。
+### Usage
+Direct queries against 30+ subscription / balance sources, with threshold alerts (local notifications).
 
-### 模型目录
-全平台官方定价与能力数据（输入 / 输出 / 缓存价、上下文窗口），峰谷价直呈。
+### Model catalog
+Official pricing and capability data across platforms (input / output / cache pricing, context windows), peak/off-peak rates included.
 
 ## FAQ
 
-**OKIT 会在我的请求路径上吗？**
-不会。零常驻、零侵入：OKIT 写完配置就退出，你的 Agent 直连模型平台，没有任何代理或转发层。
+**Does OKIT sit on my request path?**
+No. Zero daemons, zero interception: OKIT writes config and exits — your agents connect to model platforms directly, with no proxy or forwarding layer.
 
-**切换配置会破坏我已有的设置吗？**
-不会。外科手术式写入：只改 OKIT 拥有的字段，hooks / statusLine / MCP 配置原样保留，切换前自动快照可回滚。
+**Will switching break my existing settings?**
+No. Surgical writes touch only OKIT-owned fields; hooks / statusLine / MCP config are preserved, and every switch is snapshotted for rollback.
 
-**密钥存在哪里？安全吗？**
-AES-256-GCM 本地加密，密钥派生绑定本机。绝不以明文落盘（导入向导扫描到的配置文件密钥也只以掩码展示）。卸载即全部清除。
+**Where are keys stored? How safe?**
+AES-256-GCM encrypted locally, with machine-bound key derivation. Nothing ever lands on disk in plaintext (keys found by the import wizard are shown masked only). Uninstalling wipes everything.
 
-**没有装 OpenCode / 其他工具，OKIT 能用吗？**
-能。OKIT 不依赖任何第三方工具的本地数据——模型元数据来自 models.dev 公共目录（网络拉取 + 自有缓存）。
+**Do I need OpenCode or other tools installed?**
+No. OKIT depends on no third-party local data — model metadata comes from the public models.dev catalog (fetched over the network, cached locally).
 
-## 开发
+## Development
 
 ```bash
-npm ci                      # 按锁文件安装依赖
-npm run build               # tsc + 预设生成 + web 拷贝 + 前端构建
-npx vitest run              # 测试（500+ 用例）
-cd src/web/frontend && npm run dev   # 前端开发服务器（:5173 → 代理 :3780）
+npm ci                      # install per lockfile
+npm run build               # tsc + preset codegen + web copy + frontend build
+npx vitest run              # tests (500+ cases)
+cd src/web/frontend && npm run dev   # frontend dev server (:5173 → proxies :3780)
 ```
 
-要求 Node.js 20+。前端 React + TypeScript + Vite；后端 Node（web 层 CommonJS）；测试 vitest。
+Requires Node.js 20+. Frontend: React + TypeScript + Vite; backend: Node (web layer in CommonJS); tests: vitest.
 
-## 文档
+## Documentation
 
-- [用户手册](docs/manual/zh/)（[English](docs/manual/en/)，含产品截图）
-- [模型定价与能力数据](docs/model-pricing-and-capabilities.md)
-- [贡献指南](CONTRIBUTING.md)
+- [User manual](docs/manual/en/)（[中文](docs/manual/zh/)，with product screenshots）
+- [Model pricing & capability data](docs/model-pricing-and-capabilities.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 
-OKIT 以 [MIT License](LICENSE) 发布。版权归属 Cing-self / OKIT contributors（2026）。
+OKIT is released under the [MIT License](LICENSE). Copyright Cing-self / OKIT contributors (2026).

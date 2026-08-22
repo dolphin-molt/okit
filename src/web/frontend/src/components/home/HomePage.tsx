@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogExcluded, setCatalogExcluded, getTierMaps, setTierMap, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
+import { getAdapters, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, getCatalogVisible, setCatalogVisible, getTierMaps, setTierMap, fetchModels, applyAgentModels, AgentInfo, AgentConfigFile, TierMap } from '../../api/providers';
 import { useI18n } from '../../i18n';
 import { useApp } from '../Layout/AppContext';
 import { getAgentIcon, getAgentIconClass } from '../../assets/agents';
 import { getProviderIcon, getProviderIconClass } from '../../assets/providers';
 import JsonTreeView from '../shared/JsonTreeView';
-import { Eye, EyeOff, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Copy, Save, RefreshCw, X, Plus, FileJson, Loader2, Check, ArrowLeft } from 'lucide-react';
 import UsageSummary from './UsageSummary';
 import { useTransientFeedback } from '../../hooks/useTransientFeedback';
 
@@ -52,7 +52,18 @@ export default function HomePage() {
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   // Which provider cards have "show all models" expanded.
   const [showAllModels, setShowAllModels] = useState<Set<string>>(new Set());
-  const [showAddPicker, setShowAddPicker] = useState(false);
+  // Unified home picker modal — a two-step flow, NOT tabs (sites are
+  // multi-select; models are a drill-down of one site):
+  //   view 'sites'  → add/remove sites (multi-select, checkboxes)
+  //   view 'models' → curate ONE provider's models (search + platform refresh)
+  // Checking a site jumps to its models view with a top-left back button so
+  // the user can return and keep selecting sites. The card's "添加模型"
+  // button opens the models view directly (no back button — nothing to go
+  // back to, only that site's models).
+  const [homePickerOpen, setHomePickerOpen] = useState(false);
+  const [homePickerView, setHomePickerView] = useState<'sites' | 'models'>('sites');
+  const [homePickerModelFor, setHomePickerModelFor] = useState<string | null>(null);
+  const [homePickerFromSites, setHomePickerFromSites] = useState(false);
   const [configFiles, setConfigFiles] = useState<AgentConfigFile[] | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   // Whether the viewer currently shows raw credentials (explicit user action
@@ -68,17 +79,15 @@ export default function HomePage() {
   // Config viewer display mode: 'raw' shows the editable textarea,
   // 'tree' toggles to a collapsible JSON tree preview.
   const [configViewMode, setConfigViewMode] = useState<'tree' | 'raw'>('raw');
-  // Per-provider model visibility filter. Maps providerId → modelIds the
-  // user has UNCHECKED (hidden from the card). Absent or empty = all models
-  // visible. The current/active model can't be unchecked (its checkbox is
-  // disabled) to avoid "current model hidden" weirdness.
-  const [modelExcluded, setModelExcluded] = useState<Record<string, string[]>>({});
-  // Models the user explicitly restored from the "add models" picker even
-  // though they're tagged recent=false by the backend. These render in the
-  // main list alongside recent models.
-  const [extraVisible, setExtraVisible] = useState<Record<string, Set<string>>>({});
-  // "Add models" picker — which provider's hidden-model picker is open.
-  const [addModelPickerFor, setAddModelPickerFor] = useState<string | null>(null);
+  // Per-provider list of model ids the user ADDED to the card (inclusion
+  // model). Absent or empty = empty card; the picker lists everything else.
+  const [modelVisible, setModelVisible] = useState<Record<string, string[]>>({});
+  // Search queries for the provider/model picker popups. Reset each time a
+  // picker opens so a stale query never hides the list you're looking for.
+  const [providerPickerSearch, setProviderPickerSearch] = useState('');
+  const [modelPickerSearch, setModelPickerSearch] = useState('');
+  // In-picker "refresh from platform" state (spinner on the refresh button).
+  const [modelPickerRefreshing, setModelPickerRefreshing] = useState(false);
   // Claude Code tier maps: per-provider { haiku, sonnet, opus } model overrides.
   const [tierMaps, setTierMaps] = useState<Record<string, TierMap>>({});
   // Agent tab drag-to-reorder.
@@ -105,15 +114,46 @@ export default function HomePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Re-read persisted model-visibility exclusions and restored (extra) lists.
+  // Called on mount and after adding a site — the backend seeds
+  // "flagship-only"/hide-all exclusions on add, and the card should reflect
+  // that immediately.
+  const refreshModelVisible = useCallback(() => {
+    getCatalogVisible().then(res => setModelVisible(res.visible || {})).catch(() => {});
+  }, []);
+
   const handleAddHome = useCallback(async (providerId: string) => {
     if (!activeAgentId) return;
     try {
       await addHomeProvider(activeAgentId, providerId);
+      refreshModelVisible();
       await load();
     } catch (err: any) {
       showToast(err.message, 'error');
     }
-  }, [activeAgentId, load, showToast]);
+  }, [activeAgentId, load, refreshModelVisible, showToast]);
+
+  const closeHomePicker = useCallback(() => {
+    setHomePickerOpen(false);
+    setHomePickerView('sites');
+    setHomePickerModelFor(null);
+    setHomePickerFromSites(false);
+  }, []);
+
+  const openHomeSites = useCallback(() => {
+    setProviderPickerSearch('');
+    setHomePickerView('sites');
+    setHomePickerFromSites(false);
+    setHomePickerOpen(true);
+  }, []);
+
+  const openHomeModels = useCallback((providerId: string) => {
+    setModelPickerSearch('');
+    setHomePickerModelFor(providerId);
+    setHomePickerView('models');
+    setHomePickerFromSites(false);
+    setHomePickerOpen(true);
+  }, []);
 
   const handleRemoveHome = useCallback(async (providerId: string) => {
     if (!activeAgentId) return;
@@ -205,26 +245,40 @@ export default function HomePage() {
 
   // Load model visibility exclusions + claude tier maps once on mount.
   useEffect(() => {
-    getCatalogExcluded().then(res => setModelExcluded(res.excluded || {})).catch(() => {});
+    refreshModelVisible();
     getTierMaps().then(res => setTierMaps(res.tierMaps || {})).catch(() => {});
-  }, []);
+  }, [refreshModelVisible]);
+
 
   const activeAgent = adapters.find(a => a.id === activeAgentId) || null;
 
   // Toggle a model's visibility in its provider card. Unchecking hides it
   // from the list; the current model is pinned (checkbox disabled) so you
   // can't end up in a "current model hidden" state.
-  const toggleModelVisible = useCallback(async (providerId: string, modelId: string) => {
-    const curSet = new Set(modelExcluded[providerId] || []);
-    curSet.has(modelId) ? curSet.delete(modelId) : curSet.add(modelId);
-    const newExcluded = [...curSet];
-    setModelExcluded(prev => ({ ...prev, [providerId]: newExcluded }));
+  // Remove a model from the card (the × on a chip) — drop it from the
+  // provider's added-models list.
+  const removeFromCard = useCallback(async (providerId: string, modelId: string) => {
+    const next = (modelVisible[providerId] || []).filter(id => id !== modelId);
+    setModelVisible(prev => ({ ...prev, [providerId]: next }));
     try {
-      await setCatalogExcluded(providerId, newExcluded);
+      await setCatalogVisible(providerId, next);
     } catch (err: any) {
       showToast(err.message, 'error');
     }
-  }, [modelExcluded, showToast]);
+  }, [modelVisible, showToast]);
+
+  // Add a model to the card (a checkbox in the "add models" view).
+  const addToCard = useCallback(async (providerId: string, modelId: string) => {
+    const cur = modelVisible[providerId] || [];
+    if (cur.includes(modelId)) return;
+    const next = [...cur, modelId];
+    setModelVisible(prev => ({ ...prev, [providerId]: next }));
+    try {
+      await setCatalogVisible(providerId, next);
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  }, [modelVisible, showToast]);
 
   // Change one tier (haiku/sonnet/opus) mapping for a provider. Persists to
   // backend then re-switches the active claude provider so settings.json
@@ -321,7 +375,7 @@ export default function HomePage() {
               <button
                 type="button"
                 className="home-add-provider-btn"
-                onClick={() => setShowAddPicker(true)}
+                onClick={openHomeSites}
                 title={t('home.addProvider')}
               >
                 <Plus size={15} />
@@ -350,7 +404,7 @@ export default function HomePage() {
               role="tab"
               aria-selected={activeAgentId === agent.id}
               aria-label={agent.name}
-              onClick={() => { setActiveAgentId(agent.id); setExpandedProvider(null); setShowAddPicker(false); setShowAllModels(new Set()); }}
+              onClick={() => { setActiveAgentId(agent.id); setExpandedProvider(null); closeHomePicker(); setShowAllModels(new Set()); }}
               title={agent.name}
               draggable
               onDragStart={(e) => { setDragTabIndex(i); e.dataTransfer.effectAllowed = 'move'; }}
@@ -386,16 +440,13 @@ export default function HomePage() {
               && !(fallback?.providerId === p.id && fallback?.modelId === activeAgent.current?.modelId);
             const switchLocked = siteEnabled && !activeAgent.additive && !canSwitchToFallback;
             const isExpanded = expandedProvider === p.id;
-            // Provider-level excluded set — shared by model list and tier UI.
-            const excludedSet = new Set(modelExcluded[p.id] || []);
-            // Provider-level visible model list (recent + extraVisible, minus
-            // excluded). Computed once so the model chips AND tier dropdowns
-            // show the same set.
-            const extraForP = extraVisible[p.id] || new Set<string>();
+            // Provider-level added-models list. Computed once so the model
+            // chips AND tier dropdowns show the same set. The current model
+            // stays listed even if absent (never a "current model missing"
+            // state).
+            const visibleSet = new Set(modelVisible[p.id] || []);
             const currentId = isCurrent ? activeAgent.current?.modelId : undefined;
-            const visibleAfterExclude = p.models.filter(m =>
-              (!excludedSet.has(m.id) || m.id === currentId) && (m.recent !== false || extraForP.has(m.id))
-            );
+            const visibleAfterExclude = p.models.filter(m => visibleSet.has(m.id) || m.id === currentId);
             return (
               <div key={p.id} className={`provider-card provider-card--clickable${isCurrent ? ' provider-card--current' : ''}${isExpanded ? ' expanded' : ''}`}>
                 <div
@@ -421,9 +472,14 @@ export default function HomePage() {
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!siteEnabled) {
-                        // Switch ON — set this provider as current.
-                        const m = p.models[0];
-                        if (m) handleSwitch(activeAgent.id, p.id, m.id);
+                        // Switch ON — set this provider as current. Prefer the
+                        // first VISIBLE model; a freshly added site starts
+                        // with none, so open the picker to curate first.
+                        if (visibleAfterExclude.length === 0) {
+                          openHomeModels(p.id);
+                        } else {
+                          handleSwitch(activeAgent.id, p.id, visibleAfterExclude[0].id);
+                        }
                       } else if (activeAgent.additive) {
                         // Switch OFF (additive) — remove this site's entries
                         // from the agent config. Switching happens inside the
@@ -466,7 +522,6 @@ export default function HomePage() {
                         <>
                           {visibleModels.map(m => {
                             const isThisModel = isCurrent && currentId === m.id;
-                            const checked = !excludedSet.has(m.id);
                             const hideDisabled = isThisModel;
                             const switchingThis = switching === `${activeAgent.id}:${m.id}`;
                             return (
@@ -490,17 +545,7 @@ export default function HomePage() {
                                     title={t('home.removeModel')}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      const extra = extraVisible[p.id];
-                                      if (extra && extra.has(m.id)) {
-                                        // Was restored from hidden — just remove from extra.
-                                        setExtraVisible(prev => {
-                                          const cur = new Set(prev[p.id] || []);
-                                          cur.delete(m.id);
-                                          return { ...prev, [p.id]: cur };
-                                        });
-                                      } else {
-                                        toggleModelVisible(p.id, m.id);
-                                      }
+                                      removeFromCard(p.id, m.id);
                                     }}
                                   >
                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -522,17 +567,25 @@ export default function HomePage() {
                               {showAll ? t('home.collapse') : t('home.showAll')} ({visibleCount}/{totalCount})
                             </button>
                           )}
-                          {excludedSet.size > 0 && (
-                            <button
-                              type="button"
-                              className="agent-model-add-btn"
-                              onClick={() => setAddModelPickerFor(p.id)}
-                              title={t('home.addModels')}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                              {t('home.addModels')} ({excludedSet.size})
-                            </button>
-                          )}
+                          {(() => {
+                            // Hidden = not currently visible (excluded and/or
+                            // auto-filtered). Always offer the picker — a
+                            // freshly added site starts with zero visible
+                            // models and this is the entry point to curate.
+                            const hiddenCount = totalCount - visibleAfterExclude.length;
+                            if (hiddenCount <= 0) return null;
+                            return (
+                              <button
+                                type="button"
+                                className="agent-model-add-btn"
+                                onClick={() => openHomeModels(p.id)}
+                                title={t('home.addModels')}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                {t('home.addModels')} ({hiddenCount})
+                              </button>
+                            );
+                          })()}
                         </>
                       );
                     })()}
@@ -570,79 +623,214 @@ export default function HomePage() {
           {activeAgent.compatibleProviders.length === 0 && (
             <div className="home-empty-hint">{t('home.noProvidersHint')}</div>
           )}
-        </div>
-      )}
-      {showAddPicker && activeAgent && (
-        <div className="home-add-picker-overlay" onClick={() => setShowAddPicker(false)}>
-          <div className="home-add-picker" onClick={e => e.stopPropagation()}>
-            <div className="home-add-picker-header">
-              <h3>{t('home.addProviderTitle', { name: activeAgent.name })}</h3>
-              <button type="button" className="btn-icon" onClick={() => setShowAddPicker(false)}>✕</button>
-            </div>
-            <div className="home-add-picker-list">
-              {(activeAgent.availableProviders || []).map(p => (
-                <label key={p.id} className={`home-add-picker-item${p.added ? ' added' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={p.added}
-                    onChange={() => p.added ? handleRemoveHome(p.id) : handleAddHome(p.id)}
-                  />
-                  {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
-                  <span>{p.name}</span>
-                </label>
+          {activeAgent.additive && (activeAgent.externalSites || []).length > 0 && (
+            <div className="home-external-sites">
+              <span className="home-external-sites-label" title={t('home.externalSitesHint')}>{t('home.externalSites')}</span>
+              {(activeAgent.externalSites || []).map(x => (
+                <span key={x.id} className={`home-external-chip${x.known ? '' : ' unknown'}`}>
+                  <span className="home-external-chip-name">{x.name}</span>
+                  {x.known ? (
+                    <>
+                      <button
+                        type="button"
+                        className="home-external-adopt"
+                        onClick={() => handleAddHome(x.id)}
+                        title={t('home.adoptSite')}
+                      >＋</button>
+                      <button
+                        type="button"
+                        className="home-external-remove"
+                        onClick={() => handleRemoveHome(x.id)}
+                        title={t('home.removeEntry')}
+                      >✕</button>
+                    </>
+                  ) : (
+                    <span className="home-external-badge" title={t('home.externalSiteHint')}>{t('home.externalBadge')}</span>
+                  )}
+                </span>
               ))}
-              {(!activeAgent.availableProviders || activeAgent.availableProviders.length === 0) && (
-                <p className="home-empty-hint">{t('home.noAvailableProviders')}</p>
-              )}
             </div>
-          </div>
+          )}
         </div>
       )}
-      {addModelPickerFor && activeAgent && (() => {
-        const provider = activeAgent.compatibleProviders.find(p => p.id === addModelPickerFor);
-        if (!provider) return null;
-        // The picker shows models that are NOT currently visible — both
-        // auto-hidden (recent=false) and manually removed (in excludedSet).
-        const excludedSet = new Set(modelExcluded[addModelPickerFor] || []);
-        const visibleIds = new Set(provider.models.filter(m => m.recent !== false && !excludedSet.has(m.id)).map(m => m.id));
-        const hiddenModels = provider.models.filter(m => !visibleIds.has(m.id));
+      {homePickerOpen && activeAgent && (() => {
+        const modelProvider = homePickerModelFor
+          ? activeAgent.compatibleProviders.find(p => p.id === homePickerModelFor) || null
+          : null;
+        const onModels = homePickerView === 'models';
         return (
-          <div className="home-add-picker-overlay" onClick={() => setAddModelPickerFor(null)}>
+          <div className="home-add-picker-overlay" onClick={closeHomePicker}>
             <div className="home-add-picker" onClick={e => e.stopPropagation()}>
               <div className="home-add-picker-header">
-                <h3>{t('home.addModelsTitle', { name: provider.name })}</h3>
-                <button type="button" className="btn-icon" onClick={() => setAddModelPickerFor(null)}>✕</button>
-              </div>
-              <div className="home-add-picker-list">
-                {hiddenModels.length === 0 && (
-                  <p className="home-empty-hint">{t('home.noHiddenModels')}</p>
-                )}
-                {hiddenModels.map(m => (
-                  <label key={m.id} className="home-add-picker-item">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => {
-                        if (m.recent === false) {
-                          // Auto-hidden by recent filter — add to extraVisible.
-                          setExtraVisible(prev => {
-                            const cur = new Set(prev[addModelPickerFor] || []);
-                            cur.add(m.id);
-                            return { ...prev, [addModelPickerFor]: cur };
-                          });
-                        } else {
-                          // Manually excluded — remove from excludedSet.
-                          toggleModelVisible(addModelPickerFor, m.id);
+                <div className="home-add-picker-title">
+                  {onModels && homePickerFromSites && (
+                    <button
+                      type="button"
+                      className="home-picker-back-btn"
+                      onClick={() => { setProviderPickerSearch(''); setHomePickerView('sites'); }}
+                      title={t('home.backToSites')}
+                    >
+                      <ArrowLeft size={15} />
+                    </button>
+                  )}
+                  <h3>{onModels
+                    ? t('home.addModelsTitle', { name: modelProvider?.name || '' })
+                    : t('home.addProviderTitle', { name: activeAgent.name })}</h3>
+                </div>
+                <div className="home-config-viewer-actions">
+                  {onModels && modelProvider && (
+                    <button
+                      type="button"
+                      className="home-config-refresh-btn"
+                      onClick={async () => {
+                        if (modelPickerRefreshing || !homePickerModelFor) return;
+                        setModelPickerRefreshing(true);
+                        try {
+                          const res = await fetchModels(homePickerModelFor);
+                          if (!res.success && !(res.models || []).length) {
+                            showToast(res.errors?.[0]?.error || t('common.error'), 'error');
+                          } else {
+                            // Refresh = full replace on the backend — reload the
+                            // adapter data (and visibility lists) so the list
+                            // reflects new/delisted models immediately.
+                            refreshModelVisible();
+                            await load();
+                          }
+                        } catch (err: any) {
+                          showToast(err.message, 'error');
+                        } finally {
+                          setModelPickerRefreshing(false);
                         }
                       }}
-                    />
-                    <span>{m.name || m.id}</span>
-                    {m.id !== (m.name || m.id) && (
-                      <span style={{ color: 'var(--ink-muted)', fontSize: 11 }}>· {m.id}</span>
-                    )}
-                  </label>
-                ))}
+                      disabled={modelPickerRefreshing}
+                      title={t('home.refresh')}
+                    >
+                      {modelPickerRefreshing
+                        ? <Loader2 size={14} className="spin" />
+                        : <RefreshCw size={14} />}
+                    </button>
+                  )}
+                  <button type="button" className="btn-icon" onClick={closeHomePicker}>✕</button>
+                </div>
               </div>
+              {homePickerView === 'sites' ? (
+                <>
+                  <div className="home-add-picker-search">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={providerPickerSearch}
+                      onChange={e => setProviderPickerSearch(e.target.value)}
+                      placeholder={t('home.searchProviders')}
+                    />
+                  </div>
+                  <div className="home-add-picker-list">
+                    {(() => {
+                      const q = providerPickerSearch.trim().toLowerCase();
+                      const all = activeAgent.availableProviders || [];
+                      const list = q
+                        ? all.filter(p => (p.name || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q))
+                        : all;
+                      return (
+                        <>
+                          {list.map(p => (
+                            <label key={p.id} className={`home-add-picker-item${p.added ? ' added' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={p.added}
+                                onChange={async () => {
+                                  if (p.added) { handleRemoveHome(p.id); return; }
+                                  // Fresh add — then drill into its models view
+                                  // so the user curates what comes in. The back
+                                  // button returns here for more multi-select.
+                                  await handleAddHome(p.id);
+                                  setModelPickerSearch('');
+                                  setHomePickerModelFor(p.id);
+                                  setHomePickerFromSites(true);
+                                  setHomePickerView('models');
+                                }}
+                              />
+                              {(() => { const icon = getProviderIcon(p.id); return icon ? <img src={icon} alt="" className={['provider-card-brand-icon', getProviderIconClass(p.id)].filter(Boolean).join(' ')} /> : null; })()}
+                              <span>{p.name}</span>
+                            </label>
+                          ))}
+                          {all.length === 0 && (
+                            <p className="home-empty-hint">{t('home.noAvailableProviders')}</p>
+                          )}
+                          {all.length > 0 && list.length === 0 && (
+                            <p className="home-empty-hint">{t('home.pickerNoMatch')}</p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </>
+              ) : (
+                (() => {
+                  if (!modelProvider) {
+                    return <div className="home-add-picker-list"><p className="home-empty-hint">{t('home.pickerModelsGone')}</p></div>;
+                  }
+                  // The models view lists everything NOT yet added to the
+                  // card. The recent flag is a display hint only (non-coding
+                  // ids sort naturally low and carry a tag) — it no longer
+                  // gates visibility in any way.
+                  const addedSet = new Set(modelVisible[modelProvider.id] || []);
+                  const currentModelId = activeAgent.current?.providerId === modelProvider.id
+                    ? activeAgent.current?.modelId : undefined;
+                  const hiddenModels = modelProvider.models.filter(m => !addedSet.has(m.id) && m.id !== currentModelId);
+                  const modelQuery = modelPickerSearch.trim().toLowerCase();
+                  const filteredModels = modelQuery
+                    ? hiddenModels.filter(m => m.id.toLowerCase().includes(modelQuery) || (m.name || '').toLowerCase().includes(modelQuery))
+                    : hiddenModels;
+                  return (
+                    <>
+                      <div className="home-add-picker-search">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={modelPickerSearch}
+                          onChange={e => setModelPickerSearch(e.target.value)}
+                          placeholder={t('models.searchModels')}
+                        />
+                      </div>
+                      <div className="home-add-picker-list">
+                        {hiddenModels.length === 0 && (
+                          <p className="home-empty-hint">{t('home.noHiddenModels')}</p>
+                        )}
+                        {hiddenModels.length > 0 && filteredModels.length === 0 && (
+                          <p className="home-empty-hint">{t('home.pickerNoMatch')}</p>
+                        )}
+                        {filteredModels.map(m => (
+                          <label key={m.id} className="home-add-picker-item">
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              onChange={() => {
+                                addToCard(modelProvider.id, m.id);
+                                // Additive agents keep per-model entries in their
+                                // own config — checking a model here is what writes
+                                // it in. Append-only: unchecking later only hides
+                                // the OKIT chip.
+                                if (activeAgent.additive) {
+                                  applyAgentModels(activeAgent.id, modelProvider.id, [m.id])
+                                    .catch(err => showToast(err.message, 'error'));
+                                }
+                              }}
+                            />
+                            <span>{m.name || m.id}</span>
+                            {m.recent === false && (
+                              <span className="picker-noncoding-tag">{t('home.nonCodingTag')}</span>
+                            )}
+                            {m.id !== (m.name || m.id) && (
+                              <span style={{ color: 'var(--ink-muted)', fontSize: 11 }}>· {m.id}</span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()
+              )}
             </div>
           </div>
         );
@@ -702,10 +890,14 @@ export default function HomePage() {
                 const original = f.content ?? '';
                 const current = draft !== undefined ? draft : original;
                 const dirty = draft !== undefined && draft !== original;
+                // Server-truncated file: editing it would write a partial file
+                // back to disk and corrupt the config — read-only.
+                const truncated = original.endsWith('…(truncated)');
                 return (
                   <div className="home-config-file">
                     <div className="home-config-file-path">
                       <code>{f.path}</code>
+                      {truncated && <span className="home-config-truncated-tag" title={t('home.configTruncated')}>{t('home.configTruncated')}</span>}
                       {dirty && <span className="home-config-dirty-dot" title={t('home.unsavedChanges')} />}
                       <button
                         type="button"
@@ -729,7 +921,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         className={`home-config-save-btn${dirty ? ' dirty' : ''}${configSaveState === 'ok' ? ' saved' : ''}${configSaveState === 'fail' ? ' failed' : ''}`}
-                        disabled={!f.exists || (!dirty && configSaveState === 'idle') || configSaveState === 'saving' || (!configRevealed && (f.maskedCount ?? 0) > 0)}
+                        disabled={!f.exists || truncated || (!dirty && configSaveState === 'idle') || configSaveState === 'saving' || (!configRevealed && (f.maskedCount ?? 0) > 0)}
                         onClick={() => handleSaveConfig(f.path)}
                         title={t('home.save')}
                       >
@@ -744,6 +936,7 @@ export default function HomePage() {
                           className="home-config-file-editor"
                           value={current}
                           spellCheck={false}
+                          readOnly={truncated}
                           onChange={(e) => setConfigDrafts(prev => ({ ...prev, [f.path]: e.target.value }))}
                         />
                       )

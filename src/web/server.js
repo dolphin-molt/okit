@@ -7,7 +7,7 @@ const { getLogs } = require('./api/logs');
 const { getSettings, updateSettings, testPlatformConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
 const { checkWrangler, listStores, listStoreSecrets, syncToCloudflare } = require('./api/cloudflare-sync');
 const { handlePush, handlePull, handleStatus, handleExportCode, handleImportCode, handleLanStatus, handleLanEnable, handleLanDisable, handleLanRegenerate, handleLanPairingPeek, handleLanPairingCreate, handleLanPair, handleSyncOverview } = require('./api/sync');
-const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogExcluded, getCatalogExcluded, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
+const { listProviders, getAdaptersList, createProvider, updateProvider, deleteProvider, switchProvider, addHomeProvider, removeHomeProvider, applyAgentModels, disableAgentProvider, getAgentConfigFiles, saveAgentConfigFile, setCatalogVisible, getCatalogVisible, getTierMaps, setTierMap, launchAgent, getAuthStatus, verifyProviderAuth, triggerOAuthLogin, fetchModels, exportProviderCode, importProviderCode } = require('./api/providers');
 const { getUsage, getSupportedUsageProviders, openXiaomiLogin } = require('./api/usage');
 const { createGrokProxyHandler } = require('./api/grok-proxy');
 const { listSnapshotsHandler, snapshotDetailHandler, restoreSnapshotHandler } = require('./api/snapshots');
@@ -37,6 +37,11 @@ function createServer(port = 3780) {
   app.get('/api/vault/export', exportVault);
   app.post('/api/vault/import', importVault);
   app.get('/api/vault/value', getVaultValue);
+  // Agent-config key reconciliation: scan plaintext keys in agent configs,
+  // import them into the vault on request.
+  const { scanAgentKeys, importAgentKeys } = require('./api/key-import');
+  app.get('/api/vault/scan-agent-keys', scanAgentKeys);
+  app.post('/api/vault/import-agent-keys', importAgentKeys);
   app.post('/api/vault/sync-to-project', syncVaultToProject);
   app.get('/api/vault/browse-dirs', browseDirs);
   app.get('/api/vault/impact', checkKeyImpact);
@@ -144,14 +149,17 @@ function createServer(port = 3780) {
   // Home-page provider list (curated per agent).
   app.post('/api/providers/agents/:agentId/home', addHomeProvider);
   app.delete('/api/providers/agents/:agentId/home/:providerId', removeHomeProvider);
+  // Additive agents: append specific models of an already-added site into the
+  // agent's own config (used by the home "add models" picker).
+  app.post('/api/providers/agents/:agentId/models', applyAgentModels);
   // Additive agents (workbuddy): per-site disable — removes the site's entries
   // from the agent's own config while keeping it in the home list.
   app.post('/api/providers/agents/:agentId/disable', disableAgentProvider);
   app.get('/api/providers/agents/:agentId/config-files', getAgentConfigFiles);
   app.put('/api/providers/agents/:agentId/config-files', saveAgentConfigFile);
   // Codex model-catalog exclusion (which models show in /model).
-  app.get('/api/providers/catalog/excluded', getCatalogExcluded);
-  app.put('/api/providers/catalog/excluded/:providerId', setCatalogExcluded);
+  app.get('/api/providers/catalog/visible', getCatalogVisible);
+  app.put('/api/providers/catalog/visible/:providerId', setCatalogVisible);
   app.get('/api/providers/tier-maps', getTierMaps);
   app.put('/api/providers/tier-maps/:providerId', setTierMap);
   app.put('/api/providers/:id', updateProvider);

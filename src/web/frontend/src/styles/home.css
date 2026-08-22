@@ -1166,6 +1166,57 @@
 .home-add-picker-item:hover { background: rgba(0,0,0,0.04); }
 .home-add-picker-item.added { opacity: 0.6; }
 .home-add-picker-item input[type="checkbox"] { margin: 0; }
+.home-add-picker-search { padding: 10px 12px 2px; }
+.home-add-picker-search input {
+  width: 100%; box-sizing: border-box; padding: 8px 12px; font-size: 13px;
+  border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
+  background: var(--paper); color: var(--ink); outline: none;
+}
+.home-add-picker-search input::placeholder { color: var(--ink-muted); }
+.home-add-picker-search input:focus { border-color: var(--ink); }
+/* Rotating spinner for the in-picker refresh button */
+.spin { animation: okit-spin 0.9s linear infinite; }
+@keyframes okit-spin { to { transform: rotate(360deg); } }
+/* Models-view drill-down: back button (left) + title, inside picker header */
+.home-add-picker-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.home-add-picker-title h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-picker-back-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; flex-shrink: 0;
+  border: 1.5px solid var(--border, #d4cebe); border-radius: 6px;
+  background: transparent; color: var(--ink-muted); cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.home-picker-back-btn:hover { color: var(--ink); border-color: var(--ink); }
+/* Server-truncated config file warning tag (file is read-only) */
+.home-config-truncated-tag {
+  font-size: 11px; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid #d97706; color: #b45309; white-space: nowrap;
+}
+[data-theme="dark"] .home-config-truncated-tag { border-color: #f59e0b; color: #fbbf24; }
+/* Reconciliation row: config entries not on the home list */
+.home-external-sites { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.home-external-sites-label {
+  font-size: 12px; color: var(--ink-muted); cursor: default;
+  border-bottom: 1px dashed var(--border, #d4cebe); padding-bottom: 1px;
+}
+.home-external-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1.5px dashed var(--border, #d4cebe); border-radius: 999px;
+  padding: 3px 6px 3px 12px; font-size: 12px; color: var(--ink);
+}
+.home-external-chip.unknown { opacity: 0.75; }
+.home-external-chip-name { white-space: nowrap; }
+.home-external-adopt, .home-external-remove {
+  border: none; background: transparent; cursor: pointer; padding: 2px 6px;
+  font-size: 12px; color: var(--ink-muted); border-radius: 4px;
+}
+.home-external-adopt:hover { color: var(--green, #059669); }
+.home-external-remove:hover { color: #dc2626; }
+.home-external-badge {
+  font-size: 10px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid var(--border, #d4cebe); color: var(--ink-muted);
+}
 
 /* Enable/disable sliding switch on home provider cards */
 .provider-switch {
@@ -1439,4 +1490,10 @@
 [data-theme="dark"] .skeleton-shape--pill,
 [data-theme="dark"] .skeleton-shape--icon {
   background: rgba(245, 243, 235, 0.09);
+}
+/* Hint tag for auto-suspected non-coding models in the add-models picker */
+.picker-noncoding-tag {
+  font-size: 10px; padding: 0 7px; border-radius: 999px;
+  border: 1px solid var(--border, #d4cebe); color: var(--ink-muted);
+  white-space: nowrap;
 }

@@ -124,6 +124,23 @@ export interface ProviderModel {
   id: string;              // model identifier (e.g. "glm-4.7")
   name?: string;           // display name (e.g. "GLM-4.7")
   capabilities?: string[]; // ["chat", "code", "vision"]
+  // Provenance for refresh semantics: 'remote' models come from the
+  // provider's /models API and are fully replaced on every refresh (delisted
+  // ids drop out); 'user' models were added manually and are never removed
+  // automatically. Legacy entries without origin are treated as remote.
+  origin?: 'remote' | 'user';
+  // Catalog-enriched metadata from models.dev (filled when models are
+  // fetched; see web/api/models-dev.js). Heuristic fields stay separate so
+  // consumers can prefer catalog data when present.
+  meta?: {
+    source: 'modelsdev';
+    context?: number;      // context window (tokens)
+    output?: number;       // max output tokens
+    toolCall?: boolean;    // model supports tool/function calling
+    reasoning?: boolean;   // model supports reasoning/thinking
+    attachment?: boolean;  // accepts image/video inputs
+    deprecated?: boolean;
+  };
   availability?: ProviderModelAvailability[];
 }
 

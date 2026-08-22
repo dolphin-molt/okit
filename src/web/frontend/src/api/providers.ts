@@ -124,6 +124,10 @@ export interface AgentInfo {
   compatibleProviders: { id: string; name: string; type: string; baseUrl?: string; models: ProviderModel[]; allModels?: ProviderModel[]; enabled?: boolean }[];
   /** All configured-and-compatible providers, for the "+ add" picker. */
   availableProviders?: { id: string; name: string; type: string; added: boolean }[];
+  // Reconciliation: entries in the agent's own config that are not on the
+  // home list. known=true → under an OKIT provider id (adopt or remove);
+  // known=false → created outside OKIT (read-only, never touched).
+  externalSites?: { id: string; name: string; known: boolean }[];
 }
 
 // The providers payload is ~0.5 MB of JSON; parsing it on every page visit is
@@ -226,8 +230,17 @@ export async function saveAgentConfigFile(agentId: string, filePath: string, con
 
 // --- Codex model-catalog exclusion ---
 
-export async function getCatalogExcluded(): Promise<{ excluded: Record<string, string[]> }> {
-  return api('/api/providers/catalog/excluded');
+export async function getCatalogVisible(): Promise<{ visible: Record<string, string[]> }> {
+  return api('/api/providers/catalog/visible');
+}
+
+// Set the model ids shown on a provider's card (inclusion model: the list of
+// models the user ADDED; absent/empty = empty card).
+export async function setCatalogVisible(providerId: string, visible: string[]): Promise<{ success: boolean; providerId: string; visible: string[] }> {
+  return api(`/api/providers/catalog/visible/${encodeURIComponent(providerId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ visible }),
+  });
 }
 
 export async function setCatalogExcluded(providerId: string, excluded: string[]): Promise<{ success: boolean; providerId: string; excluded: string[] }> {
@@ -284,6 +297,16 @@ export async function fetchModels(providerId?: string, config?: { endpoints?: Pr
   return api('/api/providers/fetch-models', {
     method: 'POST',
     body: JSON.stringify({ providerId, ...config }),
+  });
+}
+
+// Append specific models of an already-added site into an additive agent's
+// own config (used by the home "add models" picker). No-op for non-additive
+// agents — they write the single model on switch instead.
+export async function applyAgentModels(agentId: string, providerId: string, modelIds: string[]): Promise<{ success: boolean; skipped?: string[] }> {
+  return api(`/api/providers/agents/${encodeURIComponent(agentId)}/models`, {
+    method: 'POST',
+    body: JSON.stringify({ providerId, modelIds }),
   });
 }
 

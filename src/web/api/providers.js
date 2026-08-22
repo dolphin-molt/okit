@@ -73,6 +73,8 @@ function tagRecentModels(models) {
   });
 }
 
+// Default model budget for newly added sites: keep the first N models of the
+
 // Sort all providers alphabetically by display name. Chinese names sort by
 // pinyin (zh-Hans-CN), English names sort A-Z, mixed lists interleave.
 function sortProviders(arr) {
@@ -300,6 +302,22 @@ async function getAdaptersList(req, res) {
             id: p.id, name: p.name, type: p.type,
             added: homeSet.has(p.id),
           })),
+        // Reconciliation: entries living in the agent's own config file but
+        // NOT on the home list — written by old OKIT versions before the
+        // home-list curation existed, orphaned when ownership tracking was
+        // lost, or created by the user outside OKIT. Entries under a known
+        // OKIT provider id can be adopted into the home list or removed;
+        // unknown ids are the user's own and surface read-only (never
+        // touched).
+        externalSites: ADDITIVE_AGENTS.has(adapter.id)
+          ? [...enabledSet]
+              .filter(id => !homeSet.has(id) && !id.startsWith('builtin:'))
+              .map(id => {
+                const known = providers.find(p => p.id === id);
+                return { id, name: (known && known.name) || id, known: !!known };
+              })
+              .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+          : [],
       };
     }));
 
@@ -559,7 +577,12 @@ async function switchProvider(req, res) {
       console.warn(`[switchProvider] snapshot failed: ${snapErr.message}`);
     }
     try {
-      await agentAdapter.applyConfig(route.provider, route.remoteModelId);
+      // Filtered provider: the card's visible model set + the model being
+      // switched to. Adapters write provider.models into agent configs and
+      // must not receive the platform's full catalog.
+      const visibilityConfig = await loadUserConfig();
+      const agentProvider = providerForAgentWrite(visibilityConfig, provider, [modelId]);
+      await agentAdapter.applyConfig(agentProvider, route.remoteModelId);
     } catch (applyErr) {
       appendLog('provider-switch', `${agentId}:${providerId}`, false, `applyConfig failed: ${applyErr.message}`);
       throw applyErr;
@@ -609,6 +632,66 @@ async function switchProvider(req, res) {
 // provider to the home list does NOT switch to it; it just surfaces it for
 // quick switching. Removing hides it from the home list without deleting it.
 
+// ─── Model visibility: inclusion model ─────────────────────────────────────
+//
+// One list per provider — codexCatalogVisible — holding the model ids the
+// user ADDED to the card. Default (absent) = empty card; the user curates by
+// adding, never by hiding. Replaced the old exclusion model (hide list +
+// stealth-restore list + recent auto-hide gating): with an empty-by-default
+// card those mechanisms are redundant — the picker simply lists everything
+// not added yet, with the recent flag as a display-ordering hint only.
+
+// Legacy → inclusion migration. visible = (recent && not hidden) ∪ restored.
+// Providers without any legacy state keep their "all recent visible" cards.
+// Runs once; drops the legacy fields afterwards.
+async function migrateVisibility(config) {
+  if (config.codexCatalogVisibleMigrated) return config;
+  const providers = await loadProviders();
+  const visible = {};
+  for (const p of providers) {
+    const excluded = new Set((config.codexCatalogExcluded || {})[p.id] || []);
+    const extra = new Set((config.codexCatalogExtra || {})[p.id] || []);
+    visible[p.id] = tagRecentModels(p.models || [])
+      .filter(m => extra.has(m.id) || (!excluded.has(m.id) && m.recent))
+      .map(m => m.id);
+  }
+  config.codexCatalogVisible = visible;
+  config.codexCatalogVisibleMigrated = true;
+  delete config.codexCatalogExcluded;
+  delete config.codexCatalogExtra;
+  return config;
+}
+
+// The visible ids for one provider; falls back to legacy computation if the
+// migration hasn't run yet (write paths must stay correct even pre-migration).
+function visibleIdsFor(config, provider) {
+  if (config.codexCatalogVisibleMigrated) {
+    return (config.codexCatalogVisible || {})[provider.id] || [];
+  }
+  const excluded = new Set((config.codexCatalogExcluded || {})[provider.id] || []);
+  const extra = new Set((config.codexCatalogExtra || {})[provider.id] || []);
+  return tagRecentModels(provider.models || [])
+    .filter(m => extra.has(m.id) || (!excluded.has(m.id) && m.recent))
+    .map(m => m.id);
+}
+
+// The provider object handed to agent adapters carries ONLY the card's
+// visible (user-added) model set — adapters write provider.models into the
+// agent's own config, so passing the full catalog would flood the agent's
+// model picker. The batch being written and any model an agent currently has
+// selected on this provider are always included (an in-use model must never
+// be dropped from the agent's config just because it's off the card).
+function providerForAgentWrite(config, provider, extraIds) {
+  const visible = new Set([...visibleIdsFor(config, provider), ...(extraIds || [])]);
+  const active = new Set(
+    Object.values(config.providers || {})
+      .filter(sel => sel && sel.providerId === provider.id && sel.modelId)
+      .map(sel => sel.modelId),
+  );
+  const models = (provider.models || []).filter(m => visible.has(m.id) || active.has(m.id));
+  return { ...provider, models };
+}
+
 async function addHomeProvider(req, res) {
   try {
     const { agentId } = req.params;
@@ -622,6 +705,18 @@ async function addHomeProvider(req, res) {
     if (!list.includes(providerId)) list.push(providerId);
     home[agentId] = list;
     config.homeProviders = home;
+
+    const providers = await loadProviders();
+    const provider = providers.find(p => p.id === providerId);
+
+    // Adding a site starts EMPTY: no visible-models entry is created, and any
+    // earlier entry for this provider is dropped — re-adding = fresh start.
+    await migrateVisibility(config);
+    if (config.codexCatalogVisible && providerId in config.codexCatalogVisible) {
+      const nextVisible = { ...config.codexCatalogVisible };
+      delete nextVisible[providerId];
+      config.codexCatalogVisible = nextVisible;
+    }
 
     // Additive agents (workbuddy/zcode): adding a provider to the home list
     // also writes its models into the agent's own config so the agent's model
@@ -638,23 +733,28 @@ async function addHomeProvider(req, res) {
       try {
         const jsAdapter = ADAPTERS.find(a => a.id === agentId);
         const agentAdapter = _getAdapter(agentId);
-        const providers = await loadProviders();
-        const provider = providers.find(p => p.id === providerId);
         if (jsAdapter && agentAdapter && typeof agentAdapter.applyModels === 'function' && provider) {
-          const excluded = new Set(config.codexCatalogExcluded?.[providerId] || []);
-          const tagged = tagRecentModels(provider.models || []);
-          let candidates = tagged.filter(m => m.recent && !excluded.has(m.id));
-          if (candidates.length === 0) candidates = tagged.filter(m => !excluded.has(m.id));
-          entries = [];
-          for (const m of candidates) {
-            try {
-              const route = resolveModelRoute(provider, m.id, jsAdapter);
-              entries.push({ provider: route.provider, modelId: route.remoteModelId });
-            } catch { /* model not routable for this agent — skip */ }
+          const visible = new Set(visibleIdsFor(config, provider));
+          const candidates = (provider.models || []).filter(m => visible.has(m.id));
+          // Fresh add = empty card → nothing to write yet. The user checks
+          // models in the "add models" view, which writes them via
+          // applyAgentModels — no empty provider entry here.
+          if (candidates.length > 0) {
+            // Hand the adapter a provider whose model list is exactly the
+            // visible set — adapters write provider.models into the agent
+            // config and must not see the full catalog.
+            const writeProvider = { ...provider, models: candidates };
+            entries = [];
+            for (const m of candidates) {
+              try {
+                const route = resolveModelRoute(provider, m.id, jsAdapter);
+                entries.push({ provider: writeProvider, modelId: route.remoteModelId });
+              } catch { /* model not routable for this agent — skip */ }
+            }
+            await snapBeforeWrite(agentId, 'addHomeProvider');
+            const result = await agentAdapter.applyModels(entries);
+            skippedModels = result.skipped;
           }
-          await snapBeforeWrite(agentId, 'addHomeProvider');
-          const result = await agentAdapter.applyModels(entries);
-          skippedModels = result.skipped;
         }
       } catch (e) {
         appendLog('home-provider-add', `${agentId}:${providerId}`, false, `agent config write failed: ${e.message}`);
@@ -713,6 +813,18 @@ async function removeHomeProvider(req, res) {
       home[agentId] = list;
     }
     config.homeProviders = home;
+
+    // Deleting a site deletes its state: once the provider is no longer on
+    // ANY agent's home list, drop its visible-models list so a later re-add
+    // is a genuine fresh start. Still listed on another agent → stays (the
+    // list is shared per provider, not per agent).
+    await migrateVisibility(config);
+    const stillListed = Object.values(home).some(l => Array.isArray(l) && l.includes(providerId));
+    if (!stillListed && config.codexCatalogVisible && providerId in config.codexCatalogVisible) {
+      const nextVisible = { ...config.codexCatalogVisible };
+      delete nextVisible[providerId];
+      config.codexCatalogVisible = nextVisible;
+    }
     await saveUserConfig(config);
 
     const warnings = [];
@@ -762,6 +874,58 @@ async function removeHomeProvider(req, res) {
       warnings.length ? warnings.join('; ') : undefined);
     res.json({ success: true, homeProviders: list, warnings });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Write specific models of a home provider into an additive agent's own
+// config. Called when the user checks models in the "add models" picker —
+// with the empty-by-default add flow this is the moment models actually enter
+// the agent. Append-only by design (adapters don't support per-model removal);
+// unchecking a model later only hides it from the OKIT card.
+async function applyAgentModels(req, res) {
+  try {
+    const { agentId } = req.params;
+    const { providerId, modelIds } = req.body;
+    if (!agentId || !providerId || !Array.isArray(modelIds) || modelIds.length === 0) {
+      return res.status(400).json({ error: 'Missing agentId, providerId or modelIds' });
+    }
+    if (!ADDITIVE_AGENTS.has(agentId)) {
+      // Non-additive agents don't keep per-model entries — switching writes
+      // the single selected model. Nothing to do here.
+      return res.json({ success: true, skipped: [] });
+    }
+    const jsAdapter = ADAPTERS.find(a => a.id === agentId);
+    const agentAdapter = _getAdapter(agentId);
+    if (!jsAdapter || !agentAdapter || typeof agentAdapter.applyModels !== 'function') {
+      return res.status(404).json({ error: `Agent not supported: ${agentId}` });
+    }
+    const providers = await loadProviders();
+    const provider = providers.find(p => p.id === providerId);
+    if (!provider) return res.status(404).json({ error: `Provider 不存在: ${providerId}` });
+
+    const entries = [];
+    const skipped = [];
+    // Filtered provider: visible set + the batch, so adapters write exactly
+    // what the user curated (not the platform's full catalog).
+    const writeConfig = await loadUserConfig();
+    const writeProvider = providerForAgentWrite(writeConfig, provider, modelIds);
+    for (const modelId of modelIds) {
+      try {
+        const route = resolveModelRoute(provider, modelId, jsAdapter);
+        entries.push({ provider: writeProvider, modelId: route.remoteModelId });
+      } catch { skipped.push(modelId); }
+    }
+    if (entries.length === 0) {
+      return res.status(400).json({ error: '没有可写入的模型', skipped });
+    }
+    await snapBeforeWrite(agentId, 'applyAgentModels');
+    const result = await agentAdapter.applyModels(entries);
+    appendLog('agent-models-apply', `${agentId}:${providerId}`, true,
+      result.skipped && result.skipped.length ? `skipped ${result.skipped.length}` : undefined);
+    res.json({ success: true, skipped: [...skipped, ...(result.skipped || [])] });
+  } catch (err) {
+    appendLog('agent-models-apply', `${req.params.agentId}:${(req.body || {}).providerId}`, false, err.message);
     res.status(500).json({ error: err.message });
   }
 }
@@ -924,8 +1088,12 @@ async function getAgentConfigFiles(req, res) {
       if (exists) {
         try {
           content = await fs.readFile(fullPath, 'utf-8');
-          // Cap at 64KB so a pathological file can't blow up the UI.
-          if (content.length > 65536) content = content.slice(0, 65536) + '\n…(truncated)';
+          // Cap at 256KB so a pathological file can't blow up the UI. Real
+          // agent configs (zcode v2/config.json runs >100KB pretty-printed
+          // with per-model entries) must stay intact — a truncated JSON blob
+          // also loses tree view and, worse, saving it back would corrupt
+          // the file (the frontend marks truncated files read-only).
+          if (content.length > 262144) content = content.slice(0, 262144) + '\n…(truncated)';
           if (!reveal) {
             const masked = maskConfigContent(content, rel);
             content = masked.content;
@@ -992,27 +1160,32 @@ async function saveAgentConfigFile(req, res) {
 // visible" without the user having to opt in. Toggling rewrites the catalog
 // immediately so the change is reflected next time Codex reads it.
 
-async function setCatalogExcluded(req, res) {
+// Per-provider list of model ids the user ADDED to the card (inclusion
+// model — see migrateVisibility). Absent entry = empty card.
+async function setCatalogVisible(req, res) {
   try {
     const { providerId } = req.params;
-    const { excluded } = req.body; // string[] of model ids to EXCLUDE
-    if (!providerId || !Array.isArray(excluded)) {
-      return res.status(400).json({ error: 'Missing providerId or excluded[]' });
+    const { visible } = req.body; // string[] of model ids to show
+    if (!providerId || !Array.isArray(visible)) {
+      return res.status(400).json({ error: 'Missing providerId or visible[]' });
     }
     const config = await loadUserConfig();
-    if (!config.codexCatalogExcluded) config.codexCatalogExcluded = {};
-    config.codexCatalogExcluded[providerId] = excluded;
+    await migrateVisibility(config);
+    if (!config.codexCatalogVisible) config.codexCatalogVisible = {};
+    config.codexCatalogVisible[providerId] = visible;
     await saveUserConfig(config);
-    res.json({ success: true, providerId, excluded });
+    res.json({ success: true, providerId, visible });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 }
 
-async function getCatalogExcluded(_req, res) {
+async function getCatalogVisible(_req, res) {
   try {
     const config = await loadUserConfig();
-    res.json({ excluded: config.codexCatalogExcluded || {} });
+    await migrateVisibility(config);
+    await saveUserConfig(config); // persist the one-time migration
+    res.json({ visible: config.codexCatalogVisible || {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1679,50 +1852,69 @@ function withNativeAvailability(provider, models, source = 'static') {
   }));
 }
 
-function mergeEndpointDiscoveries(provider, discoveries, successfulEndpointIds) {
+// Full-replace refresh semantics for remote-origin models. After a successful
+// /models fetch, the platform's list is the source of truth: ids the platform
+// no longer returns are DROPPED (keeping them would let users select models
+// that 404), while user-added models (origin 'user') and any model an agent
+// currently has selected on THIS provider survive untouched. Legacy entries
+// (no origin) are treated as remote. Availability is rebuilt from this
+// fetch's discoveries for refreshed models, preserved for survivors.
+function replaceRemoteModels(provider, discoveries, activeModelIds) {
   const now = new Date().toISOString();
-  const models = new Map((provider.models || []).map(model => [model.id, {
-    ...model,
-    availability: Array.isArray(model.availability) ? model.availability.map(item => ({ ...item })) : [],
-  }]));
-
-  for (const model of models.values()) {
-    model.availability = model.availability.map(item =>
-      item.endpointId && successfulEndpointIds.has(item.endpointId)
-        ? { ...item, status: 'unavailable' }
-        : item,
-    );
-    if (model.availability.length === 0) {
-      model.availability.push({
+  const byId = new Map();
+  for (const d of discoveries) {
+    if (!byId.has(d.model.id)) byId.set(d.model.id, []);
+    byId.get(d.model.id).push(d);
+  }
+  const next = [];
+  const seen = new Set();
+  for (const model of provider.models || []) {
+    const fresh = byId.get(model.id);
+    const survives = model.origin === 'user' || activeModelIds.has(model.id);
+    if (!fresh && !survives) continue; // delisted — drop
+    const entry = { ...model };
+    if (fresh) {
+      entry.origin = 'remote';
+      entry.name = model.name || fresh[0].model.name || model.id;
+      entry.availability = fresh.map(d => ({
+        executionMode: 'http_endpoint',
+        endpointId: d.endpointId,
+        remoteModelId: d.model.id,
+        status: 'available',
+        source: 'remote',
+        discoveredAt: now,
+        lastSeenAt: now,
+      }));
+    }
+    if (!Array.isArray(entry.availability) || entry.availability.length === 0) {
+      entry.availability = [{
         executionMode: 'http_endpoint',
         remoteModelId: model.id,
         status: 'unknown',
         source: 'legacy_unknown',
-      });
+      }];
     }
+    next.push(entry);
+    seen.add(model.id);
   }
-
-  for (const discovery of discoveries) {
-    const existing = models.get(discovery.model.id) || {
-      id: discovery.model.id,
-      name: discovery.model.name || discovery.model.id,
-      capabilities: discovery.model.capabilities,
-      availability: [],
-    };
-    existing.name = discovery.model.name || existing.name || discovery.model.id;
-    existing.availability = existing.availability.filter(item => item.endpointId !== discovery.endpointId);
-    existing.availability.push({
-      executionMode: 'http_endpoint',
-      endpointId: discovery.endpointId,
-      remoteModelId: discovery.model.id,
-      status: 'available',
-      source: 'remote',
-      discoveredAt: now,
-      lastSeenAt: now,
+  for (const [id, list] of byId) {
+    if (seen.has(id)) continue;
+    next.push({
+      id,
+      name: list[0].model.name || id,
+      origin: 'remote',
+      availability: list.map(d => ({
+        executionMode: 'http_endpoint',
+        endpointId: d.endpointId,
+        remoteModelId: d.model.id,
+        status: 'available',
+        source: 'remote',
+        discoveredAt: now,
+        lastSeenAt: now,
+      })),
     });
-    models.set(existing.id, existing);
   }
-  return Array.from(models.values());
+  return next;
 }
 
 async function fetchModels(req, res) {
@@ -1736,10 +1928,24 @@ async function fetchModels(req, res) {
     if (!p && !previewConfig) return res.status(404).json({ error: 'Provider 不存在' });
 
     if (p?.id === 'openai-codex' && !previewConfig) {
-      const models = withNativeAvailability(p, await readCodexCachedModels(), 'cli');
-      p.models = models;
-      await saveProviders(providers);
-      return res.json({ success: true, models });
+      // The ChatGPT subscription exposes no list-models API — Codex's own
+      // runtime cache is the only fresh source. But OKIT must not HARD-depend
+      // on another tool having run: when the cache isn't there yet, fall back
+      // to the bundled preset list instead of failing the whole fetch.
+      let cached = [];
+      try {
+        cached = await readCodexCachedModels();
+      } catch { /* not run yet — preset list stands in */ }
+      const source = cached.length ? cached : (p.models || []);
+      if (source.length) {
+        p.models = withNativeAvailability(p, source, 'cli');
+        await saveProviders(providers);
+      }
+      return res.json({
+        success: source.length > 0,
+        models: p.models || source,
+        kept: source.length === 0 ? p.models : undefined,
+      });
     }
 
     if (p?.id === 'xai-grok-build' && !previewConfig) {
@@ -1800,7 +2006,35 @@ async function fetchModels(req, res) {
     }
 
     if (allModels.length > 0 && p && !previewConfig) {
-      p.models = mergeEndpointDiscoveries(p, discoveries, successfulEndpointIds);
+      // Refresh = full replace of remote models (delisted ids drop out).
+      // Models any agent currently has selected on this provider survive so
+      // an in-flight selection never dangles.
+      const userConfig = await loadUserConfig();
+      const activeModelIds = new Set(
+        Object.values(userConfig.providers || {})
+          .filter(sel => sel && sel.providerId === providerId && sel.modelId)
+          .map(sel => sel.modelId),
+      );
+      p.models = replaceRemoteModels(p, discoveries, activeModelIds);
+      // models.dev enrichment: platform /models gives bare ids — attach
+      // context/output/tool/reasoning/multimodal metadata from the catalog.
+      try {
+        p.models = await require('./models-dev').enrichModels(p, p.models);
+      } catch (enrichErr) {
+        console.warn(`[fetchModels] models.dev enrichment failed: ${enrichErr.message}`);
+      }
+      // Drop visible ids the platform no longer lists (delisted models must
+      // leave the card, not linger as ghost chips).
+      const userCfg = await loadUserConfig();
+      await migrateVisibility(userCfg);
+      if (userCfg.codexCatalogVisible && Array.isArray(userCfg.codexCatalogVisible[providerId])) {
+        const freshIds = new Set(p.models.map(m => m.id));
+        const pruned = userCfg.codexCatalogVisible[providerId].filter(id => freshIds.has(id));
+        if (pruned.length !== userCfg.codexCatalogVisible[providerId].length) {
+          userCfg.codexCatalogVisible = { ...userCfg.codexCatalogVisible, [providerId]: pruned };
+          await saveUserConfig(userCfg);
+        }
+      }
       await saveProviders(providers);
     }
 
@@ -2153,12 +2387,13 @@ module.exports = {
   switchProvider,
   addHomeProvider,
   removeHomeProvider,
+  applyAgentModels,
   disableAgentProvider,
   getAgentConfigFiles,
   saveAgentConfigFile,
   agentConfigPresence,
-  setCatalogExcluded,
-  getCatalogExcluded,
+  setCatalogVisible,
+  getCatalogVisible,
   getTierMaps,
   setTierMap,
   launchAgent,

@@ -114,7 +114,10 @@ export type UserConfig = {
   // UNCHECKED in the UI. When writing ~/.codex/model-catalogs/..., the codex
   // adapter omits these so /model only lists models the user wants. Absent
   // entry = all models included (default "all checked").
-  codexCatalogExcluded?: Record<string, string[]>;
+  // Models the user ADDED to a provider's card (inclusion model; absent =
+  // empty card). Replaced the legacy exclusion/extra pair.
+  codexCatalogVisible?: Record<string, string[]>;
+  codexCatalogVisibleMigrated?: boolean;
   // Claude Code tier mapping: per-provider overrides for the three Anthropic
   // model tiers. Keys are providerIds; values are { haiku, sonnet, opus }
   // model-id strings. When a claude provider is switched, the adapter reads
@@ -168,7 +171,8 @@ export async function updateUserConfig(patch: Partial<UserConfig>): Promise<User
     recentModels: patch.recentModels ?? current.recentModels,
     // Per-agent home-page provider lists: merge per agent key.
     homeProviders: patch.homeProviders ? { ...current.homeProviders, ...patch.homeProviders } : current.homeProviders,
-    codexCatalogExcluded: patch.codexCatalogExcluded ? { ...current.codexCatalogExcluded, ...patch.codexCatalogExcluded } : current.codexCatalogExcluded,
+    codexCatalogVisible: patch.codexCatalogVisible ? { ...current.codexCatalogVisible, ...patch.codexCatalogVisible } : current.codexCatalogVisible,
+    codexCatalogVisibleMigrated: patch.codexCatalogVisibleMigrated ?? current.codexCatalogVisibleMigrated,
     claudeTierMaps: patch.claudeTierMaps ? { ...current.claudeTierMaps, ...patch.claudeTierMaps } : current.claudeTierMaps,
     sync: patch.sync ? {
       ...current.sync,

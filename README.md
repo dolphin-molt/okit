@@ -68,9 +68,8 @@ npx skills add Cing-self/okit --skill okit-cli
 - **密钥库**：加密存储、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步
 - **Provider/模型管控**：40 个平台预置（官方/聚合/国内），10 个 Agent 适配器，多端点协议（anthropic/openai 兼容），认证状态检测，订阅/API/第三方三模式凭证管理
 - **一键创建 Key**：浏览器扩展在官方控制台内自动填表创建并回填（支持 31 个平台，含火山引擎、智谱、百度千帆等）
-- **用量查询**：30+ 个订阅/余额来源直查，阈值告警（本地通知；Cloud Pro 可远程 Webhook）
+- **用量查询**：30+ 个订阅/余额来源直查，阈值告警（本地通知）
 - **模型目录**：全平台官方定价与能力数据（输入/输出/缓存价、上下文窗口），峰谷价直呈
-- **Cloud Pro（可选订阅）**：跨设备用量历史 + 远程 Webhook 告警。本地功能永久免费，云端只上传用量数字，API Key 永不上传
 
 ## 开发
 
@@ -85,7 +84,7 @@ cd src/web/frontend && npm run dev   # 前端开发服务器（:5173 → 代理 
 
 ## 文档
 
-- [用户手册](docs/user-manual.md)（[English](docs/user-manual.en.md)）
+- [用户手册](docs/manual/zh/)（[English](docs/manual/en/)，含产品截图）
 - [模型定价与能力数据](docs/model-pricing-and-capabilities.md)
 - [贡献指南](CONTRIBUTING.md)
 

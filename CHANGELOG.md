@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **29+ Provider Presets**: Built-in presets for major AI model providers (international official, aggregator, Chinese platforms) with multi-endpoint protocol support (anthropic/openai-compatible)
 - **10 Agent Adapters**: Surgical config switching for Claude Code, ChatGPT Codex, Kimi Code, WorkBuddy, Hermes, OpenCode and more — snapshots before each switch, one-click restore in Settings
 - **Auto-create API Keys**: Browser extension auto-fills provider console forms and files keys back to the vault (31 platforms including Volcengine, Zhipu, Baidu Qianfan)
-- **Usage Queries**: Direct API queries across 15 platforms for subscription/balance/usage with threshold alerts (local notification; Cloud Pro: remote webhook)
+- **Usage Queries**: Direct API queries across 15 platforms for subscription/balance/usage with threshold alerts (local notification)
 - **Model Catalog**: Platform-consolidated official pricing & capability data (input/output/cache prices, context windows, peak/off-peak pricing)
 - **CI**: Three-platform CI (macOS, Linux, Windows) with lint, typecheck, test, and frontend build
 

@@ -16,6 +16,9 @@ src/web/public/
 # Tool / temp directories
 .workbuddy/
 .zcode/
+.claude/
+.mimocode/
+.codex/
 output/
 nul
 src/public/

@@ -23,14 +23,14 @@ npm run build        # tsc compile → extension/dist/
 1. Open `chrome://extensions/`
 2. Enable **Developer mode** (top right)
 3. Click **Load unpacked**
-4. Select the extension directory — npm users pick the path printed by `okit extension path`, source users pick `extension/dist/`
+4. Select the extension ROOT directory that contains `manifest.json` — npm / script installs pick the path printed by `okit extension path`, source users pick the repo's `extension/` directory (after building `dist/`). Not the `dist` subdirectory itself.
 
 The extension list should now show "OKIT".
 
 ## 3.3 Verify the connection
 
-1. Start OKIT (`okit web`, confirm port 3780)
-2. The extension connects to `ws://localhost:3780/ws/extension` automatically
+1. Start OKIT (`okit web`)
+2. The extension probes ports 3780–3785 in order, locks onto the first OKIT server that answers, and connects over WebSocket (authenticated with a one-time token) — it keeps working when OKIT falls back to 3781+
 3. A line like `[WS] Extension hello: v2.x.x protocol=...` in the OKIT log means connected
 4. You can also check the extension status under **Vault → Auto-create**
 

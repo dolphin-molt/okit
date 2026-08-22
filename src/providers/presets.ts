@@ -670,20 +670,17 @@ export const PRESET_PROVIDERS: Omit<Provider, 'vaultKey'>[] = [
     baseUrl: "https://opencode.ai/zen/v1",
     endpoints: [
       { type: "openai", protocol: "chat", baseUrl: "https://opencode.ai/zen/v1" },
+      // The gateway speaks BOTH protocols on this host — the anthropic
+      // handler appends /v1/messages and /v1/models itself, so the endpoint
+      // base carries NO /v1 (with /v1 it would double up: /zen/v1/v1/models).
+      // Live-verified 2026-08-22: x-api-key "public" + x-preview-f-free on
+      // /v1/messages returns a proper Anthropic-format reply, so Claude Code
+      // can use the free tier through this endpoint. NOTE the gateway only
+      // translates ARRAY-form content blocks — plain string content reaches
+      // upstream empty (harmless: the Anthropic SDK Claude Code uses always
+      // sends array form).
+      { type: "anthropic", baseUrl: "https://opencode.ai/zen" },
     ],
-    // A second anthropic-protocol endpoint (https://opencode.ai/zen, paid
-    // Claude models only) is deliberately NOT bundled: with the free-tier
-    // "public" key it always fails auth, so every free user would see a
-    // permanently half-invalid card. Users who buy credits can add it back
-    // in the provider editor (+ 添加端点 → anthropic → https://opencode.ai/zen).
-    // The free tier needs NO signup: the gateway accepts the literal key
-    // "public" for -free models (this is exactly how the opencode client
-    // itself works — provider.ts sends apiKey: "public" when unauthenticated;
-    // verified live 2026-08-20 with real completions on
-    // deepseek-v4-flash-free and mimo-v2.5-free). Paid models require a real
-    // key from opencode.ai/auth (web signup + billing). The anthropic
-    // endpoint only carries paid Claude models, so "public" fails there by
-    // design — set the vault key to "public" for free-tier usage.
     authMode: "api_key",
     models: [
       // Free tier (input/output/cache all free; data may be used for training)

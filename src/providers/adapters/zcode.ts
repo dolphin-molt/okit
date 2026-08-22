@@ -262,10 +262,6 @@ export class ZCodeAdapter extends BaseAdapter {
     return managed && typeof managed === "object" ? managed : {};
   }
 
-  private modelNamesFor(provider: Provider): Map<string, string> {
-    return new Map(provider.models.map(m => [m.id, m.name || m.id]));
-  }
-
   async applyConfig(provider: Provider, modelId: string): Promise<void> {
     const apiKey = await this.resolveApiKey(provider);
     const data = await readV2Config();
@@ -280,8 +276,15 @@ export class ZCodeAdapter extends BaseAdapter {
       );
     }
 
-    data.provider[provider.id] = buildProviderEntry(provider, this.modelNamesFor(provider), format, apiKey);
-    managed[provider.id] = provider.models.map(m => m.id);
+    // provider.models is the card's visible (curated) set, prepared by the
+    // caller — never the platform's full catalog, which would flood ZCode's
+    // model picker. The model being switched to is always included.
+    const names = new Map(provider.models.map(m => [m.id, m.name || m.id]));
+    if (!names.has(modelId)) {
+      names.set(modelId, provider.models.find(m => m.id === modelId)?.name || modelId);
+    }
+    data.provider[provider.id] = buildProviderEntry(provider, names, format, apiKey);
+    managed[provider.id] = [...names.keys()];
 
     await writeV2Config(data);
     await syncMediaOverrides(provider.id, provider);
@@ -316,13 +319,17 @@ export class ZCodeAdapter extends BaseAdapter {
       if (!apiKeys.has(providerId)) {
         apiKeys.set(providerId, await this.resolveApiKey(group.provider));
       }
-      // Merge into the existing models map so re-enabling a site with more
-      // models doesn't drop the ones already written.
-      const names = new Map([...(existing?.models && typeof existing.models === "object" ? Object.keys(existing.models) : []).map(id => [id, (existing.models as any)[id]?.name || id] as [string, string]), ...this.modelNamesFor(group.provider)]);
-      for (const modelId of group.modelIds) {
-        const model = group.provider.models.find(m => m.id === modelId);
-        if (model) names.set(modelId, model.name || modelId);
-        else names.set(modelId, modelId);
+      // The models map mirrors what OKIT currently curates for this site:
+      // the (caller-filtered) visible set + this batch. managedModels may
+      // hold stale ids from older full-list writes — it is ownership
+      // tracking, never the source of truth for what to write.
+      const names = new Map<string, string>();
+      for (const m of group.provider.models) {
+        names.set(m.id, m.name || m.id);
+      }
+      for (const id of group.modelIds) {
+        const model = group.provider.models.find(m => m.id === id);
+        names.set(id, model?.name || id);
       }
       data.provider[providerId] = buildProviderEntry(group.provider, names, format, apiKeys.get(providerId));
       managed[providerId] = [...new Set([...(managed[providerId] || []), ...group.modelIds])];
@@ -440,10 +447,15 @@ export class ZCodeAdapter extends BaseAdapter {
     const config = await loadUserConfig();
     const sel = (config as any).providers?.zcode || {};
     const managed = await this.readManaged();
-    if (!(providerId in managed) && sel.providerId !== providerId) return;
-
     const data = await readV2Config();
-    if (typeof data.provider === "object" && data.provider !== null && providerId in data.provider) {
+    const hasEntry = typeof data.provider === "object" && data.provider !== null && providerId in data.provider;
+    // Owned = tracked in managedModels, the current selection, or a config
+    // entry under a non-builtin id. managedModels can lose records to sync
+    // overwrites of user.json — the config entry itself (under an OKIT
+    // provider id, never a ZCode builtin:*) is evidence OKIT wrote it.
+    if (!(providerId in managed) && sel.providerId !== providerId && (providerId.startsWith("builtin:") || !hasEntry)) return;
+
+    if (hasEntry) {
       delete data.provider[providerId];
       await writeV2Config(data);
     }

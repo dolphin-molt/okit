@@ -130,16 +130,23 @@ const MODEL_CATALOG_REF = "~/.codex/model-catalogs/model-catalogs.json";
 // (https://mimo.mi.com/docs/zh-CN/tokenplan/integration/codex-configuration),
 // which is Codex's native model-catalog shape.
 async function writeModelCatalog(provider: Provider): Promise<void> {
-  // Read the user's exclusion list for this provider (models UNCHECKED in the
-  // UI). Absent entry = all models included (default "all checked").
-  const userConfig = await loadUserConfig();
-  const excluded = new Set<string>(userConfig.codexCatalogExcluded?.[provider.id] || []);
+  // Read the user's visible-models list for this provider (models ADDED on
+  // the card — inclusion model). Pre-migration configs fall back to the
+  // legacy exclusion computation so the catalog stays correct either way.
+  const userConfig = await loadUserConfig() as any;
+  const visibleIds = userConfig.codexCatalogVisibleMigrated && userConfig.codexCatalogVisible
+    ? new Set<string>(userConfig.codexCatalogVisible[provider.id] || [])
+    : new Set<string>(
+        (provider.models || [])
+          .map(m => m.id)
+          .filter(id => !(userConfig.codexCatalogExcluded?.[provider.id] || []).includes(id)),
+      );
 
-  // Build the catalog from the provider's model list, omitting excluded models.
-  // Each entry carries the fields Codex requires; unknown capabilities default
-  // to safe values. Gateway models (opencode.ai / openrouter.ai free tiers)
-  // get their real context window from gateway.ts so Codex doesn't overshoot.
-  const included = provider.models.filter(m => !excluded.has(m.id));
+  // Build the catalog from the visible models. Each entry carries the fields
+  // Codex requires; unknown capabilities default to safe values. Gateway
+  // models (opencode.ai / openrouter.ai free tiers) get their real context
+  // window from gateway.ts so Codex doesn't overshoot.
+  const included = provider.models.filter(m => visibleIds.has(m.id));
   const entries = included.map((m, i) => {
     const limit = modelLimitFor(provider.baseUrl, m.id);
     const contextWindow = limit?.context ?? 128000;

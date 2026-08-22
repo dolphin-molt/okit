@@ -125,7 +125,11 @@ describe('KimiCodeAdapter.applyConfig (v2 config format)', () => {
     const toml = mocks.files.get(CONFIG_PATH)!;
     expect(toml).toContain('max_context_size = 200000');
     expect(toml).toContain('max_output_size = 128000');
-    expect(toml).toContain('custom_headers = { "User-Agent" = "opencode/1.18.15" }');
+    // custom_headers uses the sub-table form kimi itself normalizes to —
+    // never the inline form (duplicate key breaks TOML parsing).
+    expect(toml).toContain('[providers.okit-custom-openai.custom_headers]');
+    expect(toml).toContain('User-Agent = "opencode/1.18.15"');
+    expect(toml).not.toContain('custom_headers = {');
   });
 
   it('writes openrouter :free output cap of 8192', async () => {

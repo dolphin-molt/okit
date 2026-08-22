@@ -16,6 +16,14 @@
 
 const PROFILES = [
   {
+    id: 'anthropic-official',
+    // Official Anthropic API. Without a profile the generic gpt-4o-mini
+    // probe is sent to /v1/messages and 404s on every key ("model not
+    // found"), wrongly marking valid keys as invalid.
+    match: /^https?:\/\/api\.anthropic\.com\/?(?:v1)?\/?$/i,
+    probeModel: 'claude-haiku-4-5',
+  },
+  {
     id: 'opencode-go-anthropic',
     // OpenCode Go Anthropic wire API uses /v1/messages and only accepts the
     // models documented for that protocol. Grok is OpenAI-compatible only.

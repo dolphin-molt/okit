@@ -42,6 +42,17 @@ export class KimiCodeAdapter extends BaseAdapter {
     return null;
   }
 
+  // config.toml sometimes carries leftovers from other tools' formats — a
+  // bare [models] table (a string "default" key inside the models map makes
+  // kimi drop EVERY model alias: /model shows nothing, `kimi provider list`
+  // reports models=0) and singular [model.<alias>] tables (self-contained
+  // definitions kimi doesn't read). Strip both on every write.
+  private stripForeignTables(toml: string): string {
+    let out = toml.replace(/\[models\]\s*\n(?:[A-Za-z_][A-Za-z0-9_.-]*\s*=\s*[^\n]*\n)*\n?/g, '');
+    out = out.replace(/\[model\.[^\]]+\]\n(?:[^\[]*\n)*?(?=\n\[|\Z)/g, '');
+    return out;
+  }
+
   async applyConfig(provider: Provider, modelId: string): Promise<void> {
     const apiKey = await this.resolveApiKey(provider);
 
@@ -50,7 +61,7 @@ export class KimiCodeAdapter extends BaseAdapter {
     if (await fs.pathExists(KIMI_CODE_CONFIG_PATH)) {
       toml = await fs.readFile(KIMI_CODE_CONFIG_PATH, "utf-8");
     }
-    toml = stripLegacyV1Keys(toml);
+    toml = this.stripForeignTables(stripLegacyV1Keys(toml));
     // Multi-site mode: only rewrite THIS provider's tables so other enabled
     // sites (other okit-* provider/model tables) stay intact.
     toml = stripProviderTables(toml, getKimiCodeProviderId(provider), `okit-${sanitizeTomlKey(provider.id)}`);
@@ -60,6 +71,7 @@ export class KimiCodeAdapter extends BaseAdapter {
     const providerType = getProviderType(provider, openAIEndpoint);
 
     toml = upsertTomlTable(toml, `providers.${providerId}`, buildProviderTable(provider, openAIEndpoint.baseUrl, providerType, apiKey));
+    toml = upsertProviderHeaders(toml, providerId, gatewayHeadersFor(provider.baseUrl));
 
     // Register every model of the provider so kimi's /model picker has real
     // choices, not just the currently selected one. The selected model is
@@ -158,7 +170,7 @@ export class KimiCodeAdapter extends BaseAdapter {
     if (await fs.pathExists(KIMI_CODE_CONFIG_PATH)) {
       toml = await fs.readFile(KIMI_CODE_CONFIG_PATH, "utf-8");
     }
-    toml = stripLegacyV1Keys(toml);
+    toml = this.stripForeignTables(stripLegacyV1Keys(toml));
 
     const written: string[] = [];
     const apiKeys = new Map<string, string>();
@@ -175,6 +187,7 @@ export class KimiCodeAdapter extends BaseAdapter {
         `providers.${providerId}`,
         buildProviderTable(provider, openAIEndpoint.baseUrl, providerType, apiKey),
       );
+      toml = upsertProviderHeaders(toml, providerId, gatewayHeadersFor(provider.baseUrl));
       toml = upsertTomlTable(
         toml,
         `models.${getModelAlias(provider.id, modelId)}`,
@@ -238,12 +251,28 @@ function buildProviderTable(provider: Provider, baseUrl: string, providerType: s
     `base_url = ${tomlString(baseUrl)}`,
     ...(apiKey ? [`api_key = ${tomlString(apiKey)}`] : []),
   ];
-  // The opencode.ai gateway rate-limits anonymous traffic separately from the
-  // official opencode client (verified 429 without the UA). kimi sends its own
-  // UA, so pin the opencode client's one via custom_headers (see gateway.ts).
-  const gatewayHeaders = gatewayHeadersFor(provider.baseUrl);
-  if (gatewayHeaders) lines.push(`custom_headers = ${tomlInlineTable(gatewayHeaders)}`);
+  // custom_headers is NOT emitted inline: kimi rewrites config.toml and
+  // normalizes inline header tables into [providers.<id>.custom_headers]
+  // sub-tables — writing the inline form after kimi normalized creates a
+  // duplicate key that breaks TOML parsing ("No providers configured").
+  // Callers emit the sub-table form via upsertProviderHeaders instead.
   return lines;
+}
+
+// Emit (or remove) the [providers.<id>.custom_headers] sub-table — the form
+// kimi itself normalizes to. Never mix with an inline table on the same key.
+function upsertProviderHeaders(toml: string, providerId: string, headers: Record<string, string> | null | undefined): string {
+  const subTable = `providers.${providerId}.custom_headers`;
+  const subRegex = new RegExp("\\n?\\[\\s*" + escapeRegex(subTable) + "\\s*\\]\\s*\\n(?:[^\\[]*\\n)*", "g");
+  let out = toml.replace(subRegex, "\n");
+  const provRegex = new RegExp("(\\[\\s*" + escapeRegex(`providers.${providerId}`) + "\\s*\\]\\s*\\n)((?:[^\\[]*\\n)?)", "m");
+  out = out.replace(provRegex, (_m: string, head: string, body: string) =>
+    head + body.split("\n").filter(l => !/^\s*custom_headers\s*=/.test(l)).join("\n"));
+  if (headers && Object.keys(headers).length) {
+    const lines = Object.entries(headers).map(([k, v]) => `${k} = ${tomlString(String(v))}`);
+    out = upsertTomlTable(out, subTable, lines);
+  }
+  return out;
 }
 
 function buildModelTable(provider: Provider, providerId: string, providerType: string, modelId: string): string[] {
@@ -254,14 +283,17 @@ function buildModelTable(provider: Provider, providerId: string, providerType: s
   // metadata and max_output_size would be unset — letting kimi send the
   // platform-rejected defaults.
   const gatewayLimit = modelLimitFor(provider.baseUrl, modelId);
-  const maxContext = gatewayLimit?.context ?? caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE;
+  // Catalog metadata (models.dev) wins over capability heuristics — real
+  // context/output limits instead of name-based guesses.
+  const meta = (provider.models || []).find(x => x.id === modelId)?.meta;
+  const maxContext = gatewayLimit?.context ?? meta?.context ?? caps.maxInputTokens ?? DEFAULT_CONTEXT_SIZE;
   const table = [
     `provider = ${tomlString(providerId)}`,
     `model = ${tomlString(modelId)}`,
     `protocol = ${tomlString(getWireProtocol(providerType))}`,
     `max_context_size = ${maxContext}`,
   ];
-  const outputCap = gatewayLimit?.output ?? MODEL_OUTPUT_CAPS[`${provider.id}:${modelId}`];
+  const outputCap = gatewayLimit?.output ?? meta?.output ?? MODEL_OUTPUT_CAPS[`${provider.id}:${modelId}`];
   if (outputCap) table.push(`max_output_size = ${outputCap}`);
   const capabilities = getCapabilities(modelId, caps);
   if (capabilities.length) {
@@ -270,6 +302,7 @@ function buildModelTable(provider: Provider, providerId: string, providerType: s
   table.push(`display_name = ${tomlString(`${provider.name} ${modelId}`)}`);
   return table;
 }
+
 
 function getProviderEndpoint(provider: Provider, type: ProviderType) {
   const endpoints = provider.endpoints || [{ type: provider.type, baseUrl: provider.baseUrl }];

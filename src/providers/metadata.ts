@@ -42,6 +42,11 @@ type EndpointBaseUrlMigration = {
 };
 
 export const PRESET_ENDPOINT_BASE_URL_MIGRATIONS = new Map<string, EndpointBaseUrlMigration[]>([
+  ["opencode-zen", [
+    // The anthropic endpoint base must NOT carry /v1 — the handler appends
+    // /v1/messages and /v1/models itself (with /v1 it doubled up and 404'd).
+    { type: "anthropic", from: "https://opencode.ai/zen/v1", to: "https://opencode.ai/zen" },
+  ]],
   ["kimi-coding-plan", [
     { from: "https://api.kimi.com/coding/", to: "https://api.kimi.com/coding" },
   ]],

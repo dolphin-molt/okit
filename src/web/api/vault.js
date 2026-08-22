@@ -493,6 +493,7 @@ async function testApiKey(req, res) {
       const isZaiAnthropic = isZaiAnthropicEndpoint(baseUrl);
       const isMiniMaxAnthropic = isMiniMaxAnthropicEndpoint(baseUrl);
       const isQianfanCodingAnthropic = isQianfanCodingAnthropicEndpoint(baseUrl);
+      const isZenAnthropic = /^https?:\/\/opencode\.ai\/zen\/?$/i.test(String(baseUrl || '').trim());
       if (isZaiAnthropic) {
         // Z.AI's Anthropic-compatible coding endpoint expects a GLM model
         // and the platform's standard Bearer authentication. The generic
@@ -557,6 +558,29 @@ async function testApiKey(req, res) {
         }
         // Older deployments may not expose the model list. Fall back to the
         // protocol-compatible one-token message probe below.
+      }
+
+      if (isZenAnthropic) {
+        // Zen multiplexes both protocols on this host and exposes a readable
+        // /v1/models. Probe the list first: the generic Claude message probe
+        // uses a PAID model, which the free-tier "public" key can never pass
+        // — that would wrongly report a valid free key as invalid.
+        const modelsResult = await httpRequest(`${baseUrl.replace(/\/+$/, '')}/v1/models`, {
+          method: 'GET',
+          headers,
+          timeout: 10000,
+        });
+        if (modelsResult.error) return res.json({ success: false, message: `连接失败: ${modelsResult.error}` });
+        if (modelsResult.status === 401) return res.json({ success: false, message: 'API Key 无效' });
+        if (modelsResult.status === 200) {
+          let modelCount = 0;
+          try { modelCount = JSON.parse(modelsResult.body).data?.length || 0; } catch {}
+          return res.json({
+            success: true,
+            message: `Zen Anthropic 端点连接成功，Key 有效，可读取 ${modelCount} 个模型`,
+          });
+        }
+        // Fall back to the protocol-compatible probe below.
       }
 
       const result = await probeAnthropicWireApi(

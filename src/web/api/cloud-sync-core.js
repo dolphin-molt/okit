@@ -44,7 +44,22 @@ async function loadConfig() {
 async function saveConfig(config) {
   await fs.ensureDir(path.dirname(CONFIG_PATH));
   await backupImportantData('sync');
-  await fs.writeJson(CONFIG_PATH, config, { spaces: 2 });
+  // Partition merge: the sync module owns ONLY the `sync` key of user.json.
+  // Re-read the live file and write it back with just this partition
+  // replaced. Never blind-write the whole in-memory snapshot — it races with
+  // concurrent API writes (homeProviders / managedModels / model visibility)
+  // and silently reverts them (observed 2026-08-22: a site added via the API
+  // was rolled back 12s later by the sync scheduler).
+  let live = {};
+  try {
+    live = JSON.parse(await fs.readFile(CONFIG_PATH, 'utf-8'));
+  } catch { /* first run / unreadable — start from the snapshot */ }
+  const next = { ...live, sync: config.sync };
+  // syncPull also owns the legacy `agent` settings key (remote merge with a
+  // local-edit baseline guard). Spread conditionally: an absent key must not
+  // erase a live value.
+  if ('agent' in config) next.agent = config.agent;
+  await fs.writeJson(CONFIG_PATH, next, { spaces: 2 });
 }
 
 async function loadProvidersConfig() {

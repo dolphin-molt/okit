@@ -1,8 +1,29 @@
-# OKIT — AI Agent 的密钥与模型管控台
+<div align="center">
 
-密钥与模型，一处掌控。OKIT 是一个本地优先的开源工具，管好 AI 编程 CLI（Claude Code、Codex、OpenCode 等 10 个 Agent）的密钥生命周期：**创建 → 保管 → 切换 → 验证 → 监控**。本地功能永久免费。
+# OKIT
 
-<!-- 截图位：主界面 /settings 快速启动页 -->
+### AI Agent 的密钥与模型管控台 — Claude Code / Codex / OpenCode / ZCode / Kimi / Grok 等 10 个 Agent
+
+[![Version](https://img.shields.io/github/v/release/Cing-self/okit?color=blue&label=version)](https://github.com/Cing-self/okit/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](https://github.com/Cing-self/okit/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
+
+[官网](https://landing.auto.code) · [用户手册](docs/manual/zh/) · [CHANGELOG](CHANGELOG.md)
+
+</div>
+
+密钥与模型，一处掌控。OKIT 是一个本地优先的开源工具，管好 AI 编程 CLI 的密钥生命周期：**创建 → 保管 → 切换 → 验证 → 监控**。本地功能永久免费。
+
+## 截图
+
+| 首页 · Agent 配置 | 模型平台 |
+|---|---|
+| ![快速启动页](docs/manual/images/quick-start.png) | ![模型平台](docs/manual/images/models.png) |
+
+| 密钥库 | 一键创建 Key |
+|---|---|
+| ![密钥库](docs/manual/images/vault.png) | ![一键创建](docs/manual/images/auto-create.png) |
 
 ## 为什么是 OKIT
 
@@ -65,11 +86,34 @@ npx skills add Cing-self/okit --skill okit-cli
 
 ## 功能总览
 
-- **密钥库**：加密存储、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步
-- **Provider/模型管控**：40 个平台预置（官方/聚合/国内），10 个 Agent 适配器，多端点协议（anthropic/openai 兼容），认证状态检测，订阅/API/第三方三模式凭证管理
-- **一键创建 Key**：浏览器扩展在官方控制台内自动填表创建并回填（支持 31 个平台，含火山引擎、智谱、百度千帆等）
-- **用量查询**：30+ 个订阅/余额来源直查，阈值告警（本地通知）
-- **模型目录**：全平台官方定价与能力数据（输入/输出/缓存价、上下文窗口），峰谷价直呈
+### 密钥库
+加密存储（AES-256-GCM）、脱敏展示、项目绑定（`.okitenv` → `.env`）、shell 钩子自动注入、云同步 + 局域网同步。首次启动向导自动扫描 Agent 配置文件，把散落的明文密钥一键安全入库。
+
+### Provider / 模型管控
+40 个平台预置（官方 / 聚合 / 国内），10 个 Agent 适配器，多端点协议（anthropic / openai 兼容），认证状态检测，订阅 / API / 第三方三模式凭证管理。添加站点默认空模型列表，你勾选什么写什么；模型参数（上下文窗口 / 输出上限 / 工具调用 / 推理 / 多模态）自动从 [models.dev](https://models.dev) 目录补全，不再靠猜。
+
+### 一键创建 Key
+浏览器扩展在官方控制台内自动填表创建并回填（31 个平台，含火山引擎、智谱、百度千帆等）。
+
+### 用量查询
+30+ 个订阅 / 余额来源直查，阈值告警（本地通知）。
+
+### 模型目录
+全平台官方定价与能力数据（输入 / 输出 / 缓存价、上下文窗口），峰谷价直呈。
+
+## FAQ
+
+**OKIT 会在我的请求路径上吗？**
+不会。零常驻、零侵入：OKIT 写完配置就退出，你的 Agent 直连模型平台，没有任何代理或转发层。
+
+**切换配置会破坏我已有的设置吗？**
+不会。外科手术式写入：只改 OKIT 拥有的字段，hooks / statusLine / MCP 配置原样保留，切换前自动快照可回滚。
+
+**密钥存在哪里？安全吗？**
+AES-256-GCM 本地加密，密钥派生绑定本机。绝不以明文落盘（导入向导扫描到的配置文件密钥也只以掩码展示）。卸载即全部清除。
+
+**没有装 OpenCode / 其他工具，OKIT 能用吗？**
+能。OKIT 不依赖任何第三方工具的本地数据——模型元数据来自 models.dev 公共目录（网络拉取 + 自有缓存）。
 
 ## 开发
 

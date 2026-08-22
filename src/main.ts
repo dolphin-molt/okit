@@ -12,8 +12,6 @@ import {
   vaultDelete,
   vaultInject,
   vaultEnv,
-  vaultWhere,
-  vaultSync,
 } from "./commands/vault";
 import {
   hookInstall,
@@ -234,20 +232,6 @@ vault
   .option("--dir <dir>", "指定项目目录")
   .action(async (file?: string, options?: { dir?: string }) => {
     await vaultEnv(file, options);
-  });
-
-vault
-  .command("where <key>")
-  .description("查看密钥在哪些项目中使用")
-  .action(async (key: string) => {
-    await vaultWhere(key);
-  });
-
-vault
-  .command("sync")
-  .description("同步所有关联文件（更新密钥后自动刷新）")
-  .action(async () => {
-    await vaultSync();
   });
 
 vault

@@ -30,7 +30,7 @@ Keys and models, one console. OKIT is a local-first open-source tool that manage
 - **Switching never loses your config** — Surgical writes: only fields OKIT owns are touched; your hooks, statusLine, tui and MCP config stay intact. Every switch is snapshotted first — one-click diff and rollback in Settings.
 - **Switch models without leaving Codex** — OKIT auto-generates Codex's native model catalog (model-catalogs); switch with `/model` right inside the Codex CLI, no round-trip to OKIT.
 - **Zero daemons, zero interception** — No background process, nothing on your request path: OKIT writes config and exits; your agents talk to model platforms directly. Uninstall leaves nothing behind — configs keep working.
-- **Key vault** — AES-256-GCM encrypted local storage, auto-injection into `.env` when bound to a project, cloud sync and LAN peer-to-peer sync (pairing-code pairing).
+- **Key vault** — AES-256-GCM encrypted local storage, cloud sync and LAN peer-to-peer sync (pairing-code pairing).
 
 ## Comparison
 
@@ -87,7 +87,7 @@ npx skills add Cing-self/okit --skill okit-cli
 ## Features
 
 ### Key vault
-AES-256-GCM encrypted storage, masked display, project binding (`.okitenv` → `.env`), shell hook auto-injection, cloud sync + LAN sync. The first-run wizard scans agent config files and imports stray plaintext keys into the vault in one click.
+AES-256-GCM encrypted storage, masked display, shell hook auto-injection, cloud sync + LAN sync. The first-run wizard scans agent config files and imports stray plaintext keys into the vault in one click.
 
 ### Provider / model management
 40 preset platforms (official / aggregator / CN), 10 agent adapters, multi-endpoint protocols (Anthropic / OpenAI compatible), auth-state detection, and subscription / API-key / third-party credential modes. Adding a site starts with an empty model list — you check what you want, exactly that gets written. Model parameters (context window / output limit / tool call / reasoning / multimodal) are auto-filled from the [models.dev](https://models.dev) catalog — no more guessing.
@@ -112,8 +112,6 @@ No. Surgical writes touch only OKIT-owned fields; hooks / statusLine / MCP confi
 **Where are keys stored? How safe?**
 AES-256-GCM encrypted locally, with machine-bound key derivation. Nothing ever lands on disk in plaintext (keys found by the import wizard are shown masked only). Uninstalling wipes everything.
 
-**Do I need OpenCode or other tools installed?**
-No. OKIT depends on no third-party local data — model metadata comes from the public models.dev catalog (fetched over the network, cached locally).
 
 ## Development
 

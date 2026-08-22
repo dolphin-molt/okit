@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { listVault, deleteVault, getVaultValue, checkKeyImpact, exportVault, importVault, type VaultSecret } from '../../api/vault';
+import { listVault, deleteVault, getVaultValue, exportVault, importVault, type VaultSecret } from '../../api/vault';
 import { formatDate } from '../../lib/utils';
 import { useApp } from '../Layout/AppContext';
 import { useI18n } from '../../i18n';
@@ -210,26 +210,12 @@ export default function VaultPage() {
 
   async function confirmEditImpact(secret: VaultSecret | null) {
     if (!secret) return true;
-    let projects = (secret.projects || []).map(p => p.path);
-    try {
-      const impact = await checkKeyImpact(secret.key);
-      if (impact.projects?.length) projects = impact.projects;
-    } catch {}
-    if (projects.length === 0) return true;
-    const impactHtml = `<div style="margin-top:8px">${t('vault.editImpact', { n: projects.length })}<br/>${projects.map(p => `- ${escapeHtml(p)}`).join('<br/>')}</div>`;
-    return confirm(impactHtml);
+    return true;
   }
 
   async function handleDelete(secret: VaultSecret) {
     const key = secret.key;
-    let impactHtml = '';
-    try {
-      const imp = await checkKeyImpact(key);
-      if (imp.projects && imp.projects.length > 0) {
-        impactHtml = `<div style="margin-top:8px">${t('vault.keyImpact', { n: imp.projects.length })}<br/>${imp.projects.map((p: string) => `- ${escapeHtml(p)}`).join('<br/>')}</div>`;
-      }
-    } catch {}
-    const ok = await confirm(t('vault.confirmDelete', { key: `<strong>${escapeHtml(key)}</strong>` }) + `.${impactHtml}`);
+    const ok = await confirm(t('vault.confirmDelete', { key: `<strong>${escapeHtml(key)}</strong>` }));
     if (!ok) return;
     try {
       await deleteVault(key);

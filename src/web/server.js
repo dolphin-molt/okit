@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const os = require('os');
-const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, migrateGroups } = require('./api/vault');
+const { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, testApiKey, migrateGroups } = require('./api/vault');
 const { autoCreateKey, autoCreateRunStatus, resumeAutoCreateRun, deleteAutoCreateKey, recoverLatestZaiGlobalKey, cdpStatus, listAutoCreatePlatforms, openVerificationLoginTabs } = require('./api/auto-create');
 const { getLogs } = require('./api/logs');
 const { getSettings, updateSettings, testPlatformConnection, getPresets, getOnboarding, dismissOnboarding, resetOnboarding } = require('./api/settings');
@@ -30,7 +30,7 @@ function createServer(port = 3780) {
 
   // API Routes
   app.get('/api/logs', getLogs);
-  app.get('/api/vault', listVaultWithProjects);
+  app.get('/api/vault', listVault);
   app.get('/api/vault/list', listVault);
   app.post('/api/vault', setVault);
   app.delete('/api/vault', deleteVault);
@@ -42,10 +42,6 @@ function createServer(port = 3780) {
   const { scanAgentKeys, importAgentKeys } = require('./api/key-import');
   app.get('/api/vault/scan-agent-keys', scanAgentKeys);
   app.post('/api/vault/import-agent-keys', importAgentKeys);
-  app.post('/api/vault/sync-to-project', syncVaultToProject);
-  app.get('/api/vault/browse-dirs', browseDirs);
-  app.get('/api/vault/impact', checkKeyImpact);
-  app.get('/api/vault/projects', listProjects);
   app.post('/api/vault/test-key', testApiKey);
   app.post('/api/vault/migrate-groups', migrateGroups);
   app.post('/api/vault/auto-create', autoCreateKey);

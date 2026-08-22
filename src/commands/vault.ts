@@ -2,7 +2,7 @@ import kleur from "kleur";
 import fs from "fs-extra";
 import path from "path";
 import prompts from "prompts";
-import { VaultStore, ProjectBinding } from "../vault/store";
+import { VaultStore } from "../vault/store";
 import { t } from "../config/i18n";
 
 const store = new VaultStore();
@@ -70,16 +70,6 @@ export async function vaultSet(key: string, value: string): Promise<void> {
   await store.set(key, value);
   console.log(kleur.green(`${t("vaultSaved")} ${key}`));
 
-  // Auto-sync if there are bindings for this key
-  const bindings = await store.getBindings(key);
-  if (bindings.length > 0) {
-    console.log(kleur.gray(`${t("vaultAutoSync")} ${bindings.length} ${t("vaultTargets")}`));
-    const results = await store.sync();
-    const synced = results.filter((r) => r.success).length;
-    if (synced > 0) {
-      console.log(kleur.green(`  ${t("vaultSynced")} ${synced} ${t("vaultTargets")}`));
-    }
-  }
 }
 
 // okit vault get KEY
@@ -221,14 +211,6 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
     if (value !== null) {
       lines.push(`${entry.envName}=${value}`);
       resolved++;
-
-      // Register binding for sync (track vault key, write as envName)
-      await store.addBinding({
-        projectPath: dir,
-        file: dest,
-        key: entry.vaultKey,
-        envName: entry.envName,
-      });
     } else {
       lines.push(`# ${entry.envName}= # ${t("vaultNotFound")} ${entry.vaultKey}`);
       missing++;
@@ -243,50 +225,4 @@ export async function vaultEnv(targetFile?: string, options?: { dir?: string }):
   console.log(kleur.gray(`  ${t("vaultResolved")}: ${resolved}, ${t("vaultMissing")}: ${missing}`));
 }
 
-// okit vault where KEY — show where a key is used
-export async function vaultWhere(key: string): Promise<void> {
-  const bindings = await store.getBindings(key);
 
-  if (bindings.length === 0) {
-    console.log(kleur.yellow(`${t("vaultNoBindings")} ${key}`));
-    return;
-  }
-
-  console.log(kleur.cyan(`\n${t("vaultWhereTitle")} ${key}\n`));
-
-  for (const b of bindings) {
-    const fullPath = path.join(b.projectPath, b.file);
-    const exists = await fs.pathExists(fullPath);
-    const status = exists ? kleur.green("\u2713") : kleur.red("\u2717");
-    console.log(`  ${status} ${fullPath}`);
-  }
-  console.log();
-}
-
-// okit vault sync — push current values to all bound files
-export async function vaultSync(): Promise<void> {
-  console.log(kleur.cyan(t("vaultSyncing")));
-  const results = await store.sync();
-
-  if (results.length === 0) {
-    console.log(kleur.yellow(t("vaultNoBindings")));
-    return;
-  }
-
-  let success = 0;
-  let failed = 0;
-
-  for (const r of results) {
-    if (r.success) {
-      console.log(`  ${kleur.green("\u2713")} ${r.file} → ${r.key}`);
-      success++;
-    } else {
-      console.log(`  ${kleur.red("\u2717")} ${r.file} → ${r.key}: ${r.error}`);
-      failed++;
-    }
-  }
-
-  console.log(kleur.cyan(`\n${t("vaultSyncResult")}`));
-  console.log(kleur.green(`  ${t("success")}: ${success}`));
-  if (failed > 0) console.log(kleur.red(`  ${t("failed")}: ${failed}`));
-}

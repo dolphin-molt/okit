@@ -7,8 +7,6 @@ export interface VaultSecret {
   updatedAt: string;
   group?: string;
   expiresAt?: string;
-  bindings?: { envName: string; key: string; file: string }[];
-  projects?: { name: string; path: string }[];
 }
 
 export interface AutoCreatePlatform {
@@ -96,6 +94,3 @@ export async function importVault(data: { secrets: any[] }): Promise<{ success: 
   });
 }
 
-export async function checkKeyImpact(key: string): Promise<{ projects: string[] }> {
-  return api(`/api/vault/impact?key=${encodeURIComponent(key)}`);
-}

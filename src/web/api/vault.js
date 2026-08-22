@@ -41,120 +41,15 @@ function safeFindFiles(baseDir, targetNames, maxDepth) {
   return results;
 }
 
-// Find .okitenv files that reference a given key
-async function findLinkedProjects(key) {
-  const home = os.homedir();
-  const projects = [];
-
-  try {
-    const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
-    for (const dir of dirs) {
-      const base = path.join(home, dir);
-      if (!fs.existsSync(base)) continue;
-      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-          const referenced = lines.some(line => {
-            const colonIdx = line.indexOf(':');
-            const source = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : line;
-            const envName = colonIdx > 0 ? line.slice(0, colonIdx).trim() : line;
-            return envName === key || source === key || source.startsWith(key + '/');
-          });
-          if (referenced) {
-            projects.push(path.dirname(file));
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-  return projects;
-}
-
-// Find all .okitenv files under ~/Desktop and touch them so hooks re-inject
-async function touchOkitEnvFiles(key) {
-  const home = os.homedir();
-
-  try {
-    const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
-    for (const dir of dirs) {
-      const base = path.join(home, dir);
-      if (!fs.existsSync(base)) continue;
-      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-
-          // Check if this key is referenced in this .okitenv
-          const referenced = lines.some(line => {
-            const colonIdx = line.indexOf(':');
-            const envName = colonIdx > 0 ? line.slice(0, colonIdx).trim() : line;
-            const source = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : line;
-            // Check both envName and source match the key
-            return envName === key || source === key || source.startsWith(key + '/');
-          });
-
-          if (referenced) {
-            // Touch the file to update mtime so hook re-runs
-            const now = new Date();
-            await fs.utimes(file, now, now);
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-}
-
-// Remove a key reference from all .okitenv files
-async function removeKeyFromOkitEnvFiles(key) {
-  const home = os.homedir();
-
-  try {
-    const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
-    for (const dir of dirs) {
-      const base = path.join(home, dir);
-      if (!fs.existsSync(base)) continue;
-      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const lines = content.split('\n');
-          const filtered = lines.filter(line => {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) return true;
-            const colonIdx = trimmed.indexOf(':');
-            const envName = colonIdx > 0 ? trimmed.slice(0, colonIdx).trim() : trimmed;
-            const source = colonIdx > 0 ? trimmed.slice(colonIdx + 1).trim() : trimmed;
-            const matchKey = (s) => s === key || s === `${key}/default` || s.startsWith(`${key}/`);
-            return !matchKey(envName) && !matchKey(source);
-          });
-          const newContent = filtered.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
-          if (newContent !== content) {
-            await fs.writeFile(file, newContent);
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-}
-
+// List all vault entries
 async function listVault(req, res) {
   try {
-    const [entries, bindings] = await Promise.all([
-      store.list(),
-      store.getBindings(),
-    ]);
-
-    // Attach bindings to each key
+    const entries = await store.list();
     const secrets = entries.map(entry => ({
       ...entry,
       group: normalizeVaultGroup(entry.group, entry.key),
-      bindings: bindings.filter(binding => binding.key === entry.key),
     }));
-
-    res.json({ secrets, totalBindings: bindings.length });
+    res.json({ secrets, totalBindings: 0 });
   } catch (error) {
     console.error('Error listing vault:', error);
     res.status(500).json({ error: 'Failed to list vault' });
@@ -184,9 +79,7 @@ async function setVault(req, res) {
     await store.set(key, value, normalizeVaultGroup(group, key), expiresAt, desc);
     if (isEditMove) {
       await store.delete(originalKey);
-      touchOkitEnvFiles(originalKey);
     }
-    touchOkitEnvFiles(key);
     appendVaultLog('vault-set', key, true);
     res.json({ success: true, key, desc: desc || '' });
 
@@ -205,7 +98,6 @@ async function deleteVault(req, res) {
     if (!key) return res.status(400).json({ error: 'key is required' });
     const deleted = await store.delete(key);
     if (deleted) {
-      removeKeyFromOkitEnvFiles(key);
       appendVaultLog('vault-delete', key, true);
       res.json({ success: true });
       require('./sync-scheduler').markDirty('secrets');
@@ -216,17 +108,6 @@ async function deleteVault(req, res) {
     console.error('Error deleting vault:', error);
     appendVaultLog('vault-delete', req.body.key || '', false, error.message);
     res.status(500).json({ error: 'Failed to delete secret' });
-  }
-}
-
-async function checkKeyImpact(req, res) {
-  try {
-    const { key } = req.query;
-    if (!key) return res.status(400).json({ error: 'key is required' });
-    const projects = await findLinkedProjects(key);
-    res.json({ key, projects });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to check impact' });
   }
 }
 
@@ -280,183 +161,6 @@ async function getVaultValue(req, res) {
     res.json({ value });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get secret' });
-  }
-}
-
-async function syncVaultToProject(req, res) {
-  const fs = require('fs-extra');
-  const path = require('path');
-  try {
-    const { keys, projectPath } = req.body;
-    if (!Array.isArray(keys) || keys.length === 0) {
-      return res.status(400).json({ error: 'keys is required' });
-    }
-    if (!projectPath || typeof projectPath !== 'string') {
-      return res.status(400).json({ error: 'projectPath is required' });
-    }
-
-    const okitEnvFile = path.join(projectPath, '.okitenv');
-    let content = '';
-    if (await fs.pathExists(okitEnvFile)) {
-      content = await fs.readFile(okitEnvFile, 'utf-8');
-    }
-
-    const existingKeys = new Set(
-      content.split('\n')
-        .map(l => l.trim())
-        .filter(l => l && !l.startsWith('#'))
-        .map(l => {
-          const colonIdx = l.indexOf(':');
-          return colonIdx > 0 ? l.slice(0, colonIdx).trim() : l;
-        })
-    );
-
-    const results = [];
-    for (const item of keys) {
-      const value = await store.get(item.key);
-      if (value === null) {
-        results.push({ key: item.key, success: false, error: '密钥不存在' });
-        continue;
-      }
-      const envKey = item.key;
-      if (!existingKeys.has(envKey)) {
-        content = content.trimEnd() + (content.length > 0 ? '\n' : '') + `${envKey}\n`;
-      }
-      results.push({ key: item.key, success: true });
-    }
-
-    await fs.ensureDir(projectPath);
-    await fs.writeFile(okitEnvFile, content);
-
-    const synced = results.filter(r => r.success).length;
-    const failed = results.length - synced;
-    res.json({ success: true, synced, failed, results, file: '.okitenv' });
-  } catch (error) {
-    console.error('Error syncing to project:', error);
-    res.status(500).json({ error: error.message || 'Failed to sync' });
-  }
-}
-
-async function browseDirs(req, res) {
-  const fs = require('fs');
-  const path = require('path');
-  try {
-    let dir = req.query.path || process.env.HOME;
-    dir = path.resolve(dir);
-
-    if (!fs.existsSync(dir)) {
-      return res.status(400).json({ error: '目录不存在' });
-    }
-
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    const dirs = entries
-      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
-      .map(e => ({ name: e.name, path: path.join(dir, e.name) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    const hasEnv = fs.existsSync(path.join(dir, '.env'));
-    const parentPath = dir === '/' ? '' : path.dirname(dir);
-
-    res.json({ currentPath: dir, parentPath, dirs, hasEnv });
-  } catch (error) {
-    res.status(500).json({ error: error.message || 'Failed to browse' });
-  }
-}
-
-// Scan all .okitenv files and return project → keys mapping
-async function listProjects(req, res) {
-  const home = os.homedir();
-  const projects = [];
-
-  try {
-    const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
-    for (const dir of dirs) {
-      const base = path.join(home, dir);
-      if (!fs.existsSync(base)) continue;
-      const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
-      for (const file of files) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const keys = [];
-          for (const rawLine of content.split('\n')) {
-            const line = rawLine.trim();
-            if (!line || line.startsWith('#')) continue;
-            const colonIdx = line.indexOf(':');
-            if (colonIdx > 0) {
-              const envName = line.slice(0, colonIdx).trim();
-              const source = line.slice(colonIdx + 1).trim();
-              keys.push({ envName, source });
-            } else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(line)) {
-              keys.push({ envName: line, source: line });
-            }
-          }
-          if (keys.length > 0) {
-            const projectPath = path.dirname(file);
-            const projectName = path.basename(projectPath);
-            const hasEnv = fs.existsSync(path.join(projectPath, '.env'));
-            projects.push({ path: projectPath, name: projectName, keys, hasEnv });
-          }
-        } catch {}
-      }
-    }
-  } catch {}
-
-  res.json({ projects });
-}
-
-// Get project bindings for each key in vault list
-async function listVaultWithProjects(req, res) {
-  try {
-    const [entries, bindings] = await Promise.all([
-      store.list(),
-      store.getBindings(),
-    ]);
-
-    // Scan .okitenv files to find actual project references
-    const home = os.homedir();
-    const keyProjects = {}; // key → [{path, name}]
-
-    try {
-      const dirs = ['Desktop', 'Documents', 'Projects', 'dev'];
-      for (const dir of dirs) {
-        const base = path.join(home, dir);
-        if (!fs.existsSync(base)) continue;
-        const files = safeFindFiles(base, ['.okitenv', '.okit-env'], 3);
-        for (const file of files) {
-          try {
-            const content = await fs.readFile(file, 'utf-8');
-            const projectPath = path.dirname(file);
-            const projectName = path.basename(projectPath);
-            for (const rawLine of content.split('\n')) {
-              const line = rawLine.trim();
-              if (!line || line.startsWith('#')) continue;
-              const colonIdx = line.indexOf(':');
-              const envName = colonIdx > 0 ? line.slice(0, colonIdx).trim() : line;
-              const source = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : line;
-              const vaultKey = source;
-              // Match by envName or vaultKey
-              for (const k of [envName, vaultKey]) {
-                if (!keyProjects[k]) keyProjects[k] = [];
-                if (!keyProjects[k].find(p => p.path === projectPath)) {
-                  keyProjects[k].push({ path: projectPath, name: projectName });
-                }
-              }
-            }
-          } catch {}
-        }
-      }
-    } catch {}
-
-    const secrets = entries.map(entry => ({
-      ...entry,
-      group: normalizeVaultGroup(entry.group, entry.key),
-      projects: keyProjects[entry.key] || [],
-    }));
-
-    res.json({ secrets, totalBindings: bindings.length });
-  } catch (error) {
-    console.error('Error listing vault:', error);
-    res.status(500).json({ error: 'Failed to list vault' });
   }
 }
 
@@ -964,4 +668,4 @@ async function migrateGroups(req, res) {
   }
 }
 
-module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, syncVaultToProject, browseDirs, checkKeyImpact, listProjects, listVaultWithProjects, testApiKey, testApiKeyResult, migrateGroups };
+module.exports = { listVault, setVault, deleteVault, exportVault, importVault, getVaultValue, testApiKey, testApiKeyResult, migrateGroups };

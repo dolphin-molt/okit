@@ -26,17 +26,8 @@ export interface SecretEntry {
   updatedAt: string;
 }
 
-// Project registration: which project uses which key
-export interface ProjectBinding {
-  projectPath: string;   // absolute path to project root
-  file: string;          // relative path to target file (e.g. ".env")
-  key: string;           // vault key (e.g. "OPENROUTER_KEY")
-  envName?: string;      // .env variable name if different from key (e.g. "OPENAI_API_KEY")
-}
-
 export interface VaultData {
   secrets: SecretEntry[];
-  bindings: ProjectBinding[];
 }
 
 // Derive encryption key from machine fingerprint
@@ -111,7 +102,6 @@ export class VaultStore {
     if (this.data && this.cacheStamp === stamp) return this.data;
 
     let secrets: SecretEntry[] = [];
-    let bindings: ProjectBinding[] = [];
 
     if (await fs.pathExists(SECRETS_FILE)) {
       const raw = await fs.readFile(SECRETS_FILE, "utf-8");
@@ -140,10 +130,9 @@ export class VaultStore {
 
     if (await fs.pathExists(REGISTRY_FILE)) {
       const reg = await fs.readFile(REGISTRY_FILE, "utf-8");
-      bindings = (JSON.parse(reg) as Array<ProjectBinding & { alias?: string }>).map(({ alias: _alias, ...binding }) => binding);
-    }
+      }
 
-    this.data = { secrets, bindings };
+    this.data = { secrets };
     this.cacheStamp = stamp;
 
     return this.data!;
@@ -164,8 +153,6 @@ export class VaultStore {
     const encrypted = encrypt(secretsJson, this.key);
     await atomicWrite(SECRETS_FILE, encrypted);
 
-    // Save bindings separately (unencrypted, just paths)
-    await atomicWriteJSON(REGISTRY_FILE, this.data.bindings);
     this.cacheStamp = await this.getCacheStamp();
   }
 
@@ -198,10 +185,6 @@ export class VaultStore {
     const idx = data.secrets.findIndex((s) => s.key === key);
     if (idx === -1) return false;
     data.secrets.splice(idx, 1);
-    // Remove related bindings
-    data.bindings = data.bindings.filter(
-      (b) => b.key !== key
-    );
     await this.save();
     return true;
   }
@@ -230,102 +213,6 @@ export class VaultStore {
     }));
   }
 
-  // Project binding management
-  async addBinding(binding: ProjectBinding): Promise<void> {
-    const data = await this.load();
-    // Deduplicate by project + file + envName
-    const targetEnvName = binding.envName || binding.key;
-    const exists = data.bindings.find(
-      (b) =>
-        b.projectPath === binding.projectPath &&
-        b.file === binding.file &&
-        (b.envName || b.key) === targetEnvName
-    );
-    if (exists) {
-      exists.key = binding.key;
-      exists.envName = binding.envName;
-    } else {
-      data.bindings.push(binding);
-    }
-    await this.save();
-  }
-
-  async getBindings(key?: string): Promise<ProjectBinding[]> {
-    const data = await this.load();
-    if (!key) return data.bindings;
-    return data.bindings.filter((b) => b.key === key);
-  }
-
-  async removeBindingsForProject(projectPath: string): Promise<void> {
-    const data = await this.load();
-    data.bindings = data.bindings.filter((b) => b.projectPath !== projectPath);
-    await this.save();
-  }
-
-  // Sync: update all bound files with current secret values
-  async sync(): Promise<Array<{ file: string; key: string; success: boolean; error?: string }>> {
-    const data = await this.load();
-    const results: Array<{ file: string; key: string; success: boolean; error?: string }> = [];
-
-    // Group bindings by target file
-    const fileMap = new Map<string, ProjectBinding[]>();
-    for (const b of data.bindings) {
-      const fullPath = path.join(b.projectPath, b.file);
-      const existing = fileMap.get(fullPath) || [];
-      existing.push(b);
-      fileMap.set(fullPath, existing);
-    }
-
-    for (const [filePath, bindings] of fileMap) {
-      try {
-        // Read existing file or start empty
-        let content = "";
-        if (await fs.pathExists(filePath)) {
-          content = await fs.readFile(filePath, "utf-8");
-        }
-
-        for (const binding of bindings) {
-          const value = await this.get(binding.key);
-          if (value === null) {
-            results.push({
-              file: filePath,
-              key: binding.envName || binding.key,
-              success: false,
-              error: "Secret not found in vault",
-            });
-            continue;
-          }
-
-          // Use envName if set, otherwise vault key
-          const envKey = binding.envName || binding.key;
-          const regex = new RegExp(`^${escapeRegex(envKey)}=.*$`, "m");
-          const newLine = `${envKey}=${value}`;
-
-          if (regex.test(content)) {
-            content = content.replace(regex, newLine);
-          } else {
-            content = content.trimEnd() + (content.length > 0 ? "\n" : "") + newLine + "\n";
-          }
-
-          results.push({ file: filePath, key: binding.key, success: true });
-        }
-
-        await fs.ensureDir(path.dirname(filePath));
-        await atomicWrite(filePath, content);
-      } catch (err: any) {
-        for (const binding of bindings) {
-          results.push({
-            file: filePath,
-            key: binding.key,
-            success: false,
-            error: err.message,
-          });
-        }
-      }
-    }
-
-    return results;
-  }
 }
 
 function escapeRegex(str: string): string {

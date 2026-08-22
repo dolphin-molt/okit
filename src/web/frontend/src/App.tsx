@@ -14,7 +14,6 @@ const VaultPage = lazy(() => import('./components/vault/VaultPage'));
 const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
 const OnboardingPage = lazy(() => import('./components/onboarding/OnboardingPage'));
 const AgentsPage = lazy(() => import('./components/agents/AgentsPage'));
-const ManualPage = lazy(() => import('./components/landing/ManualPage'));
 const ModelCatalogPage = lazy(() => import('./components/catalog/ModelCatalogPage'));
 
 function PageLoading() {
@@ -49,7 +48,6 @@ function DocumentTitle() {
       '/usage': t('nav.usage'),
       '/agents': t('nav.agents'),
       '/settings': t('nav.settings'),
-      '/manual': t('manual.nav'),
       '/catalog': t('catalog.title'),
     };
     const section = titles[pathname] ?? (pathname.startsWith('/settings') ? t('nav.settings') : null);
@@ -149,7 +147,6 @@ export default function App() {
     <>
       <DocumentTitle />
       <Routes>
-        <Route path="/manual" element={<LazyRoute><ManualPage /></LazyRoute>} />
         {/* Standalone model catalog — outside the app shell, own design. */}
         <Route path="/catalog" element={<LazyRoute><ModelCatalogPage /></LazyRoute>} />
         <Route path="*" element={

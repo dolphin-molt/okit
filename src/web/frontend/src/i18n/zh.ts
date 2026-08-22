@@ -15,9 +15,6 @@ export default {
   'nav.collapseSidebar': '收起侧边栏',
   'nav.expandSidebar': '展开侧边栏',
 
-  // Landing (manual only)
-  'manual.toc': '目录',
-  'manual.nav': '手册',
 
   // 通用
   'common.cancel': '取消',

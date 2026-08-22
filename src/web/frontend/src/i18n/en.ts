@@ -15,9 +15,6 @@ export default {
   'nav.collapseSidebar': 'Collapse sidebar',
   'nav.expandSidebar': 'Expand sidebar',
 
-  // Landing (manual only)
-  'manual.toc': 'Contents',
-  'manual.nav': 'Manual',
 
   // Common
   'common.cancel': 'Cancel',
